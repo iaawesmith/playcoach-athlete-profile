@@ -1,4 +1,4 @@
-const positions = ["WR", "QB", "RB"];
+const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
 const activePosition = "WR";
 
 const SectionHeader = ({ title }: { title: string }) => (
