@@ -74,6 +74,15 @@
 }
 
 .team-glow {
+  filter: drop-shadow(0 0 30px rgba(0, 230, 57, 0.3));
+}
+
+/* Focus-within team-color border for input cards */
+.input-card-focus:focus-within {
+  border-color: color-mix(in srgb, var(--team-color) 50%, transparent);
+}
+
+.team-glow {
   filter: drop-shadow(0 0 30px rgba(80, 196, 202, 0.3));
 }
 
