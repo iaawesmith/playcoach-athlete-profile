@@ -1,4 +1,4 @@
-const positions = ["WR", "QB", "RB"];
+const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
 const activePosition = "WR";
 
 const SectionHeader = ({ title }: { title: string }) => (
@@ -110,7 +110,7 @@ export const IdentityForm = () => {
             <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
               Position
             </label>
-            <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
               {positions.map((pos) => (
                 <span
                   key={pos}
@@ -128,6 +128,11 @@ export const IdentityForm = () => {
 
           <InputCard label="Jersey #" value="84" />
           <InputCard label="Class Year" value="2025" />
+          <InputCard label="Hometown" value="Athens, GA" />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Height" value='6&apos;2"' />
+            <InputCard label="Weight" value="195 lbs" />
+          </div>
         </div>
       </section>
 

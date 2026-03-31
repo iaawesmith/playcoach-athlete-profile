@@ -69,8 +69,8 @@ export const ProCard = () => {
 
       {/* Card */}
       <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
-        {/* Silhouette Placeholder */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* Silhouette Placeholder — top 2/3 */}
+        <div className="absolute inset-0 bottom-1/3 flex items-center justify-center">
           <AthleteSilhouette />
         </div>
 
