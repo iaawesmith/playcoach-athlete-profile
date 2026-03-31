@@ -1,7 +1,7 @@
 const stats = [
-  { label: "Speed", value: 98 },
-  { label: "Agility", value: 94 },
-  { label: "Power", value: 88 },
+  { label: "REC", value: "67" },
+  { label: "YDS", value: "1,124" },
+  { label: "TD", value: "12" },
 ];
 
 const AthleteSilhouette = () => (
