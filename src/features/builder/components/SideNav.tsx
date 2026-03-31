@@ -1,8 +1,9 @@
 const navItems = [
   { icon: "fingerprint", label: "Identity", active: true },
+  { icon: "play_circle", label: "Highlights", active: false },
+  { icon: "trending_up", label: "Development", active: false },
   { icon: "leaderboard", label: "Stats", active: false },
-  { icon: "grid_view", label: "Media", active: false },
-  { icon: "bolt", label: "Performance", active: false },
+  { icon: "verified", label: "Brand", active: false },
   { icon: "settings", label: "Settings", active: false },
 ];
 
