@@ -67,21 +67,19 @@ export const ProCard = () => {
 
       {/* Card */}
       <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
-        {/* Silhouette Placeholder — top 2/3 */}
-        <div className="absolute inset-0 bottom-1/3 flex items-center justify-center">
-          <AthleteSilhouette />
-        </div>
+        {/* Silhouette Placeholder */}
+        <AthleteSilhouette />
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
 
-        {/* Top-right badge — School abbreviation */}
-        <div className="absolute top-3 right-3 z-10">
-          <span
-            className="text-[10px] font-black uppercase italic tracking-widest text-white px-2.5 py-1 rounded"
-            style={{ backgroundColor: "var(--team-color)" }}
-          >
-            UGA
+        {/* School color banner */}
+        <div
+          className="absolute top-0 left-0 right-0 h-8 z-10 flex items-center justify-center"
+          style={{ backgroundColor: "var(--team-color)" }}
+        >
+          <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/90">
+            University of Georgia
           </span>
         </div>
 
