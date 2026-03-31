@@ -5,31 +5,29 @@ const stats = [
 ];
 
 const AthleteSilhouette = () => (
-  <svg
-    viewBox="0 0 200 300"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className="w-32 h-48 text-surface-container-highest opacity-30"
-  >
-    {/* Head */}
-    <circle cx="100" cy="60" r="28" fill="currentColor" />
-    {/* Neck */}
-    <rect x="90" y="88" width="20" height="16" rx="4" fill="currentColor" />
-    {/* Torso / Jersey */}
-    <path
-      d="M60 104 C60 104 70 100 100 100 C130 100 140 104 140 104 L150 120 L145 130 L130 125 L130 190 L70 190 L70 125 L55 130 L50 120 Z"
-      fill="currentColor"
-    />
-    {/* Shorts */}
-    <path
-      d="M72 190 L128 190 L132 230 L108 230 L100 220 L92 230 L68 230 Z"
-      fill="currentColor"
-    />
-    {/* Left Leg */}
-    <rect x="72" y="230" width="18" height="50" rx="6" fill="currentColor" />
-    {/* Right Leg */}
-    <rect x="110" y="230" width="18" height="50" rx="6" fill="currentColor" />
-  </svg>
+  <div className="absolute inset-0 flex items-center justify-center">
+    <svg
+      viewBox="0 0 100 160"
+      className="w-32 h-32 opacity-[0.07]"
+      fill="white"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Head */}
+      <circle cx="50" cy="22" r="14" />
+      {/* Neck */}
+      <rect x="44" y="34" width="12" height="10" rx="4" />
+      {/* Jersey body */}
+      <path d="M20 55 L28 42 Q38 36 50 36 Q62 36 72 42 L80 55 L76 100 L24 100 Z" />
+      {/* Left arm */}
+      <path d="M28 42 L10 80 L18 83 L32 52" />
+      {/* Right arm */}
+      <path d="M72 42 L90 80 L82 83 L68 52" />
+      {/* Left leg */}
+      <path d="M32 100 L26 145 L38 145 L50 112" />
+      {/* Right leg */}
+      <path d="M68 100 L74 145 L62 145 L50 112" />
+    </svg>
+  </div>
 );
 
 const ShieldPlaceholder = () => (
@@ -69,21 +67,19 @@ export const ProCard = () => {
 
       {/* Card */}
       <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
-        {/* Silhouette Placeholder — top 2/3 */}
-        <div className="absolute inset-0 bottom-1/3 flex items-center justify-center">
-          <AthleteSilhouette />
-        </div>
+        {/* Silhouette Placeholder */}
+        <AthleteSilhouette />
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
 
-        {/* Top-right badge — School abbreviation */}
-        <div className="absolute top-3 right-3 z-10">
-          <span
-            className="text-[10px] font-black uppercase italic tracking-widest text-white px-2.5 py-1 rounded"
-            style={{ backgroundColor: "var(--team-color)" }}
-          >
-            UGA
+        {/* School color banner */}
+        <div
+          className="absolute top-0 left-0 right-0 h-8 z-10 flex items-center justify-center"
+          style={{ backgroundColor: "var(--team-color)" }}
+        >
+          <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/90">
+            University of Georgia
           </span>
         </div>
 
