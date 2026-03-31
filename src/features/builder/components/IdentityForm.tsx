@@ -128,6 +128,11 @@ export const IdentityForm = () => {
 
           <InputCard label="Jersey #" value="84" />
           <InputCard label="Class Year" value="2025" />
+          <InputCard label="Hometown" value="Athens, GA" />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Height" value='6&apos;2"' />
+            <InputCard label="Weight" value="195 lbs" />
+          </div>
         </div>
       </section>
 
