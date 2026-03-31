@@ -1,6 +1,9 @@
+import TopNav from "@/components/TopNav";
+
 export const Index = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
+      <TopNav />
       <div className="relative">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)]" />
         <div className="relative text-center">
