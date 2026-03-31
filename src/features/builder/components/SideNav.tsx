@@ -7,7 +7,7 @@ const navItems = [
 ];
 
 const strengthSegments = 10;
-const filledSegments = 8; // 84% rounded
+const filledSegments = 8;
 
 export const SideNav = () => {
   return (
@@ -18,16 +18,13 @@ export const SideNav = () => {
           <h2 className="text-on-surface font-extrabold uppercase text-sm tracking-wide">
             Athlete Profile
           </h2>
-          <p className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] mt-1">
-            Elite Status
-          </p>
         </div>
 
         {/* Strength Bar */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em]">
-              Strength
+              Profile Strength
             </span>
             <span className="text-on-surface text-[10px] font-bold">84%</span>
           </div>
