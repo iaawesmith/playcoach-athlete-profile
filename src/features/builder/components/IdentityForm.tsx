@@ -40,23 +40,51 @@ const InputCard = ({ label, value, type = "text" }: { label: string; value: stri
 export const IdentityForm = () => {
   return (
     <div className="space-y-10">
-      {/* Core Identity */}
+      {/* Your Identity */}
       <section>
-        <SectionHeader title="Core Identity" />
+        <SectionHeader title="Your Identity" />
         <div className="space-y-4">
-          <InputCard label="Legal First Name" value="Marcus" />
-          <InputCard label="Legal Last Name" value="Sterling" />
+          <InputCard label="First Name" value="Marcus" />
+          <InputCard label="Last Name" value="Sterling" />
           <InputCard
-            label="Professional Bio"
+            label="Athlete Bio"
             value="Elite-tier wide receiver specializing in deep vertical threat scenarios. 3-year varsity starter with record-breaking explosive metrics."
             type="textarea"
           />
         </div>
       </section>
 
-      {/* Asset Library Bin */}
+      {/* School & Colors */}
       <section>
-        <SectionHeader title="Asset Library Bin" />
+        <SectionHeader title="School & Colors" />
+        <div className="space-y-4">
+          <InputCard label="School Name" value="University of Georgia" />
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+            <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+              School Color
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                className="flex-1 bg-transparent text-on-surface text-sm font-normal outline-none"
+                defaultValue="#00e639"
+                readOnly
+                type="text"
+              />
+              <div
+                className="w-6 h-6 flex-shrink-0 rounded"
+                style={{ backgroundColor: "#00e639" }}
+              />
+            </div>
+            <p className="text-[10px] text-on-surface-variant mt-2">
+              Sets your card and profile accent color
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Your Media */}
+      <section>
+        <SectionHeader title="Your Media" />
         <div className="space-y-4">
           <div className="bg-surface-container-lowest rounded-xl border border-white/5 p-6 flex items-center gap-4">
             <span className="material-symbols-outlined text-on-surface-variant text-2xl">add_a_photo</span>
@@ -73,9 +101,9 @@ export const IdentityForm = () => {
         </div>
       </section>
 
-      {/* Technical Specs */}
+      {/* Player Details */}
       <section>
-        <SectionHeader title="Technical Specs" />
+        <SectionHeader title="Player Details" />
         <div className="space-y-4">
           {/* Position Chips */}
           <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
