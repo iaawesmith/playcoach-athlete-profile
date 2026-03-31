@@ -1,186 +1,202 @@
 # PlayCoach — Agent Instructions
-# Commit this file to the root of your repository.
-# Lovable reads it automatically in every session, regardless of conversation length.
+# Commit this file to the root of your repository as AGENTS.md
+# Lovable reads it automatically every session, regardless of conversation length.
 
 ---
 
 ## Product Vision
 
-PlayCoach is a mobile-first athlete identity platform. The core product is an Athlete Link Profile — a single shareable link that serves as an athlete's complete digital identity across recruiting, NIL, skill development, and personal brand. Think Linktree, but built specifically for athletes with intelligence layered in.
+PlayCoach is a mobile-first athlete identity platform. The core product is the Athlete Link Profile — a single shareable link serving as an athlete's complete Brand HQ: recruiting identity, NIL presence, skill development record, and personal brand in one place.
 
-Every design and architecture decision should serve one goal: giving athletes a professional, credible digital presence that works across every context — a coach watching film, a brand evaluating NIL deals, a scout on the sideline.
+**Brand HQ** is the authenticated builder where athletes create and manage their identity. The **Athlete Profile** is the public shareable page — what coaches, scouts, brands, and fans see.
+
+Two mental models define every design decision:
+- "The card is the cover. The profile is the magazine." The ProCard is the hook; the Athlete Profile is the full story told in chapters.
+- "Not a recruiting tool — an athlete identity platform." The athlete owns and controls their narrative.
+
+Goal: give athletes a professional, credible, cinematic digital presence that works in every context — a coach evaluating recruits, a brand considering NIL, a scout on the sideline, a fan following a player.
 
 ---
 
-## Aesthetic & Design Buzzwords
+## Aesthetic Principles
 
-Use these terms to guide every UI decision. They are the tone of the product:
-- **Cinematic** — dramatic lighting, depth, layered surfaces
-- **Editorial** — bold typography, strong information hierarchy, like ESPN or Bleacher Report
-- **Premium** — nothing generic, every element feels intentional and high-craft
-- **High-performance** — the UI feels fast, alive, and athletic
-- **Glassmorphism** — frosted glass surfaces (.glass-card), backdrop blur on overlays
+Every UI decision should pass this test: "Does this feel like a premium sports broadcast or a generic SaaS app?" If the latter, revise.
+
+- **Cinematic** — dramatic lighting, depth, layered dark surfaces
+- **Editorial** — bold typography, strong hierarchy, like ESPN or The Athletic
+- **Premium** — every element feels intentional and high-craft, nothing generic
+- **High-performance** — fast, alive, athletic. The UI has energy.
+- **Glassmorphism** — frosted glass via .glass-card (backdrop-filter blur), used for input cards and overlays
 - **Kinetic** — typography feels in motion, buttons have mechanical press feedback (active:scale-95)
-- **Dark mode** — deep near-black backgrounds, not pure black. Surfaces lifted in layers.
-- **Engineered** — sharp corners (max 8px radius), precise spacing, nothing soft or bubbly
-
-When in doubt: ask "Does this feel like a premium sports broadcast or a generic SaaS app?" If the latter, revise.
+- **Dark mode only** — deep near-black backgrounds (#0b0f12), not pure black. Surfaces lift in layers.
+- **Engineered** — precise spacing, rounded-xl (12px) max on cards, nothing soft or bubbly
 
 ---
 
 ## Real Content Standard
 
-Never use placeholder content. Always use realistic athlete data in all components and examples.
+Never use placeholder content. Always use realistic athlete data.
 
-Default demo athlete for all previews:
+**Default demo athlete — use in all components:**
 - Name: Marcus Sterling
 - Position: Wide Receiver (WR)
 - Jersey: #84
-- School: University of Georgia
-- Class Year: 2025
-- Hometown: Atlanta, GA
-- Bio: Elite-tier wide receiver specializing in deep vertical threat scenarios. 3-year varsity starter with record-breaking explosive metrics.
-- Stats: Speed 98, Agility 94, Power 88
-- Team Color: #CC0000 (Georgia Red)
+- School: University of Georgia | Abbreviation: UGA
+- Class Year: 2025 | Hometown: Atlanta, GA
+- Height: 6'2" | Weight: 195 lbs
+- Bio: Elite wide receiver specializing in deep vertical routes. 3-year varsity starter with elite separation and explosive release.
+- Quote: "Every rep is a rep toward the league."
+- Stats (WR): REC 67, YDS 1,124, TD 12
+- Team Color: #CC0000 (Georgia Red) — defaults to #00e639 if not set
+- Badges: "Deep Threat", "Route Technician"
 
-Use this data in any component that needs example content. Never write "Athlete Name" or "Your School Here."
+Never write "Athlete Name", "Your School Here", or any lorem ipsum.
 
 ---
 
 ## User Journey Map
 
-**Builder Journey (athlete):**
-Landing Page → Onboarding (sport/level selection) → Identity section → Highlights → Develop → Proof → Connect → Publish → External Facing Profile preview
+**Brand HQ (athlete builds):**
+Landing → Onboarding → Identity → Highlights → Development → Stats → Brand (NIL) → Publish → Athlete Profile preview
 
-**Viewer Journey (coach/scout/sponsor):**
-Receives shared link → External Facing Profile hero → scrolls Stats → watches Highlights → reviews Proof → clicks Connect/NIL CTA
-
-Every section of the UI should have a reason to exist and a reason to lead to the next step.
+**Athlete Profile (coach/scout/brand consumes):**
+Receives shared link → Hero (ProCard) → Story → Highlights → Development Lab → Stats → Recruiting → NIL → Connect
 
 ---
 
-## Component States (always define all three)
+## Component States — Always Build All Three
 
-Every dynamic component must handle all three states. Never build a component with only the "filled" state:
-
-- **Empty state** — what shows when the athlete hasn't added content yet. Use an icon, a short prompt ("Add your action photo to bring your card to life"), and a CTA. Never show a blank white box.
-- **Loading state** — use animate-pulse skeleton placeholders that match the shape of the real content. Never use spinners.
-- **Filled state** — the real content rendered at full fidelity.
+- **Empty** — icon + short action-oriented prompt ("Add your action photo to bring your card to life") + CTA. Never a blank box.
+- **Loading** — animate-pulse skeleton matching content shape. Never spinners.
+- **Filled** — real content at full fidelity.
 
 ---
 
-## Builder Section Definitions
+## Brand HQ — Builder Section Definitions
 
-The builder has 5 sections accessible via SideNav:
+Six sections accessible via SideNav:
 
-**Identity** — Core profile: name, position, school, class year, jersey number, hometown, bio, team color, action photo, school logo
+**Identity** — Name, position, school (full + abbreviation), class year, jersey number, hometown, height, weight, bio, personal quote, team color hex (with live swatch preview), action photo upload, school logo upload
 
-**Highlights** — Video content: season highlight reel, top plays, embedded Hudl or YouTube links, uploaded clips
+**Highlights** — Season highlight reel, top play clips, Hudl/YouTube embed links, uploaded video files
 
-**Develop** — Athletic measurables: height, weight, 40-yard dash, vertical jump, broad jump, bench press, position-specific drill times. Skill ratings for Speed, Agility, Power displayed as stat bars.
+**Development** — Drill uploads (route running, 40-yard dash, etc.), AI scores (future feature), measurables, progress tracking, badges earned. Design as a destination — not a coming-soon page.
 
-**Proof** — Credentials: awards, all-conference honors, academic achievements, coach endorsement quotes, press mentions or newspaper clippings
+**Stats** — Position-specific manual stat entry (3 stats per position, see stat map in Project Knowledge). Real data only — no made-up metrics.
 
-**Connect** — Social and contact: Instagram, Twitter/X, TikTok, Hudl profile links with follower counts. NIL availability toggle. Contact inquiry form with purpose selector (Recruiting / NIL / Media / Fan). Preferred contact method.
+**Brand** — NIL availability toggle, partnership categories, current partner brand logos, contact for opportunities CTA
 
----
-
-## External Facing Profile — Section Order
-
-Single-scroll page at /:athleteSlug. Sections render only if the athlete has filled in relevant data. Show a graceful empty state if a section has no content.
-
-1. **Hero** — Full-bleed action photo background, dark gradient overlay, Pro-Card centered, athlete name, position, school, class year, social icon links, tier badge
-2. **Stats** — Key performance metrics, measurables, skill rating bars (Speed/Agility/Power)
-3. **Highlights** — Featured video reel as primary, grid of additional clips below
-4. **Development** — Measurables, skill rating breakdown, committed/interested schools
-5. **NIL Marketplace** — Availability status, partnership categories, "Contact for NIL" CTA
-6. **Proof** — Awards grid, coach endorsement pull quotes, press clip cards
-7. **Connect** — Social links, inquiry form, PDF recruiting profile download CTA
+**Settings** — School color hex + live swatch, social links, contact preferences, profile privacy
 
 ---
 
-## Pro-Card Specification
+## Athlete Profile — Chapter Architecture
 
-The Pro-Card is the central visual element. It appears in CardPreview (builder) and AthleteCard (public profile).
+Public page at /:athleteSlug. Eight full-viewport chapters (~100vh each). Render only if athlete has content for that section. Each chapter inherits teamColor as accent but has its own visual character.
 
-Dimensions in builder: 280px wide × 380px tall, border-radius 8px, overflow hidden
-Dimensions in public profile: responsive, max-width 320px, same aspect ratio
+1. **Hero** — ProCard full-screen center, teamColor ambient glow fills viewport, earned badge strip below card, scroll indicator. First impression — must feel cinematic.
 
-Structure (top to bottom):
-- Top 65%: full-bleed athlete action photo, object-fit cover
-- Gradient overlay on bottom half: linear-gradient(to top, #0b0f12, transparent)
-- Top-left badge: level label (COLLEGE / PRO / HIGH SCHOOL), bg-surface-container, border border-outline-variant, text 0.6rem font-black uppercase tracking-widest, padding 4px 8px, border-radius 4px
-- Top-right badge: tier label (ELITE TIER / DEVELOPING / BUILDING), background uses teamColor
-- Bottom info section (padding 16px):
-  - Athlete name: font-black italic uppercase tracking-tighter text-white, font-size 1.6rem, line-height 1
-  - Position + jersey: font-bold uppercase tracking-widest text-sm, color teamColor
-  - Stat row: flex gap-16px. Each stat has label (0.6rem uppercase tracking-widest text-on-surface-variant) and value (font-black text-white text-lg)
-- Card glow: box-shadow 0 0 40px {teamColor}33, 0 0 80px {teamColor}11 via inline style
+2. **Story** — Bio and personal quote large-format, hometown, action photo as atmospheric background. Human, personal, not a form.
 
-Empty state (no photo uploaded): show dark placeholder bg-surface-container-high with centered camera icon and text "Upload your action photo"
+3. **Highlights** — Featured reel full-width with play button. Horizontal scroll gallery of tagged clips below. Film-room aesthetic.
+
+4. **Development Lab** — AI drill scores, progress over time, position leaderboard ranking, earned badges displayed as visual achievements. Placeholder for Sessions 1–5 but design as a real destination, not a gray box.
+
+5. **Stats** — Position-specific real stats visualized as bold infographics in teamColor. Season + career split. No spreadsheet tables.
+
+6. **Recruiting** — School interest tracker, official visits, offers, status (open / considering / committed). Placeholder until 247Sports API integration.
+
+7. **NIL** — Partner brand logos, available categories, "Contact for NIL Opportunities" CTA.
+
+8. **Connect** — Social links with follower counts, agent/parent contact, direct inquiry form with purpose selector (Recruiting / NIL / Media / Fan). Always ends with an open door.
+
+---
+
+## ProCard Specification
+
+The ProCard is the central visual element. Appears in builder center column and Athlete Profile Hero chapter.
+
+**Dimensions:** w-full aspect-[3/4] max-w-sm, rounded-[12px], overflow-hidden
+**Glow:** .team-glow class (filter drop-shadow in teamColor)
+
+**Structure top to bottom:**
+
+1. **School banner** (absolute top-0 full-width h-8 z-10): background var(--team-color). Text: school name uppercase font-black tracking-[0.25em] text-[9px] text-white/90 centered. This is the first visual hit — establishes school identity immediately. When teamColor updates, this banner transforms.
+
+2. **Photo area** (top 65% of card): full-bleed action photo, object-fit cover. Empty state: bg-surface-container-high with centered athlete silhouette SVG (white, ~7% opacity). No text, no camera icon in the card — uploads happen in the form.
+
+3. **Gradient overlay**: linear-gradient(to top, #0b0f12 0%, transparent 60%) over bottom of photo.
+
+4. **School logo** (absolute bottom-left, outside stats area): 40×40px, glass-card background, rounded-lg. Empty state: shield outline SVG in text-on-surface-variant.
+
+5. **Info section** (bottom 35%, p-4, padding-left 64px to clear school logo):
+   - Athlete name: font-black italic uppercase tracking-tighter text-white text-3xl leading-none
+   - Position + jersey: font-bold uppercase tracking-widest text-sm color var(--team-color)
+   - Stat row: 3 position-specific stats. Label: text-[8px] uppercase tracking-widest text-on-surface-variant. Value: font-black text-white text-lg.
 
 ---
 
 ## Button System
 
-**Primary CTA** — kinetic-gradient background, text #00460a, rounded-full, font-black uppercase tracking-[0.2em] text-xs, height 44px+, active:scale-95. Examples: Publish Profile, Save Identity
-
-**Secondary** — transparent, border border-outline-variant, text white, same shape. Examples: Preview, Discard
-
-**Icon button** — rounded-full, glass-card, single Material Symbol, 44px × 44px. Examples: Share icon
-
-**Destructive** — background #d53d18, text white, rounded-lg. Examples: Remove photo, Delete
+- **Primary CTA**: kinetic-gradient bg, text-[#00460a], rounded-full, font-black uppercase tracking-[0.2em] text-xs, h-11+, active:scale-95. e.g. Publish Profile, Save Identity
+- **Secondary**: glass-card, border border-outline-variant/20, text-white, rounded-full. e.g. Discard Changes
+- **Icon**: rounded-full glass-card, single Material Symbol, 44×44px. e.g. Share
+- **Destructive**: bg-[#d53d18], text-white, rounded-lg. e.g. Remove Photo
 
 ---
 
-## Architecture & File Structure
+## Top Navigation Pattern
+
+- **Left**: PlayCoach logo → thin vertical divider → "[First Last]" (white font-bold) + "BRAND HQ" (var(--team-color), tracking-widest, uppercase, text-sm)
+- **Right**: notification icon + account icon only
+- **No section tabs in TopNav** — navigation lives in SideNav
+- Height: h-16 (64px), bg-[#0b0f12]/80 backdrop-blur-xl, border-b border-white/10
+
+---
+
+## File Structure
 
 ```
 src/
-  components/       # Shared components used across features
   features/
-    landing/        # / route
-    onboarding/     # /onboarding route
-    builder/        # /builder route (Identity, Highlights, Develop, Proof, Connect)
-    profile/        # /:athleteSlug route
-  pages/            # Route-level page wrappers
-  store/            # Zustand stores (athleteStore.ts)
-  services/         # API calls (future) — never fetch directly from components
-  utils/            # Helper functions
+    landing/            # / route
+    onboarding/         # /onboarding route
+    builder/            # Brand HQ — /builder routes
+      components/       # TopNav, SideNav, ProCard, IdentityForm, etc.
+      BuilderLayout.tsx
+    profile/            # Athlete Profile — /:athleteSlug route
+      chapters/         # HeroChapter, StoryChapter, HighlightsChapter, etc.
+      AthleteProfile.tsx
+  store/                # athleteStore.ts (Zustand)
+  services/             # API calls (future) — never fetch from components
+  utils/
 ```
 
-- Persist athlete profile to localStorage on every state change
-- Use optimistic updates for any mutations
-- Never call fetch directly from components
+---
+
+## Brand Colors
+
+- **Performance Green #00e639** — default teamColor. All builder energy and accents. Used when no school color is set.
+- **PlayCoach Steel #50C4CA** — landing page and onboarding only. Never in builder or Athlete Profile.
+- teamColor is always applied via CSS variable --team-color set on the root container div.
+- Never hardcode #0047BA or any school color. Always use var(--team-color).
 
 ---
 
 ## Responsive Behavior
 
-**Builder:**
-- lg+: full three-column (SideNav 220px + CardPreview 360px + Editor flex-1)
-- md: two-column (SideNav + Editor, CardPreview hidden)
-- below md: Editor full-width + sticky bottom tab bar, SideNav and CardPreview hidden
+**Brand HQ (builder):**
+- lg+: three-column (SideNav 256px + ProCard sticky + Editor flex-1)
+- md: two-column (SideNav + Editor, ProCard hidden)
+- below md: Editor full-width + sticky bottom tab bar
 
-**External Facing Profile:**
-- All sizes: single column, max-width 640px centered
-- lg+: Hero becomes two-column (Pro-Card left, info right), max-width 900px
-
----
-
-## Brand Colors (PlayCoach)
-
-- **Steel** (primary brand): #50C4CA — teal, used as default teamColor and brand accent
-- **Panther** (dark): #1A1E1E — dark charcoal, close to surface colors
-- **White**: #FFFFFF
-
-teamColor defaults to Steel (#50C4CA). When an athlete sets their school color, teamColor updates to that hex value and overrides Steel across all dynamic accent elements.
+**Athlete Profile:**
+- All: single column, chapter-by-chapter scroll
+- lg+: Hero becomes two-column (ProCard left, info right), max-width 1100px
 
 ---
 
 ## Scrollbar Styling
-
-Apply globally in index.css:
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #44484c; border-radius: 10px; }
