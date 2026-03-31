@@ -15,10 +15,7 @@ const SectionHeader = ({ title }: { title: string }) => (
 
 const InputCard = ({ label, value, type = "text" }: { label: string; value: string; type?: string }) => (
   <div
-    className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200"
-    style={{
-      // focus-within handled via CSS since we can't do inline conditional
-    }}
+    className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus"
   >
     <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
       {label}
