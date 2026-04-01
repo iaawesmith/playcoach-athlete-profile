@@ -60,8 +60,12 @@ export const ProCard = () => {
 
       {/* Card */}
       <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
-        {/* Silhouette Placeholder */}
-        <AthleteSilhouette />
+        {/* Photo placeholder prompt */}
+        <div className="absolute inset-0 flex items-center justify-center z-[1]">
+          <span className="text-on-surface-variant/40 text-sm font-semibold uppercase tracking-widest">
+            Add Your Action Photo
+          </span>
+        </div>
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
