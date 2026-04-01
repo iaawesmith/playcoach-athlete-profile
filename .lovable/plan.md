@@ -1,38 +1,24 @@
 
 
-## Dynamic Center Preview Column
+## Remove Duplicate "Your Card" Header
 
-Add an `activeSection` field to the Zustand store, wire SideNav clicks to change it, and conditionally render ProCard or a placeholder panel in the center column.
+The preview column already displays "Identity Preview" above the card via `BuilderLayout.tsx`. The "Your Card" title + Draft/Live indicator row inside `ProCard.tsx` is redundant.
 
-### 1. Add `activeSection` to `athleteStore.ts`
+### Change
 
-- New field: `activeSection: "identity" | "highlights" | "develop" | "stats" | "connect"` (default `"identity"`)
-- Add to `AthleteState` interface
-- Expose via `setActiveSection: (section: string) => void` action
-- Exclude from `AthleteData` (not athlete data, it's UI state — does not trigger dirty marking)
+**`src/features/builder/components/ProCard.tsx`**
 
-### 2. Wire `SideNav.tsx` — Clickable Navigation
+Remove the header row containing "Your Card" and the Draft/Live indicator (the `div` with `flex items-center justify-between` wrapping the h2 and status dot). Move the Draft/Live indicator up to `BuilderLayout.tsx`, positioned inline with the section label — label left-justified, status indicator right-justified on the same line.
 
-- Import `useAthleteStore`, read `activeSection` and `setActiveSection`
-- Remove hardcoded `active: true/false` from `navItems` — derive active state by comparing `item.key` to `activeSection`
-- Add a `key` field to each nav item matching the store values (`"identity"`, `"highlights"`, `"develop"`, `"stats"`, `"connect"`)
-- On click, call `setActiveSection(item.key)`
+**`src/features/builder/BuilderLayout.tsx`**
 
-### 3. Update `BuilderLayout.tsx` — Conditional Preview
+Update the section label row (line 41–43) from a single `<span>` to a flex row:
+- Left: section label ("Identity Preview", etc.)
+- Right: Draft/Live status indicator (green dot + "Live" or amber dot + "Draft"), reading `profileStatus` from `useAthleteStore`
 
-- Read `activeSection` from the store
-- Derive preview label: `"Identity Preview"`, `"Highlights Preview"`, etc.
-- When `activeSection === "identity"`: render `<ProCard />` as now
-- When any other section: render a placeholder panel with same container styling (same dimensions, same dark surface, radial gradient) with centered text: `"[Section] Preview coming soon"` — styled with `text-on-surface-variant`, `uppercase`, `tracking-widest`, `text-sm`, and a Material Symbol icon above
-
-### 4. Wire `MobileNav.tsx` — Same Pattern
-
-- Import `useAthleteStore`, read `activeSection` and `setActiveSection`
-- Wire bottom tab clicks to `setActiveSection`
+This keeps the status visible across all sections, not just Identity — which makes more sense anyway since publish state applies to the whole profile.
 
 ### Files modified
-- `src/store/athleteStore.ts`
-- `src/features/builder/components/SideNav.tsx`
+- `src/features/builder/components/ProCard.tsx`
 - `src/features/builder/BuilderLayout.tsx`
-- `src/features/builder/components/MobileNav.tsx`
 
