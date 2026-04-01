@@ -108,13 +108,6 @@ export const ProCard = () => {
             Sterling
           </h3>
 
-          {/* Jersey number */}
-          <p
-            className="font-bold uppercase tracking-widest text-sm mt-2"
-            style={{ color: "var(--team-color)" }}
-          >
-            #84
-          </p>
 
           {/* Physical attributes row */}
           <div className="flex gap-5 mt-3">
