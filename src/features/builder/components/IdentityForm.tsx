@@ -51,7 +51,7 @@ export const IdentityForm = () => {
   const {
     firstName, lastName, bio, school, teamColor,
     position, number, classYear, hometown, height, weight,
-    actionPhotoUrl, schoolLogoUrl, setAthlete, resetToDefaults,
+    actionPhotoUrl, schoolLogoUrl, setAthlete,
   } = useAthleteStore();
 
   const photoInputRef = useRef<HTMLInputElement>(null);
