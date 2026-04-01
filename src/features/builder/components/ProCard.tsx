@@ -1,3 +1,5 @@
+import { useAthleteStore } from "@/store/athleteStore";
+
 const physicals = [
   { label: "HEIGHT", value: "6'2\"" },
   { label: "WEIGHT", value: "195" },
