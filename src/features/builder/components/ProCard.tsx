@@ -86,12 +86,12 @@ export const ProCard = () => {
           {/* Position + Class Year badges */}
           <div className="flex items-center gap-2 mb-2">
             <span
-              className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+              className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-[2px]"
               style={{ backgroundColor: "var(--team-color)", color: "white" }}
             >
               Wide Receiver
             </span>
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/10 text-on-surface-variant">
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-[2px] border border-white/20 text-on-surface-variant">
               Class of 2025
             </span>
           </div>
