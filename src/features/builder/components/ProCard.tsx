@@ -168,10 +168,27 @@ export const ProCard = () => {
 
       {/* Below Card — CTAs */}
       <div className="flex items-center gap-3 mt-2 w-full max-w-sm">
-        <button className="flex-1 kinetic-gradient text-[#00460a] rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 active:scale-95 transition-all duration-150">
-          Publish Profile
-        </button>
-        <button className="w-11 h-11 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 active:scale-95 transition-all duration-150">
+        {isDraft ? (
+          <button
+            onClick={publishProfile}
+            className="flex-1 kinetic-gradient text-[#00460a] rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 active:scale-95 transition-all duration-150"
+          >
+            {hasBeenPublished ? "Publish Changes" : "Go Live"}
+          </button>
+        ) : (
+          <button
+            disabled
+            className="flex-1 glass-card border border-outline-variant/20 text-on-surface-variant rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 flex items-center justify-center gap-2 cursor-default"
+          >
+            <span className="material-symbols-outlined text-sm">check_circle</span>
+            Published
+          </button>
+        )}
+        <button
+          className={`w-11 h-11 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
+            isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
+          }`}
+        >
           <span className="material-symbols-outlined text-on-surface text-lg">share</span>
         </button>
       </div>
