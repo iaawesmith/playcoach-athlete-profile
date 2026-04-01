@@ -1,7 +1,7 @@
 const physicals = [
-  { label: "HT", value: "6'2\"" },
-  { label: "WT", value: "195" },
-  { label: "40", value: "4.42" },
+  { label: "HEIGHT", value: "6'2\"" },
+  { label: "WEIGHT", value: "195" },
+  { label: "40-YD", value: "4.42" },
 ];
 
 const AthleteSilhouette = () => (
@@ -70,7 +70,7 @@ export const ProCard = () => {
         </div>
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent" />
 
         {/* School color banner */}
         <div
@@ -88,9 +88,9 @@ export const ProCard = () => {
         </div>
 
         {/* Bottom info */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+        <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
           {/* Position + Class Year badges */}
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <span
               className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-[2px]"
               style={{ backgroundColor: "var(--team-color)", color: "white" }}
@@ -103,22 +103,22 @@ export const ProCard = () => {
           </div>
 
           {/* Athlete name — two lines, uniform size */}
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9]">
+          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9]">
             Marcus
           </h3>
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9] mt-0.5">
+          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9] mt-0.5">
             Sterling
           </h3>
 
 
           {/* Physical attributes row */}
-          <div className="flex gap-5 mt-3">
+          <div className="flex gap-5 mt-3 border-t border-white/10 pt-3">
             {physicals.map((attr) => (
               <div key={attr.label}>
-                <span className="text-[8px] uppercase tracking-widest text-on-surface-variant block">
+                <span className="text-[10px] uppercase tracking-widest text-on-surface-variant block">
                   {attr.label}
                 </span>
-                <span className="text-on-surface font-black text-lg">{attr.value}</span>
+                <span className="text-on-surface font-black text-xl">{attr.value}</span>
               </div>
             ))}
           </div>
