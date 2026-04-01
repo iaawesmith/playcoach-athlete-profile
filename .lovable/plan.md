@@ -1,24 +1,18 @@
 
 
-## Remove Duplicate "Your Card" Header
+## Style Preview Label as Bold Heading, Aligned with Card
 
-The preview column already displays "Identity Preview" above the card via `BuilderLayout.tsx`. The "Your Card" title + Draft/Live indicator row inside `ProCard.tsx` is redundant.
+The "Identity Preview" label currently uses the sub-section label style (`text-[10px] font-semibold tracking-[0.4em]`). It should match the old "Your Card" heading treatment and left-align with the card itself, not the column padding.
 
-### Change
+### Change — `src/features/builder/BuilderLayout.tsx`
 
-**`src/features/builder/components/ProCard.tsx`**
+**Label styling** (line 66): Change from the tiny label style to a proper heading:
+- `text-sm font-bold uppercase tracking-widest text-on-surface-variant`
 
-Remove the header row containing "Your Card" and the Draft/Live indicator (the `div` with `flex items-center justify-between` wrapping the h2 and status dot). Move the Draft/Live indicator up to `BuilderLayout.tsx`, positioned inline with the section label — label left-justified, status indicator right-justified on the same line.
+**Alignment**: The column has `p-8` (32px padding). The ProCard renders inside that padding and is already left-aligned. The label row (line 65) sits inside the same padding, so it already aligns with the card's left edge. No padding changes needed — the current alignment is correct. The visual misalignment the user perceives is likely because the label is so small it feels disconnected. Making it bolder will anchor it visually to the card below.
 
-**`src/features/builder/BuilderLayout.tsx`**
-
-Update the section label row (line 41–43) from a single `<span>` to a flex row:
-- Left: section label ("Identity Preview", etc.)
-- Right: Draft/Live status indicator (green dot + "Live" or amber dot + "Draft"), reading `profileStatus` from `useAthleteStore`
-
-This keeps the status visible across all sections, not just Identity — which makes more sense anyway since publish state applies to the whole profile.
+If the label still feels offset after the weight increase, we can add a `max-w-sm` constraint to the label row to match the ProCard's max width — but that's only needed if the label stretches wider than the card on large screens.
 
 ### Files modified
-- `src/features/builder/components/ProCard.tsx`
 - `src/features/builder/BuilderLayout.tsx`
 
