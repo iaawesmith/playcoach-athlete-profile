@@ -1,25 +1,56 @@
 
 
-## ProCard Refinements — Match Reference Layout
+## Draft / Live Status Indicator & Publish Flow
 
-Adjustments to close the gap between our current card and the reference image. No structural changes, just sizing and spacing tweaks.
+A two-state system that tells the athlete whether their public profile reflects their current edits or not.
 
-### Changes to `src/features/builder/components/ProCard.tsx`
+### Concept
 
-1. **Increase name font size**: `text-4xl` → `text-5xl` (48px) to match the bolder, larger name in the reference.
+Two states: **Draft** and **Live**.
 
-2. **Update physical attribute labels**: Change from abbreviations ("HT", "WT", "40") to full words ("HEIGHT", "WEIGHT", "40-YD"). Bump label size from `text-[8px]` to `text-[10px]`.
+- **Draft** — profile has never been published, or has unsaved changes since last publish. Amber dot, "Draft" label. CTA reads "Go Live" (first publish) or "Publish Changes" (subsequent).
+- **Live** — profile matches what's publicly visible. Green pulsing dot, "Live" label. CTA becomes disabled/muted "Published" state. Share button appears fully active.
 
-3. **Increase physical attribute values**: `text-lg` → `text-xl` for a heavier presence matching the reference.
+When the athlete edits any field while in "Live" state, status flips to "Draft" automatically. No manual toggle.
 
-4. **Add a subtle separator line** between the name and the physicals row: a `border-t border-white/10` on the physicals container, with `pt-3` above the stats.
+### Changes
 
-5. **Tighten badge-to-name spacing**: `mb-4` → `mb-3`.
+**1. `src/store/athleteStore.ts`** — Add publish state
 
-6. **Increase bottom padding**: `p-4` → `p-5` on the bottom info container.
+Add two fields to the store:
+- `profileStatus: "draft" | "live"` (default `"draft"`)
+- `publishProfile: () => void` — sets status to `"live"`
+- `markDirty: () => void` — sets status to `"draft"` (called on any field edit)
 
-7. **Deepen gradient overlay**: Strengthen the gradient so the bottom info zone has a more solid dark backing — change `via-surface/60` to `via-surface/80` for better contrast behind text when a photo is present.
+Extend the existing `setAthlete` action to automatically call `markDirty` when any data changes while status is `"live"`. This keeps it automatic — no manual state management needed from form components.
+
+**2. `src/features/builder/components/ProCard.tsx`** — Status indicator + CTA
+
+Read `profileStatus` from the store. Update two areas:
+
+**Status indicator (top-right of card header):**
+- Draft: amber dot (`bg-amber-400`, no pulse) + "Draft" text in `text-amber-400`
+- Live: green pulsing dot (`bg-primary animate-pulse`) + "Live" text in `text-primary`
+
+**CTA button below card:**
+- Draft: active kinetic-gradient button reading "Go Live" (or "Publish Changes" if previously published). Calls `publishProfile()` on click.
+- Live: muted glass-card button reading "Published" with a checkmark icon, visually de-emphasized (not clickable or styled as disabled).
+
+**Share button:**
+- Draft: reduced opacity (`opacity-40`) with `pointer-events-none` — can't share what isn't live.
+- Live: full opacity, interactive as current.
+
+**3. `src/features/builder/components/IdentityForm.tsx`** — No changes needed yet
+
+Since fields are static/uncontrolled (Session 1–2), the dirty-marking won't fire until Session 3 when we wire inputs to the store. The system is ready for it, but nothing changes here now.
 
 ### Files modified
+- `src/store/athleteStore.ts`
 - `src/features/builder/components/ProCard.tsx`
+
+### What this does NOT include
+- No Cloud/database persistence (Session 3)
+- No actual public URL generation
+- No toast/confirmation on publish
+- Form fields remain static — dirty detection wires up in Session 3
 
