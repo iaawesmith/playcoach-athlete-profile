@@ -103,10 +103,10 @@ export const ProCard = () => {
           </div>
 
           {/* Athlete name — two lines, uniform size */}
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9]">
+          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9]">
             Marcus
           </h3>
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9] mt-0.5">
+          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9] mt-0.5">
             Sterling
           </h3>
 
