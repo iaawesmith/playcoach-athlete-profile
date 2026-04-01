@@ -1,7 +1,7 @@
-const stats = [
-  { label: "REC", value: "67" },
-  { label: "YDS", value: "1,124" },
-  { label: "TD", value: "12" },
+const physicals = [
+  { label: "HT", value: "6'2\"" },
+  { label: "WT", value: "195" },
+  { label: "40", value: "4.42" },
 ];
 
 const AthleteSilhouette = () => (
@@ -64,7 +64,7 @@ export const ProCard = () => {
         <AthleteSilhouette />
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
 
         {/* School color banner */}
         <div
@@ -76,31 +76,50 @@ export const ProCard = () => {
           </span>
         </div>
 
-        {/* Bottom-left — School logo slot */}
-        <div className="absolute bottom-3 left-3 z-10 w-10 h-10 glass-card rounded-lg flex items-center justify-center">
+        {/* School logo — upper right, small + transparent */}
+        <div className="absolute top-12 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
           <ShieldPlaceholder />
         </div>
 
         {/* Bottom info */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 pl-16 z-10">
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-2xl leading-none">
-            Marcus Sterling
+        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+          {/* Position + Class Year badges */}
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: "var(--team-color)", color: "white" }}
+            >
+              Wide Receiver
+            </span>
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/10 text-on-surface-variant">
+              Class of 2025
+            </span>
+          </div>
+
+          {/* Athlete name — two lines, uniform size */}
+          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9]">
+            Marcus
           </h3>
+          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9] mt-0.5">
+            Sterling
+          </h3>
+
+          {/* Jersey number */}
           <p
-            className="font-bold uppercase tracking-widest text-sm mt-1"
+            className="font-bold uppercase tracking-widest text-sm mt-2"
             style={{ color: "var(--team-color)" }}
           >
-            Wide Receiver / #84
+            #84
           </p>
 
-          {/* Stats */}
-          <div className="flex gap-4 mt-3">
-            {stats.map((stat) => (
-              <div key={stat.label}>
-                <span className="text-[10px] uppercase tracking-widest text-on-surface-variant block">
-                  {stat.label}
+          {/* Physical attributes row */}
+          <div className="flex gap-5 mt-3">
+            {physicals.map((attr) => (
+              <div key={attr.label}>
+                <span className="text-[8px] uppercase tracking-widest text-on-surface-variant block">
+                  {attr.label}
                 </span>
-                <span className="text-on-surface font-black text-lg">{stat.value}</span>
+                <span className="text-on-surface font-black text-lg">{attr.value}</span>
               </div>
             ))}
           </div>
