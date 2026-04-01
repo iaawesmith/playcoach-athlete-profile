@@ -1,31 +1,20 @@
 import { useAthleteStore } from "@/store/athleteStore";
 
-const physicals = [
-  { label: "HEIGHT", value: "6'2\"" },
-  { label: "WEIGHT", value: "195" },
-  { label: "40-YD", value: "4.42" },
-];
-
-const AthleteSilhouette = () => (
-  <div className="absolute inset-0 flex items-center justify-center">
-    <svg
-      viewBox="0 0 100 200"
-      className="w-28 h-48 opacity-[0.09]"
-      fill="white"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="50" cy="17" r="13"/>
-      <rect x="44" y="28" width="12" height="10" rx="4"/>
-      <path d="M10 54 L20 37 Q33 31 50 31 Q67 31 80 37 L90 54 L84 94 L16 94 Z"/>
-      <path d="M14 52 L3 93 L13 96 L24 61"/>
-      <path d="M86 52 L97 93 L87 96 L76 61"/>
-      <path d="M25 94 L18 162 L33 162 L50 111"/>
-      <path d="M75 94 L82 162 L67 162 L50 111"/>
-      <ellipse cx="26" cy="165" rx="11" ry="5"/>
-      <ellipse cx="74" cy="165" rx="11" ry="5"/>
-    </svg>
-  </div>
-);
+const positionLabelMap: Record<string, string> = {
+  QB: "Quarterback",
+  RB: "Running Back",
+  FB: "Fullback",
+  WR: "Wide Receiver",
+  TE: "Tight End",
+  OL: "Offensive Line",
+  DL: "Defensive Line",
+  LB: "Linebacker",
+  CB: "Cornerback",
+  S: "Safety",
+  K: "Kicker",
+  P: "Punter",
+  LS: "Long Snapper",
+};
 
 const ShieldPlaceholder = () => (
   <svg
@@ -45,8 +34,20 @@ const ShieldPlaceholder = () => (
 );
 
 export const ProCard = () => {
-  const { profileStatus, publishProfile, hasBeenPublished } = useAthleteStore();
+  const {
+    firstName, lastName, position, classYear, school,
+    height, weight, actionPhotoUrl, schoolLogoUrl,
+    profileStatus, publishProfile, hasBeenPublished,
+  } = useAthleteStore();
+
   const isDraft = profileStatus === "draft";
+  const positionLabel = positionLabelMap[position] ?? position;
+
+  const physicals = [
+    { label: "HEIGHT", value: height },
+    { label: "WEIGHT", value: weight.replace(/\s*lbs?/i, "") },
+    { label: "40-YD", value: "4.42" },
+  ];
 
   return (
     <div className="flex flex-col items-center">
@@ -78,12 +79,20 @@ export const ProCard = () => {
 
       {/* Card */}
       <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
-        {/* Photo placeholder prompt */}
-        <div className="absolute top-8 bottom-[40%] left-0 right-0 flex items-center justify-center z-[1]">
-          <span className="text-on-surface-variant/40 text-sm font-semibold uppercase tracking-widest">
-            Add Your Action Photo
-          </span>
-        </div>
+        {/* Photo area */}
+        {actionPhotoUrl ? (
+          <img
+            src={actionPhotoUrl}
+            alt={`${firstName} ${lastName}`}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute top-8 bottom-[40%] left-0 right-0 flex items-center justify-center z-[1]">
+            <span className="text-on-surface-variant/40 text-sm font-semibold uppercase tracking-widest">
+              Add Your Action Photo
+            </span>
+          </div>
+        )}
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent" />
@@ -94,38 +103,41 @@ export const ProCard = () => {
           style={{ backgroundColor: "var(--team-color)" }}
         >
           <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/90">
-            University of Georgia
+            {school}
           </span>
         </div>
 
         {/* School logo — lower right */}
         <div className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
-          <ShieldPlaceholder />
+          {schoolLogoUrl ? (
+            <img src={schoolLogoUrl} alt="School logo" className="w-full h-full object-contain" />
+          ) : (
+            <ShieldPlaceholder />
+          )}
         </div>
 
         {/* Bottom info */}
         <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
           {/* Position + Class Year badges */}
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-5 mb-5">
             <span
-              className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-[2px]"
+              className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px]"
               style={{ backgroundColor: "var(--team-color)", color: "white" }}
             >
-              Wide Receiver
+              {positionLabel}
             </span>
-            <span className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-[2px] border border-white/20 text-on-surface-variant">
-              Class of 2025
+            <span className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px] border border-white/20 text-on-surface-variant">
+              Class of {classYear}
             </span>
           </div>
 
-          {/* Athlete name — two lines, uniform size */}
+          {/* Athlete name */}
           <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9]">
-            Marcus
+            {firstName}
           </h3>
           <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9] mt-0.5">
-            Sterling
+            {lastName}
           </h3>
-
 
           {/* Physical attributes row */}
           <div className="flex gap-5 mt-3 border-t border-white/10 pt-3">

@@ -3,12 +3,15 @@ import { SideNav } from "./components/SideNav";
 import { ProCard } from "./components/ProCard";
 import { IdentityForm } from "./components/IdentityForm";
 import { MobileNav } from "./components/MobileNav";
+import { useAthleteStore } from "@/store/athleteStore";
 
 export const BuilderLayout = () => {
+  const teamColor = useAthleteStore((s) => s.teamColor);
+
   return (
     <div
       className="min-h-screen bg-background"
-      style={{ "--team-color": "#00e639" } as React.CSSProperties}
+      style={{ "--team-color": teamColor } as React.CSSProperties}
     >
       <TopNav />
       <SideNav />
