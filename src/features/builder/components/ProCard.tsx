@@ -70,7 +70,7 @@ export const ProCard = () => {
         </div>
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent" />
 
         {/* School color banner */}
         <div
