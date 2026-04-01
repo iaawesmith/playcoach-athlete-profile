@@ -88,7 +88,7 @@ export const ProCard = () => {
         </div>
 
         {/* Bottom info */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+        <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
           {/* Position + Class Year badges */}
           <div className="flex items-center gap-3 mb-4">
             <span
