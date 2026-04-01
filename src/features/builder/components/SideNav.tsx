@@ -1,10 +1,9 @@
 const navItems = [
-  { icon: "fingerprint", label: "Identity", active: true },
-  { icon: "play_circle", label: "Highlights", active: false },
-  { icon: "trending_up", label: "Development", active: false },
-  { icon: "leaderboard", label: "Stats", active: false },
-  { icon: "verified", label: "Brand", active: false },
-  { icon: "settings", label: "Settings", active: false },
+  { icon: "fingerprint", label: "Identity", route: "/builder/identity", active: true },
+  { icon: "play_circle", label: "Highlights", route: "/builder/highlights", active: false },
+  { icon: "trending_up", label: "Develop", route: "/builder/develop", active: false },
+  { icon: "leaderboard", label: "Stats", route: "/builder/stats", active: false },
+  { icon: "handshake", label: "Connect", route: "/builder/connect", active: false },
 ];
 
 const strengthSegments = 10;
