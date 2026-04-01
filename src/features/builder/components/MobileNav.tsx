@@ -1,7 +1,7 @@
 const mobileNavItems = [
   { icon: "fingerprint", label: "Identity", active: true },
   { icon: "leaderboard", label: "Stats", active: false },
-  { icon: "grid_view", label: "Media", active: false },
+  { icon: "handshake", label: "Connect", active: false },
 ];
 
 export const MobileNav = () => {
