@@ -45,19 +45,33 @@ const ShieldPlaceholder = () => (
 );
 
 export const ProCard = () => {
+  const { profileStatus, publishProfile, hasBeenPublished } = useAthleteStore();
+  const isDraft = profileStatus === "draft";
+
   return (
     <div className="flex flex-col items-center">
-      {/* Live Label + Your Card Heading */}
+      {/* Header */}
       <div className="w-full max-w-sm mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-on-surface font-black uppercase text-lg tracking-wide">
             Your Card
           </h2>
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-              Live
-            </span>
+            {isDraft ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+                  Draft
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+                  Live
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
