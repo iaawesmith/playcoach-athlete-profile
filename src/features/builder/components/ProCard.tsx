@@ -47,13 +47,11 @@ export const ProCard = () => {
     <div className="flex flex-col items-center">
       {/* Live Label + Your Card Heading */}
       <div className="w-full mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-              Live
-            </span>
-          </div>
+        <div className="flex items-center justify-center gap-2">
+          <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+            Live
+          </span>
           <h2 className="text-on-surface font-black uppercase text-lg tracking-wide">
             Your Card
           </h2>
