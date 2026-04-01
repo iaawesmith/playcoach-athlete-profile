@@ -1,15 +1,20 @@
+import { useAthleteStore } from "@/store/athleteStore";
+
 const navItems = [
-  { icon: "fingerprint", label: "Identity", route: "/builder/identity", active: true },
-  { icon: "play_circle", label: "Highlights", route: "/builder/highlights", active: false },
-  { icon: "trending_up", label: "Develop", route: "/builder/develop", active: false },
-  { icon: "leaderboard", label: "Stats", route: "/builder/stats", active: false },
-  { icon: "handshake", label: "Connect", route: "/builder/connect", active: false },
+  { key: "identity" as const, icon: "fingerprint", label: "Identity" },
+  { key: "highlights" as const, icon: "play_circle", label: "Highlights" },
+  { key: "develop" as const, icon: "trending_up", label: "Develop" },
+  { key: "stats" as const, icon: "leaderboard", label: "Stats" },
+  { key: "connect" as const, icon: "handshake", label: "Connect" },
 ];
 
 const strengthSegments = 10;
 const filledSegments = 8;
 
 export const SideNav = () => {
+  const activeSection = useAthleteStore((s) => s.activeSection);
+  const setActiveSection = useAthleteStore((s) => s.setActiveSection);
+
   return (
     <aside className="hidden lg:flex fixed left-0 top-16 bottom-0 w-64 bg-surface flex-col z-40">
       {/* Profile Header */}
@@ -43,24 +48,28 @@ export const SideNav = () => {
 
       {/* Nav Items */}
       <nav className="flex-1 px-3 space-y-1">
-        {navItems.map((item) => (
-          <button
-            key={item.label}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium uppercase tracking-wide transition-colors duration-200 ${
-              item.active
-                ? "text-on-surface bg-surface-container-high"
-                : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
-            }`}
-            style={
-              item.active
-                ? { borderLeft: "2px solid var(--team-color)" }
-                : undefined
-            }
-          >
-            <span className="material-symbols-outlined text-xl">{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+        {navItems.map((item) => {
+          const isActive = item.key === activeSection;
+          return (
+            <button
+              key={item.key}
+              onClick={() => setActiveSection(item.key)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium uppercase tracking-wide transition-colors duration-200 ${
+                isActive
+                  ? "text-on-surface bg-surface-container-high"
+                  : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+              }`}
+              style={
+                isActive
+                  ? { borderLeft: "2px solid var(--team-color)" }
+                  : undefined
+              }
+            >
+              <span className="material-symbols-outlined text-xl">{item.icon}</span>
+              {item.label}
+            </button>
+          );
+        })}
       </nav>
     </aside>
   );
