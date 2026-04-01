@@ -1,17 +1,31 @@
 
 
-## Style Preview Label as Bold Heading, Aligned with Card
+## Center Preview Label with Card, Status Below
 
-The "Identity Preview" label currently uses the sub-section label style (`text-[10px] font-semibold tracking-[0.4em]`). It should match the old "Your Card" heading treatment and left-align with the card itself, not the column padding.
+The label row currently stretches the full column width (`p-8` padding) while the ProCard is constrained to `max-w-sm` (384px) and centered via `items-center` on its parent. This makes the label feel disconnected and off-center relative to the card.
 
 ### Change — `src/features/builder/BuilderLayout.tsx`
 
-**Label styling** (line 66): Change from the tiny label style to a proper heading:
-- `text-sm font-bold uppercase tracking-widest text-on-surface-variant`
+1. **Wrap label + status in a centered container matching the card width**: Add a `w-full max-w-sm mx-auto` wrapper around the label and status so they align exactly with the ProCard edges.
 
-**Alignment**: The column has `p-8` (32px padding). The ProCard renders inside that padding and is already left-aligned. The label row (line 65) sits inside the same padding, so it already aligns with the card's left edge. No padding changes needed — the current alignment is correct. The visual misalignment the user perceives is likely because the label is so small it feels disconnected. Making it bolder will anchor it visually to the card below.
+2. **Stack label and status vertically**: Instead of side-by-side (`justify-between`), place the section label on top and the Draft/Live status indicator directly below it with a small gap (`mt-1.5`).
 
-If the label still feels offset after the weight increase, we can add a `max-w-sm` constraint to the label row to match the ProCard's max width — but that's only needed if the label stretches wider than the card on large screens.
+3. **Bump label size**: Change from `text-sm` to `text-base` for a slightly larger, more anchored heading feel. Keep `font-bold uppercase tracking-widest text-on-surface-variant`.
+
+4. **Apply same centering to placeholder panels** (non-identity sections): The placeholder already centers its content, so it stays as-is. The label above it gets the same `max-w-sm mx-auto` treatment for consistency.
+
+### Result
+
+```text
+        ┌─── max-w-sm ───┐
+        IDENTITY PREVIEW
+        ● Draft
+        ┌────────────────┐
+        │                │
+        │    ProCard      │
+        │                │
+        └────────────────┘
+```
 
 ### Files modified
 - `src/features/builder/BuilderLayout.tsx`
