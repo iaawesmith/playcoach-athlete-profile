@@ -66,7 +66,7 @@ export const IdentityForm = () => {
             <div className="flex items-center gap-3">
               <input
                 className="flex-1 bg-transparent text-on-surface text-sm font-normal outline-none"
-                defaultValue="#00e639"
+                defaultValue="#CC0000"
                 readOnly
                 type="text"
               />
