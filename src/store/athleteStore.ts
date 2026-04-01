@@ -7,7 +7,11 @@ interface AthleteState {
   school: string;
   classYear: string;
   teamColor: string;
-  setAthlete: (data: Partial<Omit<AthleteState, "setAthlete">>) => void;
+  profileStatus: "draft" | "live";
+  hasBeenPublished: boolean;
+  setAthlete: (data: Partial<Omit<AthleteState, "setAthlete" | "publishProfile" | "markDirty" | "profileStatus" | "hasBeenPublished">>) => void;
+  publishProfile: () => void;
+  markDirty: () => void;
 }
 
 export const useAthleteStore = create<AthleteState>((set) => ({
@@ -16,6 +20,15 @@ export const useAthleteStore = create<AthleteState>((set) => ({
   number: "84",
   school: "University of Georgia",
   classYear: "2025",
-  teamColor: "#50C4CA",
-  setAthlete: (data) => set((state) => ({ ...state, ...data })),
+  teamColor: "#CC0000",
+  profileStatus: "draft",
+  hasBeenPublished: false,
+  setAthlete: (data) =>
+    set((state) => ({
+      ...state,
+      ...data,
+      profileStatus: state.profileStatus === "live" ? "draft" : state.profileStatus,
+    })),
+  publishProfile: () => set({ profileStatus: "live", hasBeenPublished: true }),
+  markDirty: () => set({ profileStatus: "draft" }),
 }));

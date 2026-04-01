@@ -1,3 +1,5 @@
+import { useAthleteStore } from "@/store/athleteStore";
+
 const physicals = [
   { label: "HEIGHT", value: "6'2\"" },
   { label: "WEIGHT", value: "195" },
@@ -43,19 +45,33 @@ const ShieldPlaceholder = () => (
 );
 
 export const ProCard = () => {
+  const { profileStatus, publishProfile, hasBeenPublished } = useAthleteStore();
+  const isDraft = profileStatus === "draft";
+
   return (
     <div className="flex flex-col items-center">
-      {/* Live Label + Your Card Heading */}
+      {/* Header */}
       <div className="w-full max-w-sm mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-on-surface font-black uppercase text-lg tracking-wide">
             Your Card
           </h2>
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-              Live
-            </span>
+            {isDraft ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+                  Draft
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+                  Live
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -152,10 +168,27 @@ export const ProCard = () => {
 
       {/* Below Card — CTAs */}
       <div className="flex items-center gap-3 mt-2 w-full max-w-sm">
-        <button className="flex-1 kinetic-gradient text-[#00460a] rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 active:scale-95 transition-all duration-150">
-          Publish Profile
-        </button>
-        <button className="w-11 h-11 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 active:scale-95 transition-all duration-150">
+        {isDraft ? (
+          <button
+            onClick={publishProfile}
+            className="flex-1 kinetic-gradient text-[#00460a] rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 active:scale-95 transition-all duration-150"
+          >
+            {hasBeenPublished ? "Publish Changes" : "Go Live"}
+          </button>
+        ) : (
+          <button
+            disabled
+            className="flex-1 glass-card border border-outline-variant/20 text-on-surface-variant rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 flex items-center justify-center gap-2 cursor-default"
+          >
+            <span className="material-symbols-outlined text-sm">check_circle</span>
+            Published
+          </button>
+        )}
+        <button
+          className={`w-11 h-11 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
+            isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
+          }`}
+        >
           <span className="material-symbols-outlined text-on-surface text-lg">share</span>
         </button>
       </div>
