@@ -1,7 +1,7 @@
 const physicals = [
-  { label: "HT", value: "6'2\"" },
-  { label: "WT", value: "195" },
-  { label: "40", value: "4.42" },
+  { label: "HEIGHT", value: "6'2\"" },
+  { label: "WEIGHT", value: "195" },
+  { label: "40-YD", value: "4.42" },
 ];
 
 const AthleteSilhouette = () => (
