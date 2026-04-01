@@ -5,6 +5,29 @@ import { IdentityForm } from "./components/IdentityForm";
 import { MobileNav } from "./components/MobileNav";
 import { useAthleteStore } from "@/store/athleteStore";
 
+const statusIndicator = (profileStatus: "draft" | "live") => {
+  const isDraft = profileStatus === "draft";
+  return (
+    <div className="flex items-center gap-1.5">
+      {isDraft ? (
+        <>
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+            Draft
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+            Live
+          </span>
+        </>
+      )}
+    </div>
+  );
+};
+
 const sectionLabels: Record<string, string> = {
   identity: "Identity Preview",
   highlights: "Highlights Preview",
@@ -23,6 +46,7 @@ const sectionIcons: Record<string, string> = {
 export const BuilderLayout = () => {
   const teamColor = useAthleteStore((s) => s.teamColor);
   const activeSection = useAthleteStore((s) => s.activeSection);
+  const profileStatus = useAthleteStore((s) => s.profileStatus);
 
   return (
     <div
@@ -38,9 +62,12 @@ export const BuilderLayout = () => {
           {/* Left Column — Preview */}
           <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low p-8">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)]" />
-            <span className="relative z-10 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant mb-6">
-              {sectionLabels[activeSection]}
-            </span>
+            <div className="relative z-10 flex items-center justify-between mb-6">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+                {sectionLabels[activeSection]}
+              </span>
+              {statusIndicator(profileStatus)}
+            </div>
             {activeSection === "identity" ? (
               <ProCard />
             ) : (
