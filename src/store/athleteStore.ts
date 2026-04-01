@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+type ActiveSection = "identity" | "highlights" | "develop" | "stats" | "connect";
+
 interface AthleteState {
   firstName: string;
   lastName: string;
@@ -16,10 +18,12 @@ interface AthleteState {
   schoolLogoUrl: string | null;
   profileStatus: "draft" | "live";
   hasBeenPublished: boolean;
+  activeSection: ActiveSection;
   setAthlete: (data: Partial<AthleteData>) => void;
   publishProfile: () => void;
   markDirty: () => void;
   resetToDefaults: () => void;
+  setActiveSection: (section: ActiveSection) => void;
 }
 
 type AthleteData = Omit<AthleteState, "setAthlete" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished">;
