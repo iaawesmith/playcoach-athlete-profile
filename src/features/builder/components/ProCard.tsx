@@ -80,8 +80,8 @@ export const ProCard = () => {
           </span>
         </div>
 
-        {/* School logo — upper right, small + transparent */}
-        <div className="absolute top-12 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
+        {/* School logo — lower right */}
+        <div className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
           <ShieldPlaceholder />
         </div>
 
