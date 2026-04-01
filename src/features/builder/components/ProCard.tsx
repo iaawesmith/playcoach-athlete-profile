@@ -112,13 +112,13 @@ export const ProCard = () => {
 
 
           {/* Physical attributes row */}
-          <div className="flex gap-5 mt-3">
+          <div className="flex gap-5 mt-3 border-t border-white/10 pt-3">
             {physicals.map((attr) => (
               <div key={attr.label}>
-                <span className="text-[8px] uppercase tracking-widest text-on-surface-variant block">
+                <span className="text-[10px] uppercase tracking-widest text-on-surface-variant block">
                   {attr.label}
                 </span>
-                <span className="text-on-surface font-black text-lg">{attr.value}</span>
+                <span className="text-on-surface font-black text-xl">{attr.value}</span>
               </div>
             ))}
           </div>
