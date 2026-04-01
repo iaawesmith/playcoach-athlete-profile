@@ -7,25 +7,20 @@ const stats = [
 const AthleteSilhouette = () => (
   <div className="absolute inset-0 flex items-center justify-center">
     <svg
-      viewBox="0 0 100 160"
-      className="w-32 h-32 opacity-[0.07]"
+      viewBox="0 0 100 200"
+      className="w-28 h-48 opacity-[0.09]"
       fill="white"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Head */}
-      <circle cx="50" cy="22" r="14" />
-      {/* Neck */}
-      <rect x="44" y="34" width="12" height="10" rx="4" />
-      {/* Jersey body */}
-      <path d="M20 55 L28 42 Q38 36 50 36 Q62 36 72 42 L80 55 L76 100 L24 100 Z" />
-      {/* Left arm */}
-      <path d="M28 42 L10 80 L18 83 L32 52" />
-      {/* Right arm */}
-      <path d="M72 42 L90 80 L82 83 L68 52" />
-      {/* Left leg */}
-      <path d="M32 100 L26 145 L38 145 L50 112" />
-      {/* Right leg */}
-      <path d="M68 100 L74 145 L62 145 L50 112" />
+      <circle cx="50" cy="17" r="13"/>
+      <rect x="44" y="28" width="12" height="10" rx="4"/>
+      <path d="M10 54 L20 37 Q33 31 50 31 Q67 31 80 37 L90 54 L84 94 L16 94 Z"/>
+      <path d="M14 52 L3 93 L13 96 L24 61"/>
+      <path d="M86 52 L97 93 L87 96 L76 61"/>
+      <path d="M25 94 L18 162 L33 162 L50 111"/>
+      <path d="M75 94 L82 162 L67 162 L50 111"/>
+      <ellipse cx="26" cy="165" rx="11" ry="5"/>
+      <ellipse cx="74" cy="165" rx="11" ry="5"/>
     </svg>
   </div>
 );
@@ -52,13 +47,11 @@ export const ProCard = () => {
     <div className="flex flex-col items-center">
       {/* Live Label + Your Card Heading */}
       <div className="w-full mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-              Live
-            </span>
-          </div>
+        <div className="flex items-center justify-center gap-2">
+          <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+            Live
+          </span>
           <h2 className="text-on-surface font-black uppercase text-lg tracking-wide">
             Your Card
           </h2>
