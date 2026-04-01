@@ -195,22 +195,6 @@ export const IdentityForm = () => {
         </div>
       </section>
 
-      {/* Bottom CTAs */}
-      <div className="flex items-center gap-3 pt-4">
-        <button
-          type="button"
-          onClick={resetToDefaults}
-          className="flex-1 h-11 rounded-full border border-outline-variant text-on-surface font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150"
-        >
-          Discard Changes
-        </button>
-        <button
-          type="button"
-          className="flex-1 h-11 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150"
-        >
-          Save Identity
-        </button>
-      </div>
     </div>
   );
 };
