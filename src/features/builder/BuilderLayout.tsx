@@ -5,6 +5,29 @@ import { IdentityForm } from "./components/IdentityForm";
 import { MobileNav } from "./components/MobileNav";
 import { useAthleteStore } from "@/store/athleteStore";
 
+const statusIndicator = (profileStatus: "draft" | "live") => {
+  const isDraft = profileStatus === "draft";
+  return (
+    <div className="flex items-center gap-1.5">
+      {isDraft ? (
+        <>
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+            Draft
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+            Live
+          </span>
+        </>
+      )}
+    </div>
+  );
+};
+
 const sectionLabels: Record<string, string> = {
   identity: "Identity Preview",
   highlights: "Highlights Preview",
