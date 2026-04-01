@@ -63,7 +63,7 @@ export const BuilderLayout = () => {
           <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low p-8">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)]" />
             <div className="relative z-10 flex items-center justify-between mb-6">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+              <span className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">
                 {sectionLabels[activeSection]}
               </span>
               {statusIndicator(profileStatus)}
