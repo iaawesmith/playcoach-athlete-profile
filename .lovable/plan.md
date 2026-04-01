@@ -1,56 +1,64 @@
 
 
-## Draft / Live Status Indicator & Publish Flow
+## Session 2 — Live Card Wiring
 
-A two-state system that tells the athlete whether their public profile reflects their current edits or not.
+Wire Zustand store to IdentityForm inputs and ProCard so every keystroke updates the card in real time.
 
-### Concept
+### 1. Expand `athleteStore.ts`
 
-Two states: **Draft** and **Live**.
+Split `name` into `firstName` and `lastName`. Add new fields:
 
-- **Draft** — profile has never been published, or has unsaved changes since last publish. Amber dot, "Draft" label. CTA reads "Go Live" (first publish) or "Publish Changes" (subsequent).
-- **Live** — profile matches what's publicly visible. Green pulsing dot, "Live" label. CTA becomes disabled/muted "Published" state. Share button appears fully active.
+- `firstName: string` (default "Marcus")
+- `lastName: string` (default "Sterling")
+- `bio: string`
+- `hometown: string`
+- `height: string`
+- `weight: string`
+- `actionPhotoUrl: string | null` (default null)
+- `schoolLogoUrl: string | null` (default null)
 
-When the athlete edits any field while in "Live" state, status flips to "Draft" automatically. No manual toggle.
+Remove the old `name` field. Update `setAthlete` type accordingly. Keep `position`, `number`, `school`, `classYear`, `teamColor`, `profileStatus`, `hasBeenPublished` as-is.
 
-### Changes
+### 2. Wire `IdentityForm.tsx` — Live Inputs
 
-**1. `src/store/athleteStore.ts`** — Add publish state
+- Import `useAthleteStore` and read all fields
+- Replace `InputCard` with a controlled version: accept `onChange` callback, use `value` instead of `defaultValue`, remove `readOnly`
+- Each input calls `setAthlete({ fieldName: newValue })` on every keystroke via `onChange`
+- Position chips become clickable — clicking one calls `setAthlete({ position: pos })`
+- School Color input calls `setAthlete({ teamColor: newValue })` and the swatch reads from store
+- **Photo upload slot**: wrap in a hidden `<input type="file" accept="image/*">`. On file select, create an object URL via `URL.createObjectURL()` and call `setAthlete({ actionPhotoUrl: url })`. Show thumbnail preview when set.
+- **Logo upload slot**: same pattern for `schoolLogoUrl`
+- Bottom CTAs: "Discard Changes" resets store to defaults. "Save Identity" is visual-only for now (no persistence until Session 3).
 
-Add two fields to the store:
-- `profileStatus: "draft" | "live"` (default `"draft"`)
-- `publishProfile: () => void` — sets status to `"live"`
-- `markDirty: () => void` — sets status to `"draft"` (called on any field edit)
+### 3. Wire `ProCard.tsx` — Read From Store
 
-Extend the existing `setAthlete` action to automatically call `markDirty` when any data changes while status is `"live"`. This keeps it automatic — no manual state management needed from form components.
+Replace all hardcoded values with store reads:
 
-**2. `src/features/builder/components/ProCard.tsx`** — Status indicator + CTA
+- `firstName` / `lastName` → two name lines (already two `<h3>` elements)
+- `position` → position badge text (map abbreviation to full name, e.g. "WR" → "Wide Receiver")
+- `classYear` → class year badge ("Class of {classYear}")
+- `school` → school banner text
+- `teamColor` → already using `var(--team-color)`, no change needed in card
+- `actionPhotoUrl` → when non-null, render `<img>` covering the photo area and hide the "Add Your Action Photo" placeholder
+- `schoolLogoUrl` → when non-null, render `<img>` in the bottom-right logo slot at 40% opacity, replacing `ShieldPlaceholder`
 
-Read `profileStatus` from the store. Update two areas:
+### 4. Wire `BuilderLayout.tsx` — Dynamic `--team-color`
 
-**Status indicator (top-right of card header):**
-- Draft: amber dot (`bg-amber-400`, no pulse) + "Draft" text in `text-amber-400`
-- Live: green pulsing dot (`bg-primary animate-pulse`) + "Live" text in `text-primary`
+Read `teamColor` from store and set it as the CSS variable on the root div instead of hardcoded `#00e639`. This makes the glow, banner, badges, and all accent elements update live.
 
-**CTA button below card:**
-- Draft: active kinetic-gradient button reading "Go Live" (or "Publish Changes" if previously published). Calls `publishProfile()` on click.
-- Live: muted glass-card button reading "Published" with a checkmark icon, visually de-emphasized (not clickable or styled as disabled).
+### Position Label Map (helper in ProCard)
 
-**Share button:**
-- Draft: reduced opacity (`opacity-40`) with `pointer-events-none` — can't share what isn't live.
-- Live: full opacity, interactive as current.
+```text
+QB → Quarterback    RB → Running Back    FB → Fullback
+WR → Wide Receiver  TE → Tight End       OL → Offensive Line
+DL → Defensive Line LB → Linebacker      CB → Cornerback
+S  → Safety         K  → Kicker          P  → Punter
+LS → Long Snapper
+```
 
-**3. `src/features/builder/components/IdentityForm.tsx`** — No changes needed yet
-
-Since fields are static/uncontrolled (Session 1–2), the dirty-marking won't fire until Session 3 when we wire inputs to the store. The system is ready for it, but nothing changes here now.
-
-### Files modified
+### Files Modified
 - `src/store/athleteStore.ts`
+- `src/features/builder/components/IdentityForm.tsx`
 - `src/features/builder/components/ProCard.tsx`
-
-### What this does NOT include
-- No Cloud/database persistence (Session 3)
-- No actual public URL generation
-- No toast/confirmation on publish
-- Form fields remain static — dirty detection wires up in Session 3
+- `src/features/builder/BuilderLayout.tsx`
 
