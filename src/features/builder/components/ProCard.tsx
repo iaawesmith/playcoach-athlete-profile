@@ -60,8 +60,12 @@ export const ProCard = () => {
 
       {/* Card */}
       <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
-        {/* Silhouette Placeholder */}
-        <AthleteSilhouette />
+        {/* Photo placeholder prompt */}
+        <div className="absolute inset-0 flex items-center justify-center z-[1]">
+          <span className="text-on-surface-variant/40 text-sm font-semibold uppercase tracking-widest">
+            Add Your Action Photo
+          </span>
+        </div>
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
@@ -76,8 +80,8 @@ export const ProCard = () => {
           </span>
         </div>
 
-        {/* School logo — upper right, small + transparent */}
-        <div className="absolute top-12 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
+        {/* School logo — lower right */}
+        <div className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
           <ShieldPlaceholder />
         </div>
 
@@ -104,13 +108,6 @@ export const ProCard = () => {
             Sterling
           </h3>
 
-          {/* Jersey number */}
-          <p
-            className="font-bold uppercase tracking-widest text-sm mt-2"
-            style={{ color: "var(--team-color)" }}
-          >
-            #84
-          </p>
 
           {/* Physical attributes row */}
           <div className="flex gap-5 mt-3">
