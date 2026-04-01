@@ -1,13 +1,16 @@
 import playcoachLogo from "@/assets/playcoach-logo.png";
+import { useAthleteStore } from "@/store/athleteStore";
 
 export const TopNav = () => {
+  const { firstName, lastName } = useAthleteStore();
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-card border-b border-white/10 flex items-center justify-between px-6">
       {/* Left */}
       <div className="flex items-center">
         <img src={playcoachLogo} alt="PlayCoach" className="h-6 w-auto" />
         <div className="w-px h-5 bg-white/20 mx-4" />
-        <span className="text-on-surface font-bold text-sm tracking-tight">Marcus Sterling</span>
+        <span className="text-on-surface font-bold text-sm tracking-tight">{firstName} {lastName}</span>
         <span className="text-sm font-black tracking-widest uppercase ml-2" style={{ color: 'var(--team-color)' }}>Brand HQ</span>
       </div>
 
