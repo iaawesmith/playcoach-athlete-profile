@@ -61,7 +61,7 @@ export const ProCard = () => {
       {/* Card */}
       <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
         {/* Photo placeholder prompt */}
-        <div className="absolute inset-0 flex items-center justify-center z-[1]">
+        <div className="absolute top-8 bottom-[40%] left-0 right-0 flex items-center justify-center z-[1]">
           <span className="text-on-surface-variant/40 text-sm font-semibold uppercase tracking-widest">
             Add Your Action Photo
           </span>
