@@ -48,6 +48,7 @@ export const useAthleteStore = create<AthleteState>((set) => ({
   ...defaults,
   profileStatus: "draft",
   hasBeenPublished: false,
+  activeSection: "identity",
   setAthlete: (data) =>
     set((state) => ({
       ...state,
