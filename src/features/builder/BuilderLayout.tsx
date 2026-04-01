@@ -5,8 +5,24 @@ import { IdentityForm } from "./components/IdentityForm";
 import { MobileNav } from "./components/MobileNav";
 import { useAthleteStore } from "@/store/athleteStore";
 
+const sectionLabels: Record<string, string> = {
+  identity: "Identity Preview",
+  highlights: "Highlights Preview",
+  develop: "Develop Preview",
+  stats: "Stats Preview",
+  connect: "Connect Preview",
+};
+
+const sectionIcons: Record<string, string> = {
+  highlights: "play_circle",
+  develop: "trending_up",
+  stats: "leaderboard",
+  connect: "handshake",
+};
+
 export const BuilderLayout = () => {
   const teamColor = useAthleteStore((s) => s.teamColor);
+  const activeSection = useAthleteStore((s) => s.activeSection);
 
   return (
     <div
@@ -19,10 +35,27 @@ export const BuilderLayout = () => {
       {/* Main Content Area */}
       <main className="pt-16 lg:pl-64">
         <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-4rem)]">
-          {/* Left Column — ProCard Preview */}
+          {/* Left Column — Preview */}
           <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low p-8">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)]" />
-            <ProCard />
+            <span className="relative z-10 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant mb-6">
+              {sectionLabels[activeSection]}
+            </span>
+            {activeSection === "identity" ? (
+              <ProCard />
+            ) : (
+              <div className="relative z-10 flex-1 flex flex-col items-center justify-center rounded-xl bg-surface-container border border-white/5">
+                <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">
+                  {sectionIcons[activeSection]}
+                </span>
+                <span className="text-on-surface-variant text-sm font-medium uppercase tracking-widest">
+                  {sectionLabels[activeSection]?.replace(" Preview", "")} Preview
+                </span>
+                <span className="text-on-surface-variant/50 text-xs uppercase tracking-widest mt-1">
+                  Coming Soon
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Right Column — Editor */}
