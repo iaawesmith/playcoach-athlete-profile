@@ -1,52 +1,49 @@
 
 
-## Combined: IdentityPreview + Hide Badges + Move Go Live to Top
+## UI Polish Pass — Preview Header, Editor Layout, and Media Prominence
 
-Three changes rolled into one pass.
+Several targeted refinements across three files.
 
-### 1. New File: `src/features/builder/components/IdentityPreview.tsx`
+### 1. Go Live → Icon-only button (`BuilderLayout.tsx`)
 
-Renders the full Identity section below ProCard, all reading from `useAthleteStore()`:
+Replace the "Go Live" / "Publish" text button with a `w-8 h-8` kinetic-gradient circle containing the Material Symbol `rocket_launch`. Same `publishProfile` onClick. When live, swap to a `check_circle` icon in a glass-card circle (same size as the share button). This keeps the header compact and lets "Identity Preview" fit on one line.
 
-- **Measurables Grid** — 2×3 grid: HT, WT, 40-YD, VERTICAL, WINGSPAN, HAND SIZE. Tiles: `bg-surface-container`, ghost border, teamColor label, bold value. Empty: muted "—".
-- **Recruiting Block** — Star rating (filled/unfilled `star` icons), national rank, position rank, commitment status badge (teamColor bg for Committed, outline for others). Empty ranks: "Not ranked".
-- **Eligibility Block** — Years remaining, transfer eligible badge, redshirt status. Compact row.
-- **Upcoming Game Card** — Full-width, teamColor left border. Opponent, date, time, network, location. Null state: muted "No upcoming game scheduled" with `event` icon.
-- **Bio + Quote** — Bio body text. Quote italic with `border-l-2` in teamColor. Empty: muted prompts.
-- **Hometown + High School** — Single muted line. Empty: "Add your hometown".
+The header row becomes:
 
-All blocks: `max-w-sm w-full`, `space-y-6`.
-
-### 2. Remove Badges from `ProCard.tsx`
-
-Delete the "Badge Strip" section (lines 131–154) — the "Earned Badges" label and the two hardcoded badge pills.
-
-### 3. Move Go Live + Share to Preview Header in `BuilderLayout.tsx`
-
-Remove the "Below Card — CTAs" section from `ProCard.tsx` (lines 156–181) — the Go Live/Published button and Share icon.
-
-Add them to the preview column header row in `BuilderLayout.tsx`, next to the section label and status indicator:
-
-```
-┌─── max-w-sm mx-auto ──────────────────────┐
-│ IDENTITY PREVIEW          [Go Live] [Share]│
-│ ● Draft                                    │
-└────────────────────────────────────────────┘
+```text
+IDENTITY PREVIEW        [🚀] [↗]
+● Draft
 ```
 
-- Go Live button: smaller — `h-8 px-4 text-[10px]` kinetic-gradient pill, same `publishProfile` action
-- When live: small "Published" pill (glass-card, check_circle icon) + Share icon button (`w-8 h-8`)
-- Both always visible at top regardless of scroll position
-- Share button enabled only when live (same logic as current)
+### 2. Section label on one line (`BuilderLayout.tsx`)
 
-### 4. Wire `BuilderLayout.tsx` Preview Column
+The label is already single-line — the icon buttons being smaller guarantees it won't wrap. No text change needed beyond the button swap above.
 
-- Make the left column scrollable: `overflow-y-auto`
-- When `activeSection === "identity"`: render `<ProCard />` then `<IdentityPreview />`
-- Import `publishProfile`, `hasBeenPublished`, `profileStatus` from store for the header CTAs
+### 3. Fix Measurables label alignment (`IdentityPreview.tsx`)
+
+The section labels inside IdentityPreview ("Measurables", "Recruiting", etc.) are rendered as inline `<span>` elements with different padding than the blocks below them. The Measurables label sits inside a bare `<div>` while Recruiting/Eligibility labels sit inside their card's `p-4`. Fix by making all section labels consistent — either all outside their cards (like Measurables) or all inside. Best approach: keep them all outside, and ensure every block's outer wrapper has `px-0` so labels align flush left with the `max-w-sm` container edge.
+
+Currently Recruiting label has `p-4` on its parent card pushing it inward. Move the label span outside the card div for Recruiting, Eligibility, and Upcoming Game — matching the Measurables pattern. All labels become siblings at the same indent level.
+
+### 4. ProCard name on one line (`ProCard.tsx`)
+
+Merge the two `<h3>` elements (firstName / lastName on separate lines) into a single `<h3>` with both names separated by a space. Reduce text size from `text-5xl` to `text-4xl` to accommodate longer combined names. This reclaims vertical space on the card.
+
+### 5. Editor: First Name + Last Name on one row (`IdentityForm.tsx`)
+
+Wrap the two InputCard fields in a `grid grid-cols-2 gap-4` — same pattern already used for measurables. Similarly, put Jersey # and Class Year on one row.
+
+### 6. Editor: Promote media uploads into "Your Identity" section (`IdentityForm.tsx`)
+
+Move the Action Photo and School Logo upload buttons from the separate "Your Media" section into "Your Identity", placing them above the name fields. Make them more prominent:
+
+- **Action Photo**: taller upload zone (`min-h-[120px]`), larger icon (`text-4xl`), and a subtitle prompt: "This is the hero of your card". When a photo is set, show a larger preview (`w-16 h-16`).
+- **School Logo**: same treatment but slightly smaller (`min-h-[80px]`).
+- Remove the "Your Media" SectionHeader entirely — the uploads now live under "Your Identity".
 
 ### Files modified
-- `src/features/builder/components/IdentityPreview.tsx` (new)
-- `src/features/builder/components/ProCard.tsx`
 - `src/features/builder/BuilderLayout.tsx`
+- `src/features/builder/components/IdentityPreview.tsx`
+- `src/features/builder/components/ProCard.tsx`
+- `src/features/builder/components/IdentityForm.tsx`
 
