@@ -290,27 +290,41 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Eligibility" />
         <div className="space-y-4">
-          <InputCard
-            label="Eligibility Years Remaining"
-            value={String(eligibilityYears)}
-            type="number"
-            onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
-          />
-          <ToggleCard
-            label="Transfer Eligible"
-            value={transferEligible}
-            onChange={(v) => setAthlete({ transferEligible: v })}
-          />
-          <SelectCard
-            label="Redshirt Status"
-            value={redshirtStatus}
-            options={[
-              { value: "None", label: "None" },
-              { value: "Redshirt", label: "Redshirt" },
-              { value: "Medical RS", label: "Medical RS" },
-            ]}
-            onChange={(v) => setAthlete({ redshirtStatus: v })}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard
+              label="Eligibility Years Remaining"
+              value={String(eligibilityYears)}
+              type="number"
+              onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
+            />
+            <ToggleCard
+              label="Transfer Eligible"
+              value={transferEligible}
+              onChange={(v) => setAthlete({ transferEligible: v })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <SelectCard
+              label="Redshirt Status"
+              value={redshirtStatus}
+              options={[
+                { value: "None", label: "None" },
+                { value: "Redshirt", label: "Redshirt" },
+                { value: "Medical RS", label: "Medical RS" },
+              ]}
+              onChange={(v) => setAthlete({ redshirtStatus: v })}
+            />
+            <SelectCard
+              label="Commitment Status"
+              value={commitmentStatus}
+              options={[
+                { value: "committed", label: "Committed" },
+                { value: "uncommitted", label: "Uncommitted" },
+                { value: "portal", label: "In Portal" },
+              ]}
+              onChange={(v) => setAthlete({ commitmentStatus: v as "committed" | "uncommitted" | "portal" })}
+            />
+          </div>
         </div>
       </section>
 
@@ -339,35 +353,20 @@ export const IdentityForm = () => {
               ))}
             </div>
           </div>
-          <InputCard
-            label="National Rank"
-            value={nationalRank !== null ? String(nationalRank) : ""}
-            type="number"
-            onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
-          />
-          <InputCard
-            label="Position Rank"
-            value={positionRank !== null ? String(positionRank) : ""}
-            type="number"
-            onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
-          />
-        </div>
-      </section>
-
-      {/* Commitment */}
-      <section>
-        <SectionHeader title="Commitment" />
-        <div className="space-y-4">
-          <SelectCard
-            label="Commitment Status"
-            value={commitmentStatus}
-            options={[
-              { value: "committed", label: "Committed" },
-              { value: "uncommitted", label: "Uncommitted" },
-              { value: "portal", label: "In Portal" },
-            ]}
-            onChange={(v) => setAthlete({ commitmentStatus: v as "committed" | "uncommitted" | "portal" })}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard
+              label="National Rank"
+              value={nationalRank !== null ? String(nationalRank) : ""}
+              type="number"
+              onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
+            />
+            <InputCard
+              label="Position Rank"
+              value={positionRank !== null ? String(positionRank) : ""}
+              type="number"
+              onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
+            />
+          </div>
         </div>
       </section>
 
