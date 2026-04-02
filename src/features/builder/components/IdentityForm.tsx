@@ -170,46 +170,44 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Your Identity" />
         <div className="space-y-4">
-          {/* Media uploads — prominent */}
-          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-          <button
-            type="button"
-            onClick={() => photoInputRef.current?.click()}
-            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 min-h-[120px] flex flex-col items-center justify-center gap-3 text-center transition-colors duration-200 hover:border-white/20"
-          >
-            {actionPhotoUrl ? (
-              <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface-variant text-4xl">add_a_photo</span>
-            )}
-            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
-              {actionPhotoUrl ? "Change Action Photo" : "Upload Action Photo"}
-            </span>
-            <span className="text-on-surface-variant/40 text-[10px] uppercase tracking-widest">
-              This is the hero of your card
-            </span>
-          </button>
-
-          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-          <button
-            type="button"
-            onClick={() => logoInputRef.current?.click()}
-            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
-          >
-            {schoolLogoUrl ? (
-              <img src={schoolLogoUrl} alt="School logo" className="w-16 h-16 rounded-lg object-contain" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface-variant text-4xl">school</span>
-            )}
-            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
-              {schoolLogoUrl ? "Change School Logo" : "Upload School Logo"}
-            </span>
-          </button>
-
-          {/* Name fields — side by side */}
+          {/* Name fields — top */}
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} />
             <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
+          </div>
+
+          {/* Media uploads — side by side */}
+          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+            >
+              {actionPhotoUrl ? (
+                <img src={actionPhotoUrl} alt="Action photo" className="w-12 h-12 rounded-lg object-cover" />
+              ) : (
+                <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+              )}
+              <span className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">
+                {actionPhotoUrl ? "Change Photo" : "Action Photo"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+            >
+              {schoolLogoUrl ? (
+                <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 rounded-lg object-contain" />
+              ) : (
+                <span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
+              )}
+              <span className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">
+                {schoolLogoUrl ? "Change Logo" : "School Logo"}
+              </span>
+            </button>
           </div>
         </div>
       </section>
@@ -272,8 +270,10 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Background" />
         <div className="space-y-4">
-          <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
-          <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
+            <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
+          </div>
         </div>
       </section>
 
@@ -290,27 +290,41 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Eligibility" />
         <div className="space-y-4">
-          <InputCard
-            label="Eligibility Years Remaining"
-            value={String(eligibilityYears)}
-            type="number"
-            onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
-          />
-          <ToggleCard
-            label="Transfer Eligible"
-            value={transferEligible}
-            onChange={(v) => setAthlete({ transferEligible: v })}
-          />
-          <SelectCard
-            label="Redshirt Status"
-            value={redshirtStatus}
-            options={[
-              { value: "None", label: "None" },
-              { value: "Redshirt", label: "Redshirt" },
-              { value: "Medical RS", label: "Medical RS" },
-            ]}
-            onChange={(v) => setAthlete({ redshirtStatus: v })}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard
+              label="Eligibility Years Remaining"
+              value={String(eligibilityYears)}
+              type="number"
+              onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
+            />
+            <ToggleCard
+              label="Transfer Eligible"
+              value={transferEligible}
+              onChange={(v) => setAthlete({ transferEligible: v })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <SelectCard
+              label="Redshirt Status"
+              value={redshirtStatus}
+              options={[
+                { value: "None", label: "None" },
+                { value: "Redshirt", label: "Redshirt" },
+                { value: "Medical RS", label: "Medical RS" },
+              ]}
+              onChange={(v) => setAthlete({ redshirtStatus: v })}
+            />
+            <SelectCard
+              label="Commitment Status"
+              value={commitmentStatus}
+              options={[
+                { value: "committed", label: "Committed" },
+                { value: "uncommitted", label: "Uncommitted" },
+                { value: "portal", label: "In Portal" },
+              ]}
+              onChange={(v) => setAthlete({ commitmentStatus: v as "committed" | "uncommitted" | "portal" })}
+            />
+          </div>
         </div>
       </section>
 
@@ -339,35 +353,20 @@ export const IdentityForm = () => {
               ))}
             </div>
           </div>
-          <InputCard
-            label="National Rank"
-            value={nationalRank !== null ? String(nationalRank) : ""}
-            type="number"
-            onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
-          />
-          <InputCard
-            label="Position Rank"
-            value={positionRank !== null ? String(positionRank) : ""}
-            type="number"
-            onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
-          />
-        </div>
-      </section>
-
-      {/* Commitment */}
-      <section>
-        <SectionHeader title="Commitment" />
-        <div className="space-y-4">
-          <SelectCard
-            label="Commitment Status"
-            value={commitmentStatus}
-            options={[
-              { value: "committed", label: "Committed" },
-              { value: "uncommitted", label: "Uncommitted" },
-              { value: "portal", label: "In Portal" },
-            ]}
-            onChange={(v) => setAthlete({ commitmentStatus: v as "committed" | "uncommitted" | "portal" })}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard
+              label="National Rank"
+              value={nationalRank !== null ? String(nationalRank) : ""}
+              type="number"
+              onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
+            />
+            <InputCard
+              label="Position Rank"
+              value={positionRank !== null ? String(positionRank) : ""}
+              type="number"
+              onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
+            />
+          </div>
         </div>
       </section>
 
@@ -375,10 +374,14 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Upcoming Game" />
         <div className="space-y-4">
-          <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
-          <InputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
-          <InputCard label="Time" value={game.time} onChange={(v) => setGame("time", v)} />
-          <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
+            <InputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Time" value={game.time} onChange={(v) => setGame("time", v)} />
+            <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
+          </div>
           <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
         </div>
       </section>

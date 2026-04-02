@@ -46,54 +46,54 @@ export const BuilderLayout = () => {
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)] z-0" />
 
             {/* Header: Label + Status + CTAs */}
-            <div className="relative z-10 w-full max-w-sm mx-auto pt-8 px-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="relative z-10 w-full max-w-sm mx-auto pt-8 px-4">
+              <div className="flex items-center justify-between">
                 <span className="text-lg font-extrabold uppercase tracking-widest text-on-surface-variant">
                   {sectionLabels[activeSection]}
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {isDraft ? (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
-                        Draft
-                      </span>
-                    </>
+                    <button
+                      onClick={publishProfile}
+                      className="w-8 h-8 rounded-full kinetic-gradient flex items-center justify-center active:scale-95 transition-all duration-150"
+                      title={hasBeenPublished ? "Publish" : "Go Live"}
+                    >
+                      <span className="material-symbols-outlined text-[#00460a] text-sm">rocket_launch</span>
+                    </button>
                   ) : (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-                        Live
-                      </span>
-                    </>
+                    <button
+                      disabled
+                      className="w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 cursor-default"
+                      title="Published"
+                    >
+                      <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
+                    </button>
                   )}
+                  <button
+                    className={`w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
+                      isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-on-surface text-sm">share</span>
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 mt-1.5">
                 {isDraft ? (
-                  <button
-                    onClick={publishProfile}
-                    className="w-8 h-8 rounded-full kinetic-gradient flex items-center justify-center active:scale-95 transition-all duration-150"
-                    title={hasBeenPublished ? "Publish" : "Go Live"}
-                  >
-                    <span className="material-symbols-outlined text-[#00460a] text-sm">rocket_launch</span>
-                  </button>
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+                      Draft
+                    </span>
+                  </>
                 ) : (
-                  <button
-                    disabled
-                    className="w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 cursor-default"
-                    title="Published"
-                  >
-                    <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
-                  </button>
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+                      Live
+                    </span>
+                  </>
                 )}
-                <button
-                  className={`w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
-                    isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-on-surface text-sm">share</span>
-                </button>
               </div>
             </div>
 
