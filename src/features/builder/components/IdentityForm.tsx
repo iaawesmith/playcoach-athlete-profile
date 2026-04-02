@@ -1,7 +1,13 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
+const classYears = ["2024", "2025", "2026", "2027", "2028", "2029", "2030"];
+const commitmentOptions = [
+  { value: "committed" as const, label: "Committed" },
+  { value: "uncommitted" as const, label: "Uncommitted" },
+  { value: "portal" as const, label: "In Portal" },
+];
 
 const SectionHeader = ({ title }: { title: string }) => (
   <div className="flex items-center gap-3 mb-6">
@@ -29,32 +35,133 @@ const InputCard = ({
   value,
   type = "text",
   onChange,
+  suffix,
+  helperText,
 }: {
   label: string;
   value: string;
   type?: string;
   onChange: (val: string) => void;
+  suffix?: string;
+  helperText?: string;
 }) => (
   <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
     <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
       {label}
     </label>
     {type === "textarea" ? (
-      <textarea
-        className="w-full bg-transparent text-on-surface text-sm font-normal resize-none outline-none min-h-[80px]"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <>
+        <textarea
+          className="w-full bg-transparent text-on-surface text-sm font-normal resize-none outline-none min-h-[80px]"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {helperText && (
+          <p className="text-[10px] text-on-surface-variant/50 mt-1">{helperText}</p>
+        )}
+      </>
     ) : (
-      <input
-        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        type={type}
-      />
+      <div className="flex items-center">
+        <input
+          className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          type={type}
+        />
+        {suffix && (
+          <span className="text-on-surface-variant text-sm font-normal ml-1 shrink-0">{suffix}</span>
+        )}
+      </div>
     )}
   </div>
 );
+
+const NumericInputCard = ({
+  label,
+  value,
+  onChange,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  suffix: string;
+}) => (
+  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+      {label}
+    </label>
+    <div className="flex items-center">
+      <input
+        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value.replace(/[^\d.]/g, "");
+          onChange(v);
+        }}
+        inputMode="decimal"
+      />
+      <span className="text-on-surface-variant text-sm font-normal ml-1 shrink-0">{suffix}</span>
+    </div>
+  </div>
+);
+
+const HeightInputCard = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const [rawInput, setRawInput] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleChange = (input: string) => {
+    const digits = input.replace(/\D/g, "");
+    setRawInput(digits);
+    if (digits.length >= 2) {
+      const totalInches = parseInt(digits, 10);
+      const feet = Math.floor(totalInches / 12);
+      const inches = totalInches % 12;
+      onChange(`${feet}'${inches}"`);
+    } else if (digits === "") {
+      onChange("");
+    }
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    // Extract total inches from formatted value for editing
+    const match = value.match(/(\d+)'(\d+)"/);
+    if (match) {
+      const total = parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
+      setRawInput(String(total));
+    } else {
+      setRawInput("");
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+  };
+
+  return (
+    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+      <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+        Height (inches)
+      </label>
+      <input
+        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+        value={isFocused ? rawInput : value}
+        onChange={(e) => handleChange(e.target.value)}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        inputMode="numeric"
+        placeholder='e.g. 74 → 6\'2"'
+      />
+    </div>
+  );
+};
 
 const ToggleCard = ({
   label,
@@ -124,6 +231,73 @@ const SelectCard = ({
   </div>
 );
 
+const DateInputCard = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) => (
+  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+      {label}
+    </label>
+    <input
+      type="date"
+      className="w-full bg-transparent text-on-surface text-sm font-normal outline-none [color-scheme:dark]"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  </div>
+);
+
+const TimeInputCard = ({
+  label,
+  time,
+  period,
+  onTimeChange,
+  onPeriodChange,
+}: {
+  label: string;
+  time: string;
+  period: string;
+  onTimeChange: (val: string) => void;
+  onPeriodChange: (val: string) => void;
+}) => (
+  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+      {label}
+    </label>
+    <div className="flex items-center gap-2">
+      <input
+        className="flex-1 bg-transparent text-on-surface text-sm font-normal outline-none"
+        value={time}
+        onChange={(e) => onTimeChange(e.target.value)}
+        placeholder="7:00"
+        inputMode="numeric"
+      />
+      <div className="flex rounded-full overflow-hidden">
+        {["AM", "PM"].map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onPeriodChange(p)}
+            className={`px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 ${
+              period === p
+                ? "text-[#00460a] kinetic-gradient"
+                : "text-on-surface-variant bg-surface-container-high"
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
 export const IdentityForm = () => {
   const store = useAthleteStore();
   const {
@@ -160,6 +334,21 @@ export const IdentityForm = () => {
   const setGame = (field: string, val: string) => {
     setAthlete({ upcomingGame: { ...game, [field]: val } });
   };
+
+  // Parse time into value and period
+  const timeMatch = game.time.match(/^([\d:]+)\s*(AM|PM)?$/i);
+  const timeValue = timeMatch ? timeMatch[1] : game.time;
+  const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "PM";
+
+  const handleTimeChange = (val: string) => {
+    setGame("time", `${val} ${timePeriod}`);
+  };
+  const handlePeriodChange = (p: string) => {
+    setGame("time", `${timeValue} ${p}`);
+  };
+
+  // Weight: strip "lbs" suffix for raw editing
+  const weightRaw = weight.replace(/\s*lbs?/i, "");
 
   return (
     <div className="space-y-10">
@@ -258,7 +447,12 @@ export const IdentityForm = () => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} />
-            <InputCard label="Class Year" value={classYear} onChange={(v) => setAthlete({ classYear: v })} />
+            <SelectCard
+              label="Class Year"
+              value={classYear}
+              options={classYears.map((y) => ({ value: y, label: y }))}
+              onChange={(v) => setAthlete({ classYear: v })}
+            />
           </div>
         </div>
       </section>
@@ -268,16 +462,21 @@ export const IdentityForm = () => {
         <SectionHeader title="Measurables" />
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Height" value={height} onChange={(v) => setAthlete({ height: v })} />
-            <InputCard label="Weight" value={weight} onChange={(v) => setAthlete({ weight: v })} />
+            <HeightInputCard value={height} onChange={(v) => setAthlete({ height: v })} />
+            <NumericInputCard
+              label="Weight"
+              value={weightRaw}
+              suffix="lbs"
+              onChange={(v) => setAthlete({ weight: v ? `${v} lbs` : "" })}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <InputCard label="40 Time" value={fortyTime} onChange={(v) => setAthlete({ fortyTime: v })} />
-            <InputCard label="Vertical" value={vertical} onChange={(v) => setAthlete({ vertical: v })} />
+            <NumericInputCard label="40 Time" value={fortyTime} suffix="s" onChange={(v) => setAthlete({ fortyTime: v })} />
+            <NumericInputCard label="Vertical" value={vertical.replace(/"/g, "")} suffix='"' onChange={(v) => setAthlete({ vertical: v ? `${v}"` : "" })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Wingspan" value={wingspan} onChange={(v) => setAthlete({ wingspan: v })} />
-            <InputCard label="Hand Size" value={handSize} onChange={(v) => setAthlete({ handSize: v })} />
+            <NumericInputCard label="Wingspan" value={wingspan.replace(/['"]/g, "")} suffix='"' onChange={(v) => setAthlete({ wingspan: v ? `${v}"` : "" })} />
+            <NumericInputCard label="Hand Size" value={handSize.replace(/"/g, "")} suffix='"' onChange={(v) => setAthlete({ handSize: v ? `${v}"` : "" })} />
           </div>
         </div>
       </section>
@@ -324,16 +523,28 @@ export const IdentityForm = () => {
               onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
             />
           </div>
-          <SelectCard
-            label="Commitment Status"
-            value={commitmentStatus}
-            options={[
-              { value: "committed", label: "Committed" },
-              { value: "uncommitted", label: "Uncommitted" },
-              { value: "portal", label: "In Portal" },
-            ]}
-            onChange={(v) => setAthlete({ commitmentStatus: v as "committed" | "uncommitted" | "portal" })}
-          />
+          {/* Commitment Status — pill buttons */}
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+            <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
+              Commitment Status
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {commitmentOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setAthlete({ commitmentStatus: opt.value })}
+                  className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
+                    commitmentStatus === opt.value
+                      ? "text-[#00460a] kinetic-gradient"
+                      : "text-on-surface-variant bg-surface-container-high"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -373,10 +584,16 @@ export const IdentityForm = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
-            <InputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
+            <DateInputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Time" value={game.time} onChange={(v) => setGame("time", v)} />
+            <TimeInputCard
+              label="Time"
+              time={timeValue}
+              period={timePeriod}
+              onTimeChange={handleTimeChange}
+              onPeriodChange={handlePeriodChange}
+            />
             <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
           </div>
           <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
@@ -387,7 +604,13 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Story" />
         <div className="space-y-4">
-          <InputCard label="Athlete Bio" value={bio} type="textarea" onChange={(v) => setAthlete({ bio: v })} />
+          <InputCard
+            label="Athlete Bio"
+            value={bio}
+            type="textarea"
+            onChange={(v) => setAthlete({ bio: v })}
+            helperText="Tell coaches and scouts your story in your own words"
+          />
           <InputCard label="Personal Quote" value={quote} type="textarea" onChange={(v) => setAthlete({ quote: v })} />
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />

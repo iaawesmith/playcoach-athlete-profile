@@ -9,11 +9,28 @@ const navItems = [
 ];
 
 const strengthSegments = 10;
-const filledSegments = 8;
+
+const computeProfileStrength = (state: ReturnType<typeof useAthleteStore.getState>): number => {
+  let score = 0;
+  if (state.actionPhotoUrl) score += 25;
+  if (state.schoolLogoUrl) score += 15;
+  if (state.bio && state.bio.length > 0) score += 15;
+  if (state.firstName && state.lastName) score += 10;
+  if (state.position) score += 10;
+  if (state.school) score += 10;
+  if (state.teamColor && state.teamColor !== "#00e639") score += 5;
+  if (state.classYear) score += 5;
+  if (state.number) score += 3;
+  // socialLinks not yet in store → 2% reserved
+  return score;
+};
 
 export const SideNav = () => {
   const activeSection = useAthleteStore((s) => s.activeSection);
   const setActiveSection = useAthleteStore((s) => s.setActiveSection);
+  const state = useAthleteStore();
+  const profileStrength = computeProfileStrength(state);
+  const filledSegments = Math.round((profileStrength / 100) * strengthSegments);
 
   return (
     <aside className="hidden lg:flex fixed left-0 top-16 bottom-0 w-64 bg-surface flex-col z-40">
@@ -21,7 +38,7 @@ export const SideNav = () => {
       <div className="p-6 space-y-4">
         <div>
           <h2 className="text-on-surface font-extrabold uppercase text-sm tracking-wide">
-            Athlete Profile
+            Brand HQ
           </h2>
         </div>
 
@@ -31,7 +48,7 @@ export const SideNav = () => {
             <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em]">
               Profile Strength
             </span>
-            <span className="text-on-surface text-[10px] font-bold">84%</span>
+            <span className="text-on-surface text-[10px] font-bold">{profileStrength}%</span>
           </div>
           <div className="flex gap-0.5">
             {Array.from({ length: strengthSegments }).map((_, i) => (
