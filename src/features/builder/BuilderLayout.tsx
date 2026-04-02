@@ -46,7 +46,7 @@ export const BuilderLayout = () => {
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)] z-0" />
 
             {/* Header: Label + Status + CTAs */}
-            <div className="relative z-10 w-full max-w-sm mx-auto pt-8 px-4">
+            <div className="relative z-10 w-full pt-8 px-8">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-extrabold uppercase tracking-widest text-on-surface-variant">
                   {sectionLabels[activeSection]}
