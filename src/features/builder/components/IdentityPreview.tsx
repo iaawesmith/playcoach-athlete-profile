@@ -89,7 +89,7 @@ export const IdentityPreview = () => {
           Recruiting
         </span>
         <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center gap-4">
-          <div>
+          <div className="flex-1">
             {/* Stars */}
             <div className="flex items-center gap-0.5 mb-3">
               {Array.from({ length: 5 }).map((_, i) => (
