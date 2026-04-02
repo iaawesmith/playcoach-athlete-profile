@@ -1,32 +1,34 @@
 
 
-## Remove Field Borders from Identity Editor
+## Show School Logo in Recruiting Block When Committed
 
-All input cards and upload slots in `IdentityForm.tsx` use `border border-white/[0.12]`. Removing this will let the fields float on tonal contrast alone (`bg-surface-container` against the page `bg-surface`), aligning with the No-Line Rule aesthetic.
+When `commitmentStatus === "committed"` and `schoolLogoUrl` exists, display the school logo on the right side of the recruiting card. This visually reinforces the commitment destination.
 
-### Change — `src/features/builder/components/IdentityForm.tsx`
+### Change — `src/features/builder/components/IdentityPreview.tsx`
 
-Find-and-replace all instances of `border border-white/[0.12]` with nothing (remove entirely). This affects:
+Lines 90–130: Restructure the recruiting card interior to use a flex layout with the existing content on the left and the school logo on the right.
 
-- `InputCard` (line 48)
-- `NumericInputCard` (line 90)
-- `HeightInputCard` (line 134)
-- `SelectCard` (line 171)
-- `TextAreaCard` (line 210)
-- `ToggleCard` (line 237)
-- `TimeInputCard` (line 263)
-- Action photo upload button (line 388)
-- School logo upload button (line 410)
-- Team color preview tile (line 434)
-- Position radio group (line 451)
-- Star rating block (line 529)
-- Commitment status block (line 564)
-- Any remaining instances
+**Current:** Single-column content (stars → ranks → badge).
 
-Also remove `hover:border-white/20` from the upload buttons (lines 388, 410) since there's no base border to transition from.
+**New:** Wrap in `flex justify-between items-center`. Left side keeps all existing content. Right side renders the school logo (48×48, rounded-lg, object-contain) only when `commitmentStatus === "committed"` and `schoolLogoUrl` is truthy.
 
-Keep the focus-within teamColor border behavior (handled by `input-card-focus` CSS class) — that still works independently.
+```tsx
+<div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center justify-between">
+  <div>
+    {/* Stars, Ranks, Commitment badge — unchanged */}
+  </div>
+  {commitmentStatus === "committed" && schoolLogoUrl && (
+    <img
+      src={schoolLogoUrl}
+      alt="School logo"
+      className="w-12 h-12 rounded-lg object-contain"
+    />
+  )}
+</div>
+```
+
+The logo only appears when both conditions are met — committed + logo uploaded. Uncommitted or portal athletes see no change. No logo uploaded means no change either.
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/components/IdentityPreview.tsx`
 
