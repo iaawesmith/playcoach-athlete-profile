@@ -161,7 +161,7 @@ export const IdentityPreview = () => {
           Upcoming Game
         </span>
         <div
-          className="bg-surface-container border-l-2 rounded-xl p-4"
+          className="bg-surface-container-high border-l-2 rounded-xl p-4"
           style={{ borderLeftColor: "var(--team-color)" }}
         >
           {upcomingGame ? (
