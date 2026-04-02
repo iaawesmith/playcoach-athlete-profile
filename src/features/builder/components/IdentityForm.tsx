@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
@@ -93,7 +93,8 @@ const NumericInputCard = ({
     </label>
     <div className="flex items-center">
       <input
-        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+        className="bg-transparent text-on-surface text-sm font-normal outline-none"
+        style={{ width: `${Math.max((value || "").length, 1) * 0.6 + 0.5}em` }}
         value={value}
         onChange={(e) => {
           const v = e.target.value.replace(/[^\d.]/g, "");
@@ -101,7 +102,7 @@ const NumericInputCard = ({
         }}
         inputMode="decimal"
       />
-      <span className="text-on-surface-variant text-sm font-normal ml-1 shrink-0">{suffix}</span>
+      <span className="text-on-surface-variant text-sm font-normal shrink-0">{suffix}</span>
     </div>
   </div>
 );
@@ -113,52 +114,45 @@ const HeightInputCard = ({
   value: string;
   onChange: (val: string) => void;
 }) => {
-  const [rawInput, setRawInput] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
+  // value is total inches as string e.g. "74"
+  const totalInches = parseInt(value, 10) || 0;
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
 
-  const handleChange = (input: string) => {
-    const digits = input.replace(/\D/g, "");
-    setRawInput(digits);
-    if (digits.length >= 2) {
-      const totalInches = parseInt(digits, 10);
-      const feet = Math.floor(totalInches / 12);
-      const inches = totalInches % 12;
-      onChange(`${feet}'${inches}"`);
-    } else if (digits === "") {
-      onChange("");
-    }
+  const handleFeetChange = (v: string) => {
+    const f = parseInt(v.replace(/\D/g, ""), 10) || 0;
+    onChange(String(f * 12 + inches));
   };
 
-  const handleFocus = () => {
-    setIsFocused(true);
-    // Extract total inches from formatted value for editing
-    const match = value.match(/(\d+)'(\d+)"/);
-    if (match) {
-      const total = parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
-      setRawInput(String(total));
-    } else {
-      setRawInput("");
-    }
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
+  const handleInchesChange = (v: string) => {
+    const raw = v.replace(/\D/g, "");
+    const i = Math.min(parseInt(raw, 10) || 0, 11);
+    onChange(String(feet * 12 + i));
   };
 
   return (
     <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
       <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
-        Height (inches)
+        Height
       </label>
-      <input
-        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
-        value={isFocused ? rawInput : value}
-        onChange={(e) => handleChange(e.target.value)}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        inputMode="numeric"
-        placeholder="e.g. 74"
-      />
+      <div className="flex items-center gap-2">
+        <input
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          value={totalInches > 0 ? String(feet) : ""}
+          onChange={(e) => handleFeetChange(e.target.value)}
+          inputMode="numeric"
+          placeholder="6"
+        />
+        <span className="text-on-surface-variant text-sm shrink-0">ft</span>
+        <input
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          value={totalInches > 0 ? String(inches) : ""}
+          onChange={(e) => handleInchesChange(e.target.value)}
+          inputMode="numeric"
+          placeholder="2"
+        />
+        <span className="text-on-surface-variant text-sm shrink-0">in</span>
+      </div>
     </div>
   );
 };
@@ -347,7 +341,7 @@ export const IdentityForm = () => {
     setGame("time", `${timeValue} ${p}`);
   };
 
-  // Weight: strip "lbs" suffix for raw editing
+  // Weight: raw number stored now
   const weightRaw = weight.replace(/\s*lbs?/i, "");
 
   return (
@@ -476,17 +470,17 @@ export const IdentityForm = () => {
             <NumericInputCard
               label="Weight"
               value={weightRaw}
-              suffix="lbs"
-              onChange={(v) => setAthlete({ weight: v ? `${v} lbs` : "" })}
+              suffix=" lbs"
+              onChange={(v) => setAthlete({ weight: v })}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <NumericInputCard label="40 Time" value={fortyTime} suffix="s" onChange={(v) => setAthlete({ fortyTime: v })} />
-            <NumericInputCard label="Vertical" value={vertical.replace(/"/g, "")} suffix='"' onChange={(v) => setAthlete({ vertical: v ? `${v}"` : "" })} />
+            <NumericInputCard label="Vertical" value={vertical} suffix='"' onChange={(v) => setAthlete({ vertical: v })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <NumericInputCard label="Wingspan" value={wingspan.replace(/['"]/g, "")} suffix='"' onChange={(v) => setAthlete({ wingspan: v ? `${v}"` : "" })} />
-            <NumericInputCard label="Hand Size" value={handSize.replace(/"/g, "")} suffix='"' onChange={(v) => setAthlete({ handSize: v ? `${v}"` : "" })} />
+            <NumericInputCard label="Wingspan" value={wingspan} suffix='"' onChange={(v) => setAthlete({ wingspan: v })} />
+            <NumericInputCard label="Hand Size" value={handSize} suffix='"' onChange={(v) => setAthlete({ handSize: v })} />
           </div>
         </div>
       </section>
