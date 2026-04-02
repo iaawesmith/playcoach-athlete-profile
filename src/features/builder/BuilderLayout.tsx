@@ -46,12 +46,12 @@ export const BuilderLayout = () => {
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)] z-0" />
 
             {/* Header: Label + Status + CTAs */}
-            <div className="relative z-10 w-full max-w-sm mx-auto pt-8 px-8 flex items-start justify-between">
-              <div>
+            <div className="relative z-10 w-full max-w-sm mx-auto pt-8 px-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <span className="text-lg font-extrabold uppercase tracking-widest text-on-surface-variant">
                   {sectionLabels[activeSection]}
                 </span>
-                <div className="flex items-center gap-1.5 mt-1.5">
+                <div className="flex items-center gap-1.5">
                   {isDraft ? (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -69,21 +69,22 @@ export const BuilderLayout = () => {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2">
                 {isDraft ? (
                   <button
                     onClick={publishProfile}
-                    className="kinetic-gradient text-[#00460a] rounded-full font-black uppercase tracking-[0.2em] text-[10px] h-8 px-4 active:scale-95 transition-all duration-150"
+                    className="w-8 h-8 rounded-full kinetic-gradient flex items-center justify-center active:scale-95 transition-all duration-150"
+                    title={hasBeenPublished ? "Publish" : "Go Live"}
                   >
-                    {hasBeenPublished ? "Publish" : "Go Live"}
+                    <span className="material-symbols-outlined text-[#00460a] text-sm">rocket_launch</span>
                   </button>
                 ) : (
                   <button
                     disabled
-                    className="glass-card border border-outline-variant/20 text-on-surface-variant rounded-full font-black uppercase tracking-[0.2em] text-[10px] h-8 px-3 flex items-center gap-1.5 cursor-default"
+                    className="w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 cursor-default"
+                    title="Published"
                   >
-                    <span className="material-symbols-outlined text-xs">check_circle</span>
-                    Published
+                    <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
                   </button>
                 )}
                 <button
