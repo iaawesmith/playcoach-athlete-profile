@@ -75,7 +75,7 @@ export const IdentityPreview = () => {
         <div className="grid grid-cols-3 gap-2">
           <MeasurableTile label="Height" value={formatHeight(height)} />
           <MeasurableTile label="Weight" value={formatWeight(weight)} />
-          <MeasurableTile label="40-Yard" value={fortyTime || "—"} />
+          <MeasurableTile label="40 Time" value={fortyTime || "—"} />
           <MeasurableTile label="Vertical" value={formatInches(vertical)} />
           <MeasurableTile label="Wingspan" value={formatInches(wingspan)} />
           <MeasurableTile label="Hand Size" value={formatInches(handSize)} />
