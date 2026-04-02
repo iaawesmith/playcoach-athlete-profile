@@ -1,13 +1,18 @@
 
 
-## Remove Misleading Placeholder from Time Input
+## Standardize "40 Time" Label Across All Surfaces
 
-The `TimeInputCard` in `IdentityForm.tsx` (line 272) has `placeholder="7:00"` which looks like pre-filled data. Simple fix: remove the placeholder entirely so the field shows blank when empty. The label "TIME" already tells the user what to enter.
+Three instances to update to "40 TIME" (rendered uppercase via CSS):
 
-### Change — `src/features/builder/components/IdentityForm.tsx`
+| File | Current | New |
+|------|---------|-----|
+| `ProCard.tsx` line 35 | `"40-YD"` | `"40 TIME"` |
+| `IdentityPreview.tsx` line 78 | `"40-Yard"` | `"40 Time"` |
+| `IdentityForm.tsx` line 498 | `"40 Time"` | no change needed |
 
-Line 272: Remove `placeholder="7:00"` from the time input, or replace with an empty string.
+The form already says "40 Time". The ProCard and preview labels are rendered uppercase via CSS, so casing in the prop doesn't matter — but we'll use "40 Time" for consistency in source.
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/components/ProCard.tsx` — line 35
+- `src/features/builder/components/IdentityPreview.tsx` — line 78
 
