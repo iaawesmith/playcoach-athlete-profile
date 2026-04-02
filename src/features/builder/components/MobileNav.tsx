@@ -2,7 +2,7 @@ import { useAthleteStore } from "@/store/athleteStore";
 
 const mobileNavItems = [
   { key: "identity" as const, icon: "fingerprint", label: "Identity" },
-  { key: "stats" as const, icon: "leaderboard", label: "Stats" },
+  { key: "pulse" as const, icon: "monitoring", label: "Pulse" },
   { key: "connect" as const, icon: "handshake", label: "Connect" },
 ];
 

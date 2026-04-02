@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type ActiveSection = "identity" | "highlights" | "develop" | "stats" | "connect";
+type ActiveSection = "identity" | "performance" | "develop" | "pulse" | "connect";
 
 interface AthleteState {
   firstName: string;
