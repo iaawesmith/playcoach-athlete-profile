@@ -415,7 +415,10 @@ export const IdentityForm = () => {
                         <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
                       </>
                     ) : (
-                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
+                      <>
+                        <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+                        <span className="text-on-surface-variant/60 text-[9px]">Your logo appears on the card</span>
+                      </>
                     )}
                   </button>
                 </div>
