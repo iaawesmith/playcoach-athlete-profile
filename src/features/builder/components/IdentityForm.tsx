@@ -229,6 +229,8 @@ export const IdentityForm = () => {
               />
             </div>
           </div>
+        </div>
+      </section>
 
       {/* Position & Details */}
       <section>
