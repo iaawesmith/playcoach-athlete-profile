@@ -270,8 +270,10 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Background" />
         <div className="space-y-4">
-          <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
-          <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
+            <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
+          </div>
         </div>
       </section>
 
