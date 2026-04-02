@@ -1,20 +1,20 @@
 
 
-## Suffix Spacing Adjustments + Wingspan Decimal
+## Make Editor Panel Section-Aware
 
-All changes in `NumericInputCard` inside `IdentityForm.tsx`.
+Currently `BuilderLayout.tsx` always renders `<IdentityForm />` in the right column. The "On Your Card" fields (Your Identity, Position & Details, Measurables) are identity-specific and should only show when `activeSection === "identity"`. For other sections, show a "Coming Soon" placeholder under the "On Your Card" header.
 
-### 1. Reduce suffix gap
+### Changes
 
-The suffix currently has no explicit margin — it sits right after the dynamic-width input. The input width formula `Math.max(value.length, 1) * 0.6 + 0.5` adds `0.5em` of padding after the text, creating the gap.
+**`src/features/builder/components/IdentityForm.tsx`**
 
-**Fix**: Reduce the constant from `0.5` to `0.2` — this tightens the suffix closer to the number for all fields (weight/lbs, 40 time/s, vertical/", hand size/"). Wingspan spacing is already good per the user, so this universal change should work since they asked to move all the others closer.
+Read `activeSection` from the store. Wrap the "On Your Card" content conditionally:
 
-### 2. Wingspan decimal
+- When `activeSection === "identity"`: render all current fields (Your Identity, Position & Details, Measurables) as they are now
+- When any other section is active: render the `GroupHeader "On Your Card"` followed by a Coming Soon placeholder panel (same style as the preview placeholder — centered icon + section name + "Coming Soon" text, using `sectionIcons` for the icon)
 
-The store default for wingspan is `"80"` (whole number). Change to `"80.0"` so it displays with a decimal by default. The input already allows decimals via the `[^\d.]` regex.
+The "On Your Profile" group and everything below it stays visible for all sections since those fields (Recruiting, Eligibility, Upcoming Game, Story) apply across sections.
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx` — input width formula constant
-- `src/store/athleteStore.ts` — wingspan default `"80"` → `"80.0"`
+- `src/features/builder/components/IdentityForm.tsx`
 
