@@ -1,26 +1,25 @@
 
 
-## Improve Field Label Visibility
+## Add Helper Text + Photo Icon to School Logo Upload
 
-The labels inside input cards currently use `font-medium` (weight 500) and `text-on-surface-variant` (#a8abaf). Against the `bg-surface-container-lowest` (#000000) card backgrounds, they're readable but require effort to scan — especially compared to labels outside cards (like "ACTION PHOTO") which sit on lighter surfaces.
+Small consistency fix: match the school logo empty state to the action photo empty state.
 
-### Change
+### Change — `src/features/builder/components/IdentityForm.tsx`
 
-Update **every** `<label>` inside input cards in `IdentityForm.tsx` from:
+Line 418: Replace the empty-state content for the school logo upload slot.
 
-```
-font-medium … text-on-surface-variant
-```
-
-to:
-
-```
-font-semibold … text-[#c0c3c7]
+**Before:**
+```tsx
+<span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
 ```
 
-This bumps weight from 500 → 600 and brightness from #a8abaf → #c0c3c7 — a subtle lift that keeps the dim-label / bright-value hierarchy intact while making labels easier to scan. The change is consistent with the workspace design spec which lists `font-semibold` as the correct weight for sub-section labels.
+**After:**
+```tsx
+<span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+<span className="text-on-surface-variant/60 text-[9px]">Your logo appears on the card</span>
+```
 
-There are ~15 label instances across the reusable card components (`InputCard`, `NumericInputCard`, `HeightInputCard`, `SelectCard`, `TextAreaCard`, `ToggleCard`, `RadioCard`) plus a few inline labels (Position radio, Star Rating, Commitment Status, Team Color Preview, Action Photo, School Logo). All share the same class pattern, so the find-and-replace is mechanical.
+This matches the action photo pattern (camera icon + helper text) and makes it immediately clear that both slots are photo uploads. The helper text tells the athlete why it matters — the logo shows up on their ProCard.
 
 ### Files modified
 - `src/features/builder/components/IdentityForm.tsx`
