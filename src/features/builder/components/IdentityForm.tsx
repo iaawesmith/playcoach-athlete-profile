@@ -375,10 +375,14 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Upcoming Game" />
         <div className="space-y-4">
-          <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
-          <InputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
-          <InputCard label="Time" value={game.time} onChange={(v) => setGame("time", v)} />
-          <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
+            <InputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Time" value={game.time} onChange={(v) => setGame("time", v)} />
+            <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
+          </div>
           <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
         </div>
       </section>
