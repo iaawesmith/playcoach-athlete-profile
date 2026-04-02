@@ -157,7 +157,7 @@ const HeightInputCard = ({
         onFocus={handleFocus}
         onBlur={handleBlur}
         inputMode="numeric"
-        placeholder='e.g. 74 → 6\'2"'
+        placeholder="e.g. 74"
       />
     </div>
   );
