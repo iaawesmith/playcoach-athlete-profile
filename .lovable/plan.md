@@ -1,13 +1,29 @@
 
 
-## Remove Dead CTA Buttons from IdentityForm
+## Rename Navigation Sections
 
-The "Save Identity" and "Discard Changes" buttons at the bottom of the Identity form are non-functional. All fields already update the card live via Zustand. Remove them now; re-add a real save flow in Session 3 when database persistence is wired.
+Replace `highlights` → `performance` and `stats` → `pulse` across all files. No new files needed.
 
-### Change — `src/features/builder/components/IdentityForm.tsx`
+### Changes
 
-Remove the bottom CTA section (the `div` with `flex items-center gap-3 pt-4` containing "Discard Changes" and "Save Identity" buttons). This is roughly lines 199–214.
+**`src/store/athleteStore.ts`**
+- Update `ActiveSection` type: `"identity" | "performance" | "develop" | "pulse" | "connect"`
+
+**`src/features/builder/components/SideNav.tsx`**
+- Update navItems:
+  - `highlights` → `{ key: "performance", icon: "sports_score", label: "Performance" }`
+  - `stats` → `{ key: "pulse", icon: "monitoring", label: "Pulse" }`
+
+**`src/features/builder/BuilderLayout.tsx`**
+- Update `sectionLabels`: rename `highlights` → `performance` ("Performance Preview"), `stats` → `pulse` ("Pulse Preview")
+- Update `sectionIcons`: rename `highlights` → `performance`, `stats` → `pulse`
+
+**`src/features/builder/components/MobileNav.tsx`**
+- Replace `stats` → `{ key: "pulse", icon: "monitoring", label: "Pulse" }`
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/store/athleteStore.ts`
+- `src/features/builder/components/SideNav.tsx`
+- `src/features/builder/BuilderLayout.tsx`
+- `src/features/builder/components/MobileNav.tsx`
 
