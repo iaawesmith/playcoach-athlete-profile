@@ -104,11 +104,8 @@ export const ProCard = () => {
           </div>
 
           {/* Athlete name */}
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9]">
-            {firstName}
-          </h3>
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-5xl leading-[0.9] mt-0.5">
-            {lastName}
+          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9]">
+            {firstName} {lastName}
           </h3>
 
           {/* Physical attributes row */}

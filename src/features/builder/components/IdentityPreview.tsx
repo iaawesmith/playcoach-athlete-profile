@@ -50,102 +50,108 @@ export const IdentityPreview = () => {
       </div>
 
       {/* Recruiting Block */}
-      <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-4">
+      <div>
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Recruiting
         </span>
-        {/* Stars */}
-        <div className="flex items-center gap-0.5 mb-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <span
-              key={i}
-              className="material-symbols-outlined text-lg"
-              style={{ color: i < starRating ? "var(--team-color)" : undefined }}
-            >
-              {i < starRating ? "star" : "star"}
-            </span>
-          ))}
-          <span className="text-on-surface-variant text-xs ml-2">{starRating}-Star</span>
-        </div>
-        {/* Ranks */}
-        <div className="flex items-center gap-4 mb-3 text-sm">
-          <div>
-            <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">National</span>
-            <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-              {nationalRank ? `#${nationalRank}` : "Not ranked"}
-            </span>
+        <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-4">
+          {/* Stars */}
+          <div className="flex items-center gap-0.5 mb-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span
+                key={i}
+                className="material-symbols-outlined text-lg"
+                style={{ color: i < starRating ? "var(--team-color)" : undefined }}
+              >
+                {i < starRating ? "star" : "star"}
+              </span>
+            ))}
+            <span className="text-on-surface-variant text-xs ml-2">{starRating}-Star</span>
           </div>
-          <div>
-            <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Position</span>
-            <span className={`font-black ${positionRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-              {positionRank ? `#${positionRank}` : "Not ranked"}
-            </span>
+          {/* Ranks */}
+          <div className="flex items-center gap-4 mb-3 text-sm">
+            <div>
+              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">National</span>
+              <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
+                {nationalRank ? `#${nationalRank}` : "Not ranked"}
+              </span>
+            </div>
+            <div>
+              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Position</span>
+              <span className={`font-black ${positionRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
+                {positionRank ? `#${positionRank}` : "Not ranked"}
+              </span>
+            </div>
           </div>
+          {/* Commitment */}
+          <span
+            className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+            style={
+              commitmentStatus === "committed"
+                ? { backgroundColor: "var(--team-color)", color: "white" }
+                : undefined
+            }
+          >
+            {commitmentLabels[commitmentStatus] ?? commitmentStatus}
+          </span>
         </div>
-        {/* Commitment */}
-        <span
-          className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-          style={
-            commitmentStatus === "committed"
-              ? { backgroundColor: "var(--team-color)", color: "white" }
-              : undefined
-          }
-        >
-          {commitmentLabels[commitmentStatus] ?? commitmentStatus}
-        </span>
       </div>
 
       {/* Eligibility Block */}
-      <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-4">
+      <div>
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Eligibility
         </span>
-        <div className="flex items-center gap-4 text-sm">
-          <div>
-            <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Years Left</span>
-            <span className="text-on-surface font-black">{eligibilityYears}</span>
-          </div>
-          <div>
-            <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Transfer</span>
-            <span className={`font-bold text-xs uppercase ${transferEligible ? "text-primary" : "text-on-surface-variant/50"}`}>
-              {transferEligible ? "Eligible" : "No"}
-            </span>
-          </div>
-          {redshirtStatus !== "None" && (
+        <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-4">
+          <div className="flex items-center gap-4 text-sm">
             <div>
-              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Redshirt</span>
-              <span className="text-on-surface font-bold text-xs">{redshirtStatus}</span>
+              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Years Left</span>
+              <span className="text-on-surface font-black">{eligibilityYears}</span>
             </div>
-          )}
+            <div>
+              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Transfer</span>
+              <span className={`font-bold text-xs uppercase ${transferEligible ? "text-primary" : "text-on-surface-variant/50"}`}>
+                {transferEligible ? "Eligible" : "No"}
+              </span>
+            </div>
+            {redshirtStatus !== "None" && (
+              <div>
+                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Redshirt</span>
+                <span className="text-on-surface font-bold text-xs">{redshirtStatus}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Upcoming Game */}
-      <div
-        className="bg-surface-container border-l-2 rounded-xl p-4"
-        style={{ borderLeftColor: "var(--team-color)" }}
-      >
+      <div>
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Upcoming Game
         </span>
-        {upcomingGame ? (
-          <div className="space-y-1 text-sm">
-            <span className="text-on-surface font-black text-lg block">
-              vs {upcomingGame.opponent}
-            </span>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-on-surface-variant text-xs">
-              <span>{upcomingGame.date}</span>
-              <span>{upcomingGame.time}</span>
-              <span>{upcomingGame.network}</span>
-              <span>{upcomingGame.location}</span>
+        <div
+          className="bg-surface-container border-l-2 rounded-xl p-4"
+          style={{ borderLeftColor: "var(--team-color)" }}
+        >
+          {upcomingGame ? (
+            <div className="space-y-1 text-sm">
+              <span className="text-on-surface font-black text-lg block">
+                vs {upcomingGame.opponent}
+              </span>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-on-surface-variant text-xs">
+                <span>{upcomingGame.date}</span>
+                <span>{upcomingGame.time}</span>
+                <span>{upcomingGame.network}</span>
+                <span>{upcomingGame.location}</span>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-on-surface-variant/40">
-            <span className="material-symbols-outlined text-xl">event</span>
-            <span className="text-xs uppercase tracking-widest">No upcoming game scheduled</span>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-2 text-on-surface-variant/40">
+              <span className="material-symbols-outlined text-xl">event</span>
+              <span className="text-xs uppercase tracking-widest">No upcoming game scheduled</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bio + Quote */}
