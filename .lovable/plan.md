@@ -1,58 +1,52 @@
 
 
-## Expand Identity Editor with All Store Fields
+## Combined: IdentityPreview + Hide Badges + Move Go Live to Top
 
-Two files change: the Zustand store gets new fields, and IdentityForm gets reorganized into Card Fields and Profile Fields sub-sections.
+Three changes rolled into one pass.
 
-### 1. Update `src/store/athleteStore.ts`
+### 1. New File: `src/features/builder/components/IdentityPreview.tsx`
 
-Add all missing fields to the interface and defaults:
+Renders the full Identity section below ProCard, all reading from `useAthleteStore()`:
 
-- `schoolAbbrev: string` (default `"UGA"`)
-- `highSchool: string` (default `""`)
-- `quote: string` (default `"Every rep is a rep toward the league."`)
-- `fortyTime: string` (default `"4.42"`)
-- `vertical: string` (default `"38.5\""`)
-- `wingspan: string` (default `"6'8\""`)
-- `handSize: string` (default `"9.5\""`)
-- `eligibilityYears: number` (default `3`)
-- `transferEligible: boolean` (default `false`)
-- `redshirtStatus: string` (default `"None"`)
-- `starRating: number` (default `4`)
-- `nationalRank: number | null` (default `null`)
-- `positionRank: number | null` (default `null`)
-- `commitmentStatus: "committed" | "uncommitted" | "portal"` (default `"committed"`)
-- `upcomingGame: { opponent: string; date: string; time: string; network: string; location: string } | null` (default `null`)
+- **Measurables Grid** — 2×3 grid: HT, WT, 40-YD, VERTICAL, WINGSPAN, HAND SIZE. Tiles: `bg-surface-container`, ghost border, teamColor label, bold value. Empty: muted "—".
+- **Recruiting Block** — Star rating (filled/unfilled `star` icons), national rank, position rank, commitment status badge (teamColor bg for Committed, outline for others). Empty ranks: "Not ranked".
+- **Eligibility Block** — Years remaining, transfer eligible badge, redshirt status. Compact row.
+- **Upcoming Game Card** — Full-width, teamColor left border. Opponent, date, time, network, location. Null state: muted "No upcoming game scheduled" with `event` icon.
+- **Bio + Quote** — Bio body text. Quote italic with `border-l-2` in teamColor. Empty: muted prompts.
+- **Hometown + High School** — Single muted line. Empty: "Add your hometown".
 
-Update `AthleteData` type accordingly.
+All blocks: `max-w-sm w-full`, `space-y-6`.
 
-### 2. Reorganize `src/features/builder/components/IdentityForm.tsx`
+### 2. Remove Badges from `ProCard.tsx`
 
-Replace the current four sections with two top-level groups using `SectionHeader`:
+Delete the "Badge Strip" section (lines 131–154) — the "Earned Badges" label and the two hardcoded badge pills.
 
-**Card Fields** — feeds ProCard directly:
-- "Your Identity": First Name, Last Name
-- "Position & Details": Position chips, Jersey #, Class Year
-- "School & Colors": School Name, School Abbreviation, School Color (hex with swatch)
-- "Your Media": Action Photo upload, School Logo upload
-- "Measurables": Height, Weight in 2-col grid; 40 Time, Vertical in 2-col; Wingspan, Hand Size in 2-col
+### 3. Move Go Live + Share to Preview Header in `BuilderLayout.tsx`
 
-**Profile Fields** — feeds the Identity section on external profile:
-- "Background": Hometown, High School
-- "Story": Bio (textarea), Personal Quote (textarea)
-- "Eligibility": Eligibility Years Remaining (number input), Transfer Eligible (toggle switch built inline — a styled button that toggles boolean), Redshirt Status (dropdown via a styled select)
-- "Recruiting": Star Rating (1–5 chip selector like position chips), National Rank, Position Rank
-- "Commitment": Commitment Status (dropdown: Committed / Uncommitted / In Portal)
-- "Upcoming Game": Opponent, Date, Time, Network, Location — all InputCard fields
+Remove the "Below Card — CTAs" section from `ProCard.tsx` (lines 156–181) — the Go Live/Published button and Share icon.
 
-New inline sub-components (inside IdentityForm.tsx, not new files):
-- **ToggleCard**: label + styled toggle button reading/writing a boolean
-- **SelectCard**: label + native `<select>` styled with same ghost border treatment
-- **ChipSelector**: like position chips but for star rating (1–5)
+Add them to the preview column header row in `BuilderLayout.tsx`, next to the section label and status indicator:
 
-All fields wire to `setAthlete()` on every change. Existing `InputCard` and `SectionHeader` reused throughout.
+```
+┌─── max-w-sm mx-auto ──────────────────────┐
+│ IDENTITY PREVIEW          [Go Live] [Share]│
+│ ● Draft                                    │
+└────────────────────────────────────────────┘
+```
+
+- Go Live button: smaller — `h-8 px-4 text-[10px]` kinetic-gradient pill, same `publishProfile` action
+- When live: small "Published" pill (glass-card, check_circle icon) + Share icon button (`w-8 h-8`)
+- Both always visible at top regardless of scroll position
+- Share button enabled only when live (same logic as current)
+
+### 4. Wire `BuilderLayout.tsx` Preview Column
+
+- Make the left column scrollable: `overflow-y-auto`
+- When `activeSection === "identity"`: render `<ProCard />` then `<IdentityPreview />`
+- Import `publishProfile`, `hasBeenPublished`, `profileStatus` from store for the header CTAs
 
 ### Files modified
-- `src/store/athleteStore.ts`
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/components/IdentityPreview.tsx` (new)
+- `src/features/builder/components/ProCard.tsx`
+- `src/features/builder/BuilderLayout.tsx`
 
