@@ -341,7 +341,7 @@ export const IdentityForm = () => {
     setGame("time", `${timeValue} ${p}`);
   };
 
-  // Weight: strip "lbs" suffix for raw editing
+  // Weight: raw number stored now
   const weightRaw = weight.replace(/\s*lbs?/i, "");
 
   return (
