@@ -514,143 +514,146 @@ export const IdentityForm = () => {
         </div>
       )}
 
-      {/* ═══════════════ ON YOUR PROFILE ═══════════════ */}
-      <GroupHeader title="On Your Profile" />
+      {activeSection === "identity" && (
+        <>
+          {/* ═══════════════ ON YOUR PROFILE ═══════════════ */}
+          <GroupHeader title="On Your Profile" />
 
-      {/* Recruiting */}
-      <section>
-        <SectionHeader title="Recruiting" />
-        <div className="space-y-4">
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-            <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
-              Star Rating
-            </label>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setAthlete({ starRating: star })}
-                  className={`w-10 h-10 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-                    star === starRating
-                      ? "text-[#00460a] kinetic-gradient"
-                      : "text-on-surface-variant bg-surface-container-high"
-                  }`}
-                >
-                  {star}
-                </button>
-              ))}
+          {/* Recruiting */}
+          <section>
+            <SectionHeader title="Recruiting" />
+            <div className="space-y-4">
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+                <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
+                  Star Rating
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setAthlete({ starRating: star })}
+                      className={`w-10 h-10 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
+                        star === starRating
+                          ? "text-[#00460a] kinetic-gradient"
+                          : "text-on-surface-variant bg-surface-container-high"
+                      }`}
+                    >
+                      {star}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard
+                  label="National Rank"
+                  value={nationalRank !== null ? String(nationalRank) : ""}
+                  type="number"
+                  onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
+                />
+                <InputCard
+                  label="Position Rank"
+                  value={positionRank !== null ? String(positionRank) : ""}
+                  type="number"
+                  onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
+                />
+              </div>
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+                <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
+                  Commitment Status
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {commitmentOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setAthlete({ commitmentStatus: opt.value })}
+                      className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
+                        commitmentStatus === opt.value
+                          ? "text-[#00460a] kinetic-gradient"
+                          : "text-on-surface-variant bg-surface-container-high"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard
-              label="National Rank"
-              value={nationalRank !== null ? String(nationalRank) : ""}
-              type="number"
-              onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
-            />
-            <InputCard
-              label="Position Rank"
-              value={positionRank !== null ? String(positionRank) : ""}
-              type="number"
-              onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
-            />
-          </div>
-          {/* Commitment Status — pill buttons */}
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-            <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
-              Commitment Status
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {commitmentOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setAthlete({ commitmentStatus: opt.value })}
-                  className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-                    commitmentStatus === opt.value
-                      ? "text-[#00460a] kinetic-gradient"
-                      : "text-on-surface-variant bg-surface-container-high"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          </section>
+
+          {/* Eligibility */}
+          <section>
+            <SectionHeader title="Eligibility" />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard
+                  label="Eligibility Years Remaining"
+                  value={String(eligibilityYears)}
+                  type="number"
+                  onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
+                />
+                <ToggleCard
+                  label="Transfer Eligible"
+                  value={transferEligible}
+                  onChange={(v) => setAthlete({ transferEligible: v })}
+                />
+              </div>
+              <SelectCard
+                label="Redshirt Status"
+                value={redshirtStatus}
+                options={[
+                  { value: "None", label: "None" },
+                  { value: "Redshirt", label: "Redshirt" },
+                  { value: "Medical RS", label: "Medical RS" },
+                ]}
+                onChange={(v) => setAthlete({ redshirtStatus: v })}
+              />
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      {/* Eligibility */}
-      <section>
-        <SectionHeader title="Eligibility" />
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard
-              label="Eligibility Years Remaining"
-              value={String(eligibilityYears)}
-              type="number"
-              onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
-            />
-            <ToggleCard
-              label="Transfer Eligible"
-              value={transferEligible}
-              onChange={(v) => setAthlete({ transferEligible: v })}
-            />
-          </div>
-          <SelectCard
-            label="Redshirt Status"
-            value={redshirtStatus}
-            options={[
-              { value: "None", label: "None" },
-              { value: "Redshirt", label: "Redshirt" },
-              { value: "Medical RS", label: "Medical RS" },
-            ]}
-            onChange={(v) => setAthlete({ redshirtStatus: v })}
-          />
-        </div>
-      </section>
+          {/* Upcoming Game */}
+          <section>
+            <SectionHeader title="Upcoming Game" />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
+                <DateInputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <TimeInputCard
+                  label="Time"
+                  time={timeValue}
+                  period={timePeriod}
+                  onTimeChange={handleTimeChange}
+                  onPeriodChange={handlePeriodChange}
+                />
+                <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
+              </div>
+              <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
+            </div>
+          </section>
 
-      {/* Upcoming Game */}
-      <section>
-        <SectionHeader title="Upcoming Game" />
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
-            <DateInputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <TimeInputCard
-              label="Time"
-              time={timeValue}
-              period={timePeriod}
-              onTimeChange={handleTimeChange}
-              onPeriodChange={handlePeriodChange}
-            />
-            <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
-          </div>
-          <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
-        </div>
-      </section>
-
-      {/* Story */}
-      <section>
-        <SectionHeader title="Story" />
-        <div className="space-y-4">
-          <InputCard
-            label="Athlete Bio"
-            value={bio}
-            type="textarea"
-            onChange={(v) => setAthlete({ bio: v })}
-            helperText="Tell coaches and scouts your story in your own words"
-          />
-          <InputCard label="Personal Quote" value={quote} type="textarea" onChange={(v) => setAthlete({ quote: v })} />
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
-            <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
-          </div>
-        </div>
-      </section>
+          {/* Story */}
+          <section>
+            <SectionHeader title="Story" />
+            <div className="space-y-4">
+              <InputCard
+                label="Athlete Bio"
+                value={bio}
+                type="textarea"
+                onChange={(v) => setAthlete({ bio: v })}
+                helperText="Tell coaches and scouts your story in your own words"
+              />
+              <InputCard label="Personal Quote" value={quote} type="textarea" onChange={(v) => setAthlete({ quote: v })} />
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
+                <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
+              </div>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 };
