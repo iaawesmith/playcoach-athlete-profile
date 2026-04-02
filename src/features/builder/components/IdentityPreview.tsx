@@ -3,7 +3,7 @@ import { useAthleteStore } from "@/store/athleteStore";
 const MeasurableTile = ({ label, value }: { label: string; value: string }) => {
   const hasValue = value && value !== "—";
   return (
-    <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-3 flex flex-col items-center justify-center">
+    <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-3 flex flex-col items-center justify-center">
       <span
         className="text-[9px] font-bold uppercase tracking-widest mb-1"
         style={{ color: "var(--team-color)" }}
@@ -87,7 +87,7 @@ export const IdentityPreview = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Recruiting
         </span>
-        <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-4">
+        <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
           {/* Stars */}
           <div className="flex items-center gap-0.5 mb-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -135,7 +135,7 @@ export const IdentityPreview = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Eligibility
         </span>
-        <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-4">
+        <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
           <div className="flex items-center gap-4 text-sm">
             <div>
               <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Years Left</span>
@@ -161,7 +161,7 @@ export const IdentityPreview = () => {
           Upcoming Game
         </span>
         <div
-          className="bg-surface-container border-l-2 rounded-xl p-4"
+          className="bg-surface-container-high border-l-2 rounded-xl p-4"
           style={{ borderLeftColor: "var(--team-color)" }}
         >
           {upcomingGame ? (
