@@ -94,7 +94,7 @@ const NumericInputCard = ({
     <div className="flex items-center">
       <input
         className="bg-transparent text-on-surface text-sm font-normal outline-none"
-        style={{ width: `${Math.max((value || "").length, 1) * 0.6 + 0.5}em` }}
+        style={{ width: `${Math.max((value || "").length, 1) * 0.6 + 0.2}em` }}
         value={value}
         onChange={(e) => {
           const v = e.target.value.replace(/[^\d.]/g, "");
