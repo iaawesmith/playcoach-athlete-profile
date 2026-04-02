@@ -302,8 +302,23 @@ export const IdentityForm = () => {
     eligibilityYears, transferEligible, redshirtStatus,
     starRating, nationalRank, positionRank,
     commitmentStatus, upcomingGame,
+    activeSection,
     setAthlete,
   } = store;
+
+  const sectionIcons: Record<string, string> = {
+    performance: "sports_score",
+    develop: "trending_up",
+    pulse: "monitor_heart",
+    connect: "handshake",
+  };
+
+  const sectionLabels: Record<string, string> = {
+    performance: "Performance",
+    develop: "Develop",
+    pulse: "Pulse",
+    connect: "Connect",
+  };
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
