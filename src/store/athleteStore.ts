@@ -68,7 +68,7 @@ const defaults: AthleteData = {
   weight: "195",
   fortyTime: "4.42",
   vertical: "38.5",
-  wingspan: "80",
+  wingspan: "80.0",
   handSize: "9.5",
   actionPhotoUrl: null,
   schoolLogoUrl: null,
