@@ -30,16 +30,16 @@ const statusIndicator = (profileStatus: "draft" | "live") => {
 
 const sectionLabels: Record<string, string> = {
   identity: "Identity Preview",
-  highlights: "Highlights Preview",
+  performance: "Performance Preview",
   develop: "Develop Preview",
-  stats: "Stats Preview",
+  pulse: "Pulse Preview",
   connect: "Connect Preview",
 };
 
 const sectionIcons: Record<string, string> = {
-  highlights: "play_circle",
+  performance: "sports_score",
   develop: "trending_up",
-  stats: "leaderboard",
+  pulse: "monitoring",
   connect: "handshake",
 };
 
