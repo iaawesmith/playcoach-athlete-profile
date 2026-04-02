@@ -470,17 +470,17 @@ export const IdentityForm = () => {
             <NumericInputCard
               label="Weight"
               value={weightRaw}
-              suffix="lbs"
-              onChange={(v) => setAthlete({ weight: v ? `${v} lbs` : "" })}
+              suffix=" lbs"
+              onChange={(v) => setAthlete({ weight: v })}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <NumericInputCard label="40 Time" value={fortyTime} suffix="s" onChange={(v) => setAthlete({ fortyTime: v })} />
-            <NumericInputCard label="Vertical" value={vertical.replace(/"/g, "")} suffix='"' onChange={(v) => setAthlete({ vertical: v ? `${v}"` : "" })} />
+            <NumericInputCard label="Vertical" value={vertical} suffix='"' onChange={(v) => setAthlete({ vertical: v })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <NumericInputCard label="Wingspan" value={wingspan.replace(/['"]/g, "")} suffix='"' onChange={(v) => setAthlete({ wingspan: v ? `${v}"` : "" })} />
-            <NumericInputCard label="Hand Size" value={handSize.replace(/"/g, "")} suffix='"' onChange={(v) => setAthlete({ handSize: v ? `${v}"` : "" })} />
+            <NumericInputCard label="Wingspan" value={wingspan} suffix='"' onChange={(v) => setAthlete({ wingspan: v })} />
+            <NumericInputCard label="Hand Size" value={handSize} suffix='"' onChange={(v) => setAthlete({ handSize: v })} />
           </div>
         </div>
       </section>
