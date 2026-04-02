@@ -176,6 +176,26 @@ export const IdentityForm = () => {
             <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
           </div>
 
+          {/* School + Abbreviation */}
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="School" value={school} onChange={(v) => setAthlete({ school: v })} />
+            <InputCard label="Abbreviation" value={schoolAbbrev} onChange={(v) => setAthlete({ schoolAbbrev: v })} />
+          </div>
+
+          {/* Team Color + Swatch */}
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
+            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+              <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+                Preview
+              </label>
+              <div
+                className="w-10 h-10 rounded-xl border border-outline-variant/10"
+                style={{ backgroundColor: teamColor }}
+              />
+            </div>
+          </div>
+
           {/* Media uploads — side by side */}
           <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
