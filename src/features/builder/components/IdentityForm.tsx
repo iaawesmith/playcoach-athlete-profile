@@ -367,37 +367,47 @@ export const IdentityForm = () => {
           <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
           <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => photoInputRef.current?.click()}
-              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
-            >
-              {actionPhotoUrl ? (
-                <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
-                  <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
-                </>
-              )}
-              <span className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">
-                {actionPhotoUrl ? "Change Photo" : "Action Photo"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => logoInputRef.current?.click()}
-              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
-            >
-              {schoolLogoUrl ? (
-                <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 rounded-lg object-contain" />
-              ) : (
-                <span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
-              )}
-              <span className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">
-                {schoolLogoUrl ? "Change Logo" : "School Logo"}
-              </span>
-            </button>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+                Action Photo
+              </label>
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+              >
+                {actionPhotoUrl ? (
+                  <>
+                    <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
+                    <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+                    <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+                School Logo
+              </label>
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+              >
+                {schoolLogoUrl ? (
+                  <>
+                    <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 rounded-lg object-contain" />
+                    <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
+                  </>
+                ) : (
+                  <span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
