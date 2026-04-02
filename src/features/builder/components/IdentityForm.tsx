@@ -375,132 +375,144 @@ export const IdentityForm = () => {
                 <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
               </div>
 
-          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
-                Action Photo
-              </label>
-              <button
-                type="button"
-                onClick={() => photoInputRef.current?.click()}
-                className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
-              >
-                {actionPhotoUrl ? (
-                  <>
-                    <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
-                    <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
-                    <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
-                School Logo
-              </label>
-              <button
-                type="button"
-                onClick={() => logoInputRef.current?.click()}
-                className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
-              >
-                {schoolLogoUrl ? (
-                  <>
-                    <img src={schoolLogoUrl} alt="School logo" className="w-16 h-16 rounded-lg object-contain" />
-                    <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
-                  </>
-                ) : (
-                  <span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
-                )}
-              </button>
-            </div>
-          </div>
+              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+                    Action Photo
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+                  >
+                    {actionPhotoUrl ? (
+                      <>
+                        <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
+                        <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+                        <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+                    School Logo
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+                  >
+                    {schoolLogoUrl ? (
+                      <>
+                        <img src={schoolLogoUrl} alt="School logo" className="w-16 h-16 rounded-lg object-contain" />
+                        <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
+                      </>
+                    ) : (
+                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
+                    )}
+                  </button>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard label="School" value={school} onChange={(v) => setAthlete({ school: v })} />
-            <InputCard label="Abbreviation" value={schoolAbbrev} onChange={(v) => setAthlete({ schoolAbbrev: v })} />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard label="School" value={school} onChange={(v) => setAthlete({ school: v })} />
+                <InputCard label="Abbreviation" value={schoolAbbrev} onChange={(v) => setAthlete({ schoolAbbrev: v })} />
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
-            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-              <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
-                Preview
-              </label>
-              <div
-                className="w-10 h-10 rounded-xl border border-outline-variant/10"
-                style={{ backgroundColor: teamColor }}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
+                <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+                  <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+                    Preview
+                  </label>
+                  <div
+                    className="w-10 h-10 rounded-xl border border-outline-variant/10"
+                    style={{ backgroundColor: teamColor }}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
+
+          {/* Position & Details */}
+          <section>
+            <SectionHeader title="Position & Details" />
+            <div className="space-y-4">
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+                <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
+                  Position
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {positions.map((pos) => (
+                    <button
+                      key={pos}
+                      type="button"
+                      onClick={() => setAthlete({ position: pos })}
+                      className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
+                        pos === position
+                          ? "text-[#00460a] kinetic-gradient"
+                          : "text-on-surface-variant bg-surface-container-high"
+                      }`}
+                    >
+                      {pos}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} />
+                <SelectCard
+                  label="Class Year"
+                  value={classYear}
+                  options={classYears.map((y) => ({ value: y, label: y }))}
+                  onChange={(v) => setAthlete({ classYear: v })}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Measurables */}
+          <section>
+            <SectionHeader title="Measurables" />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <HeightInputCard value={height} onChange={(v) => setAthlete({ height: v })} />
+                <NumericInputCard
+                  label="Weight"
+                  value={weightRaw}
+                  suffix=" lbs"
+                  onChange={(v) => setAthlete({ weight: v })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <NumericInputCard label="40 Time" value={fortyTime} suffix="s" onChange={(v) => setAthlete({ fortyTime: v })} />
+                <NumericInputCard label="Vertical" value={vertical} suffix='"' onChange={(v) => setAthlete({ vertical: v })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <NumericInputCard label="Wingspan" value={wingspan} suffix='"' onChange={(v) => setAthlete({ wingspan: v })} />
+                <NumericInputCard label="Hand Size" value={handSize} suffix='"' onChange={(v) => setAthlete({ handSize: v })} />
+              </div>
+            </div>
+          </section>
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center rounded-xl bg-surface-container border border-white/5 py-16">
+          <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">
+            {sectionIcons[activeSection]}
+          </span>
+          <span className="text-on-surface-variant text-sm font-medium uppercase tracking-widest">
+            {sectionLabels[activeSection]}
+          </span>
+          <span className="text-on-surface-variant/50 text-xs mt-1">Coming Soon</span>
         </div>
-      </section>
-
-      {/* Position & Details */}
-      <section>
-        <SectionHeader title="Position & Details" />
-        <div className="space-y-4">
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-            <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
-              Position
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {positions.map((pos) => (
-                <button
-                  key={pos}
-                  type="button"
-                  onClick={() => setAthlete({ position: pos })}
-                  className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-                    pos === position
-                      ? "text-[#00460a] kinetic-gradient"
-                      : "text-on-surface-variant bg-surface-container-high"
-                  }`}
-                >
-                  {pos}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} />
-            <SelectCard
-              label="Class Year"
-              value={classYear}
-              options={classYears.map((y) => ({ value: y, label: y }))}
-              onChange={(v) => setAthlete({ classYear: v })}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Measurables */}
-      <section>
-        <SectionHeader title="Measurables" />
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <HeightInputCard value={height} onChange={(v) => setAthlete({ height: v })} />
-            <NumericInputCard
-              label="Weight"
-              value={weightRaw}
-              suffix=" lbs"
-              onChange={(v) => setAthlete({ weight: v })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <NumericInputCard label="40 Time" value={fortyTime} suffix="s" onChange={(v) => setAthlete({ fortyTime: v })} />
-            <NumericInputCard label="Vertical" value={vertical} suffix='"' onChange={(v) => setAthlete({ vertical: v })} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <NumericInputCard label="Wingspan" value={wingspan} suffix='"' onChange={(v) => setAthlete({ wingspan: v })} />
-            <NumericInputCard label="Hand Size" value={handSize} suffix='"' onChange={(v) => setAthlete({ handSize: v })} />
-          </div>
-        </div>
-      </section>
+      )}
 
       {/* ═══════════════ ON YOUR PROFILE ═══════════════ */}
       <GroupHeader title="On Your Profile" />
