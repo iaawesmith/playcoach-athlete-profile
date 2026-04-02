@@ -1,32 +1,22 @@
 
 
-## Fix School Logo Alignment in Recruiting Block
+## Move School Logo Left in Recruiting Block
 
-The logo is currently pushed to the far right by `justify-between` and is 48×48px which feels small relative to the card content. Two changes:
+The logo currently sits at the right edge due to the `gap-4` spacing with `flex-1` on the left content. To pull it closer to the left content, reduce the gap or add negative margin.
 
 ### Change — `src/features/builder/components/IdentityPreview.tsx`
 
-**Line 91**: Change the container from `flex items-center justify-between` to `flex items-center gap-4` — this keeps the logo closer to the content instead of pushing it to the far edge.
+**Line 137**: Add `-mr-2` to the logo to pull it a couple spaces to the left, away from the card edge.
 
-**Line 137**: Increase logo size from `w-12 h-12` to `w-16 h-16` (64×64px) for better visual balance.
-
-**Line 132**: Wrap the logo in a `ml-auto` container so it still sits on the right side but with natural spacing rather than being pinned to the edge.
-
-Updated structure:
 ```tsx
-<div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center gap-4">
-  <div className="flex-1">
-    {/* Stars, Ranks, Commitment badge — unchanged */}
-  </div>
-  {commitmentStatus === "committed" && schoolLogoUrl && (
-    <img
-      src={schoolLogoUrl}
-      alt="School logo"
-      className="w-16 h-16 rounded-lg object-contain"
-    />
-  )}
-</div>
+// Before
+className="w-16 h-16 rounded-lg object-contain"
+
+// After
+className="w-16 h-16 rounded-lg object-contain -mr-2"
 ```
+
+Alternatively, if the intent is to bring it closer to the text content, we could also increase the right padding on the card or reduce gap. The `-mr-2` approach is simplest — nudges the logo ~8px left from the card edge.
 
 ### Files modified
 - `src/features/builder/components/IdentityPreview.tsx`
