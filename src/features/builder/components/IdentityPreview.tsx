@@ -169,10 +169,13 @@ export const IdentityPreview = () => {
               <span className="text-on-surface font-black text-lg block">
                 vs {upcomingGame.opponent}
               </span>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-on-surface-variant text-xs">
+              <div className="flex flex-wrap items-center gap-y-1 text-on-surface-variant text-xs">
                 <span>{formatGameDate(upcomingGame.date)}</span>
+                <span className="mx-2 text-on-surface-variant/30">|</span>
                 <span>{upcomingGame.time}</span>
+                <span className="mx-2 text-on-surface-variant/30">|</span>
                 <span>{upcomingGame.network}</span>
+                <span className="mx-2 text-on-surface-variant/30">|</span>
                 <span>{upcomingGame.location}</span>
               </div>
             </div>
