@@ -1,33 +1,32 @@
 
 
-## Show School Logo in Recruiting Block When Committed
+## Fix School Logo Alignment in Recruiting Block
 
-When `commitmentStatus === "committed"` and `schoolLogoUrl` exists, display the school logo on the right side of the recruiting card. This visually reinforces the commitment destination.
+The logo is currently pushed to the far right by `justify-between` and is 48×48px which feels small relative to the card content. Two changes:
 
 ### Change — `src/features/builder/components/IdentityPreview.tsx`
 
-Lines 90–130: Restructure the recruiting card interior to use a flex layout with the existing content on the left and the school logo on the right.
+**Line 91**: Change the container from `flex items-center justify-between` to `flex items-center gap-4` — this keeps the logo closer to the content instead of pushing it to the far edge.
 
-**Current:** Single-column content (stars → ranks → badge).
+**Line 137**: Increase logo size from `w-12 h-12` to `w-16 h-16` (64×64px) for better visual balance.
 
-**New:** Wrap in `flex justify-between items-center`. Left side keeps all existing content. Right side renders the school logo (48×48, rounded-lg, object-contain) only when `commitmentStatus === "committed"` and `schoolLogoUrl` is truthy.
+**Line 132**: Wrap the logo in a `ml-auto` container so it still sits on the right side but with natural spacing rather than being pinned to the edge.
 
+Updated structure:
 ```tsx
-<div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center justify-between">
-  <div>
+<div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center gap-4">
+  <div className="flex-1">
     {/* Stars, Ranks, Commitment badge — unchanged */}
   </div>
   {commitmentStatus === "committed" && schoolLogoUrl && (
     <img
       src={schoolLogoUrl}
       alt="School logo"
-      className="w-12 h-12 rounded-lg object-contain"
+      className="w-16 h-16 rounded-lg object-contain"
     />
   )}
 </div>
 ```
-
-The logo only appears when both conditions are met — committed + logo uploaded. Uncommitted or portal athletes see no change. No logo uploaded means no change either.
 
 ### Files modified
 - `src/features/builder/components/IdentityPreview.tsx`
