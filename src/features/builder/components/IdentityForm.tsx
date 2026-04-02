@@ -45,7 +45,7 @@ const InputCard = ({
   suffix?: string;
   helperText?: string;
 }) => (
-  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+  <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4 transition-colors duration-200 input-card-focus">
     <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
@@ -87,7 +87,7 @@ const NumericInputCard = ({
   onChange: (val: string) => void;
   suffix: string;
 }) => (
-  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+  <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4 transition-colors duration-200 input-card-focus">
     <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
@@ -131,7 +131,7 @@ const HeightInputCard = ({
   };
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+    <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4 transition-colors duration-200 input-card-focus">
       <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
         Height
       </label>
@@ -168,7 +168,7 @@ const ToggleCard = ({
   onChange: (val: boolean) => void;
   description?: string;
 }) => (
-  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200">
+  <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4 transition-colors duration-200">
     <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
@@ -207,7 +207,7 @@ const SelectCard = ({
   options: { value: string; label: string }[];
   onChange: (val: string) => void;
 }) => (
-  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+  <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4 transition-colors duration-200 input-card-focus">
     <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
@@ -234,7 +234,7 @@ const DateInputCard = ({
   value: string;
   onChange: (val: string) => void;
 }) => (
-  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+  <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4 transition-colors duration-200 input-card-focus">
     <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
@@ -260,7 +260,7 @@ const TimeInputCard = ({
   onTimeChange: (val: string) => void;
   onPeriodChange: (val: string) => void;
 }) => (
-  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
+  <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4 transition-colors duration-200 input-card-focus">
     <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
@@ -385,7 +385,7 @@ export const IdentityForm = () => {
                   <button
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
-                    className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+                    className="bg-surface-container rounded-xl border border-white/[0.12] min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
                   >
                     {actionPhotoUrl ? (
                       <>
@@ -407,7 +407,7 @@ export const IdentityForm = () => {
                   <button
                     type="button"
                     onClick={() => logoInputRef.current?.click()}
-                    className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+                    className="bg-surface-container rounded-xl border border-white/[0.12] min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
                   >
                     {schoolLogoUrl ? (
                       <>
@@ -431,7 +431,7 @@ export const IdentityForm = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
-                <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+                <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Preview
                   </label>
@@ -448,7 +448,7 @@ export const IdentityForm = () => {
           <section>
             <SectionHeader title="Position & Details" />
             <div className="space-y-4">
-              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+              <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4">
                 <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
                   Position
                 </label>
@@ -526,7 +526,7 @@ export const IdentityForm = () => {
           <section>
             <SectionHeader title="Recruiting" />
             <div className="space-y-4">
-              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+              <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4">
                 <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
                   Star Rating
                 </label>
@@ -561,7 +561,7 @@ export const IdentityForm = () => {
                   onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
                 />
               </div>
-              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
+              <div className="bg-surface-container rounded-xl border border-white/[0.12] p-4">
                 <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
                   Commitment Status
                 </label>
