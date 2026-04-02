@@ -1,37 +1,20 @@
 
 
-## Fix ProCard Height Format + Wingspan Decimal
+## Suffix Spacing Adjustments + Wingspan Decimal
 
-Two small fixes in `ProCard.tsx`.
+All changes in `NumericInputCard` inside `IdentityForm.tsx`.
 
-### 1. Format height from total inches to `X'Y"` on the card
+### 1. Reduce suffix gap
 
-Add a helper that converts `"74"` → `6'2"`, same as `IdentityPreview.tsx` already does. Apply it to the HEIGHT value in the `physicals` array.
+The suffix currently has no explicit margin — it sits right after the dynamic-width input. The input width formula `Math.max(value.length, 1) * 0.6 + 0.5` adds `0.5em` of padding after the text, creating the gap.
 
-### 2. Wingspan decimal display
+**Fix**: Reduce the constant from `0.5` to `0.2` — this tightens the suffix closer to the number for all fields (weight/lbs, 40 time/s, vertical/", hand size/"). Wingspan spacing is already good per the user, so this universal change should work since they asked to move all the others closer.
 
-The store default for wingspan is `"80"` (inches). This is correct — it's 80 inches. If the issue is that the user expects to see `80.0` or a different value, the real fix is ensuring the store default reflects the intended measurement. Wingspan for Marcus Sterling should be `"80"` (6'8" armspan = 80 inches). The decimal will show when the user enters one (e.g. `79.5`). No code change needed here unless we want to always show one decimal place — but that would show `80.0` which looks odd.
+### 2. Wingspan decimal
 
-**However**, if the user means the wingspan *input* is stripping decimals, that's an `IdentityForm.tsx` issue in the `NumericInputCard` regex. Need to verify the regex allows `.` — it should since it uses `[^\d.]`.
-
-### Changes — `src/features/builder/components/ProCard.tsx`
-
-In the `physicals` array (line 27), format height:
-
-```ts
-const formatHeight = (val: string) => {
-  const total = parseInt(val, 10);
-  if (!total) return "—";
-  return `${Math.floor(total / 12)}'${total % 12}"`;
-};
-
-const physicals = [
-  { label: "HEIGHT", value: formatHeight(height) },
-  { label: "WEIGHT", value: weight.replace(/\s*lbs?/i, "") },
-  { label: "40-YD", value: fortyTime },
-];
-```
+The store default for wingspan is `"80"` (whole number). Change to `"80.0"` so it displays with a decimal by default. The input already allows decimals via the `[^\d.]` regex.
 
 ### Files modified
-- `src/features/builder/components/ProCard.tsx`
+- `src/features/builder/components/IdentityForm.tsx` — input width formula constant
+- `src/store/athleteStore.ts` — wingspan default `"80"` → `"80.0"`
 
