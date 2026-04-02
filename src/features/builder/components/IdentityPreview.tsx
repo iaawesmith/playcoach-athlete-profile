@@ -134,7 +134,7 @@ export const IdentityPreview = () => {
             <img
               src={schoolLogoUrl}
               alt="School logo"
-              className="w-16 h-16 rounded-lg object-contain"
+              className="w-16 h-16 rounded-lg object-contain -mr-2"
             />
           )}
         </div>
