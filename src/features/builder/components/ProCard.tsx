@@ -23,8 +23,14 @@ export const ProCard = () => {
   } = useAthleteStore();
   const positionLabel = positionLabelMap[position] ?? position;
 
+  const formatHeight = (val: string) => {
+    const total = parseInt(val, 10);
+    if (!total) return "—";
+    return `${Math.floor(total / 12)}'${total % 12}"`;
+  };
+
   const physicals = [
-    { label: "HEIGHT", value: height },
+    { label: "HEIGHT", value: formatHeight(height) },
     { label: "WEIGHT", value: weight.replace(/\s*lbs?/i, "") },
     { label: "40-YD", value: fortyTime },
   ];
