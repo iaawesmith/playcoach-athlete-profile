@@ -3,7 +3,7 @@ import { useAthleteStore } from "@/store/athleteStore";
 const MeasurableTile = ({ label, value }: { label: string; value: string }) => {
   const hasValue = value && value !== "—";
   return (
-    <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-3 flex flex-col items-center justify-center">
+    <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-3 flex flex-col items-center justify-center">
       <span
         className="text-[9px] font-bold uppercase tracking-widest mb-1"
         style={{ color: "var(--team-color)" }}
