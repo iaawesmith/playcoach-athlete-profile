@@ -92,8 +92,10 @@ const NumericInputCard = ({
       {label}
     </label>
     <div className="flex items-center">
+      <span className="text-on-surface text-sm font-normal">{value || "\u00A0"}</span>
+      <span className="text-on-surface-variant text-sm font-normal shrink-0">{suffix}</span>
       <input
-        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+        className="absolute inset-0 opacity-0 cursor-text"
         value={value}
         onChange={(e) => {
           const v = e.target.value.replace(/[^\d.]/g, "");
@@ -101,7 +103,6 @@ const NumericInputCard = ({
         }}
         inputMode="decimal"
       />
-      <span className="text-on-surface-variant text-sm font-normal ml-1 shrink-0">{suffix}</span>
     </div>
   </div>
 );
