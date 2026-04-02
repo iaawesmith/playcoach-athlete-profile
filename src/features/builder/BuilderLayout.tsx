@@ -2,31 +2,9 @@ import { TopNav } from "./components/TopNav";
 import { SideNav } from "./components/SideNav";
 import { ProCard } from "./components/ProCard";
 import { IdentityForm } from "./components/IdentityForm";
+import { IdentityPreview } from "./components/IdentityPreview";
 import { MobileNav } from "./components/MobileNav";
 import { useAthleteStore } from "@/store/athleteStore";
-
-const statusIndicator = (profileStatus: "draft" | "live") => {
-  const isDraft = profileStatus === "draft";
-  return (
-    <div className="flex items-center gap-1.5">
-      {isDraft ? (
-        <>
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
-            Draft
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-            Live
-          </span>
-        </>
-      )}
-    </div>
-  );
-};
 
 const sectionLabels: Record<string, string> = {
   identity: "Identity Preview",
@@ -47,6 +25,10 @@ export const BuilderLayout = () => {
   const teamColor = useAthleteStore((s) => s.teamColor);
   const activeSection = useAthleteStore((s) => s.activeSection);
   const profileStatus = useAthleteStore((s) => s.profileStatus);
+  const publishProfile = useAthleteStore((s) => s.publishProfile);
+  const hasBeenPublished = useAthleteStore((s) => s.hasBeenPublished);
+
+  const isDraft = profileStatus === "draft";
 
   return (
     <div
@@ -60,31 +42,81 @@ export const BuilderLayout = () => {
       <main className="pt-16 lg:pl-64">
         <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-4rem)]">
           {/* Left Column — Preview */}
-          <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low p-8">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)]" />
-            <div className="relative z-10 w-full max-w-sm mx-auto mb-6">
-              <span className="text-base font-bold uppercase tracking-widest text-on-surface-variant">
-                {sectionLabels[activeSection]}
-              </span>
-              <div className="mt-1.5">
-                {statusIndicator(profileStatus)}
+          <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low overflow-y-auto">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)] z-0" />
+
+            {/* Header: Label + Status + CTAs */}
+            <div className="relative z-10 w-full max-w-sm mx-auto pt-8 px-8 flex items-start justify-between">
+              <div>
+                <span className="text-lg font-extrabold uppercase tracking-widest text-on-surface-variant">
+                  {sectionLabels[activeSection]}
+                </span>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  {isDraft ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+                        Draft
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+                        Live
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {isDraft ? (
+                  <button
+                    onClick={publishProfile}
+                    className="kinetic-gradient text-[#00460a] rounded-full font-black uppercase tracking-[0.2em] text-[10px] h-8 px-4 active:scale-95 transition-all duration-150"
+                  >
+                    {hasBeenPublished ? "Publish" : "Go Live"}
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="glass-card border border-outline-variant/20 text-on-surface-variant rounded-full font-black uppercase tracking-[0.2em] text-[10px] h-8 px-3 flex items-center gap-1.5 cursor-default"
+                  >
+                    <span className="material-symbols-outlined text-xs">check_circle</span>
+                    Published
+                  </button>
+                )}
+                <button
+                  className={`w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
+                    isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-on-surface text-sm">share</span>
+                </button>
               </div>
             </div>
-            {activeSection === "identity" ? (
-              <ProCard />
-            ) : (
-              <div className="relative z-10 flex-1 flex flex-col items-center justify-center rounded-xl bg-surface-container border border-white/5">
-                <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">
-                  {sectionIcons[activeSection]}
-                </span>
-                <span className="text-on-surface-variant text-sm font-medium uppercase tracking-widest">
-                  {sectionLabels[activeSection]?.replace(" Preview", "")} Preview
-                </span>
-                <span className="text-on-surface-variant/50 text-xs uppercase tracking-widest mt-1">
-                  Coming Soon
-                </span>
-              </div>
-            )}
+
+            {/* Preview Content */}
+            <div className="relative z-10 px-8 pb-8 mt-6">
+              {activeSection === "identity" ? (
+                <>
+                  <ProCard />
+                  <IdentityPreview />
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center rounded-xl bg-surface-container border border-white/5 min-h-[400px]">
+                  <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">
+                    {sectionIcons[activeSection]}
+                  </span>
+                  <span className="text-on-surface-variant text-sm font-medium uppercase tracking-widest">
+                    {sectionLabels[activeSection]?.replace(" Preview", "")} Preview
+                  </span>
+                  <span className="text-on-surface-variant/50 text-xs uppercase tracking-widest mt-1">
+                    Coming Soon
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Column — Editor */}
