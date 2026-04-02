@@ -170,8 +170,47 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Your Identity" />
         <div className="space-y-4">
-          <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} />
-          <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
+          {/* Media uploads — prominent */}
+          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 min-h-[120px] flex flex-col items-center justify-center gap-3 text-center transition-colors duration-200 hover:border-white/20"
+          >
+            {actionPhotoUrl ? (
+              <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
+            ) : (
+              <span className="material-symbols-outlined text-on-surface-variant text-4xl">add_a_photo</span>
+            )}
+            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
+              {actionPhotoUrl ? "Change Action Photo" : "Upload Action Photo"}
+            </span>
+            <span className="text-on-surface-variant/40 text-[10px] uppercase tracking-widest">
+              This is the hero of your card
+            </span>
+          </button>
+
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+          <button
+            type="button"
+            onClick={() => logoInputRef.current?.click()}
+            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+          >
+            {schoolLogoUrl ? (
+              <img src={schoolLogoUrl} alt="School logo" className="w-16 h-16 rounded-lg object-contain" />
+            ) : (
+              <span className="material-symbols-outlined text-on-surface-variant text-4xl">school</span>
+            )}
+            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
+              {schoolLogoUrl ? "Change School Logo" : "Upload School Logo"}
+            </span>
+          </button>
+
+          {/* Name fields — side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} />
+            <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
+          </div>
         </div>
       </section>
 
@@ -200,75 +239,10 @@ export const IdentityForm = () => {
               ))}
             </div>
           </div>
-          <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} />
-          <InputCard label="Class Year" value={classYear} onChange={(v) => setAthlete({ classYear: v })} />
-        </div>
-      </section>
-
-      {/* School & Colors */}
-      <section>
-        <SectionHeader title="School & Colors" />
-        <div className="space-y-4">
-          <InputCard label="School Name" value={school} onChange={(v) => setAthlete({ school: v })} />
-          <InputCard label="School Abbreviation" value={schoolAbbrev} onChange={(v) => setAthlete({ schoolAbbrev: v })} />
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
-            <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
-              School Color
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                className="flex-1 bg-transparent text-on-surface text-sm font-normal outline-none"
-                value={teamColor}
-                onChange={(e) => setAthlete({ teamColor: e.target.value })}
-                type="text"
-              />
-              <div
-                className="w-6 h-6 flex-shrink-0 rounded"
-                style={{ backgroundColor: teamColor }}
-              />
-            </div>
-            <p className="text-[10px] text-on-surface-variant mt-2">
-              Sets your card and profile accent color
-            </p>
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} />
+            <InputCard label="Class Year" value={classYear} onChange={(v) => setAthlete({ classYear: v })} />
           </div>
-        </div>
-      </section>
-
-      {/* Your Media */}
-      <section>
-        <SectionHeader title="Your Media" />
-        <div className="space-y-4">
-          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-          <button
-            type="button"
-            onClick={() => photoInputRef.current?.click()}
-            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 p-6 flex items-center gap-4 text-left transition-colors duration-200 hover:border-white/20"
-          >
-            {actionPhotoUrl ? (
-              <img src={actionPhotoUrl} alt="Action photo" className="w-12 h-12 rounded-lg object-cover" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface-variant text-2xl">add_a_photo</span>
-            )}
-            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
-              {actionPhotoUrl ? "Change Action Photo" : "Upload Action Photo"}
-            </span>
-          </button>
-
-          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-          <button
-            type="button"
-            onClick={() => logoInputRef.current?.click()}
-            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 p-6 flex items-center gap-4 text-left transition-colors duration-200 hover:border-white/20"
-          >
-            {schoolLogoUrl ? (
-              <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 rounded-lg object-contain" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface-variant text-2xl">school</span>
-            )}
-            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
-              {schoolLogoUrl ? "Change School Logo" : "Upload School Logo"}
-            </span>
-          </button>
         </div>
       </section>
 
