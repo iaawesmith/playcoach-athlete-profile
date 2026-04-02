@@ -37,10 +37,7 @@ export const ProCard = () => {
   const {
     firstName, lastName, position, classYear, school,
     height, weight, actionPhotoUrl, schoolLogoUrl,
-    profileStatus, publishProfile, hasBeenPublished,
   } = useAthleteStore();
-
-  const isDraft = profileStatus === "draft";
   const positionLabel = positionLabelMap[position] ?? position;
 
   const physicals = [
