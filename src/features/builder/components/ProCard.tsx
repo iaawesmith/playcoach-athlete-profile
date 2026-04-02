@@ -128,57 +128,6 @@ export const ProCard = () => {
         </div>
       </div>
 
-      {/* Badge Strip */}
-      <div className="w-full max-w-sm mt-4 mb-2">
-        <p className="text-[9px] text-on-surface-variant uppercase tracking-widest text-center mb-1">
-          Earned Badges
-        </p>
-        <div className="flex flex-wrap gap-2 justify-center">
-          {[{ icon: "star", label: "Deep Threat" }, { icon: "star", label: "Route Technician" }].map((badge) => (
-            <div
-              key={badge.label}
-              className="glass-card border border-outline-variant/20 rounded-full px-3 py-1 flex items-center gap-1.5"
-            >
-              <span
-                className="material-symbols-outlined text-[10px]"
-                style={{ color: "var(--team-color)" }}
-              >
-                {badge.icon}
-              </span>
-              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                {badge.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Below Card — CTAs */}
-      <div className="flex items-center gap-3 mt-2 w-full max-w-sm">
-        {isDraft ? (
-          <button
-            onClick={publishProfile}
-            className="flex-1 kinetic-gradient text-[#00460a] rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 active:scale-95 transition-all duration-150"
-          >
-            {hasBeenPublished ? "Publish Changes" : "Go Live"}
-          </button>
-        ) : (
-          <button
-            disabled
-            className="flex-1 glass-card border border-outline-variant/20 text-on-surface-variant rounded-full font-black uppercase tracking-[0.2em] text-xs h-11 flex items-center justify-center gap-2 cursor-default"
-          >
-            <span className="material-symbols-outlined text-sm">check_circle</span>
-            Published
-          </button>
-        )}
-        <button
-          className={`w-11 h-11 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
-            isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
-          }`}
-        >
-          <span className="material-symbols-outlined text-on-surface text-lg">share</span>
-        </button>
-      </div>
     </div>
   );
 };
