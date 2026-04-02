@@ -46,7 +46,7 @@ const InputCard = ({
   helperText?: string;
 }) => (
   <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
     {type === "textarea" ? (
@@ -88,7 +88,7 @@ const NumericInputCard = ({
   suffix: string;
 }) => (
   <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
     <div className="flex items-center">
@@ -132,7 +132,7 @@ const HeightInputCard = ({
 
   return (
     <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
-      <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+      <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
         Height
       </label>
       <div className="flex items-center gap-2">
@@ -169,7 +169,7 @@ const ToggleCard = ({
   description?: string;
 }) => (
   <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200">
-    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
     <div className="flex items-center justify-between">
@@ -208,7 +208,7 @@ const SelectCard = ({
   onChange: (val: string) => void;
 }) => (
   <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
     <select
@@ -235,7 +235,7 @@ const DateInputCard = ({
   onChange: (val: string) => void;
 }) => (
   <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
     <input
@@ -261,7 +261,7 @@ const TimeInputCard = ({
   onPeriodChange: (val: string) => void;
 }) => (
   <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
       {label}
     </label>
     <div className="flex items-center gap-2">
@@ -379,7 +379,7 @@ export const IdentityForm = () => {
               <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7]">
                     Action Photo
                   </label>
                   <button
@@ -401,7 +401,7 @@ export const IdentityForm = () => {
                   </button>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7]">
                     School Logo
                   </label>
                   <button
@@ -429,7 +429,7 @@ export const IdentityForm = () => {
               <div className="grid grid-cols-2 gap-4">
                 <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
                 <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-                  <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Preview
                   </label>
                   <div
@@ -446,7 +446,7 @@ export const IdentityForm = () => {
             <SectionHeader title="Position & Details" />
             <div className="space-y-4">
               <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-                <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
                   Position
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -507,7 +507,7 @@ export const IdentityForm = () => {
           <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">
             {sectionIcons[activeSection]}
           </span>
-          <span className="text-on-surface-variant text-sm font-medium uppercase tracking-widest">
+          <span className="text-[#c0c3c7] text-sm font-semibold uppercase tracking-widest">
             {sectionLabels[activeSection]}
           </span>
           <span className="text-on-surface-variant/50 text-xs mt-1">Coming Soon</span>
@@ -524,7 +524,7 @@ export const IdentityForm = () => {
             <SectionHeader title="Recruiting" />
             <div className="space-y-4">
               <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-                <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
                   Star Rating
                 </label>
                 <div className="flex gap-2">
@@ -559,7 +559,7 @@ export const IdentityForm = () => {
                 />
               </div>
               <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
-                <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-3">
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
                   Commitment Status
                 </label>
                 <div className="flex flex-wrap gap-2">
