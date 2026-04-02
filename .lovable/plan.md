@@ -1,22 +1,15 @@
 
 
-## Widen Preview Header to Full Column Width
+## Remove "On Your Profile" Fields for Non-Identity Sections
 
-Currently the header row (section title + Go Live/Share icons + Draft/Live status) is constrained to `max-w-sm mx-auto` — the same width as the ProCard. This makes it look like the title and icons are pinned to the card rather than spanning the full preview column.
+Currently when Performance, Develop, Pulse, or Connect is active, the "On Your Card" section shows a Coming Soon placeholder — but the entire "On Your Profile" group (Recruiting, Eligibility, Upcoming Game, Story) still renders below it. Those fields are identity-specific and should be hidden for the other four sections.
 
-### Change — `src/features/builder/BuilderLayout.tsx`
+### Change — `src/features/builder/components/IdentityForm.tsx`
 
-Line 49: Remove `max-w-sm mx-auto` from the header wrapper. Replace with full-width padding that aligns to the column edges:
+Wrap the "On Your Profile" group and all its child sections (Recruiting, Eligibility, Upcoming Game, Story — lines 517–653) inside the same `activeSection === "identity"` conditional. When a non-identity section is active, only the "On Your Card" Coming Soon placeholder renders — nothing else.
 
-```
-- <div className="relative z-10 w-full max-w-sm mx-auto pt-8 px-4">
-+ <div className="relative z-10 w-full pt-8 px-8">
-```
-
-This makes the section title ("Identity Preview", etc.) sit flush-left within the column at the same `px-8` as the preview content below it (line 101 uses `px-8`), and pushes the Go Live + Share icons to the right edge of the column.
-
-No other files modified — single line change.
+Result: Performance, Develop, Pulse, and Connect each show only the Coming Soon card. Identity remains completely untouched.
 
 ### Files modified
-- `src/features/builder/BuilderLayout.tsx`
+- `src/features/builder/components/IdentityForm.tsx`
 
