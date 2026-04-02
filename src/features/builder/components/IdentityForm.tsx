@@ -114,52 +114,45 @@ const HeightInputCard = ({
   value: string;
   onChange: (val: string) => void;
 }) => {
-  const [rawInput, setRawInput] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
+  // value is total inches as string e.g. "74"
+  const totalInches = parseInt(value, 10) || 0;
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
 
-  const handleChange = (input: string) => {
-    const digits = input.replace(/\D/g, "");
-    setRawInput(digits);
-    if (digits.length >= 2) {
-      const totalInches = parseInt(digits, 10);
-      const feet = Math.floor(totalInches / 12);
-      const inches = totalInches % 12;
-      onChange(`${feet}'${inches}"`);
-    } else if (digits === "") {
-      onChange("");
-    }
+  const handleFeetChange = (v: string) => {
+    const f = parseInt(v.replace(/\D/g, ""), 10) || 0;
+    onChange(String(f * 12 + inches));
   };
 
-  const handleFocus = () => {
-    setIsFocused(true);
-    // Extract total inches from formatted value for editing
-    const match = value.match(/(\d+)'(\d+)"/);
-    if (match) {
-      const total = parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
-      setRawInput(String(total));
-    } else {
-      setRawInput("");
-    }
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
+  const handleInchesChange = (v: string) => {
+    const raw = v.replace(/\D/g, "");
+    const i = Math.min(parseInt(raw, 10) || 0, 11);
+    onChange(String(feet * 12 + i));
   };
 
   return (
     <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 transition-colors duration-200 input-card-focus">
       <label className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant block mb-2">
-        Height (inches)
+        Height
       </label>
-      <input
-        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
-        value={isFocused ? rawInput : value}
-        onChange={(e) => handleChange(e.target.value)}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        inputMode="numeric"
-        placeholder="e.g. 74"
-      />
+      <div className="flex items-center gap-2">
+        <input
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          value={totalInches > 0 ? String(feet) : ""}
+          onChange={(e) => handleFeetChange(e.target.value)}
+          inputMode="numeric"
+          placeholder="6"
+        />
+        <span className="text-on-surface-variant text-sm shrink-0">ft</span>
+        <input
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          value={totalInches > 0 ? String(inches) : ""}
+          onChange={(e) => handleInchesChange(e.target.value)}
+          inputMode="numeric"
+          placeholder="2"
+        />
+        <span className="text-on-surface-variant text-sm shrink-0">in</span>
+      </div>
     </div>
   );
 };
