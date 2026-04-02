@@ -396,11 +396,11 @@ export const IdentityForm = () => {
               <button
                 type="button"
                 onClick={() => logoInputRef.current?.click()}
-                className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+                className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
               >
                 {schoolLogoUrl ? (
                   <>
-                    <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 rounded-lg object-contain" />
+                    <img src={schoolLogoUrl} alt="School logo" className="w-16 h-16 rounded-lg object-contain" />
                     <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
                   </>
                 ) : (
