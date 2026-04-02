@@ -16,41 +16,27 @@ const positionLabelMap: Record<string, string> = {
   LS: "Long Snapper",
 };
 
-const ShieldPlaceholder = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className="w-5 h-5 text-on-surface-variant"
-  >
-    <path
-      d="M12 2L4 6V12C4 17 7.6 21.5 12 22.5C16.4 21.5 20 17 20 12V6L12 2Z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-      fill="none"
-    />
-  </svg>
-);
-
 export const ProCard = () => {
   const {
-    firstName, lastName, position, classYear, school,
-    height, weight, actionPhotoUrl, schoolLogoUrl,
+    firstName, lastName, position, classYear, school, number,
+    height, weight, fortyTime, actionPhotoUrl, schoolLogoUrl, teamColor,
   } = useAthleteStore();
   const positionLabel = positionLabelMap[position] ?? position;
 
   const physicals = [
     { label: "HEIGHT", value: height },
     { label: "WEIGHT", value: weight.replace(/\s*lbs?/i, "") },
-    { label: "40-YD", value: "4.42" },
+    { label: "40-YD", value: fortyTime },
   ];
 
   return (
     <div className="flex flex-col items-center">
 
       {/* Card */}
-      <div className="team-glow w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group">
+      <div
+        className="w-full max-w-sm aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative group"
+        style={{ boxShadow: `0 0 60px ${teamColor}55, 0 0 120px ${teamColor}22` }}
+      >
         {/* Photo area */}
         {actionPhotoUrl ? (
           <img
@@ -79,7 +65,7 @@ export const ProCard = () => {
           </span>
         </div>
 
-        {/* School logo — lower right, hidden when empty */}
+        {/* School logo — only when uploaded */}
         {schoolLogoUrl && (
           <div className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
             <img src={schoolLogoUrl} alt="School logo" className="w-full h-full object-contain" />
@@ -88,14 +74,22 @@ export const ProCard = () => {
 
         {/* Bottom info */}
         <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
-          {/* Position + Class Year badges */}
-          <div className="flex items-center gap-5 mb-5">
+          {/* Position + Jersey + Class Year badges */}
+          <div className="flex items-center gap-3 mb-5 flex-wrap">
             <span
               className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px]"
               style={{ backgroundColor: "var(--team-color)", color: "white" }}
             >
               {positionLabel}
             </span>
+            {number && (
+              <span
+                className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-[3px]"
+                style={{ backgroundColor: "var(--team-color)", color: "white" }}
+              >
+                #{number}
+              </span>
+            )}
             <span className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px] border border-white/20 text-on-surface-variant">
               Class of {classYear}
             </span>

@@ -60,7 +60,7 @@ const defaults: AthleteData = {
   schoolAbbrev: "UGA",
   classYear: "2025",
   teamColor: "#CC0000",
-  bio: "Elite wide receiver specializing in deep vertical routes. 3-year varsity starter with elite separation and explosive release.",
+  bio: "",
   quote: "Every rep is a rep toward the league.",
   hometown: "Athens, GA",
   highSchool: "",

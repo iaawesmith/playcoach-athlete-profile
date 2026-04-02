@@ -23,6 +23,17 @@ const commitmentLabels: Record<string, string> = {
   portal: "In Portal",
 };
 
+const formatGameDate = (dateStr: string): string => {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+};
+
 export const IdentityPreview = () => {
   const {
     height, weight, fortyTime, vertical, wingspan, handSize,
@@ -30,6 +41,9 @@ export const IdentityPreview = () => {
     eligibilityYears, transferEligible, redshirtStatus,
     upcomingGame, bio, quote, hometown, highSchool,
   } = useAthleteStore();
+
+  const showBothLocations = hometown && highSchool && hometown.trim().toLowerCase() !== highSchool.trim().toLowerCase();
+  const showSingleLocation = hometown && highSchool && hometown.trim().toLowerCase() === highSchool.trim().toLowerCase();
 
   return (
     <div className="w-full max-w-sm mx-auto space-y-6 mt-6 pb-8">
@@ -61,9 +75,9 @@ export const IdentityPreview = () => {
               <span
                 key={i}
                 className="material-symbols-outlined text-lg"
-                style={{ color: i < starRating ? "var(--team-color)" : undefined }}
+                style={i < starRating ? { color: "var(--team-color)" } : { color: "rgba(168, 171, 175, 0.3)" }}
               >
-                {i < starRating ? "star" : "star"}
+                star
               </span>
             ))}
             <span className="text-on-surface-variant text-xs ml-2">{starRating}-Star</span>
@@ -114,12 +128,10 @@ export const IdentityPreview = () => {
                 {transferEligible ? "Eligible" : "No"}
               </span>
             </div>
-            {redshirtStatus !== "None" && (
-              <div>
-                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Redshirt</span>
-                <span className="text-on-surface font-bold text-xs">{redshirtStatus}</span>
-              </div>
-            )}
+            <div>
+              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Redshirt</span>
+              <span className="text-on-surface font-bold text-xs">{redshirtStatus}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -139,7 +151,7 @@ export const IdentityPreview = () => {
                 vs {upcomingGame.opponent}
               </span>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-on-surface-variant text-xs">
-                <span>{upcomingGame.date}</span>
+                <span>{formatGameDate(upcomingGame.date)}</span>
                 <span>{upcomingGame.time}</span>
                 <span>{upcomingGame.network}</span>
                 <span>{upcomingGame.location}</span>
@@ -175,10 +187,17 @@ export const IdentityPreview = () => {
 
       {/* Hometown + High School */}
       <div className="text-on-surface-variant text-xs uppercase tracking-widest">
-        {hometown || highSchool ? (
-          <span>
-            {hometown}{hometown && highSchool && " · "}{highSchool}
-          </span>
+        {showSingleLocation ? (
+          <span>{hometown}</span>
+        ) : showBothLocations ? (
+          <div className="space-y-1">
+            <div><span className="text-on-surface-variant/50">Hometown:</span> {hometown}</div>
+            <div><span className="text-on-surface-variant/50">High School:</span> {highSchool}</div>
+          </div>
+        ) : hometown ? (
+          <span>{hometown}</span>
+        ) : highSchool ? (
+          <span>{highSchool}</span>
         ) : (
           <span className="text-on-surface-variant/30">Add your hometown</span>
         )}
