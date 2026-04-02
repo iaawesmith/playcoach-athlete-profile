@@ -42,6 +42,25 @@ export const IdentityPreview = () => {
     upcomingGame, bio, quote, hometown, highSchool,
   } = useAthleteStore();
 
+  // Format height from total inches to X'Y"
+  const formatHeight = (val: string) => {
+    const total = parseInt(val, 10);
+    if (!total) return "—";
+    return `${Math.floor(total / 12)}'${total % 12}"`;
+  };
+
+  // Format weight with lbs suffix
+  const formatWeight = (val: string) => {
+    if (!val) return "—";
+    return val.replace(/\s*lbs?/i, "");
+  };
+
+  // Format inches values with " suffix
+  const formatInches = (val: string) => {
+    if (!val) return "—";
+    return `${val}"`;
+  };
+
   const showBothLocations = hometown && highSchool && hometown.trim().toLowerCase() !== highSchool.trim().toLowerCase();
   const showSingleLocation = hometown && highSchool && hometown.trim().toLowerCase() === highSchool.trim().toLowerCase();
 
