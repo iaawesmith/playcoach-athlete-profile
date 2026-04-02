@@ -40,6 +40,7 @@ export const IdentityPreview = () => {
     starRating, nationalRank, positionRank, commitmentStatus,
     eligibilityYears, transferEligible, redshirtStatus,
     upcomingGame, bio, quote, hometown, highSchool,
+    schoolLogoUrl,
   } = useAthleteStore();
 
   // Format height from total inches to X'Y"
@@ -87,46 +88,55 @@ export const IdentityPreview = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Recruiting
         </span>
-        <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
-          {/* Stars */}
-          <div className="flex items-center gap-0.5 mb-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span
-                key={i}
-                className="material-symbols-outlined text-lg"
-                style={i < starRating ? { color: "var(--team-color)" } : { color: "rgba(168, 171, 175, 0.3)" }}
-              >
-                star
-              </span>
-            ))}
-            <span className="text-on-surface-variant text-xs ml-2">{starRating}-Star</span>
-          </div>
-          {/* Ranks */}
-          <div className="flex items-center gap-4 mb-3 text-sm">
-            <div>
-              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">National</span>
-              <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-                {nationalRank ? `#${nationalRank}` : "Not ranked"}
-              </span>
+        <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            {/* Stars */}
+            <div className="flex items-center gap-0.5 mb-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="material-symbols-outlined text-lg"
+                  style={i < starRating ? { color: "var(--team-color)" } : { color: "rgba(168, 171, 175, 0.3)" }}
+                >
+                  star
+                </span>
+              ))}
+              <span className="text-on-surface-variant text-xs ml-2">{starRating}-Star</span>
             </div>
-            <div>
-              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Position</span>
-              <span className={`font-black ${positionRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-                {positionRank ? `#${positionRank}` : "Not ranked"}
-              </span>
+            {/* Ranks */}
+            <div className="flex items-center gap-4 mb-3 text-sm">
+              <div>
+                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">National</span>
+                <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
+                  {nationalRank ? `#${nationalRank}` : "Not ranked"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Position</span>
+                <span className={`font-black ${positionRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
+                  {positionRank ? `#${positionRank}` : "Not ranked"}
+                </span>
+              </div>
             </div>
+            {/* Commitment */}
+            <span
+              className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+              style={
+                commitmentStatus === "committed"
+                  ? { backgroundColor: "var(--team-color)", color: "white" }
+                  : undefined
+              }
+            >
+              {commitmentLabels[commitmentStatus] ?? commitmentStatus}
+            </span>
           </div>
-          {/* Commitment */}
-          <span
-            className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-            style={
-              commitmentStatus === "committed"
-                ? { backgroundColor: "var(--team-color)", color: "white" }
-                : undefined
-            }
-          >
-            {commitmentLabels[commitmentStatus] ?? commitmentStatus}
-          </span>
+          {commitmentStatus === "committed" && schoolLogoUrl && (
+            <img
+              src={schoolLogoUrl}
+              alt="School logo"
+              className="w-12 h-12 rounded-lg object-contain"
+            />
+          )}
         </div>
       </div>
 
