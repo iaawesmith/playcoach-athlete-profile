@@ -163,32 +163,33 @@ export const IdentityForm = () => {
 
   return (
     <div className="space-y-10">
-      {/* ═══════════════ CARD FIELDS ═══════════════ */}
-      <GroupHeader title="Card Fields" />
+      {/* ═══════════════ ON YOUR CARD ═══════════════ */}
+      <GroupHeader title="On Your Card" />
 
       {/* Your Identity */}
       <section>
         <SectionHeader title="Your Identity" />
         <div className="space-y-4">
-          {/* Name fields — top */}
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} />
             <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
           </div>
 
-          {/* Media uploads — side by side */}
           <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
               onClick={() => photoInputRef.current?.click()}
-              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
             >
               {actionPhotoUrl ? (
-                <img src={actionPhotoUrl} alt="Action photo" className="w-12 h-12 rounded-lg object-cover" />
+                <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
               ) : (
-                <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+                <>
+                  <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+                  <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
+                </>
               )}
               <span className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">
                 {actionPhotoUrl ? "Change Photo" : "Action Photo"}
@@ -210,13 +211,11 @@ export const IdentityForm = () => {
             </button>
           </div>
 
-          {/* School + Abbreviation */}
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="School" value={school} onChange={(v) => setAthlete({ school: v })} />
             <InputCard label="Abbreviation" value={schoolAbbrev} onChange={(v) => setAthlete({ schoolAbbrev: v })} />
           </div>
 
-          {/* Team Color + Swatch */}
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
             <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4">
@@ -283,70 +282,8 @@ export const IdentityForm = () => {
         </div>
       </section>
 
-      {/* ═══════════════ PROFILE FIELDS ═══════════════ */}
-      <GroupHeader title="Profile Fields" />
-
-      {/* Background */}
-      <section>
-        <SectionHeader title="Background" />
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
-            <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
-          </div>
-        </div>
-      </section>
-
-      {/* Story */}
-      <section>
-        <SectionHeader title="Story" />
-        <div className="space-y-4">
-          <InputCard label="Athlete Bio" value={bio} type="textarea" onChange={(v) => setAthlete({ bio: v })} />
-          <InputCard label="Personal Quote" value={quote} type="textarea" onChange={(v) => setAthlete({ quote: v })} />
-        </div>
-      </section>
-
-      {/* Eligibility */}
-      <section>
-        <SectionHeader title="Eligibility" />
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <InputCard
-              label="Eligibility Years Remaining"
-              value={String(eligibilityYears)}
-              type="number"
-              onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
-            />
-            <ToggleCard
-              label="Transfer Eligible"
-              value={transferEligible}
-              onChange={(v) => setAthlete({ transferEligible: v })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <SelectCard
-              label="Redshirt Status"
-              value={redshirtStatus}
-              options={[
-                { value: "None", label: "None" },
-                { value: "Redshirt", label: "Redshirt" },
-                { value: "Medical RS", label: "Medical RS" },
-              ]}
-              onChange={(v) => setAthlete({ redshirtStatus: v })}
-            />
-            <SelectCard
-              label="Commitment Status"
-              value={commitmentStatus}
-              options={[
-                { value: "committed", label: "Committed" },
-                { value: "uncommitted", label: "Uncommitted" },
-                { value: "portal", label: "In Portal" },
-              ]}
-              onChange={(v) => setAthlete({ commitmentStatus: v as "committed" | "uncommitted" | "portal" })}
-            />
-          </div>
-        </div>
-      </section>
+      {/* ═══════════════ ON YOUR PROFILE ═══════════════ */}
+      <GroupHeader title="On Your Profile" />
 
       {/* Recruiting */}
       <section>
@@ -387,6 +324,46 @@ export const IdentityForm = () => {
               onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
             />
           </div>
+          <SelectCard
+            label="Commitment Status"
+            value={commitmentStatus}
+            options={[
+              { value: "committed", label: "Committed" },
+              { value: "uncommitted", label: "Uncommitted" },
+              { value: "portal", label: "In Portal" },
+            ]}
+            onChange={(v) => setAthlete({ commitmentStatus: v as "committed" | "uncommitted" | "portal" })}
+          />
+        </div>
+      </section>
+
+      {/* Eligibility */}
+      <section>
+        <SectionHeader title="Eligibility" />
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard
+              label="Eligibility Years Remaining"
+              value={String(eligibilityYears)}
+              type="number"
+              onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
+            />
+            <ToggleCard
+              label="Transfer Eligible"
+              value={transferEligible}
+              onChange={(v) => setAthlete({ transferEligible: v })}
+            />
+          </div>
+          <SelectCard
+            label="Redshirt Status"
+            value={redshirtStatus}
+            options={[
+              { value: "None", label: "None" },
+              { value: "Redshirt", label: "Redshirt" },
+              { value: "Medical RS", label: "Medical RS" },
+            ]}
+            onChange={(v) => setAthlete({ redshirtStatus: v })}
+          />
         </div>
       </section>
 
@@ -403,6 +380,19 @@ export const IdentityForm = () => {
             <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
           </div>
           <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
+        </div>
+      </section>
+
+      {/* Story */}
+      <section>
+        <SectionHeader title="Story" />
+        <div className="space-y-4">
+          <InputCard label="Athlete Bio" value={bio} type="textarea" onChange={(v) => setAthlete({ bio: v })} />
+          <InputCard label="Personal Quote" value={quote} type="textarea" onChange={(v) => setAthlete({ quote: v })} />
+          <div className="grid grid-cols-2 gap-4">
+            <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
+            <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
+          </div>
         </div>
       </section>
     </div>
