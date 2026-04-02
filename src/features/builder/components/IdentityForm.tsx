@@ -170,46 +170,44 @@ export const IdentityForm = () => {
       <section>
         <SectionHeader title="Your Identity" />
         <div className="space-y-4">
-          {/* Media uploads — prominent */}
-          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-          <button
-            type="button"
-            onClick={() => photoInputRef.current?.click()}
-            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 min-h-[120px] flex flex-col items-center justify-center gap-3 text-center transition-colors duration-200 hover:border-white/20"
-          >
-            {actionPhotoUrl ? (
-              <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface-variant text-4xl">add_a_photo</span>
-            )}
-            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
-              {actionPhotoUrl ? "Change Action Photo" : "Upload Action Photo"}
-            </span>
-            <span className="text-on-surface-variant/40 text-[10px] uppercase tracking-widest">
-              This is the hero of your card
-            </span>
-          </button>
-
-          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-          <button
-            type="button"
-            onClick={() => logoInputRef.current?.click()}
-            className="w-full bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
-          >
-            {schoolLogoUrl ? (
-              <img src={schoolLogoUrl} alt="School logo" className="w-16 h-16 rounded-lg object-contain" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface-variant text-4xl">school</span>
-            )}
-            <span className="text-on-surface-variant text-sm font-medium uppercase tracking-wide">
-              {schoolLogoUrl ? "Change School Logo" : "Upload School Logo"}
-            </span>
-          </button>
-
-          {/* Name fields — side by side */}
+          {/* Name fields — top */}
           <div className="grid grid-cols-2 gap-4">
             <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} />
             <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
+          </div>
+
+          {/* Media uploads — side by side */}
+          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+            >
+              {actionPhotoUrl ? (
+                <img src={actionPhotoUrl} alt="Action photo" className="w-12 h-12 rounded-lg object-cover" />
+              ) : (
+                <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+              )}
+              <span className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">
+                {actionPhotoUrl ? "Change Photo" : "Action Photo"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              className="bg-surface-container-lowest rounded-xl border border-white/5 min-h-[80px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 hover:border-white/20"
+            >
+              {schoolLogoUrl ? (
+                <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 rounded-lg object-contain" />
+              ) : (
+                <span className="material-symbols-outlined text-on-surface-variant text-3xl">school</span>
+              )}
+              <span className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">
+                {schoolLogoUrl ? "Change Logo" : "School Logo"}
+              </span>
+            </button>
           </div>
         </div>
       </section>
