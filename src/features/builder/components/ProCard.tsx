@@ -79,14 +79,12 @@ export const ProCard = () => {
           </span>
         </div>
 
-        {/* School logo — lower right */}
-        <div className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
-          {schoolLogoUrl ? (
+        {/* School logo — lower right, hidden when empty */}
+        {schoolLogoUrl && (
+          <div className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-lg flex items-center justify-center opacity-40">
             <img src={schoolLogoUrl} alt="School logo" className="w-full h-full object-contain" />
-          ) : (
-            <ShieldPlaceholder />
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Bottom info */}
         <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
