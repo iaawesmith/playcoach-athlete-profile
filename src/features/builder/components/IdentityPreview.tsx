@@ -88,7 +88,7 @@ export const IdentityPreview = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Recruiting
         </span>
-        <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center justify-between">
+        <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center gap-4">
           <div>
             {/* Stars */}
             <div className="flex items-center gap-0.5 mb-3">
