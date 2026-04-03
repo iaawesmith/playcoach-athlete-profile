@@ -1,36 +1,24 @@
 
 
-## Split Recruiting Block into Two Equal Boxes
+## Move Star Label Above Stars + Rename Rank Labels
 
-### Layout Change
-Replace the single recruiting card with a `grid grid-cols-2 gap-2` container holding two separate cards of equal width.
+### Changes in `src/features/builder/components/IdentityPreview.tsx`
 
-### Box 1 — Rating & Ranks
-Keep stars + "X-Star" label, National rank, and Position rank exactly as they are now. Remove commitment status and logo from this box.
+**1. Add `position` to destructured store values (line 39)**
 
-### Box 2 — Commitment & Logo
-- Commitment status pill at top (aligned similarly to stars in box 1)
-- School logo below, centered horizontally, sized down to `w-12 h-12`
-- Empty states for both (same "Not set" text / shield placeholder)
+**2. Restructure Box 1 (lines 93–119):**
 
-### File: `src/features/builder/components/IdentityPreview.tsx` (lines 91–140)
+- Move "{starRating}-Star" text **above** the stars row as a title label (same style as other section labels: `text-[9px] font-bold uppercase tracking-widest`, teamColor)
+- Remove the inline `{starRating}-Star` span from beside the stars
+- Rename "National" label → "NAT."
+- Rename "Position" label → dynamic `position || "POS."` (shows "WR", "QB", etc. based on athlete's selected position, falls back to "POS." if none set)
 
-Replace the single `div.flex.items-center.gap-4` with:
-
-```tsx
-<div className="grid grid-cols-2 gap-2">
-  {/* Box 1: Stars + Ranks */}
-  <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
-    {/* Stars row — unchanged */}
-    {/* National + Position ranks — unchanged */}
-  </div>
-
-  {/* Box 2: Commitment + Logo */}
-  <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex flex-col">
-    {/* Commitment pill at top */}
-    {/* School logo centered below, w-12 h-12 */}
-  </div>
-</div>
+**Result:**
+```
+4-STAR               ← title, teamColor
+★ ★ ★ ★ ☆           ← stars row only, no trailing text
+NAT.       WR        ← dynamic position abbreviation
+#50        #9
 ```
 
 ### Files modified
