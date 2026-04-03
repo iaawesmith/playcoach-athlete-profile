@@ -523,28 +523,35 @@ export const IdentityForm = () => {
                 </div>
               </div>
 
-              <SchoolAutocomplete
-                value={school}
-                onSelect={(uni) => {
-                  setAthlete({
-                    school: uni.name,
-                    schoolAbbrev: uni.abbrev,
-                    teamColor: uni.primaryColor,
-                  });
-                }}
-                onManualChange={(v) => setAthlete({ school: v })}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
-                <div className="bg-surface-container rounded-xl p-4">
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
-                    Preview
-                  </label>
-                  <div
-                    className="w-10 h-10 rounded-xl border border-outline-variant/10"
-                    style={{ backgroundColor: teamColor }}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <SchoolAutocomplete
+                    value={school}
+                    onSelect={(uni) => {
+                      setAthlete({
+                        school: uni.name,
+                        schoolAbbrev: uni.abbrev,
+                        teamColor: uni.primaryColor,
+                      });
+                    }}
+                    onManualChange={(v) => setAthlete({ school: v })}
                   />
+                </div>
+                <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus" style={{ minWidth: 160 }}>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
+                    Team Color (Hex)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+                      value={teamColor}
+                      onChange={(e) => setAthlete({ teamColor: e.target.value })}
+                    />
+                    <div
+                      className="w-8 h-8 rounded-lg border border-outline-variant/10 shrink-0"
+                      style={{ backgroundColor: teamColor }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
