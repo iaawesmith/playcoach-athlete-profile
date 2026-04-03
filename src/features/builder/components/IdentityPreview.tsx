@@ -40,23 +40,21 @@ export const IdentityPreview = () => {
     schoolLogoUrl, position,
   } = useAthleteStore();
 
-  // Format height from total inches to X'Y"
-  const formatHeight = (val: string) => {
+  // Parse height from total inches
+  const parseHeight = (val: string) => {
     const total = parseInt(val, 10);
-    if (!total) return "—";
-    return `${Math.floor(total / 12)}'${total % 12}"`;
+    if (!total) return null;
+    return { ft: Math.floor(total / 12), inches: total % 12 };
   };
 
-  // Format weight with lbs suffix
-  const formatWeight = (val: string) => {
-    if (!val) return "—";
+  const cleanWeight = (val: string) => {
+    if (!val) return null;
     return val.replace(/\s*lbs?/i, "");
   };
 
-  // Format inches values with " suffix
-  const formatInches = (val: string) => {
-    if (!val) return "—";
-    return `${val}"`;
+  const cleanInches = (val: string) => {
+    if (!val) return null;
+    return val.replace(/"/g, "");
   };
 
   const showBothLocations = hometown && highSchool && hometown.trim().toLowerCase() !== highSchool.trim().toLowerCase();
