@@ -186,7 +186,7 @@ const SelectCard = ({
       {label}
     </label>
     <select
-      className="w-full bg-transparent text-on-surface text-sm font-normal outline-none appearance-none cursor-pointer"
+      className={`w-full bg-transparent text-sm font-normal outline-none appearance-none cursor-pointer ${value ? "text-on-surface" : "text-on-surface/40"}`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
@@ -250,7 +250,7 @@ const TimeInputCard = ({
     <select
       value={period}
       onChange={(e) => onPeriodChange(e.target.value)}
-      className="bg-surface-container-highest text-on-surface-variant rounded-lg border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 outline-none cursor-pointer appearance-none mr-1"
+      className={`bg-surface-container-highest rounded-lg border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 outline-none cursor-pointer appearance-none mr-1 ${period ? "text-on-surface-variant" : "text-on-surface-variant/40"}`}
       style={{ minWidth: 56 }}
     >
       <option value="">—</option>
