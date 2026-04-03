@@ -1,44 +1,28 @@
 
 
-## Add Icons and Color Accents to Three Column Headers
+## Two Updates: Preview Header Teal Fill + TopNav Adjustments
 
-### Changes
+### 1. Live Preview Header — Full Teal Background (`BuilderLayout.tsx`, line 47)
 
-**1. SideNav header** (`src/features/builder/components/SideNav.tsx`, line 39)
+Replace the current `bg-surface-container-high` + `border-l-2` with a full `bg-[#50C4CA]` background. Change all text/icons to white. Remove the left border accent.
 
-Add `person` icon before "Brand HQ" title:
-```tsx
-<div className="flex items-center gap-1.5">
-  <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "18px" }}>person</span>
-  <span className="text-on-surface font-bold uppercase text-xs tracking-widest">Brand HQ</span>
-</div>
-```
+- Header bar: `bg-[#50C4CA]` instead of `bg-surface-container-high`, remove `borderLeft` inline style
+- Visibility icon: `color: "#FFFFFF"`
+- Title text: `text-white` instead of `text-on-surface`
+- Draft dot: `bg-white` instead of `bg-amber-400`, text `text-white`
+- Live dot: `bg-white` instead of `bg-primary`, text `text-white`
 
-No border accent — stays neutral.
+### 2. TopNav Adjustments (`TopNav.tsx`, lines 14–18)
 
-**2. Preview header** (`src/features/builder/BuilderLayout.tsx`, line 49)
+- Remove the "Brand HQ" span entirely (line 18)
+- Add a share/link icon button immediately after the athlete name
+- The GO LIVE button (currently in preview header) stays where it is — this request refers to the share button moving from the preview header to the TopNav, inline after the name
 
-Add `visibility` icon before the section label, colored `#50C4CA`. The `border-l-2` in `#50C4CA` already exists on this header — no change needed there.
-
-```tsx
-<div className="flex items-center gap-1.5">
-  <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#50C4CA" }}>visibility</span>
-  <span className="text-on-surface font-bold uppercase text-xs tracking-widest">{sectionLabels[activeSection]}</span>
-</div>
-```
-
-**3. Editor header** (`src/features/builder/BuilderLayout.tsx`, line 124–125)
-
-Change `edit` icon color to `#00e639` and size to 18px. Add `border-l-2` in `#00e639` to the header bar via inline style.
-
-```tsx
-<div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center"
-     style={{ borderLeft: "2px solid #00e639" }}>
-  <div className="flex items-center gap-1.5">
-    <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#00e639" }}>edit</span>
-```
+Wait — re-reading: "Move the share/link icon to sit immediately to the right of the athlete name, inline" and "The GO LIVE button stays in its current position — it simply shifts right to occupy the space where the link icon was." This means:
+- In TopNav: remove "Brand HQ", add a `link` icon right after the athlete name
+- In the preview header: remove the share button, let the GO LIVE button shift into that space
 
 ### Files modified
-- `src/features/builder/components/SideNav.tsx`
-- `src/features/builder/BuilderLayout.tsx`
+- `src/features/builder/components/TopNav.tsx` — remove "Brand HQ" text, add link/share icon after athlete name
+- `src/features/builder/BuilderLayout.tsx` — preview header: full teal bg, white text/icons, remove border-l; remove share button from preview header
 
