@@ -28,7 +28,7 @@ export const TopNav = () => {
             onClick={publishProfile}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors duration-200"
           >
-            <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "20px" }}>publish</span>
+            <span className="material-symbols-outlined" style={{ fontSize: "20px", color: "#F59E0B" }}>publish</span>
           </button>
         ) : (
           <div className="w-8 h-8 flex items-center justify-center rounded-full">
