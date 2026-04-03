@@ -32,7 +32,7 @@ interface AthleteState {
   actionPhotoUrl: string | null;
   schoolLogoUrl: string | null;
   eligibilityYears: number;
-  transferEligible: boolean;
+  transferEligible: string;
   redshirtStatus: string;
   starRating: number;
   nationalRank: number | null;
@@ -73,7 +73,7 @@ const defaults: AthleteData = {
   actionPhotoUrl: null,
   schoolLogoUrl: null,
   eligibilityYears: 0,
-  transferEligible: false,
+  transferEligible: "",
   redshirtStatus: "",
   starRating: 0,
   nationalRank: null,

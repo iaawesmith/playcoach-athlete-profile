@@ -143,7 +143,7 @@ const HeightInputCard = ({
           value={totalInches > 0 ? String(feet) : ""}
           onChange={(e) => handleFeetChange(e.target.value)}
           inputMode="numeric"
-          placeholder="6"
+          placeholder="–"
         />
         <span className="text-on-surface-variant text-sm shrink-0">ft</span>
         <input
@@ -151,52 +151,13 @@ const HeightInputCard = ({
           value={totalInches > 0 ? String(inches) : ""}
           onChange={(e) => handleInchesChange(e.target.value)}
           inputMode="numeric"
-          placeholder="2"
+          placeholder="–"
         />
         <span className="text-on-surface-variant text-sm shrink-0">in</span>
       </div>
     </div>
   );
 };
-
-const ToggleCard = ({
-  label,
-  value,
-  onChange,
-  description,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (val: boolean) => void;
-  description?: string;
-}) => (
-  <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200">
-    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
-      {label}
-    </label>
-    <div className="flex items-center justify-between">
-      <span className="text-on-surface text-sm font-normal">
-        {value ? "Yes" : "No"}
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(!value)}
-        className={`w-11 h-6 rounded-full relative transition-all duration-200 ${
-          value ? "kinetic-gradient" : "bg-surface-container-high"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-200 ${
-            value ? "translate-x-[22px]" : "translate-x-0.5"
-          }`}
-        />
-      </button>
-    </div>
-    {description && (
-      <p className="text-[10px] text-on-surface-variant mt-2">{description}</p>
-    )}
-  </div>
-);
 
 const SelectCard = ({
   label,
@@ -271,7 +232,7 @@ const TimeInputCard = ({
         className="flex-1 bg-transparent text-on-surface text-sm font-normal outline-none"
         value={time}
         onChange={(e) => onTimeChange(e.target.value)}
-        placeholder=""
+        placeholder="0:00"
         inputMode="numeric"
       />
       <div className="flex rounded-full overflow-hidden">
@@ -477,7 +438,7 @@ export const IdentityForm = () => {
 
   // Parse time into value and period
   const timeMatch = game.time.match(/^([\d:]+)\s*(AM|PM)?$/i);
-  const timeValue = timeMatch ? timeMatch[1] : game.time;
+  const timeValue = timeMatch ? timeMatch[1] : game.time.replace(/[^0-9:]/g, "");
   const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "";
 
   const handleTimeChange = (val: string) => {
@@ -717,13 +678,18 @@ export const IdentityForm = () => {
               <div className="grid grid-cols-2 gap-4">
                 <InputCard
                   label="Eligibility Years Remaining"
-                  value={String(eligibilityYears)}
+                  value={eligibilityYears === 0 ? "" : String(eligibilityYears)}
                   type="number"
                   onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
                 />
-                <ToggleCard
+                <SelectCard
                   label="Transfer Eligible"
                   value={transferEligible}
+                  options={[
+                    { value: "", label: "Select..." },
+                    { value: "yes", label: "Yes" },
+                    { value: "no", label: "No" },
+                  ]}
                   onChange={(v) => setAthlete({ transferEligible: v })}
                 />
               </div>
