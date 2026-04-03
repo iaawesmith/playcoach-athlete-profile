@@ -91,7 +91,7 @@ export const BuilderLayout = () => {
           {/* Right Column — Editor */}
           <div className="lg:col-span-7 flex flex-col overflow-hidden">
             {/* Sticky Editor Header */}
-            <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
+            <div className="h-14 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#FFFFFF" }}>edit</span>
                 <span className="text-on-surface font-bold uppercase tracking-widest text-xs">
