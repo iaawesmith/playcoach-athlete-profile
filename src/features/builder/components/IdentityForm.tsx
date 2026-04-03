@@ -523,27 +523,25 @@ export const IdentityForm = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4 items-stretch">
-                <div className="flex-1">
-                  <SchoolAutocomplete
-                    value={school}
-                    onSelect={(uni) => {
-                      setAthlete({
-                        school: uni.name,
-                        schoolAbbrev: uni.abbrev,
-                        teamColor: uni.primaryColor,
-                      });
-                    }}
-                    onManualChange={(v) => {
-                      if (v === "") {
-                        setAthlete({ school: "", schoolAbbrev: "", teamColor: "#50C4CA" });
-                      } else {
-                        setAthlete({ school: v });
-                      }
-                    }}
-                  />
-                </div>
-                <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus min-w-[160px]">
+              <div className="grid grid-cols-2 gap-4">
+                <SchoolAutocomplete
+                  value={school}
+                  onSelect={(uni) => {
+                    setAthlete({
+                      school: uni.name,
+                      schoolAbbrev: uni.abbrev,
+                      teamColor: uni.primaryColor,
+                    });
+                  }}
+                  onManualChange={(v) => {
+                    if (v === "") {
+                      setAthlete({ school: "", schoolAbbrev: "", teamColor: "#50C4CA" });
+                    } else {
+                      setAthlete({ school: v });
+                    }
+                  }}
+                />
+                <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Team Color (Hex)
                   </label>
