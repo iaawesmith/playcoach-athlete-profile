@@ -544,7 +544,7 @@ export const IdentityForm = () => {
                   >
                     {schoolLogoUrl ? (
                       <>
-                        <img src={schoolLogoUrl} alt="School logo" className="w-16 h-16 rounded-lg object-contain" />
+                        <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 mt-2 rounded-lg object-contain" />
                         <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
                       </>
                     ) : (
