@@ -33,9 +33,9 @@ export const ProCard = () => {
   };
 
   const physicals = [
-    { label: "HEIGHT", value: height ? formatHeight(height) : "—" },
-    { label: "WEIGHT", value: weight ? weight.replace(/\s*lbs?/i, "") : "—" },
-    { label: "40 TIME", value: fortyTime || "—" },
+    { label: "HEIGHT", value: height ? formatHeight(height) : "0'0\"" },
+    { label: "WEIGHT", value: weight ? weight.replace(/\s*lbs?/i, "") : "0" },
+    { label: "40 TIME", value: fortyTime || "0.0" },
   ];
 
   return (
@@ -126,7 +126,7 @@ export const ProCard = () => {
                 <span className="text-[10px] uppercase tracking-widest text-on-surface-variant block">
                   {attr.label}
                 </span>
-                <span className={`font-black text-xl ${attr.value === "—" ? "text-on-surface/40" : "text-on-surface"}`}>
+                <span className={`font-black text-xl ${["0'0\"", "0", "0.0"].includes(attr.value) ? "text-on-surface/40" : "text-on-surface"}`}>
                   {attr.value}
                 </span>
               </div>
