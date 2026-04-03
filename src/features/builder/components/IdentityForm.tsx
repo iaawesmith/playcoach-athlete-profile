@@ -717,13 +717,18 @@ export const IdentityForm = () => {
               <div className="grid grid-cols-2 gap-4">
                 <InputCard
                   label="Eligibility Years Remaining"
-                  value={String(eligibilityYears)}
+                  value={eligibilityYears === 0 ? "" : String(eligibilityYears)}
                   type="number"
                   onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
                 />
-                <ToggleCard
+                <SelectCard
                   label="Transfer Eligible"
                   value={transferEligible}
+                  options={[
+                    { value: "", label: "Select..." },
+                    { value: "yes", label: "Yes" },
+                    { value: "no", label: "No" },
+                  ]}
                   onChange={(v) => setAthlete({ transferEligible: v })}
                 />
               </div>

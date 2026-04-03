@@ -73,7 +73,7 @@ const defaults: AthleteData = {
   actionPhotoUrl: null,
   schoolLogoUrl: null,
   eligibilityYears: 0,
-  transferEligible: false,
+  transferEligible: "",
   redshirtStatus: "",
   starRating: 0,
   nationalRank: null,
