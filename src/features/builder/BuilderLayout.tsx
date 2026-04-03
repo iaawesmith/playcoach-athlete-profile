@@ -68,10 +68,10 @@ export const BuilderLayout = () => {
                 {isDraft ? (
                   <button
                     onClick={publishProfile}
-                    className="w-8 h-8 rounded-full bg-[#00E639] flex items-center justify-center active:scale-95 transition-all duration-150"
+                    className="w-8 h-8 rounded-full bg-[#0B0D0F] flex items-center justify-center active:scale-95 transition-all duration-150"
                     title={hasBeenPublished ? "Publish" : "Go Live"}
                   >
-                    <span className="material-symbols-outlined text-[#00460a] text-sm">rocket_launch</span>
+                    <span className="material-symbols-outlined text-sm" style={{ color: "#50C4CA" }}>rocket_launch</span>
                   </button>
                 ) : (
                   <button
@@ -114,9 +114,9 @@ export const BuilderLayout = () => {
           {/* Right Column — Editor */}
           <div className="lg:col-span-7 flex flex-col overflow-hidden">
             {/* Sticky Editor Header */}
-            <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center" style={{ borderLeft: "2px solid #00e639" }}>
+            <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
               <div className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#00e639" }}>edit</span>
+                <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#FFFFFF" }}>edit</span>
                 <span className="text-on-surface font-bold uppercase tracking-widest text-xs">
                   Editing {activeSection === "identity" ? "Identity" : activeSection === "performance" ? "Performance" : activeSection === "develop" ? "Develop" : activeSection === "pulse" ? "Pulse" : "Connect"}
                 </span>
