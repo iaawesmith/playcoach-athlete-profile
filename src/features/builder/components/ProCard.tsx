@@ -70,11 +70,11 @@ export const ProCard = () => {
           style={{ backgroundColor: "var(--team-color)" }}
         >
           {hasSchool ? (
-            <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/90">
+            <span className="text-[11px] font-black tracking-[0.25em] uppercase text-white/90">
               {school}
             </span>
           ) : (
-            <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/70">
+            <span className="text-[11px] font-black tracking-[0.25em] uppercase text-white/70">
               Enter Your School
             </span>
           )}
