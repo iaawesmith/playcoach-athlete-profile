@@ -7,11 +7,11 @@ import { MobileNav } from "./components/MobileNav";
 import { useAthleteStore } from "@/store/athleteStore";
 
 const sectionLabels: Record<string, string> = {
-  identity: "Identity Preview",
-  performance: "Performance Preview",
-  develop: "Develop Preview",
-  pulse: "Pulse Preview",
-  connect: "Connect Preview",
+  identity: "Identity Live Preview",
+  performance: "Performance Live Preview",
+  develop: "Develop Live Preview",
+  pulse: "Pulse Live Preview",
+  connect: "Connect Live Preview",
 };
 
 const sectionIcons: Record<string, string> = {
