@@ -35,7 +35,7 @@ export const SideNav = () => {
   return (
     <aside className="hidden lg:flex fixed left-0 top-16 bottom-0 w-64 bg-surface flex-col z-40">
       {/* Sticky Header Bar */}
-      <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
+      <div className="h-14 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
         <div className="flex items-center gap-1.5">
           <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "18px" }}>person</span>
           <span className="text-on-surface font-bold uppercase text-xs tracking-widest">Brand HQ</span>

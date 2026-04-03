@@ -41,7 +41,7 @@ export const BuilderLayout = () => {
           {/* Left Column — Preview */}
           <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low overflow-hidden">
             {/* Sticky Preview Header Bar */}
-            <div className="h-12 px-5 py-3 bg-[#50C4CA] border-b border-white/10 shrink-0 flex items-center z-10">
+            <div className="h-14 px-5 py-3 bg-[#50C4CA] border-b border-white/10 shrink-0 flex items-center z-10">
               <div className="flex flex-col justify-center min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#FFFFFF" }}>visibility</span>
@@ -55,8 +55,7 @@ export const BuilderLayout = () => {
                     </>
                   ) : (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      <span className="text-[0.65rem] italic text-white">Publish changes via the icon above</span>
+                       <span className="text-[0.65rem] italic text-white">Publish changes via the icon above</span>
                     </>
                   )}
                 </div>
@@ -92,7 +91,7 @@ export const BuilderLayout = () => {
           {/* Right Column — Editor */}
           <div className="lg:col-span-7 flex flex-col overflow-hidden">
             {/* Sticky Editor Header */}
-            <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
+            <div className="h-14 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#FFFFFF" }}>edit</span>
                 <span className="text-on-surface font-bold uppercase tracking-widest text-xs">
