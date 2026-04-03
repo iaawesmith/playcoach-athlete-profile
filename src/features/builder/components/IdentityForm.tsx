@@ -255,7 +255,7 @@ const TimeInputCard = ({
             className={`px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 ${
               period === p
                 ? "text-[#00460a] kinetic-gradient"
-                : "text-on-surface-variant bg-surface-container-high"
+                : "text-on-surface-variant bg-surface-container-highest border border-white/10"
             }`}
           >
             {p}
