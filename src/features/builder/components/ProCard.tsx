@@ -21,7 +21,10 @@ export const ProCard = () => {
     firstName, lastName, position, classYear, school, number,
     height, weight, fortyTime, actionPhotoUrl, schoolLogoUrl, teamColor,
   } = useAthleteStore();
-  const positionLabel = positionLabelMap[position] ?? position;
+  const positionLabel = position ? (positionLabelMap[position] ?? position) : "";
+
+  const hasName = firstName || lastName;
+  const hasSchool = !!school;
 
   const formatHeight = (val: string) => {
     const total = parseInt(val, 10);
@@ -30,9 +33,9 @@ export const ProCard = () => {
   };
 
   const physicals = [
-    { label: "HEIGHT", value: formatHeight(height) },
-    { label: "WEIGHT", value: weight.replace(/\s*lbs?/i, "") },
-    { label: "40 TIME", value: fortyTime },
+    { label: "HEIGHT", value: height ? formatHeight(height) : "—" },
+    { label: "WEIGHT", value: weight ? weight.replace(/\s*lbs?/i, "") : "—" },
+    { label: "40 TIME", value: fortyTime || "—" },
   ];
 
   return (
@@ -66,9 +69,15 @@ export const ProCard = () => {
           className="absolute top-0 left-0 right-0 h-8 z-10 flex items-center justify-center"
           style={{ backgroundColor: "var(--team-color)" }}
         >
-          <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/90">
-            {school}
-          </span>
+          {hasSchool ? (
+            <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/90">
+              {school}
+            </span>
+          ) : (
+            <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/40">
+              Enter Your School
+            </span>
+          )}
         </div>
 
         {/* School logo — only when uploaded */}
@@ -86,25 +95,29 @@ export const ProCard = () => {
               className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px]"
               style={{ backgroundColor: "var(--team-color)", color: "white" }}
             >
-              {positionLabel}
+              {positionLabel || "--"}
             </span>
-            {number && (
-              <span
-                className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-[3px]"
-                style={{ backgroundColor: "var(--team-color)", color: "white" }}
-              >
-                #{number}
-              </span>
-            )}
+            <span
+              className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-[3px]"
+              style={{ backgroundColor: "var(--team-color)", color: "white" }}
+            >
+              #{number || "--"}
+            </span>
             <span className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px] border border-white/20 text-on-surface-variant">
-              Class of {classYear}
+              Class of {classYear || "--"}
             </span>
           </div>
 
           {/* Athlete name */}
-          <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9]">
-            {firstName} {lastName}
-          </h3>
+          {hasName ? (
+            <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-4xl leading-[0.9]">
+              {firstName} {lastName}
+            </h3>
+          ) : (
+            <h3 className="font-black italic uppercase tracking-tighter text-on-surface/40 text-4xl leading-[0.9]">
+              Your Name
+            </h3>
+          )}
 
           {/* Physical attributes row */}
           <div className="flex gap-5 mt-3 border-t border-white/10 pt-3">
@@ -113,7 +126,9 @@ export const ProCard = () => {
                 <span className="text-[10px] uppercase tracking-widest text-on-surface-variant block">
                   {attr.label}
                 </span>
-                <span className="text-on-surface font-black text-xl">{attr.value}</span>
+                <span className={`font-black text-xl ${attr.value === "—" ? "text-on-surface/40" : "text-on-surface"}`}>
+                  {attr.value}
+                </span>
               </div>
             ))}
           </div>
