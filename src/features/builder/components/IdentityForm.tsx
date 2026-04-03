@@ -592,37 +592,20 @@ export const IdentityForm = () => {
           {/* Position & Details */}
           <section>
             <SectionHeader title="Position & Details" />
-            <div className="space-y-4">
-              <div className="bg-surface-container rounded-xl p-4">
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
-                  Position
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {positions.map((pos) => (
-                    <button
-                      key={pos}
-                      type="button"
-                      onClick={() => setAthlete({ position: pos === position ? "" : pos })}
-                      className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-                        pos === position
-                          ? "text-[#00460a] kinetic-gradient"
-                          : "text-on-surface-variant bg-surface-container-high"
-                      }`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} placeholder="0" />
-                <SelectCard
-                  label="Class Year"
-                  value={classYear}
-                  options={[{ value: "", label: "Select..." }, ...classYears.map((y) => ({ value: y, label: y }))]}
-                  onChange={(v) => setAthlete({ classYear: v })}
-                />
-              </div>
+            <div className="grid grid-cols-3 gap-4">
+              <SelectCard
+                label="Position"
+                value={position}
+                options={[{ value: "", label: "Select..." }, ...positions.map((p) => ({ value: p, label: p }))]}
+                onChange={(v) => setAthlete({ position: v })}
+              />
+              <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} placeholder="0" />
+              <SelectCard
+                label="Class Year"
+                value={classYear}
+                options={[{ value: "", label: "Select..." }, ...classYears.map((y) => ({ value: y, label: y }))]}
+                onChange={(v) => setAthlete({ classYear: v })}
+              />
             </div>
           </section>
 
