@@ -23,22 +23,18 @@ export const TopNav = () => {
           <span className="material-symbols-outlined text-on-surface-variant text-lg">link</span>
         </button>
 
-        {/* Publish Button / Live Status */}
-        <div className="ml-3">
-          {(!hasBeenPublished || hasUnpublishedChanges) ? (
-            <button
-              onClick={publishProfile}
-              className="h-8 px-4 rounded-full bg-[#F59E0B] text-on-surface font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 animate-pulse"
-            >
-              Publish
-            </button>
-          ) : (
-            <div className="h-7 px-3 rounded-full border border-[#00e639] flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00e639]" />
-              <span className="text-[#00e639] text-[10px] font-bold uppercase tracking-widest">Live</span>
-            </div>
-          )}
-        </div>
+        {(!hasBeenPublished || hasUnpublishedChanges) ? (
+          <button
+            onClick={publishProfile}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors duration-200"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "20px" }}>publish</span>
+          </button>
+        ) : (
+          <div className="w-8 h-8 flex items-center justify-center rounded-full">
+            <span className="material-symbols-outlined" style={{ fontSize: "20px", color: "#00e639" }}>cell_tower</span>
+          </div>
+        )}
       </div>
 
       {/* Right */}
