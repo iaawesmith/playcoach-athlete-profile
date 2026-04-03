@@ -1,27 +1,38 @@
 
 
-## Six Small Fixes
+## Placeholder & PM Button Fixes
 
-### 1. Bio placeholder — `"Your bio..."`
-**Line 754**: Add `placeholder="Your bio..."` to the Athlete Bio `InputCard`.
+### 1. Form placeholders — change to zeros
 
-### 2. Personal Quote placeholder — `"Your quote..."`
-**Line 757**: Add `placeholder="Your quote..."` to the Personal Quote `InputCard`.
+**`src/features/builder/components/IdentityForm.tsx`**
 
-### 3. Hometown placeholder — `"–"`
-**Line 759**: Add `placeholder="–"` to Hometown `InputCard`.
+Update placeholder values passed to `NumericInputCard`:
+- Weight: `"195"` → `"0"`
+- 40 Time: `"4.40"` → `"0.0"`
+- Vertical: `"36.5"` → `"0.0"`
+- Wingspan: `"76.0"` → `"0.0"`
+- Hand Size: `"9.5"` → `"0.0"`
 
-### 4. High School placeholder — `"–"`
-**Line 760**: Add `placeholder="–"` to High School `InputCard`.
+Lines 600–614.
 
-### 5. Time PM button not working
-The `handlePeriodChange` (line 458) only sets period when `timeValue` is truthy. But `timeValue` is derived from regex on `game.time` — when time is empty, clicking PM does nothing. Fix: allow period selection even when no time is entered. Remove the `if (timeValue)` guard and store just the period when time is empty, e.g. store `" PM"` or change logic to always set period so the button highlights. Better approach: track period selection regardless of time value — set `setGame("time", timeValue ? \`${timeValue} ${p}\` : \` ${p}\`)` or simply always store it. Then the regex parse on line 451 needs to also match a bare ` PM`/` AM`.
+### 2. ProCard physicals — change em-dash to matching defaults
 
-Simpler fix: remove the guard entirely. When `timeValue` is empty, store `p` as a marker. Update regex on line 451 to `game.time.match(/^([\d:]*)\s*(AM|PM)?$/i)` (make digits optional). This way clicking PM on an empty field stores `" PM"`, the regex captures it, and the button highlights. When user types a number, it prepends correctly.
+**`src/features/builder/components/ProCard.tsx` lines 35–39**
 
-### 6. Height placeholders — change from `"6"` / `"2"` to `"0"` / `"0"` at 40% opacity
-**Lines 157, 165**: Change placeholder from `"6"` to `"0"` and from `"2"` to `"0"`. The 40% opacity class `placeholder:text-on-surface/40` is already applied.
+Change the fallback display values:
+- HEIGHT: `"—"` → `"0'0\""` (matching the 0 / 0 placeholder)
+- WEIGHT: `"—"` → `"0"`
+- 40 TIME: `"—"` → `"0.0"`
+
+These render at normal opacity on the card (not 40% — they're in the actual value display).
+
+### 3. PM button not visible — fix unselected state contrast
+
+**`src/features/builder/components/IdentityForm.tsx` line 258**
+
+The unselected period button uses `bg-surface-container-high` which is nearly invisible against the card background. Change to `bg-surface-container-highest` or add a subtle border so the inactive button is clearly visible as a clickable option. Both AM and PM should always be visually apparent as a toggle pair.
 
 ### Files modified
 - `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/components/ProCard.tsx`
 
