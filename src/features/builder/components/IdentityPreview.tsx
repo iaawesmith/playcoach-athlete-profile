@@ -119,16 +119,22 @@ export const IdentityPreview = () => {
               </div>
             </div>
             {/* Commitment */}
-            <span
-              className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-              style={
-                commitmentStatus === "committed"
-                  ? { backgroundColor: "var(--team-color)", color: "white" }
-                  : undefined
-              }
-            >
-              {commitmentLabels[commitmentStatus] ?? commitmentStatus}
-            </span>
+            {commitmentStatus ? (
+              <span
+                className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                style={
+                  commitmentStatus === "committed"
+                    ? { backgroundColor: "var(--team-color)", color: "white" }
+                    : undefined
+                }
+              >
+                {commitmentLabels[commitmentStatus] ?? commitmentStatus}
+              </span>
+            ) : (
+              <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full text-on-surface-variant/40">
+                Not set
+              </span>
+            )}
           </div>
           {commitmentStatus === "committed" && schoolLogoUrl && (
             <img
