@@ -570,7 +570,7 @@ export const IdentityForm = () => {
               />
 
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
+                <InputCard label={teamColor.toUpperCase() === "#50C4CA" ? "Team Color (Hex) (Default)" : "Team Color (Hex)"} value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
                 <div className="bg-surface-container rounded-xl p-4">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Preview
