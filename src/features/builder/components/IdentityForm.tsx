@@ -742,7 +742,7 @@ export const IdentityForm = () => {
             <SectionHeader title="Upcoming Game" />
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} placeholder="–" />
+                <UniversitySearchCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} placeholder="Search schools..." />
                 <DateInputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
