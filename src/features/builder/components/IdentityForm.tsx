@@ -138,26 +138,27 @@ const HeightInputCard = ({
     onChange(String(feet * 12 + i));
   };
 
+  const isEmpty = totalInches === 0;
   return (
-    <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
+    <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus cursor-text">
       <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
         Height
       </label>
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${isEmpty ? "border-b border-dashed border-outline-variant/30" : ""} pb-0.5`}>
         <input
-          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center placeholder:text-on-surface/40"
           value={totalInches > 0 ? String(feet) : ""}
           onChange={(e) => handleFeetChange(e.target.value)}
           inputMode="numeric"
-          placeholder="–"
+          placeholder="6"
         />
         <span className="text-on-surface-variant text-sm shrink-0">ft</span>
         <input
-          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center placeholder:text-on-surface/40"
           value={totalInches > 0 ? String(inches) : ""}
           onChange={(e) => handleInchesChange(e.target.value)}
           inputMode="numeric"
-          placeholder="–"
+          placeholder="2"
         />
         <span className="text-on-surface-variant text-sm shrink-0">in</span>
       </div>
