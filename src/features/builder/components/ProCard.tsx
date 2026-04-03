@@ -1,27 +1,10 @@
 import { useAthleteStore } from "@/store/athleteStore";
 
-const positionLabelMap: Record<string, string> = {
-  QB: "Quarterback",
-  RB: "Running Back",
-  FB: "Fullback",
-  WR: "Wide Receiver",
-  TE: "Tight End",
-  OL: "Offensive Line",
-  DL: "Defensive Line",
-  LB: "Linebacker",
-  CB: "Cornerback",
-  S: "Safety",
-  K: "Kicker",
-  P: "Punter",
-  LS: "Long Snapper",
-};
-
 export const ProCard = () => {
   const {
     firstName, lastName, position, classYear, school, number,
     height, weight, fortyTime, actionPhotoUrl, schoolLogoUrl, teamColor,
   } = useAthleteStore();
-  const positionLabel = position ? (positionLabelMap[position] ?? position) : "";
 
   const hasName = firstName || lastName;
   const hasSchool = !!school;
@@ -95,7 +78,7 @@ export const ProCard = () => {
               className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px]"
               style={{ backgroundColor: "var(--team-color)", color: "white" }}
             >
-              {positionLabel || "--"}
+              {position || "--"}
             </span>
             <span
               className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-[3px]"
