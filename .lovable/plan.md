@@ -1,37 +1,29 @@
 
 
-## Five Fixes for Identity Builder
+## Six Fixes for Identity Builder
 
-### 1. School banner placeholder text visibility (ProCard.tsx)
-Line 77: The empty-state text `text-white/40` on the default teal `#50C4CA` banner is hard to read. Change to `text-white/70` so the placeholder is visible against any team color.
+### 1. Go Live button — use #00E639 instead of kinetic-gradient
+**`src/features/builder/BuilderLayout.tsx` line 58**: Replace `kinetic-gradient` with `bg-[#00E639]` so the icon button matches the progress bar color exactly. The icon text color stays `text-[#00460a]`.
 
-### 2. Clear default height value (athleteStore.ts)
-Height is already `""` in defaults — confirmed clean. The issue is the `HeightInputCard` shows `""` which is correct. No store change needed. However, if the user is seeing a non-empty height, it may be residual state from a previous session. The store defaults are correct.
+### 2. Consistent green — audit all non-teamColor greens
+Ensure any UI accent green (progress bar segments, live dot, live label, published check icon) all use `#00E639` / `bg-primary-container` / `text-primary` consistently. These already map to `#00e639` in the Tailwind config, so they should be fine. The go-live button is the only outlier using `kinetic-gradient` (a gradient) instead of the flat token.
 
-### 3. Time input AM/PM toggle fix (IdentityForm.tsx)
-The `TimeInputCard` (lines 252–295) has a problem: when `game.time` is empty, `timePeriod` defaults to `"PM"` silently (line 481), and clicking AM/PM sets the period even when `timeValue` is empty, producing strings like `" AM"`. Fix: make both AM/PM buttons always visible (they already are), but don't auto-set a period until the user clicks one. Change the default period to `""` and only concatenate when both time and period exist.
+### 3. Eligibility Remaining — default to 0, display empty
+**`src/store/athleteStore.ts` line 75**: Already `0`. The issue is **line 720 in IdentityForm** displays `String(eligibilityYears)` which shows `"0"`. Change to show empty string when `0` so the field appears blank, and treat empty input as `0` internally.
 
-### 4. TopNav placeholder name (TopNav.tsx)
-Line 13: When `firstName` and `lastName` are both empty, show "Your Name" in muted text instead of a blank space.
+### 4. Transfer Eligible — replace toggle with dropdown (blank/Yes/No)
+**`src/features/builder/components/IdentityForm.tsx` lines 724–728**: Replace `ToggleCard` with `SelectCard` using options `[{value:"", label:"Select..."}, {value:"yes", label:"Yes"}, {value:"no", label:"No"}]`. Update store type from `boolean` to `string` (`"" | "yes" | "no"`) with default `""`.
 
-### 5. Team Color field shows "(Default)" when #50C4CA (IdentityForm.tsx)
-Line 571: Update the Team Color (Hex) `InputCard` label to conditionally append "(Default)" when the value is `#50C4CA`.
+**`src/store/athleteStore.ts`**: Change `transferEligible` type from `boolean` to `string`, default `""`.
 
-### Changes by file
+### 5. Time field — fix PM default and show both AM/PM buttons
+**`src/features/builder/components/IdentityForm.tsx`**: The `timePeriod` regex on line 481 returns `""` when empty (already fixed). The bug is the `handleTimeChange` function on line 483 — when `timePeriod` is empty and user types a number, it stores just the number without a period. Then the display shows the raw value. Fix: ensure both AM/PM buttons are always visible and clickable (they are), but also make sure the placeholder shows `"0:00"` so user knows to type there. The "P PM" issue suggests residual state — the `timeValue` regex captures a stray `P`. Add `placeholder="0:00"` to the time input field (line 274).
 
-**`src/features/builder/components/ProCard.tsx`**
-- Line 77: Change `text-white/40` → `text-white/70` for school banner placeholder
-
-**`src/features/builder/components/TopNav.tsx`**
-- Line 13: Wrap name span in conditional — if no name, show "Your Name" at `text-on-surface/40`
-
-**`src/features/builder/components/IdentityForm.tsx`**
-- Line 481: Default `timePeriod` to `""` instead of `"PM"`
-- Lines 483–488: Only concatenate period when period is non-empty; only set period when clicked
-- Line 571: Change label from `"Team Color (Hex)"` to conditionally show `"Team Color (Hex) (Default)"` when value is `#50C4CA`
+### 6. Height — show dashes as placeholder instead of numbers
+**`src/features/builder/components/IdentityForm.tsx` lines 146–154**: Change the `placeholder` from `"6"` to `"–"` (en-dash) for feet, and from `"2"` to `"–"` for inches. This makes it clear the fields are clickable/editable without suggesting default values.
 
 ### Files modified
-- `src/features/builder/components/ProCard.tsx`
-- `src/features/builder/components/TopNav.tsx`
+- `src/features/builder/BuilderLayout.tsx`
 - `src/features/builder/components/IdentityForm.tsx`
+- `src/store/athleteStore.ts`
 
