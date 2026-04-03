@@ -1,29 +1,43 @@
 
 
-## Six Fixes for Identity Builder
+## Make Measurable Inputs More Intuitive
 
-### 1. Go Live button — use #00E639 instead of kinetic-gradient
-**`src/features/builder/BuilderLayout.tsx` line 58**: Replace `kinetic-gradient` with `bg-[#00E639]` so the icon button matches the progress bar color exactly. The icon text color stays `text-[#00460a]`.
+The current `NumericInputCard` renders an empty invisible input with just a suffix character ("s", `"`). Users see a near-blank card with no indication where to click or what to enter. The screenshot confirms — "40 TIME" shows just an "s" floating in space.
 
-### 2. Consistent green — audit all non-teamColor greens
-Ensure any UI accent green (progress bar segments, live dot, live label, published check icon) all use `#00E639` / `bg-primary-container` / `text-primary` consistently. These already map to `#00e639` in the Tailwind config, so they should be fine. The go-live button is the only outlier using `kinetic-gradient` (a gradient) instead of the flat token.
+### Approach — Placeholder + Tap Target Hint
 
-### 3. Eligibility Remaining — default to 0, display empty
-**`src/store/athleteStore.ts` line 75**: Already `0`. The issue is **line 720 in IdentityForm** displays `String(eligibilityYears)` which shows `"0"`. Change to show empty string when `0` so the field appears blank, and treat empty input as `0` internally.
+Add a **placeholder value** inside each numeric input that communicates the expected format, plus a subtle visual cue that the field is interactive.
 
-### 4. Transfer Eligible — replace toggle with dropdown (blank/Yes/No)
-**`src/features/builder/components/IdentityForm.tsx` lines 724–728**: Replace `ToggleCard` with `SelectCard` using options `[{value:"", label:"Select..."}, {value:"yes", label:"Yes"}, {value:"no", label:"No"}]`. Update store type from `boolean` to `string` (`"" | "yes" | "no"`) with default `""`.
+**Changes to `NumericInputCard` (lines 81–110 in IdentityForm.tsx):**
 
-**`src/store/athleteStore.ts`**: Change `transferEligible` type from `boolean` to `string`, default `""`.
+1. Add a `placeholder` prop with a format hint for each measurable:
+   - 40 Time → `"4.40"`
+   - Vertical → `"36.5"`
+   - Wingspan → `"76.0"`
+   - Hand Size → `"9.5"`
+   - Weight → `"195"`
 
-### 5. Time field — fix PM default and show both AM/PM buttons
-**`src/features/builder/components/IdentityForm.tsx`**: The `timePeriod` regex on line 481 returns `""` when empty (already fixed). The bug is the `handleTimeChange` function on line 483 — when `timePeriod` is empty and user types a number, it stores just the number without a period. Then the display shows the raw value. Fix: ensure both AM/PM buttons are always visible and clickable (they are), but also make sure the placeholder shows `"0:00"` so user knows to type there. The "P PM" issue suggests residual state — the `timeValue` regex captures a stray `P`. Add `placeholder="0:00"` to the time input field (line 274).
+2. Style the placeholder at 40% opacity (`placeholder:text-on-surface/40`) so it reads as a prompt, not real data — consistent with the existing placeholder convention.
 
-### 6. Height — show dashes as placeholder instead of numbers
-**`src/features/builder/components/IdentityForm.tsx` lines 146–154**: Change the `placeholder` from `"6"` to `"–"` (en-dash) for feet, and from `"2"` to `"–"` for inches. This makes it clear the fields are clickable/editable without suggesting default values.
+3. When the field is empty, show a faint dashed bottom border (`border-b border-dashed border-outline-variant/30`) on the input area to hint "this is an editable field." The border disappears once a value is entered or the field is focused.
+
+4. Add `cursor-text` to the entire card container so hovering anywhere signals interactivity.
+
+**Changes to `HeightInputCard` (lines 112–160):**
+- Already has `placeholder="–"` — update to `"6"` for feet and `"2"` for inches (typical values) at 40% opacity, matching the numeric cards. Add the same dashed bottom border hint.
+
+**Measurable field placeholder map (passed at usage sites, lines 589–605):**
+```
+Height:    feet="6"  inches="2"
+Weight:    "195"
+40 Time:   "4.40"
+Vertical:  "36.5"
+Wingspan:  "76.0"
+Hand Size: "9.5"
+```
+
+This gives every empty measurable a ghost of what valid data looks like — format, scale, and decimal precision — while the dashed underline draws the eye to the input zone.
 
 ### Files modified
-- `src/features/builder/BuilderLayout.tsx`
 - `src/features/builder/components/IdentityForm.tsx`
-- `src/store/athleteStore.ts`
 
