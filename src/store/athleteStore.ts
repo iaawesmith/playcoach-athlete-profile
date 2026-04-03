@@ -74,6 +74,7 @@ const defaults: AthleteData = {
   wingspan: "",
   handSize: "",
   actionPhotoUrl: null,
+  profilePictureUrl: null,
   schoolLogoUrl: null,
   eligibilityYears: 0,
   transferEligible: "",
