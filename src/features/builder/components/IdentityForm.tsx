@@ -429,7 +429,7 @@ const SchoolAutocomplete = ({
   );
 };
 
-
+export const IdentityForm = () => {
   const store = useAthleteStore();
   const {
     firstName, lastName, bio, quote, school, schoolAbbrev, teamColor,
