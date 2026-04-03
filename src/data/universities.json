@@ -1681,13 +1681,16 @@
     "id": "a21ae0f1-89b6-4bb9-aa1d-cec7911d0298",
     "slug": "miami_(oh)_redhawks"
   },
- {
+  {
     "name": "Michigan Wolverines",
     "colors": [
       "#FFFFFF",
       "#FFCB05",
       "#272341"
     ],
+    "id": "cec76c74-652b-4833-b40a-acab06687205",
+    "slug": "michigan_wolverines"
+  },
   {
     "name": "Michigan State Spartans",
     "colors": [
