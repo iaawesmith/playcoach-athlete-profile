@@ -631,8 +631,8 @@ export const IdentityForm = () => {
                   className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 overflow-hidden"
                 >
                   {schoolLogoUrl ? (
-                    <div className="relative w-full h-full group/img">
-                      <img src={schoolLogoUrl} alt="School logo" className="w-full h-full object-contain rounded-xl" />
+                    <div className="relative w-full h-full group/img flex items-center justify-center min-h-[100px]">
+                      <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 object-contain mx-auto my-auto" />
                       <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
                         <span className="material-symbols-outlined text-on-surface text-xl">swap_horiz</span>
                         <span className="text-on-surface text-[9px] font-bold uppercase tracking-widest">School Logo</span>
