@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
+import { universities, type University } from "@/data/universities";
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
 const classYears = ["2024", "2025", "2026", "2027", "2028", "2029", "2030"];
@@ -292,6 +293,142 @@ const TimeInputCard = ({
   </div>
 );
 
+const SchoolAutocomplete = ({
+  value,
+  abbrev,
+  onSelect,
+  onManualChange,
+  onAbbrevChange,
+}: {
+  value: string;
+  abbrev: string;
+  onSelect: (uni: University) => void;
+  onManualChange: (val: string) => void;
+  onAbbrevChange: (val: string) => void;
+}) => {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+  const [focusIndex, setFocusIndex] = useState(-1);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Sync external value changes
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  const filtered = query.length >= 1
+    ? universities.filter((u) =>
+        u.name.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  const handleSelect = useCallback((uni: University) => {
+    setQuery(uni.name);
+    setOpen(false);
+    setFocusIndex(-1);
+    onSelect(uni);
+  }, [onSelect]);
+
+  const handleInputChange = (val: string) => {
+    setQuery(val);
+    setOpen(true);
+    setFocusIndex(-1);
+    onManualChange(val);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!open || filtered.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setFocusIndex((i) => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setFocusIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && focusIndex >= 0) {
+      e.preventDefault();
+      handleSelect(filtered[focusIndex]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusIndex >= 0 && listRef.current) {
+      const item = listRef.current.children[focusIndex] as HTMLElement | undefined;
+      item?.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusIndex]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div ref={wrapperRef} className="relative">
+        <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
+            School
+          </label>
+          <div className="flex items-center">
+            <input
+              className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+              value={query}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onFocus={() => { if (query.length >= 1) setOpen(true); }}
+              onKeyDown={handleKeyDown}
+              placeholder="Search schools..."
+            />
+            <span className="material-symbols-outlined text-on-surface-variant text-base ml-1 shrink-0">
+              search
+            </span>
+          </div>
+        </div>
+        {open && filtered.length > 0 && (
+          <ul
+            ref={listRef}
+            className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[240px] overflow-y-auto rounded-xl bg-surface-container-high shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+          >
+            {filtered.map((uni, i) => (
+              <li
+                key={uni.name}
+                onMouseDown={() => handleSelect(uni)}
+                onMouseEnter={() => setFocusIndex(i)}
+                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100 ${
+                  i === focusIndex
+                    ? "bg-surface-container-highest"
+                    : "hover:bg-surface-container-highest/50"
+                }`}
+              >
+                <span
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: uni.primaryColor }}
+                />
+                <span className="text-on-surface text-sm font-normal truncate">
+                  {uni.name}
+                </span>
+                <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">
+                  {uni.abbrev}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <InputCard label="Abbreviation" value={abbrev} onChange={onAbbrevChange} />
+    </div>
+  );
+};
+
 export const IdentityForm = () => {
   const store = useAthleteStore();
   const {
@@ -424,10 +561,19 @@ export const IdentityForm = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <InputCard label="School" value={school} onChange={(v) => setAthlete({ school: v })} />
-                <InputCard label="Abbreviation" value={schoolAbbrev} onChange={(v) => setAthlete({ schoolAbbrev: v })} />
-              </div>
+              <SchoolAutocomplete
+                value={school}
+                abbrev={schoolAbbrev}
+                onSelect={(uni) => {
+                  setAthlete({
+                    school: uni.name,
+                    schoolAbbrev: uni.abbrev,
+                    teamColor: uni.primaryColor,
+                  });
+                }}
+                onManualChange={(v) => setAthlete({ school: v })}
+                onAbbrevChange={(v) => setAthlete({ schoolAbbrev: v })}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
