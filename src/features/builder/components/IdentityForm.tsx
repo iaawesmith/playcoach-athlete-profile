@@ -154,7 +154,7 @@ const HeightInputCard = ({
           value={totalInches > 0 ? String(feet) : ""}
           onChange={(e) => handleFeetChange(e.target.value)}
           inputMode="numeric"
-          placeholder="6"
+          placeholder="0"
         />
         <span className="text-on-surface-variant text-sm shrink-0">ft</span>
         <input
@@ -162,7 +162,7 @@ const HeightInputCard = ({
           value={totalInches > 0 ? String(inches) : ""}
           onChange={(e) => handleInchesChange(e.target.value)}
           inputMode="numeric"
-          placeholder="2"
+          placeholder="0"
         />
         <span className="text-on-surface-variant text-sm shrink-0">in</span>
       </div>
@@ -448,7 +448,7 @@ export const IdentityForm = () => {
   };
 
   // Parse time into value and period
-  const timeMatch = game.time.match(/^([\d:]+)\s*(AM|PM)?$/i);
+  const timeMatch = game.time.match(/^([\d:]*)\s*(AM|PM)?$/i);
   const timeValue = timeMatch ? timeMatch[1] : game.time.replace(/[^0-9:]/g, "");
   const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "";
 
@@ -456,9 +456,7 @@ export const IdentityForm = () => {
     setGame("time", timePeriod ? `${val} ${timePeriod}` : val);
   };
   const handlePeriodChange = (p: string) => {
-    if (timeValue) {
-      setGame("time", `${timeValue} ${p}`);
-    }
+    setGame("time", timeValue ? `${timeValue} ${p}` : ` ${p}`);
   };
 
   // Weight: raw number stored now
@@ -753,11 +751,12 @@ export const IdentityForm = () => {
                 type="textarea"
                 onChange={(v) => setAthlete({ bio: v })}
                 helperText="Tell coaches and scouts your story in your own words"
+                placeholder="Your bio..."
               />
-              <InputCard label="Personal Quote" value={quote} type="textarea" onChange={(v) => setAthlete({ quote: v })} />
+              <InputCard label="Personal Quote" value={quote} type="textarea" onChange={(v) => setAthlete({ quote: v })} placeholder="Your quote..." />
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} />
-                <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} />
+                <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} placeholder="–" />
+                <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} placeholder="–" />
               </div>
             </div>
           </section>
