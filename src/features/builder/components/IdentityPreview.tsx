@@ -68,13 +68,61 @@ export const IdentityPreview = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Measurables
         </span>
-        <div className="grid grid-cols-3 gap-2">
-          <MeasurableTile label="Height" value={formatHeight(height)} />
-          <MeasurableTile label="Weight" value={formatWeight(weight)} />
-          <MeasurableTile label="40 Time" value={fortyTime || "—"} />
-          <MeasurableTile label="Vertical" value={formatInches(vertical)} />
-          <MeasurableTile label="Wingspan" value={formatInches(wingspan)} />
-          <MeasurableTile label="Hand Size" value={formatInches(handSize)} />
+        <div className="grid grid-cols-2 gap-2">
+          <MeasurableTile label="Height">
+            {(() => {
+              const h = parseHeight(height);
+              if (!h) return <span className="text-on-surface-variant/30">—</span>;
+              return (
+                <>
+                  <span>{h.ft}</span>
+                  <span className="text-on-surface-variant text-sm font-medium ml-0.5">ft</span>
+                  <span className="ml-1">{h.inches}</span>
+                  <span className="text-on-surface-variant text-sm font-medium ml-0.5">in</span>
+                </>
+              );
+            })()}
+          </MeasurableTile>
+          <MeasurableTile label="Weight">
+            {cleanWeight(weight) ? (
+              <>
+                <span>{cleanWeight(weight)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">lbs</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="40 Time">
+            {fortyTime ? (
+              <>
+                <span>{fortyTime}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">s</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="Vertical">
+            {cleanInches(vertical) ? (
+              <>
+                <span>{cleanInches(vertical)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">"</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="Wingspan">
+            {cleanInches(wingspan) ? (
+              <>
+                <span>{cleanInches(wingspan)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">"</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="Hand Size">
+            {cleanInches(handSize) ? (
+              <>
+                <span>{cleanInches(handSize)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">"</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
         </div>
       </div>
 
