@@ -459,7 +459,7 @@ const UniversitySearchCard = ({
         <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">{label}</label>
         <div className="flex items-center">
           <input
-            className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+            className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={() => { if (query.length >= 1) setOpen(true); }}
