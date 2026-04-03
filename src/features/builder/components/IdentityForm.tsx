@@ -612,7 +612,7 @@ export const IdentityForm = () => {
                 <SelectCard
                   label="Class Year"
                   value={classYear}
-                  options={classYears.map((y) => ({ value: y, label: y }))}
+                  options={[{ value: "", label: "Select..." }, ...classYears.map((y) => ({ value: y, label: y }))]}
                   onChange={(v) => setAthlete({ classYear: v })}
                 />
               </div>
