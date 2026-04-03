@@ -88,9 +88,9 @@ export const IdentityPreview = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Recruiting
         </span>
-        <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex items-center gap-4">
-          <div className="flex-1">
-            {/* Stars */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Box 1: Stars + Ranks */}
+          <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
             <div className="flex items-center gap-0.5 mb-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span
@@ -103,8 +103,7 @@ export const IdentityPreview = () => {
               ))}
               <span className="text-on-surface-variant text-xs ml-2">{starRating}-Star</span>
             </div>
-            {/* Ranks */}
-            <div className="flex items-center gap-4 mb-3 text-sm">
+            <div className="flex items-center gap-4 text-sm">
               <div>
                 <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">National</span>
                 <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
@@ -118,7 +117,10 @@ export const IdentityPreview = () => {
                 </span>
               </div>
             </div>
-            {/* Commitment */}
+          </div>
+
+          {/* Box 2: Commitment + Logo */}
+          <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex flex-col">
             {commitmentStatus ? (
               <span
                 className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
@@ -135,14 +137,18 @@ export const IdentityPreview = () => {
                 Not set
               </span>
             )}
+            {commitmentStatus === "committed" && schoolLogoUrl ? (
+              <img
+                src={schoolLogoUrl}
+                alt="School logo"
+                className="w-12 h-12 rounded-lg object-contain mx-auto mt-3"
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center mt-3">
+                <span className="material-symbols-outlined text-on-surface-variant/20 text-3xl">shield</span>
+              </div>
+            )}
           </div>
-          {commitmentStatus === "committed" && schoolLogoUrl && (
-            <img
-              src={schoolLogoUrl}
-              alt="School logo"
-              className="w-16 h-16 rounded-lg object-contain mr-6"
-            />
-          )}
         </div>
       </div>
 
