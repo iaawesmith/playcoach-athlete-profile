@@ -425,10 +425,19 @@ export const IdentityForm = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <InputCard label="School" value={school} onChange={(v) => setAthlete({ school: v })} />
-                <InputCard label="Abbreviation" value={schoolAbbrev} onChange={(v) => setAthlete({ schoolAbbrev: v })} />
-              </div>
+              <SchoolAutocomplete
+                value={school}
+                abbrev={schoolAbbrev}
+                onSelect={(uni) => {
+                  setAthlete({
+                    school: uni.name,
+                    schoolAbbrev: uni.abbrev,
+                    teamColor: uni.primaryColor,
+                  });
+                }}
+                onManualChange={(v) => setAthlete({ school: v })}
+                onAbbrevChange={(v) => setAthlete({ schoolAbbrev: v })}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
