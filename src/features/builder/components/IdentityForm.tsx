@@ -737,9 +737,9 @@ export const IdentityForm = () => {
                   onTimeChange={handleTimeChange}
                   onPeriodChange={handlePeriodChange}
                 />
-                <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
+                <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} placeholder="–" />
               </div>
-              <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
+              <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} placeholder="–" />
             </div>
           </section>
 
