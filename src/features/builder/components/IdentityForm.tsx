@@ -271,7 +271,7 @@ const TimeInputCard = ({
         className="flex-1 bg-transparent text-on-surface text-sm font-normal outline-none"
         value={time}
         onChange={(e) => onTimeChange(e.target.value)}
-        placeholder=""
+        placeholder="0:00"
         inputMode="numeric"
       />
       <div className="flex rounded-full overflow-hidden">
