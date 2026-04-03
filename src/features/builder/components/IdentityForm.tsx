@@ -699,27 +699,12 @@ export const IdentityForm = () => {
                   onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
                 />
               </div>
-              <div className="bg-surface-container rounded-xl p-4">
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
-                  Commitment Status
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {commitmentOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setAthlete({ commitmentStatus: opt.value })}
-                      className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-                        commitmentStatus === opt.value
-                          ? "text-[#00460a] kinetic-gradient"
-                          : "text-on-surface-variant bg-surface-container-high"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <SelectCard
+                label="Commitment Status"
+                value={commitmentStatus}
+                options={commitmentOptions}
+                onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })}
+              />
             </div>
           </section>
 
