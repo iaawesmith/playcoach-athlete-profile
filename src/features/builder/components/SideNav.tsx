@@ -34,14 +34,18 @@ export const SideNav = () => {
 
   return (
     <aside className="hidden lg:flex fixed left-0 top-16 bottom-0 w-64 bg-surface flex-col z-40">
-      {/* Profile Header */}
-      <div className="p-6 space-y-4">
-        <div>
-          <h2 className="text-on-surface font-extrabold uppercase text-sm tracking-wide">
-            Brand HQ
-          </h2>
-        </div>
+      {/* Sticky Header Bar */}
+      <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
+        <span className="text-on-surface font-bold uppercase text-xs tracking-widest">
+          Brand HQ
+        </span>
+        <p className="text-on-surface-variant text-[0.65rem] italic mt-0.5">
+          Build your profile to 100%
+        </p>
+      </div>
 
+      {/* Profile Strength */}
+      <div className="p-6 space-y-4">
         {/* Strength Bar */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
