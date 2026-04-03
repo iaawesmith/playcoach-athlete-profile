@@ -1,21 +1,26 @@
 
 
-## Add 40% Opacity Placeholder to Time Input
+## Color the Hex Text to Match the Team Color
 
 ### Change in `src/features/builder/components/IdentityForm.tsx`
 
-**Line 247**: Add the placeholder opacity class to the time input inside `TimeInputCard`.
+**Line 673–674**: Change the input text color from static `text-on-surface` to a dynamic inline style using the `teamColor` value.
 
 Change:
 ```
-className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+<input
+  className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+  value={teamColor}
 ```
 To:
 ```
-className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
+<input
+  className="w-full bg-transparent text-sm font-normal outline-none"
+  style={{ color: teamColor }}
+  value={teamColor}
 ```
 
-This matches all other input fields in the form.
+The hex text (e.g. `#CC0000`) will now render in its own color, giving instant visual feedback alongside the swatch.
 
 ### Files modified
 - `src/features/builder/components/IdentityForm.tsx`
