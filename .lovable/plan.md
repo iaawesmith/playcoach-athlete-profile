@@ -1,17 +1,34 @@
 
 
-## Fix Profile Strength Starting at 5%
+## Add Sticky Editor Header Bar
 
-**Root cause**: `computeProfileStrength` in `SideNav.tsx` line 21 checks `state.teamColor !== "#00e639"`, but the store default is `"#50C4CA"`. Since `"#50C4CA" !== "#00e639"`, it scores 5% on a fresh profile.
+**`src/features/builder/BuilderLayout.tsx` (lines 123–126)**
 
-**Fix**: Change the check to exclude **both** known defaults, or better — only award the 5% when a school has been selected (since team color is tied to school selection):
+Replace the right column div with a flex-col layout containing a sticky header and scrollable form area:
 
 ```tsx
-if (state.teamColor && state.teamColor !== "#00e639" && state.teamColor !== "#50C4CA") score += 5;
+{/* Right Column — Editor */}
+<div className="lg:col-span-7 flex flex-col overflow-hidden">
+  {/* Sticky Editor Header */}
+  <div className="sticky top-0 z-20 bg-surface-container-high border-b border-white/10 px-6 py-3">
+    <div className="flex items-center gap-1.5">
+      <span className="material-symbols-outlined text-on-surface text-sm">edit</span>
+      <span className="text-on-surface font-bold uppercase tracking-widest text-xs">
+        Editing {activeSection === "identity" ? "Identity" : activeSection === "performance" ? "Performance" : activeSection === "develop" ? "Develop" : activeSection === "pulse" ? "Pulse" : "Connect"}
+      </span>
+    </div>
+    <p className="text-on-surface-variant text-[0.65rem] italic mt-0.5">
+      Changes reflect instantly in preview
+    </p>
+  </div>
+  <div className="flex-1 overflow-y-auto p-6 md:p-10">
+    <IdentityForm />
+  </div>
+</div>
 ```
 
-Alternatively, tie it to school being set (since team color auto-populates with school). But the simplest correct fix is to treat `#50C4CA` as a default too.
+The outer div uses `flex flex-col overflow-hidden` so the sticky header stays pinned and only the inner form area scrolls. The section label dynamically reads from `activeSection` in the store.
 
 ### Files modified
-- `src/features/builder/components/SideNav.tsx`
+- `src/features/builder/BuilderLayout.tsx`
 
