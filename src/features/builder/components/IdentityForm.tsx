@@ -5,9 +5,10 @@ import { universities, type University } from "@/data/universities";
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
 const classYears = ["2024", "2025", "2026", "2027", "2028", "2029", "2030"];
 const commitmentOptions = [
-  { value: "committed" as const, label: "Committed" },
-  { value: "uncommitted" as const, label: "Uncommitted" },
-  { value: "portal" as const, label: "In Portal" },
+  { value: "", label: "Select..." },
+  { value: "committed", label: "Committed" },
+  { value: "uncommitted", label: "Uncommitted" },
+  { value: "portal", label: "In Portal" },
 ];
 
 const SectionHeader = ({ title }: { title: string }) => (
@@ -594,7 +595,7 @@ export const IdentityForm = () => {
                     <button
                       key={pos}
                       type="button"
-                      onClick={() => setAthlete({ position: pos })}
+                      onClick={() => setAthlete({ position: pos === position ? "" : pos })}
                       className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
                         pos === position
                           ? "text-[#00460a] kinetic-gradient"
@@ -611,7 +612,7 @@ export const IdentityForm = () => {
                 <SelectCard
                   label="Class Year"
                   value={classYear}
-                  options={classYears.map((y) => ({ value: y, label: y }))}
+                  options={[{ value: "", label: "Select..." }, ...classYears.map((y) => ({ value: y, label: y }))]}
                   onChange={(v) => setAthlete({ classYear: v })}
                 />
               </div>
@@ -672,7 +673,7 @@ export const IdentityForm = () => {
                     <button
                       key={star}
                       type="button"
-                      onClick={() => setAthlete({ starRating: star })}
+                      onClick={() => setAthlete({ starRating: star === starRating ? 0 : star })}
                       className={`w-10 h-10 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
                         star === starRating
                           ? "text-[#00460a] kinetic-gradient"
@@ -698,27 +699,12 @@ export const IdentityForm = () => {
                   onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
                 />
               </div>
-              <div className="bg-surface-container rounded-xl p-4">
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
-                  Commitment Status
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {commitmentOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setAthlete({ commitmentStatus: opt.value })}
-                      className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-                        commitmentStatus === opt.value
-                          ? "text-[#00460a] kinetic-gradient"
-                          : "text-on-surface-variant bg-surface-container-high"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <SelectCard
+                label="Commitment Status"
+                value={commitmentStatus}
+                options={commitmentOptions}
+                onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })}
+              />
             </div>
           </section>
 

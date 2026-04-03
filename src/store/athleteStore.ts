@@ -37,7 +37,7 @@ interface AthleteState {
   starRating: number;
   nationalRank: number | null;
   positionRank: number | null;
-  commitmentStatus: "committed" | "uncommitted" | "portal";
+  commitmentStatus: "" | "committed" | "uncommitted" | "portal";
   upcomingGame: UpcomingGame | null;
   profileStatus: "draft" | "live";
   hasBeenPublished: boolean;
@@ -52,33 +52,33 @@ interface AthleteState {
 type AthleteData = Omit<AthleteState, "setAthlete" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "activeSection" | "setActiveSection">;
 
 const defaults: AthleteData = {
-  firstName: "Marcus",
-  lastName: "Sterling",
-  position: "WR",
-  number: "84",
-  school: "University of Georgia",
-  schoolAbbrev: "UGA",
-  classYear: "2025",
-  teamColor: "#CC0000",
+  firstName: "",
+  lastName: "",
+  position: "",
+  number: "",
+  school: "",
+  schoolAbbrev: "",
+  classYear: "",
+  teamColor: "#50C4CA",
   bio: "",
-  quote: "Every rep is a rep toward the league.",
-  hometown: "Athens, GA",
+  quote: "",
+  hometown: "",
   highSchool: "",
-  height: "74",
-  weight: "195",
-  fortyTime: "4.42",
-  vertical: "38.5",
-  wingspan: "80.0",
-  handSize: "9.5",
+  height: "",
+  weight: "",
+  fortyTime: "",
+  vertical: "",
+  wingspan: "",
+  handSize: "",
   actionPhotoUrl: null,
   schoolLogoUrl: null,
-  eligibilityYears: 3,
+  eligibilityYears: 0,
   transferEligible: false,
-  redshirtStatus: "None",
-  starRating: 4,
+  redshirtStatus: "",
+  starRating: 0,
   nationalRank: null,
   positionRank: null,
-  commitmentStatus: "committed",
+  commitmentStatus: "",
   upcomingGame: null,
 };
 
