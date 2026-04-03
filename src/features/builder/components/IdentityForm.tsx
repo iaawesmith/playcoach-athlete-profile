@@ -399,7 +399,7 @@ export const IdentityForm = () => {
     firstName, lastName, bio, quote, school, schoolAbbrev, teamColor,
     position, number, classYear, hometown, highSchool, height, weight,
     fortyTime, vertical, wingspan, handSize,
-    actionPhotoUrl, schoolLogoUrl,
+    actionPhotoUrl, profilePictureUrl, schoolLogoUrl,
     eligibilityYears, transferEligible, redshirtStatus,
     starRating, nationalRank, positionRank,
     commitmentStatus, upcomingGame,
