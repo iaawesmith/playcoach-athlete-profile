@@ -478,13 +478,15 @@ export const IdentityForm = () => {
   // Parse time into value and period
   const timeMatch = game.time.match(/^([\d:]+)\s*(AM|PM)?$/i);
   const timeValue = timeMatch ? timeMatch[1] : game.time;
-  const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "PM";
+  const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "";
 
   const handleTimeChange = (val: string) => {
-    setGame("time", `${val} ${timePeriod}`);
+    setGame("time", timePeriod ? `${val} ${timePeriod}` : val);
   };
   const handlePeriodChange = (p: string) => {
-    setGame("time", `${timeValue} ${p}`);
+    if (timeValue) {
+      setGame("time", `${timeValue} ${p}`);
+    }
   };
 
   // Weight: raw number stored now
@@ -568,7 +570,7 @@ export const IdentityForm = () => {
               />
 
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Team Color (Hex)" value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
+                <InputCard label={teamColor.toUpperCase() === "#50C4CA" ? "Team Color (Hex) (Default)" : "Team Color (Hex)"} value={teamColor} onChange={(v) => setAthlete({ teamColor: v })} />
                 <div className="bg-surface-container rounded-xl p-4">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Preview

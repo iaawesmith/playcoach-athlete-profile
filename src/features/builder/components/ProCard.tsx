@@ -74,7 +74,7 @@ export const ProCard = () => {
               {school}
             </span>
           ) : (
-            <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/40">
+            <span className="text-[9px] font-black tracking-[0.25em] uppercase text-white/70">
               Enter Your School
             </span>
           )}
