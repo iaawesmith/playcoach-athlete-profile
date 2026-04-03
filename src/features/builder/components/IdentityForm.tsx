@@ -671,7 +671,8 @@ export const IdentityForm = () => {
                   </label>
                   <div className="flex items-center gap-2">
                     <input
-                      className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+                      className="w-full bg-transparent text-sm font-normal outline-none"
+                      style={{ color: teamColor }}
                       value={teamColor}
                       onChange={(e) => setAthlete({ teamColor: e.target.value })}
                     />
