@@ -595,7 +595,7 @@ export const IdentityForm = () => {
                     <button
                       key={pos}
                       type="button"
-                      onClick={() => setAthlete({ position: pos })}
+                      onClick={() => setAthlete({ position: pos === position ? "" : pos })}
                       className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
                         pos === position
                           ? "text-[#00460a] kinetic-gradient"
