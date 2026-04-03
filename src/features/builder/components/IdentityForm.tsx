@@ -159,45 +159,6 @@ const HeightInputCard = ({
   );
 };
 
-const ToggleCard = ({
-  label,
-  value,
-  onChange,
-  description,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (val: boolean) => void;
-  description?: string;
-}) => (
-  <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200">
-    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
-      {label}
-    </label>
-    <div className="flex items-center justify-between">
-      <span className="text-on-surface text-sm font-normal">
-        {value ? "Yes" : "No"}
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(!value)}
-        className={`w-11 h-6 rounded-full relative transition-all duration-200 ${
-          value ? "kinetic-gradient" : "bg-surface-container-high"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-200 ${
-            value ? "translate-x-[22px]" : "translate-x-0.5"
-          }`}
-        />
-      </button>
-    </div>
-    {description && (
-      <p className="text-[10px] text-on-surface-variant mt-2">{description}</p>
-    )}
-  </div>
-);
-
 const SelectCard = ({
   label,
   value,
