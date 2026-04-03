@@ -37,7 +37,7 @@ export const SideNav = () => {
       {/* Sticky Header Bar */}
       <div className="h-14 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
         <div className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "18px" }}>person</span>
+          <span className="material-symbols-outlined text-on-surface" style={{ fontSize: "18px" }}>person</span>
           <span className="text-on-surface font-bold uppercase text-xs tracking-widest">Brand HQ</span>
         </div>
         <p className="text-on-surface-variant text-[0.65rem] italic mt-0.5">
