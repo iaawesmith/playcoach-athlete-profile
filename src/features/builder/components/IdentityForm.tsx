@@ -477,7 +477,7 @@ export const IdentityForm = () => {
 
   // Parse time into value and period
   const timeMatch = game.time.match(/^([\d:]+)\s*(AM|PM)?$/i);
-  const timeValue = timeMatch ? timeMatch[1] : game.time;
+  const timeValue = timeMatch ? timeMatch[1] : game.time.replace(/[^0-9:]/g, "");
   const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "";
 
   const handleTimeChange = (val: string) => {
