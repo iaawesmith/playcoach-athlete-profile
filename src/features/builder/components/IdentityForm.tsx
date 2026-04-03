@@ -756,6 +756,7 @@ export const IdentityForm = () => {
                   label="Star Rating"
                   value={starRating ? String(starRating) : ""}
                   options={[
+                    { label: "Select...", value: "" },
                     { label: "1 Star", value: "1" },
                     { label: "2 Stars", value: "2" },
                     { label: "3 Stars", value: "3" },
