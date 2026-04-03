@@ -68,10 +68,10 @@ export const BuilderLayout = () => {
                 {isDraft ? (
                   <button
                     onClick={publishProfile}
-                    className="w-8 h-8 rounded-full bg-[#00E639] flex items-center justify-center active:scale-95 transition-all duration-150"
+                    className="w-8 h-8 rounded-full bg-[#0B0D0F] flex items-center justify-center active:scale-95 transition-all duration-150"
                     title={hasBeenPublished ? "Publish" : "Go Live"}
                   >
-                    <span className="material-symbols-outlined text-[#00460a] text-sm">rocket_launch</span>
+                    <span className="material-symbols-outlined text-sm" style={{ color: "#50C4CA" }}>rocket_launch</span>
                   </button>
                 ) : (
                   <button
