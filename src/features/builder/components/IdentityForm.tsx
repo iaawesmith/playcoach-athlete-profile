@@ -620,7 +620,7 @@ export const IdentityForm = () => {
                     </div>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">photo_camera</span>
+                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
                       <span className="text-on-surface-variant/60 text-[9px]">Profile Picture</span>
                     </>
                   )}
