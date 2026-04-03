@@ -32,7 +32,7 @@ interface AthleteState {
   actionPhotoUrl: string | null;
   schoolLogoUrl: string | null;
   eligibilityYears: number;
-  transferEligible: boolean;
+  transferEligible: string;
   redshirtStatus: string;
   starRating: number;
   nationalRank: number | null;
