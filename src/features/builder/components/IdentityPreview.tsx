@@ -91,10 +91,7 @@ export const IdentityPreview = () => {
         <div className="grid grid-cols-2 gap-2">
           {/* Box 1: Stars + Ranks */}
           <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
-            <span
-              className="text-[9px] font-bold uppercase tracking-widest block mb-1"
-              style={{ color: "var(--team-color)" }}
-            >
+            <span className="text-[9px] font-bold uppercase tracking-widest block mb-1 text-on-surface-variant">
               {starRating}-STAR
             </span>
             <div className="flex items-center gap-0.5 mb-3">
@@ -110,7 +107,7 @@ export const IdentityPreview = () => {
             </div>
             <div className="flex items-center gap-4 text-sm">
               <div>
-                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">NAT.</span>
+                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">NATIONAL</span>
                 <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
                   {nationalRank ? `#${nationalRank}` : "Not ranked"}
                 </span>
@@ -125,10 +122,10 @@ export const IdentityPreview = () => {
           </div>
 
           {/* Box 2: Commitment + Logo */}
-          <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex flex-col">
+          <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4 flex flex-col items-center">
             {commitmentStatus ? (
               <span
-                className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full text-center"
                 style={
                   commitmentStatus === "committed"
                     ? { backgroundColor: "var(--team-color)", color: "white" }
@@ -138,7 +135,7 @@ export const IdentityPreview = () => {
                 {commitmentLabels[commitmentStatus] ?? commitmentStatus}
               </span>
             ) : (
-              <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full text-on-surface-variant/40">
+              <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full text-on-surface-variant/40 text-center">
                 Not set
               </span>
             )}
@@ -146,10 +143,10 @@ export const IdentityPreview = () => {
               <img
                 src={schoolLogoUrl}
                 alt="School logo"
-                className="w-12 h-12 rounded-lg object-contain mx-auto mt-3"
+                className="w-12 h-12 rounded-lg object-contain mx-auto mt-5"
               />
             ) : (
-              <div className="flex-1 flex items-center justify-center mt-3">
+              <div className="flex-1 flex items-center justify-center mt-5">
                 <span className="material-symbols-outlined text-on-surface-variant/20 text-3xl">shield</span>
               </div>
             )}
