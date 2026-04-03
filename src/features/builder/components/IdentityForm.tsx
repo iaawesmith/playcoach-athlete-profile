@@ -673,7 +673,7 @@ export const IdentityForm = () => {
                     <button
                       key={star}
                       type="button"
-                      onClick={() => setAthlete({ starRating: star })}
+                      onClick={() => setAthlete({ starRating: star === starRating ? 0 : star })}
                       className={`w-10 h-10 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
                         star === starRating
                           ? "text-[#00460a] kinetic-gradient"
