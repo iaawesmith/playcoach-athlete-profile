@@ -5,9 +5,10 @@ import { universities, type University } from "@/data/universities";
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
 const classYears = ["2024", "2025", "2026", "2027", "2028", "2029", "2030"];
 const commitmentOptions = [
-  { value: "committed" as const, label: "Committed" },
-  { value: "uncommitted" as const, label: "Uncommitted" },
-  { value: "portal" as const, label: "In Portal" },
+  { value: "", label: "Select..." },
+  { value: "committed", label: "Committed" },
+  { value: "uncommitted", label: "Uncommitted" },
+  { value: "portal", label: "In Portal" },
 ];
 
 const SectionHeader = ({ title }: { title: string }) => (
