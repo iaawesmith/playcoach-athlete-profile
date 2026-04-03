@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
+import { universities, type University } from "@/data/universities";
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
 const classYears = ["2024", "2025", "2026", "2027", "2028", "2029", "2030"];
