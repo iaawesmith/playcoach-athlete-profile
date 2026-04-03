@@ -47,38 +47,19 @@ export const BuilderLayout = () => {
                   <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#FFFFFF" }}>visibility</span>
                   <span className="text-white font-bold uppercase text-xs tracking-widest">{sectionLabels[activeSection]}</span>
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {isDraft ? (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      <span className="text-[0.65rem] italic text-white">Draft</span>
-                    </>
-                  ) : (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                  {hasBeenPublished && !hasUnpublishedChanges ? (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                       <span className="text-[0.65rem] italic text-white">Live</span>
                     </>
+                  ) : (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      <span className="text-[0.65rem] italic text-white">Draft</span>
+                    </>
                   )}
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {isDraft ? (
-                  <button
-                    onClick={publishProfile}
-                    className="w-8 h-8 rounded-full bg-[#0B0D0F] flex items-center justify-center active:scale-95 transition-all duration-150"
-                    title={hasBeenPublished ? "Publish" : "Go Live"}
-                  >
-                    <span className="material-symbols-outlined text-sm" style={{ color: "#50C4CA" }}>rocket_launch</span>
-                  </button>
-                ) : (
-                  <button
-                    disabled
-                    className="w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 cursor-default"
-                    title="Published"
-                  >
-                    <span className="material-symbols-outlined text-white text-sm">check_circle</span>
-                  </button>
-                )}
               </div>
             </div>
 

@@ -88,15 +88,18 @@ export const useAthleteStore = create<AthleteState>((set) => ({
   ...defaults,
   profileStatus: "draft",
   hasBeenPublished: false,
+  lastPublishedAt: null,
+  hasUnpublishedChanges: false,
   activeSection: "identity",
   setAthlete: (data) =>
     set((state) => ({
       ...state,
       ...data,
+      hasUnpublishedChanges: true,
       profileStatus: state.profileStatus === "live" ? "draft" : state.profileStatus,
     })),
-  publishProfile: () => set({ profileStatus: "live", hasBeenPublished: true }),
+  publishProfile: () => set({ profileStatus: "live", hasBeenPublished: true, lastPublishedAt: Date.now(), hasUnpublishedChanges: false }),
   markDirty: () => set({ profileStatus: "draft" }),
-  resetToDefaults: () => set({ ...defaults, profileStatus: "draft" }),
+  resetToDefaults: () => set({ ...defaults, profileStatus: "draft", lastPublishedAt: null, hasUnpublishedChanges: false }),
   setActiveSection: (section) => set({ activeSection: section }),
 }));
