@@ -1,22 +1,51 @@
 
 
-## Update Preview Header Banner to Team Color
+## Restructure Star Rating + Commitment Status Row
 
-### Change in `src/features/builder/BuilderLayout.tsx`
+### What changes
 
-**Line 44**: Replace the hardcoded teal `bg-[#50C4CA]` with a dynamic inline style using `var(--team-color)`.
+Replace the current star rating (5 circle buttons in its own card) and commitment status (standalone `SelectCard` below the rank row) with a **single 2-column row** containing:
+- **Star Rating** as a `SelectCard` dropdown (options: 1–5)
+- **Commitment Status** as a `SelectCard` dropdown
 
-Change:
+This row sits directly above the existing National Rank / Position Rank 2-column row, both using `grid grid-cols-2 gap-4` so they align perfectly.
+
+### Changes in `src/features/builder/components/IdentityForm.tsx`
+
+**Lines 754–796**: Replace the star rating card (circle buttons) + the national/position rank row + the standalone commitment status `SelectCard` with:
+
 ```
-<div className="h-14 px-5 py-3 bg-[#50C4CA] border-b border-white/10 shrink-0 flex items-center z-10">
-```
-To:
-```
-<div className="h-14 px-5 py-3 border-b border-white/10 shrink-0 flex items-center z-10" style={{ backgroundColor: "var(--team-color)" }}>
+{/* Star Rating + Commitment Status — 2-col */}
+<div className="grid grid-cols-2 gap-4">
+  <SelectCard
+    label="Star Rating"
+    value={starRating ? String(starRating) : ""}
+    options={[
+      { label: "1 Star", value: "1" },
+      { label: "2 Stars", value: "2" },
+      { label: "3 Stars", value: "3" },
+      { label: "4 Stars", value: "4" },
+      { label: "5 Stars", value: "5" },
+    ]}
+    onChange={(v) => setAthlete({ starRating: v ? Number(v) : 0 })}
+  />
+  <SelectCard
+    label="Commitment Status"
+    value={commitmentStatus}
+    options={commitmentOptions}
+    onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })}
+  />
+</div>
+
+{/* National Rank + Position Rank — 2-col (unchanged) */}
+<div className="grid grid-cols-2 gap-4">
+  <InputCard label="National Rank" ... />
+  <InputCard label="Position Rank" ... />
+</div>
 ```
 
-This ensures the preview header banner always matches the athlete's school color, staying consistent with the ProCard banner, nav accents, and other teamColor-driven elements.
+Both rows use identical `grid grid-cols-2 gap-4`, ensuring perfect vertical alignment.
 
 ### Files modified
-- `src/features/builder/BuilderLayout.tsx`
+- `src/features/builder/components/IdentityForm.tsx`
 
