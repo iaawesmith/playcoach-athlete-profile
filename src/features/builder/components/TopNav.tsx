@@ -15,7 +15,9 @@ export const TopNav = () => {
         ) : (
           <span className="text-on-surface/40 font-bold text-sm tracking-tight">Your Name</span>
         )}
-        <span className="text-sm font-black tracking-widest uppercase ml-2" style={{ color: 'var(--team-color)' }}>Brand HQ</span>
+        <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors duration-200 ml-2">
+          <span className="material-symbols-outlined text-on-surface-variant text-lg">link</span>
+        </button>
       </div>
 
       {/* Right */}

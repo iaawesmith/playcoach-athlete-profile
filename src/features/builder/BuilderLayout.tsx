@@ -44,22 +44,22 @@ export const BuilderLayout = () => {
           {/* Left Column — Preview */}
           <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low overflow-hidden">
             {/* Sticky Preview Header Bar */}
-            <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex items-center justify-between z-10" style={{ borderLeft: "2px solid #50C4CA" }}>
+            <div className="h-12 px-5 py-3 bg-[#50C4CA] border-b border-white/10 shrink-0 flex items-center justify-between z-10">
               <div className="flex flex-col justify-center">
                 <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#50C4CA" }}>visibility</span>
-                  <span className="text-on-surface font-bold uppercase text-xs tracking-widest">{sectionLabels[activeSection]}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#FFFFFF" }}>visibility</span>
+                  <span className="text-white font-bold uppercase text-xs tracking-widest">{sectionLabels[activeSection]}</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {isDraft ? (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                      <span className="text-[0.65rem] italic text-amber-400">Draft</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      <span className="text-[0.65rem] italic text-white">Draft</span>
                     </>
                   ) : (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="text-[0.65rem] italic text-primary">Live</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      <span className="text-[0.65rem] italic text-white">Live</span>
                     </>
                   )}
                 </div>
@@ -79,16 +79,9 @@ export const BuilderLayout = () => {
                     className="w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 cursor-default"
                     title="Published"
                   >
-                    <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
+                    <span className="material-symbols-outlined text-white text-sm">check_circle</span>
                   </button>
                 )}
-                <button
-                  className={`w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
-                    isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-on-surface text-sm">share</span>
-                </button>
               </div>
             </div>
 
