@@ -1,13 +1,12 @@
 
 
-## Update Profile Picture Upload Box
+## Use Abbreviated Position on ProCard
 
-### Changes in `src/features/builder/components/IdentityForm.tsx`
+### Change
+In `src/features/builder/components/ProCard.tsx`, line 98: replace `{positionLabel || "--"}` with `{position || "--"}` so the badge shows "QB", "WR", etc. instead of "Quarterback", "Wide Receiver".
 
-**Line 527**: Change `account_circle` icon to `photo_camera` (matching the other two upload boxes).
-
-**Line 528**: Change helper text from `"Your headshot or portrait"` to `"Profile Picture"`.
+The `positionLabelMap` and `positionLabel` variable can also be removed since they're no longer used.
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/components/ProCard.tsx`
 
