@@ -6,7 +6,7 @@ interface RoleCard {
   label: string;
   icon: string;
   description: string;
-  displayRole: string;
+  comingSoon?: boolean;
 }
 
 const ROLES: RoleCard[] = [
@@ -15,21 +15,20 @@ const ROLES: RoleCard[] = [
     label: "ATHLETE",
     icon: "person",
     description: "Build your identity",
-    displayRole: "athlete",
   },
   {
     role: "coach",
     label: "COACH / TRAINER",
     icon: "sports",
     description: "Develop and track athletes",
-    displayRole: "coach",
+    comingSoon: true,
   },
   {
     role: "agency",
     label: "AGENCY / BRAND",
     icon: "business_center",
     description: "Manage athletes and partnerships",
-    displayRole: "agency",
+    comingSoon: true,
   },
 ];
 
@@ -38,6 +37,7 @@ export function RoleSelection() {
   const { role, setRole, setOnboardingStep } = useUserStore();
 
   const handleSelect = (selected: RoleCard) => {
+    if (selected.comingSoon) return;
     setRole(selected.role);
     setOnboardingStep(1);
 
@@ -63,15 +63,23 @@ export function RoleSelection() {
             <button
               key={r.role}
               onClick={() => handleSelect(r)}
-              className={`flex flex-col items-center gap-4 p-8 rounded-xl border transition-all duration-200 cursor-pointer active:scale-95 ${
-                isSelected
-                  ? "border-[#50C4CA] bg-[rgba(80,196,202,0.08)]"
-                  : "border-outline-variant/10 bg-surface-container-high hover:border-outline-variant/30"
+              disabled={r.comingSoon}
+              className={`relative flex flex-col items-center gap-4 p-8 rounded-xl border transition-all duration-200 ${
+                r.comingSoon
+                  ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
+                  : isSelected
+                    ? "border-[#50C4CA] bg-[rgba(80,196,202,0.08)] cursor-pointer active:scale-95"
+                    : "border-outline-variant/10 bg-surface-container-high hover:border-outline-variant/30 cursor-pointer active:scale-95"
               }`}
             >
+              {r.comingSoon && (
+                <span className="absolute top-3 right-3 px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant text-[9px] font-bold uppercase tracking-widest">
+                  Coming Soon
+                </span>
+              )}
               <span
                 className="material-symbols-outlined text-5xl"
-                style={{ color: isSelected ? "#50C4CA" : undefined }}
+                style={{ color: !r.comingSoon && isSelected ? "#50C4CA" : undefined }}
               >
                 {r.icon}
               </span>

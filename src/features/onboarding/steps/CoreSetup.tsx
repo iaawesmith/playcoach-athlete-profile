@@ -10,13 +10,12 @@ const CLASS_YEARS = ["2025", "2026", "2027", "2028", "2029"];
 export function CoreSetup() {
   const navigate = useNavigate();
   const { setOnboardingStep } = useUserStore();
-  const { school, schoolAbbrev, teamColor, position, classYear, number, setAthlete } = useAthleteStore();
+  const { firstName, lastName, school, schoolAbbrev, teamColor, position, classYear, number, height, weight, fortyTime, setAthlete } = useAthleteStore();
 
   const [query, setQuery] = useState(school);
   const [open, setOpen] = useState(false);
   const [focusIndex, setFocusIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
 
   const filtered = query.length >= 1
     ? universities.filter((u) => u.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
@@ -62,11 +61,20 @@ export function CoreSetup() {
     }
   };
 
-  const canContinue = school && position && classYear;
+  const canContinue = school && position && classYear && firstName && lastName;
 
   const handleContinue = () => {
     setOnboardingStep(4);
     navigate("/onboarding/preview");
+  };
+
+  const tc = teamColor || "#50C4CA";
+  const displayName = firstName || lastName ? `${firstName}\n${lastName}` : null;
+
+  const formatHeight = (val: string) => {
+    const total = parseInt(val, 10);
+    if (!total) return "--";
+    return `${Math.floor(total / 12)}'${total % 12}"`;
   };
 
   return (
@@ -83,6 +91,32 @@ export function CoreSetup() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left: form fields */}
         <div className="space-y-4">
+          {/* First Name + Last Name */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10 input-card-focus transition-colors duration-200">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-2">
+                First Name
+              </label>
+              <input
+                className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
+                value={firstName}
+                onChange={(e) => setAthlete({ firstName: e.target.value })}
+                placeholder="First"
+              />
+            </div>
+            <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10 input-card-focus transition-colors duration-200">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-2">
+                Last Name
+              </label>
+              <input
+                className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
+                value={lastName}
+                onChange={(e) => setAthlete({ lastName: e.target.value })}
+                placeholder="Last"
+              />
+            </div>
+          </div>
+
           {/* School search */}
           <div ref={wrapperRef} className="relative">
             <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10 input-card-focus transition-colors duration-200">
@@ -102,7 +136,7 @@ export function CoreSetup() {
               </div>
             </div>
             {open && filtered.length > 0 && (
-              <ul ref={listRef} className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[200px] overflow-y-auto rounded-xl bg-surface-container-high shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+              <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[200px] overflow-y-auto rounded-xl bg-surface-container-high shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 {filtered.map((uni, i) => (
                   <li
                     key={uni.name}
@@ -136,7 +170,7 @@ export function CoreSetup() {
                       ? "text-surface"
                       : "bg-surface-container border border-outline-variant/10 text-on-surface-variant hover:text-on-surface"
                   }`}
-                  style={position === pos ? { backgroundColor: teamColor || "#50C4CA" } : undefined}
+                  style={position === pos ? { backgroundColor: tc } : undefined}
                 >
                   {pos}
                 </button>
@@ -159,7 +193,7 @@ export function CoreSetup() {
                       ? "text-surface"
                       : "bg-surface-container border border-outline-variant/10 text-on-surface-variant hover:text-on-surface"
                   }`}
-                  style={classYear === yr ? { backgroundColor: teamColor || "#50C4CA" } : undefined}
+                  style={classYear === yr ? { backgroundColor: tc } : undefined}
                 >
                   {yr}
                 </button>
@@ -182,34 +216,82 @@ export function CoreSetup() {
           </div>
         </div>
 
-        {/* Right: mini card preview */}
+        {/* Right: ProCard-style preview */}
         <div className="flex items-start justify-center">
-          <div className="w-48 aspect-[3/4] rounded-xl overflow-hidden relative" style={{ boxShadow: `0 0 30px ${teamColor || "#50C4CA"}30` }}>
+          <div
+            className="w-full max-w-[220px] aspect-[3/4] rounded-[12px] overflow-hidden bg-surface-container-high relative"
+            style={{ boxShadow: `0 0 60px ${tc}55, 0 0 120px ${tc}22` }}
+          >
             {/* School banner */}
             <div
-              className="absolute top-0 left-0 right-0 h-6 z-10 flex items-center justify-center"
-              style={{ backgroundColor: teamColor || "#50C4CA" }}
+              className="absolute top-0 left-0 right-0 h-7 z-10 flex items-center justify-center"
+              style={{ backgroundColor: tc }}
             >
-              <span className="text-[8px] font-black uppercase tracking-[0.25em] text-on-surface/90">
-                {schoolAbbrev || "SCHOOL"}
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/90">
+                {school || "Your School"}
               </span>
             </div>
 
             {/* Photo placeholder */}
-            <div className="w-full h-[65%] bg-surface-container-high flex items-center justify-center">
-              <span className="material-symbols-outlined text-on-surface/10 text-5xl">person</span>
+            <div className="absolute top-7 bottom-[40%] left-0 right-0 flex items-center justify-center">
+              <span className="material-symbols-outlined text-on-surface-variant/20 text-5xl">person</span>
             </div>
 
-            {/* Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent" />
 
-            {/* Info */}
-            <div className="absolute bottom-0 left-0 right-0 p-3">
-              <div className="text-on-surface font-black italic uppercase tracking-tighter text-sm leading-none">
-                Your Name
+            {/* Bottom info */}
+            <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
+              {/* Badges */}
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                <span
+                  className="text-[7px] font-bold uppercase tracking-widest px-2 py-1 rounded-[3px]"
+                  style={{ backgroundColor: tc, color: "white" }}
+                >
+                  {position || "--"}
+                </span>
+                <span
+                  className="text-[7px] font-bold uppercase tracking-widest px-2 py-1 rounded-[3px]"
+                  style={{ backgroundColor: tc, color: "white" }}
+                >
+                  #{number || "--"}
+                </span>
+                <span className="text-[7px] font-bold uppercase tracking-widest px-2 py-1 rounded-[3px] border border-white/20 text-on-surface-variant">
+                  {classYear || "----"}
+                </span>
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: teamColor || "#50C4CA" }}>
-                {position || "POS"} {number ? `#${number}` : ""}
+
+              {/* Name */}
+              {displayName ? (
+                <h3 className="font-black italic uppercase tracking-tighter text-on-surface text-lg leading-[0.9] whitespace-pre-line">
+                  {displayName}
+                </h3>
+              ) : (
+                <h3 className="font-black italic uppercase tracking-tighter text-on-surface/40 text-lg leading-[0.9]">
+                  Your Name
+                </h3>
+              )}
+
+              {/* Physicals */}
+              <div className="flex gap-3 mt-2 border-t border-white/10 pt-2">
+                <div>
+                  <span className="text-[7px] uppercase tracking-widest text-on-surface-variant block">Height</span>
+                  <span className={`font-black text-sm ${height ? "text-on-surface" : "text-on-surface/40"}`}>
+                    {height ? formatHeight(height) : "--"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[7px] uppercase tracking-widest text-on-surface-variant block">Weight</span>
+                  <span className={`font-black text-sm ${weight ? "text-on-surface" : "text-on-surface/40"}`}>
+                    {weight ? weight.replace(/\s*lbs?/i, "") : "--"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[7px] uppercase tracking-widest text-on-surface-variant block">40-YD</span>
+                  <span className={`font-black text-sm ${fortyTime ? "text-on-surface" : "text-on-surface/40"}`}>
+                    {fortyTime || "--"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
