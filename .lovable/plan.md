@@ -1,24 +1,14 @@
 
 
-## Add Blank Placeholder to Star Rating Dropdown
+## Change "Not ranked" to "—" in Recruiting Preview
 
-### Change in `src/features/builder/components/IdentityForm.tsx`
+### Change in `src/features/builder/components/IdentityPreview.tsx`
 
-**Lines 758–764**: Add a blank placeholder option at the top of the Star Rating options array:
+Two text replacements in the Recruiting block:
 
-```
-options={[
-  { label: "Select...", value: "" },
-  { label: "1 Star", value: "1" },
-  { label: "2 Stars", value: "2" },
-  { label: "3 Stars", value: "3" },
-  { label: "4 Stars", value: "4" },
-  { label: "5 Stars", value: "5" },
-]}
-```
-
-The `value` logic already handles this: `starRating ? String(starRating) : ""` maps to `""` when unset, and `onChange` converts back: `v ? Number(v) : 0`.
+- **National rank empty state**: `"Not ranked"` → `"—"`
+- **Position rank empty state**: `"Not ranked"` → `"—"`
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/components/IdentityPreview.tsx`
 
