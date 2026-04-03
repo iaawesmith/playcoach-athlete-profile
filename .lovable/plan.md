@@ -1,28 +1,11 @@
 
 
-## Fix Broken Michigan Wolverines JSON Entry
+## Fix Michigan Wolverines Primary Color
 
-**Problem**: The GitHub edit updated Michigan's colors correctly (`#FFCB05` is there) but removed the `id`, `slug`, and closing `}` brace — breaking the entire JSON file and causing the white screen.
+**Root cause**: `pickPrimaryColor()` in `src/data/universities.ts` returns the *last* non-white color. For Michigan's array `["#FFFFFF", "#FFCB05", "#272341"]`, that's `#272341` (dark purple) — not the yellow.
 
-**Fix in `src/data/universities.json` (lines 1690–1691)**:
-
-Replace:
-```json
-    ],
-  {
-```
-
-With:
-```json
-    ],
-    "id": "cec76c74-652b-4833-b40a-acab06687205",
-    "slug": "michigan_wolverines"
-  },
-  {
-```
-
-Also fix line 1684 indentation from ` {` to `  {` (minor).
+**Fix**: Remove `#272341` from Michigan's color array in `universities.json`. The colors should be `["#FFFFFF", "#FFCB05"]`. This way `pickPrimaryColor` returns `#FFCB05` (the yellow) as intended.
 
 ### Files modified
-- `src/data/universities.json`
+- `src/data/universities.json` — Michigan Wolverines colors changed from `["#FFFFFF", "#FFCB05", "#272341"]` to `["#FFFFFF", "#FFCB05"]`
 
