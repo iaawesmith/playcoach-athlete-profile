@@ -244,7 +244,7 @@ const TimeInputCard = ({
         {label}
       </label>
       <input
-        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
         value={time}
         onChange={(e) => onTimeChange(e.target.value)}
         placeholder="0:00"
