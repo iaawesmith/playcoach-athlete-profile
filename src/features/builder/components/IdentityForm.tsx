@@ -489,72 +489,66 @@ export const IdentityForm = () => {
               <input ref={profilePicInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
               <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
               <div className="grid grid-cols-3 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7]">
-                    Action Photo
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => photoInputRef.current?.click()}
-                    className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200"
-                  >
-                    {actionPhotoUrl ? (
-                      <>
-                        <img src={actionPhotoUrl} alt="Action photo" className="w-16 h-16 rounded-lg object-cover" />
-                        <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
-                        <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7]">
-                    Profile Picture
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => profilePicInputRef.current?.click()}
-                    className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200"
-                  >
-                    {profilePictureUrl ? (
-                      <>
-                        <img src={profilePictureUrl} alt="Profile picture" className="w-16 h-16 rounded-lg object-cover" />
-                        <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-on-surface-variant text-3xl">account_circle</span>
-                        <span className="text-on-surface-variant/60 text-[9px]">Your headshot or portrait</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7]">
-                    School Logo
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200"
-                  >
-                    {schoolLogoUrl ? (
-                      <>
-                        <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 mt-2 rounded-lg object-contain" />
-                        <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
-                        <span className="text-on-surface-variant/60 text-[9px]">Your logo appears on the card</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 overflow-hidden"
+                >
+                  {actionPhotoUrl ? (
+                    <div className="relative w-full h-full group/img">
+                      <img src={actionPhotoUrl} alt="Action photo" className="w-full h-full object-cover rounded-xl" />
+                      <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
+                        <span className="material-symbols-outlined text-on-surface text-xl">swap_horiz</span>
+                        <span className="text-on-surface text-[9px] font-bold uppercase tracking-widest">Action Photo</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+                      <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => profilePicInputRef.current?.click()}
+                  className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 overflow-hidden"
+                >
+                  {profilePictureUrl ? (
+                    <div className="relative w-full h-full group/img">
+                      <img src={profilePictureUrl} alt="Profile picture" className="w-full h-full object-cover rounded-xl" />
+                      <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
+                        <span className="material-symbols-outlined text-on-surface text-xl">swap_horiz</span>
+                        <span className="text-on-surface text-[9px] font-bold uppercase tracking-widest">Profile Picture</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">account_circle</span>
+                      <span className="text-on-surface-variant/60 text-[9px]">Your headshot or portrait</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 overflow-hidden"
+                >
+                  {schoolLogoUrl ? (
+                    <div className="relative w-full h-full group/img">
+                      <img src={schoolLogoUrl} alt="School logo" className="w-full h-full object-contain rounded-xl" />
+                      <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
+                        <span className="material-symbols-outlined text-on-surface text-xl">swap_horiz</span>
+                        <span className="text-on-surface text-[9px] font-bold uppercase tracking-widest">School Logo</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
+                      <span className="text-on-surface-variant/60 text-[9px]">Your logo appears on the card</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
