@@ -1,20 +1,16 @@
 
 
-## Set Dropdown Placeholder Text to 40% Opacity
+## Set Date Input to 40% Opacity When Empty
 
-**`src/features/builder/components/IdentityForm.tsx`** — `SelectCard` component (line 188–189)
+**`src/features/builder/components/IdentityForm.tsx` — `DateInputCard` (line 217)**
 
-When `value` is empty (`""`), the displayed text is "Select..." — this should render at 40% opacity to match all other placeholder styling.
-
-Change the `<select>` className to conditionally apply `text-on-surface/40` when value is empty, and `text-on-surface` when a value is selected:
+Change the `<input type="date">` className to conditionally apply `text-on-surface/40` when `value` is empty, and `text-on-surface` when a date is selected — matching the dropdown treatment.
 
 ```tsx
-className={`w-full bg-transparent text-sm font-normal outline-none appearance-none cursor-pointer ${
+className={`w-full bg-transparent text-sm font-normal outline-none [color-scheme:dark] ${
   value ? "text-on-surface" : "text-on-surface/40"
 }`}
 ```
-
-Also apply the same treatment to the AM/PM dropdown in `TimeInputCard` (line ~252) — when `period` is empty, use 40% opacity.
 
 ### Files modified
 - `src/features/builder/components/IdentityForm.tsx`
