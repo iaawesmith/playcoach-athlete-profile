@@ -234,29 +234,29 @@ const TimeInputCard = ({
   onTimeChange: (val: string) => void;
   onPeriodChange: (val: string) => void;
 }) => (
-  <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
-      {label}
-    </label>
-    <div className="flex items-center gap-2">
+  <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus flex items-center gap-3">
+    <div className="flex-1">
+      <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
+        {label}
+      </label>
       <input
-        className="flex-1 bg-transparent text-on-surface text-sm font-normal outline-none"
+        className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
         value={time}
         onChange={(e) => onTimeChange(e.target.value)}
         placeholder="0:00"
         inputMode="numeric"
       />
-      <select
-        value={period}
-        onChange={(e) => onPeriodChange(e.target.value)}
-        className="bg-surface-container-highest text-on-surface-variant rounded-lg border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 outline-none cursor-pointer appearance-none"
-        style={{ minWidth: 56 }}
-      >
-        <option value="">—</option>
-        <option value="AM">AM</option>
-        <option value="PM">PM</option>
-      </select>
     </div>
+    <select
+      value={period}
+      onChange={(e) => onPeriodChange(e.target.value)}
+      className="bg-surface-container-highest text-on-surface-variant rounded-lg border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 outline-none cursor-pointer appearance-none mr-1"
+      style={{ minWidth: 56 }}
+    >
+      <option value="">—</option>
+      <option value="AM">AM</option>
+      <option value="PM">PM</option>
+    </select>
   </div>
 );
 
