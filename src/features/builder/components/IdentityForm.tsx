@@ -751,26 +751,25 @@ export const IdentityForm = () => {
           <section>
             <SectionHeader title="Recruiting" />
             <div className="space-y-4">
-              <div className="bg-surface-container rounded-xl p-4">
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-3">
-                  Star Rating
-                </label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setAthlete({ starRating: star === starRating ? 0 : star })}
-                      className={`w-10 h-10 rounded-full text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-                        star === starRating
-                          ? "text-[#00460a] kinetic-gradient"
-                          : "text-on-surface-variant bg-surface-container-high"
-                      }`}
-                    >
-                      {star}
-                    </button>
-                  ))}
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <SelectCard
+                  label="Star Rating"
+                  value={starRating ? String(starRating) : ""}
+                  options={[
+                    { label: "1 Star", value: "1" },
+                    { label: "2 Stars", value: "2" },
+                    { label: "3 Stars", value: "3" },
+                    { label: "4 Stars", value: "4" },
+                    { label: "5 Stars", value: "5" },
+                  ]}
+                  onChange={(v) => setAthlete({ starRating: v ? Number(v) : 0 })}
+                />
+                <SelectCard
+                  label="Commitment Status"
+                  value={commitmentStatus}
+                  options={commitmentOptions}
+                  onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <InputCard
@@ -788,12 +787,6 @@ export const IdentityForm = () => {
                   placeholder="0"
                 />
               </div>
-              <SelectCard
-                label="Commitment Status"
-                value={commitmentStatus}
-                options={commitmentOptions}
-                onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })}
-              />
             </div>
           </section>
 
