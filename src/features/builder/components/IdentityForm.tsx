@@ -186,7 +186,7 @@ const SelectCard = ({
       {label}
     </label>
     <select
-      className="w-full bg-transparent text-on-surface text-sm font-normal outline-none appearance-none cursor-pointer"
+      className={`w-full bg-transparent text-sm font-normal outline-none appearance-none cursor-pointer ${value ? "text-on-surface" : "text-on-surface/40"}`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
