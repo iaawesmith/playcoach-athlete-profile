@@ -83,31 +83,37 @@ const NumericInputCard = ({
   value,
   onChange,
   suffix,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (val: string) => void;
   suffix: string;
-}) => (
-  <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
-      {label}
-    </label>
-    <div className="flex items-center">
-      <input
-        className="bg-transparent text-on-surface text-sm font-normal outline-none"
-        style={{ width: `${Math.max((value || "").length, 1) * 0.6 + 0.2}em` }}
-        value={value}
-        onChange={(e) => {
-          const v = e.target.value.replace(/[^\d.]/g, "");
-          onChange(v);
-        }}
-        inputMode="decimal"
-      />
-      <span className="text-on-surface-variant text-sm font-normal shrink-0">{suffix}</span>
+  placeholder?: string;
+}) => {
+  const isEmpty = !value;
+  return (
+    <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus cursor-text">
+      <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
+        {label}
+      </label>
+      <div className={`flex items-center ${isEmpty ? "border-b border-dashed border-outline-variant/30" : ""} pb-0.5`}>
+        <input
+          className="bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
+          style={{ width: `${Math.max((value || placeholder || "").length, 1) * 0.6 + 0.4}em` }}
+          value={value}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^\d.]/g, "");
+            onChange(v);
+          }}
+          inputMode="decimal"
+          placeholder={placeholder}
+        />
+        <span className="text-on-surface-variant text-sm font-normal shrink-0">{suffix}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const HeightInputCard = ({
   value,
