@@ -1,28 +1,21 @@
 
 
-## Remove Dot + Make Header Bars Taller & Centered
+## Fix Sticky Headers — Prevent Page-Level Scroll
 
-### 1. Remove dot from "Publish changes via the icon above" (`BuilderLayout.tsx`, line 58)
+### Problem
+The grid container has `min-h-[calc(100vh-4rem)]` but no max height constraint. When content exceeds the viewport, the entire page scrolls — taking the "Identity Live Preview" and "Editing Identity" headers with it. The `overflow-hidden` and `overflow-y-auto` on the inner columns only work if the parent is height-constrained.
 
-Delete the `<span className="w-1.5 h-1.5 rounded-full bg-white" />` element from the unpublished state subtext block (line 58). Keep only the text span.
+### Fix (`src/features/builder/BuilderLayout.tsx`, line 40)
 
-### 2. Increase all three header bars from `h-12` (48px) to `h-14` (56px) and center content
+Change the grid container from `min-h-[calc(100vh-4rem)]` to `h-[calc(100vh-4rem)]` so it locks to the viewport height. This forces the two columns to respect their `overflow-hidden` / `overflow-y-auto` settings, keeping headers pinned while content scrolls beneath them.
 
-**SideNav header** (`SideNav.tsx`, line 38):
-- Change `h-12` → `h-14`
-- Keep `flex flex-col justify-center` for vertical centering
+```
+- <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-4rem)]">
++ <div className="grid grid-cols-1 lg:grid-cols-12 h-[calc(100vh-4rem)]">
+```
 
-**Preview header** (`BuilderLayout.tsx`, line 44):
-- Change `h-12` → `h-14`
-- Keep `flex items-center` for vertical centering
-
-**Editor header** (`BuilderLayout.tsx`, line 95):
-- Change `h-12` → `h-14`
-- Keep `flex flex-col justify-center` for vertical centering
-
-All three bars get the same height bump (48px → 56px), content stays vertically centered via existing flex properties.
+One line change. Both column headers stay fixed; only the content areas beneath them scroll.
 
 ### Files modified
 - `src/features/builder/BuilderLayout.tsx`
-- `src/features/builder/components/SideNav.tsx`
 
