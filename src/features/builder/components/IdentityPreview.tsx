@@ -40,7 +40,7 @@ export const IdentityPreview = () => {
     starRating, nationalRank, positionRank, commitmentStatus,
     eligibilityYears, transferEligible, redshirtStatus,
     upcomingGame, bio, quote, hometown, highSchool,
-    schoolLogoUrl,
+    schoolLogoUrl, position,
   } = useAthleteStore();
 
   // Format height from total inches to X'Y"
