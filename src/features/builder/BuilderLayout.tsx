@@ -114,12 +114,13 @@ export const BuilderLayout = () => {
                 </div>
               )}
             </div>
+            </div>
           </div>
 
           {/* Right Column — Editor */}
           <div className="lg:col-span-7 flex flex-col overflow-hidden">
             {/* Sticky Editor Header */}
-            <div className="bg-surface-container-high border-b border-white/10 px-6 py-3">
+            <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-on-surface text-sm">edit</span>
                 <span className="text-on-surface font-bold uppercase tracking-widest text-xs">
