@@ -1,15 +1,22 @@
 
 
-## Update Upload Box Helper Text
+## Update Preview Header Banner to Team Color
 
-### Changes in `src/features/builder/components/IdentityForm.tsx`
+### Change in `src/features/builder/BuilderLayout.tsx`
 
-Replace the empty-state helper text for all three upload boxes:
+**Line 44**: Replace the hardcoded teal `bg-[#50C4CA]` with a dynamic inline style using `var(--team-color)`.
 
-- **Line 604**: `"This is the hero of your card"` → `"Action Photo"`
-- **Line 624**: `"Profile Picture"` — already correct, no change needed
-- **Line 644**: `"Your logo appears on the card"` → `"School Logo"`
+Change:
+```
+<div className="h-14 px-5 py-3 bg-[#50C4CA] border-b border-white/10 shrink-0 flex items-center z-10">
+```
+To:
+```
+<div className="h-14 px-5 py-3 border-b border-white/10 shrink-0 flex items-center z-10" style={{ backgroundColor: "var(--team-color)" }}>
+```
+
+This ensures the preview header banner always matches the athlete's school color, staying consistent with the ProCard banner, nav accents, and other teamColor-driven elements.
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/BuilderLayout.tsx`
 
