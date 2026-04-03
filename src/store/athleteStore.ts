@@ -41,6 +41,8 @@ interface AthleteState {
   upcomingGame: UpcomingGame | null;
   profileStatus: "draft" | "live";
   hasBeenPublished: boolean;
+  lastPublishedAt: number | null;
+  hasUnpublishedChanges: boolean;
   activeSection: ActiveSection;
   setAthlete: (data: Partial<AthleteData>) => void;
   publishProfile: () => void;
