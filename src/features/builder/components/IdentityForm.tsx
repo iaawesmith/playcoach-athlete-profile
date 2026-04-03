@@ -399,7 +399,7 @@ export const IdentityForm = () => {
     firstName, lastName, bio, quote, school, schoolAbbrev, teamColor,
     position, number, classYear, hometown, highSchool, height, weight,
     fortyTime, vertical, wingspan, handSize,
-    actionPhotoUrl, schoolLogoUrl,
+    actionPhotoUrl, profilePictureUrl, schoolLogoUrl,
     eligibilityYears, transferEligible, redshirtStatus,
     starRating, nationalRank, positionRank,
     commitmentStatus, upcomingGame,
@@ -422,6 +422,7 @@ export const IdentityForm = () => {
   };
 
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const profilePicInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,6 +430,14 @@ export const IdentityForm = () => {
     if (file) {
       const url = URL.createObjectURL(file);
       setAthlete({ actionPhotoUrl: url });
+    }
+  };
+
+  const handleProfilePicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setAthlete({ profilePictureUrl: url });
     }
   };
 
@@ -477,8 +486,9 @@ export const IdentityForm = () => {
               </div>
 
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              <input ref={profilePicInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
               <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7]">
                     Action Photo
@@ -497,6 +507,28 @@ export const IdentityForm = () => {
                       <>
                         <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
                         <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7]">
+                    Profile Picture
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => profilePicInputRef.current?.click()}
+                    className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200"
+                  >
+                    {profilePictureUrl ? (
+                      <>
+                        <img src={profilePictureUrl} alt="Profile picture" className="w-16 h-16 rounded-lg object-cover" />
+                        <span className="text-on-surface-variant/60 text-[9px]">Tap to change</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-on-surface-variant text-3xl">account_circle</span>
+                        <span className="text-on-surface-variant/60 text-[9px]">Your headshot or portrait</span>
                       </>
                     )}
                   </button>

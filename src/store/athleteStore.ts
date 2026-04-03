@@ -30,6 +30,7 @@ interface AthleteState {
   wingspan: string;
   handSize: string;
   actionPhotoUrl: string | null;
+  profilePictureUrl: string | null;
   schoolLogoUrl: string | null;
   eligibilityYears: number;
   transferEligible: string;
@@ -73,6 +74,7 @@ const defaults: AthleteData = {
   wingspan: "",
   handSize: "",
   actionPhotoUrl: null,
+  profilePictureUrl: null,
   schoolLogoUrl: null,
   eligibilityYears: 0,
   transferEligible: "",
