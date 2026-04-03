@@ -41,7 +41,7 @@ export const BuilderLayout = () => {
           {/* Left Column — Preview */}
           <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low overflow-hidden">
             {/* Sticky Preview Header Bar */}
-            <div className="h-14 px-5 py-3 bg-[#50C4CA] border-b border-white/10 shrink-0 flex items-center z-10">
+            <div className="h-14 px-5 py-3 border-b border-white/10 shrink-0 flex items-center z-10" style={{ backgroundColor: "var(--team-color)" }}>
               <div className="flex flex-col justify-center min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#FFFFFF" }}>visibility</span>
