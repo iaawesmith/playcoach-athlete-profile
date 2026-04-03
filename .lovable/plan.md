@@ -1,28 +1,40 @@
 
 
-## Two Updates: Preview Header Teal Fill + TopNav Adjustments
+## Update TopNav Publish Button to 2-State System
 
-### 1. Live Preview Header — Full Teal Background (`BuilderLayout.tsx`, line 47)
+### Design Decision
+Collapse the current 3-state publish system into 2 states. The initial "Go Live" state merges into the PUBLISH state — any time the profile isn't fully live or has pending changes, the amber button shows.
 
-Replace the current `bg-surface-container-high` + `border-l-2` with a full `bg-[#50C4CA]` background. Change all text/icons to white. Remove the left border accent.
+### State Logic
+- **PUBLISH (amber)**: Show when `!hasBeenPublished || hasUnpublishedChanges` — covers both first-time publish and subsequent changes
+- **LIVE (pill)**: Show when `hasBeenPublished && !hasUnpublishedChanges` — non-clickable status indicator
 
-- Header bar: `bg-[#50C4CA]` instead of `bg-surface-container-high`, remove `borderLeft` inline style
-- Visibility icon: `color: "#FFFFFF"`
-- Title text: `text-white` instead of `text-on-surface`
-- Draft dot: `bg-white` instead of `bg-amber-400`, text `text-white`
-- Live dot: `bg-white` instead of `bg-primary`, text `text-white`
+### Changes
 
-### 2. TopNav Adjustments (`TopNav.tsx`, lines 14–18)
+**`src/features/builder/components/TopNav.tsx`** (lines 27–47)
 
-- Remove the "Brand HQ" span entirely (line 18)
-- Add a share/link icon button immediately after the athlete name
-- The GO LIVE button (currently in preview header) stays where it is — this request refers to the share button moving from the preview header to the TopNav, inline after the name
+Replace the 3-state conditional with 2 states:
 
-Wait — re-reading: "Move the share/link icon to sit immediately to the right of the athlete name, inline" and "The GO LIVE button stays in its current position — it simply shifts right to occupy the space where the link icon was." This means:
-- In TopNav: remove "Brand HQ", add a `link` icon right after the athlete name
-- In the preview header: remove the share button, let the GO LIVE button shift into that space
+```tsx
+{/* State: needs publishing */}
+{(!hasBeenPublished || hasUnpublishedChanges) ? (
+  <button
+    onClick={publishProfile}
+    className="h-8 px-4 rounded-full bg-[#F59E0B] text-white font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 animate-pulse"
+  >
+    Publish
+  </button>
+) : (
+  /* State: live, no changes */
+  <div className="h-7 px-3 rounded-full border border-[#00e639] flex items-center gap-1.5">
+    <span className="w-1.5 h-1.5 rounded-full bg-[#00e639]" />
+    <span className="text-[#00e639] text-[10px] font-bold uppercase tracking-widest">Live</span>
+  </div>
+)}
+```
+
+No Zustand changes needed — existing `hasBeenPublished`, `hasUnpublishedChanges`, and `publishProfile` cover both states.
 
 ### Files modified
-- `src/features/builder/components/TopNav.tsx` — remove "Brand HQ" text, add link/share icon after athlete name
-- `src/features/builder/BuilderLayout.tsx` — preview header: full teal bg, white text/icons, remove border-l; remove share button from preview header
+- `src/features/builder/components/TopNav.tsx`
 
