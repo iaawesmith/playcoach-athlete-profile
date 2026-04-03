@@ -33,9 +33,9 @@ export const ProCard = () => {
   };
 
   const physicals = [
-    { label: "HEIGHT", value: height ? formatHeight(height) : "—" },
-    { label: "WEIGHT", value: weight ? weight.replace(/\s*lbs?/i, "") : "—" },
-    { label: "40 TIME", value: fortyTime || "—" },
+    { label: "HEIGHT", value: height ? formatHeight(height) : "0'0\"" },
+    { label: "WEIGHT", value: weight ? weight.replace(/\s*lbs?/i, "") : "0" },
+    { label: "40 TIME", value: fortyTime || "0.0" },
   ];
 
   return (
