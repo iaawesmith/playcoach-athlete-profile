@@ -152,13 +152,13 @@ export const IdentityPreview = () => {
               <div>
                 <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">NATIONAL</span>
                 <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-                  {nationalRank ? `#${nationalRank}` : "Not ranked"}
+                  {nationalRank ? `#${nationalRank}` : "—"}
                 </span>
               </div>
               <div>
                 <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">{position || "POS."}</span>
                 <span className={`font-black ${positionRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-                  {positionRank ? `#${positionRank}` : "Not ranked"}
+                  {positionRank ? `#${positionRank}` : "—"}
                 </span>
               </div>
             </div>
