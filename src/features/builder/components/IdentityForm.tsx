@@ -781,7 +781,7 @@ export const IdentityForm = () => {
                   placeholder="0"
                 />
                 <InputCard
-                  label="Position Rank"
+                  label={position ? `${position} Rank` : "Position Rank"}
                   value={positionRank !== null ? String(positionRank) : ""}
                   type="number"
                   onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
