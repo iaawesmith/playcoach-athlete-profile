@@ -148,23 +148,25 @@ const HeightInputCard = ({
       <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
         Height
       </label>
-      <div className={`flex items-center gap-2 ${isEmpty ? "border-b border-dashed border-outline-variant/30" : ""} pb-0.5`}>
+      <div className={`flex items-center ${isEmpty ? "border-b border-dashed border-outline-variant/30" : ""} pb-0.5`}>
         <input
-          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center placeholder:text-on-surface/40"
+          className="bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
+          style={{ width: `${Math.max(String(feet || "").length || 1, 1) * 0.6 + 0.4}em` }}
           value={totalInches > 0 ? String(feet) : ""}
           onChange={(e) => handleFeetChange(e.target.value)}
           inputMode="numeric"
           placeholder="0"
         />
-        <span className="text-on-surface-variant text-sm shrink-0">ft</span>
+        <span className="text-on-surface-variant text-sm font-normal shrink-0 ml-1.5">ft</span>
         <input
-          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center placeholder:text-on-surface/40"
+          className="bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40 ml-3"
+          style={{ width: `${Math.max(String(inches || "").length || 1, 1) * 0.6 + 0.4}em` }}
           value={totalInches > 0 ? String(inches) : ""}
           onChange={(e) => handleInchesChange(e.target.value)}
           inputMode="numeric"
           placeholder="0"
         />
-        <span className="text-on-surface-variant text-sm shrink-0">in</span>
+        <span className="text-on-surface-variant text-sm font-normal shrink-0 ml-1.5">in</span>
       </div>
     </div>
   );
