@@ -556,7 +556,6 @@ export const IdentityForm = () => {
 
               <SchoolAutocomplete
                 value={school}
-                abbrev={schoolAbbrev}
                 onSelect={(uni) => {
                   setAthlete({
                     school: uni.name,
@@ -565,7 +564,6 @@ export const IdentityForm = () => {
                   });
                 }}
                 onManualChange={(v) => setAthlete({ school: v })}
-                onAbbrevChange={(v) => setAthlete({ schoolAbbrev: v })}
               />
 
               <div className="grid grid-cols-2 gap-4">
