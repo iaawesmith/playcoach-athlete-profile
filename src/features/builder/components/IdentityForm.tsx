@@ -666,12 +666,14 @@ export const IdentityForm = () => {
                   value={nationalRank !== null ? String(nationalRank) : ""}
                   type="number"
                   onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
+                  placeholder="0"
                 />
                 <InputCard
                   label="Position Rank"
                   value={positionRank !== null ? String(positionRank) : ""}
                   type="number"
                   onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
+                  placeholder="0"
                 />
               </div>
               <SelectCard
