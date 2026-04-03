@@ -1,40 +1,33 @@
 
 
-## Update TopNav Publish Button to 2-State System
+## Replace Publish Button with Icon-Based 2-State System
 
-### Design Decision
-Collapse the current 3-state publish system into 2 states. The initial "Go Live" state merges into the PUBLISH state — any time the profile isn't fully live or has pending changes, the amber button shows.
+### Concept
+Replace the flashing amber "PUBLISH" button with a clean icon button that toggles between two states. Update the preview column subtext to guide the user.
 
-### State Logic
-- **PUBLISH (amber)**: Show when `!hasBeenPublished || hasUnpublishedChanges` — covers both first-time publish and subsequent changes
-- **LIVE (pill)**: Show when `hasBeenPublished && !hasUnpublishedChanges` — non-clickable status indicator
+### TopNav Changes (`src/features/builder/components/TopNav.tsx`)
 
-### Changes
+**State 1 — Unpublished changes (or never published):**
+- Icon button: `publish` Material Symbol (looks like an upload/send icon), 20px
+- Icon color: `text-on-surface-variant` (neutral, not distracting)
+- Clickable — calls `publishProfile` on click
+- No text label, no pulse animation — just a clean icon button (same style as link/notification icons)
 
-**`src/features/builder/components/TopNav.tsx`** (lines 27–47)
+**State 2 — Live, no pending changes:**
+- Icon: `cell_tower` Material Symbol (broadcast/live icon), 20px
+- Icon color: `#00e639` (Performance Green)
+- Not clickable — just a status indicator
+- No border pill, no text — the green icon alone signals "live"
 
-Replace the 3-state conditional with 2 states:
+Both states use the same `w-8 h-8 rounded-full flex items-center justify-center` container as the link icon beside it.
 
-```tsx
-{/* State: needs publishing */}
-{(!hasBeenPublished || hasUnpublishedChanges) ? (
-  <button
-    onClick={publishProfile}
-    className="h-8 px-4 rounded-full bg-[#F59E0B] text-white font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 animate-pulse"
-  >
-    Publish
-  </button>
-) : (
-  /* State: live, no changes */
-  <div className="h-7 px-3 rounded-full border border-[#00e639] flex items-center gap-1.5">
-    <span className="w-1.5 h-1.5 rounded-full bg-[#00e639]" />
-    <span className="text-[#00e639] text-[10px] font-bold uppercase tracking-widest">Live</span>
-  </div>
-)}
-```
+### Preview Column Subtext (`src/features/builder/BuilderLayout.tsx`, lines 50–62)
 
-No Zustand changes needed — existing `hasBeenPublished`, `hasUnpublishedChanges`, and `publishProfile` cover both states.
+Replace the current Draft/Live subtext logic:
+- **When live**: `"Live"` with white dot (keep as-is)
+- **When draft/unpublished changes**: Subtext becomes `"Publish changes via the icon above"` — white, italic, 0.65rem
 
 ### Files modified
 - `src/features/builder/components/TopNav.tsx`
+- `src/features/builder/BuilderLayout.tsx`
 
