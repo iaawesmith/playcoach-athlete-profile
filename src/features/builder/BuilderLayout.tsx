@@ -37,7 +37,7 @@ export const BuilderLayout = () => {
 
       {/* Main Content Area */}
       <main className="pt-16 lg:pl-64">
-        <div className="grid grid-cols-1 lg:grid-cols-12 <div className="grid grid-cols-1 lg:grid-cols-12 h-[calc(100vh-4rem)]">">
+        <div className="grid grid-cols-1 lg:grid-cols-12 h-[calc(100vh-4rem)]">
           {/* Left Column — Preview */}
           <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low overflow-hidden">
             {/* Sticky Preview Header Bar */}
