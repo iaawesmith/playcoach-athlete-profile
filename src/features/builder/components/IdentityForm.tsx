@@ -582,7 +582,7 @@ export const IdentityForm = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} />
+                <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} placeholder="0" />
                 <SelectCard
                   label="Class Year"
                   value={classYear}
