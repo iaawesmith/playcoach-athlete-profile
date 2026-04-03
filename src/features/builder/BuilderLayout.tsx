@@ -42,63 +42,59 @@ export const BuilderLayout = () => {
       <main className="pt-16 lg:pl-64">
         <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-4rem)]">
           {/* Left Column — Preview */}
-          <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low overflow-y-auto">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)] z-0" />
-
-            {/* Header: Label + Status + CTAs */}
-            <div className="relative z-10 w-full pt-8 px-8">
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-extrabold uppercase tracking-widest text-on-surface-variant">
+          <div className="hidden lg:flex flex-col lg:col-span-5 relative bg-surface-container-low overflow-hidden">
+            {/* Sticky Preview Header Bar */}
+            <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex items-center justify-between z-10" style={{ borderLeft: "2px solid #50C4CA" }}>
+              <div className="flex flex-col justify-center">
+                <span className="text-on-surface font-bold uppercase text-xs tracking-widest">
                   {sectionLabels[activeSection]}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 mt-0.5">
                   {isDraft ? (
-                    <button
-                      onClick={publishProfile}
-                      className="w-8 h-8 rounded-full bg-[#00E639] flex items-center justify-center active:scale-95 transition-all duration-150"
-                      title={hasBeenPublished ? "Publish" : "Go Live"}
-                    >
-                      <span className="material-symbols-outlined text-[#00460a] text-sm">rocket_launch</span>
-                    </button>
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      <span className="text-[0.65rem] italic text-amber-400">Draft</span>
+                    </>
                   ) : (
-                    <button
-                      disabled
-                      className="w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 cursor-default"
-                      title="Published"
-                    >
-                      <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
-                    </button>
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      <span className="text-[0.65rem] italic text-primary">Live</span>
+                    </>
                   )}
-                  <button
-                    className={`w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
-                      isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-on-surface text-sm">share</span>
-                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 mt-1.5">
+              <div className="flex items-center gap-2">
                 {isDraft ? (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
-                      Draft
-                    </span>
-                  </>
+                  <button
+                    onClick={publishProfile}
+                    className="w-8 h-8 rounded-full bg-[#00E639] flex items-center justify-center active:scale-95 transition-all duration-150"
+                    title={hasBeenPublished ? "Publish" : "Go Live"}
+                  >
+                    <span className="material-symbols-outlined text-[#00460a] text-sm">rocket_launch</span>
+                  </button>
                 ) : (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-                      Live
-                    </span>
-                  </>
+                  <button
+                    disabled
+                    className="w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 cursor-default"
+                    title="Published"
+                  >
+                    <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
+                  </button>
                 )}
+                <button
+                  className={`w-8 h-8 rounded-full glass-card flex items-center justify-center border border-outline-variant/20 transition-all duration-150 ${
+                    isDraft ? "opacity-40 pointer-events-none" : "active:scale-95"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-on-surface text-sm">share</span>
+                </button>
               </div>
             </div>
 
-            {/* Preview Content */}
-            <div className="relative z-10 px-8 pb-8 mt-6">
+            {/* Scrollable Preview Content */}
+            <div className="flex-1 overflow-y-auto relative">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)] z-0" />
+            <div className="relative z-10 px-8 pb-8 pt-6">
               {activeSection === "identity" ? (
                 <>
                   <ProCard />
