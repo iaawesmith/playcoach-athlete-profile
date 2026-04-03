@@ -1,23 +1,30 @@
 
 
-## Convert Position & Details to 3-Column Dropdown Row
+## Add University Autocomplete to Opponent Field
 
 ### What changes
 
-Replace the current "Position & Details" section (position pill-grid on its own row + Jersey/Class Year 2-col row below) with a single **3-column evenly spaced row**: **Position** (dropdown) → **Jersey #** (input) → **Class Year** (dropdown).
+Replace the plain `InputCard` for "Opponent" in the Upcoming Game section with the same university autocomplete search used for the School field. When the athlete types, it filters the university list and shows a dropdown. Selecting a university fills in the opponent name.
 
 ### Changes in `src/features/builder/components/IdentityForm.tsx`
 
-**Lines 592–626** — Replace the entire "Position & Details" section:
+**1. Extract a reusable `UniversityAutocomplete` component** from the existing `SchoolSearchCard` (lines 265–393). The new component will accept a generic `label`, `value`, `onSelect` (returns university name string), and `placeholder` prop. The existing School field and the new Opponent field will both use it.
 
-1. Remove the position pill-button grid (lines 596–615).
-2. Remove the `grid-cols-2` row with Jersey # and Class Year (lines 617–625).
-3. Replace with a single `grid grid-cols-3 gap-4` containing:
-   - `SelectCard` for **Position** — options from the `positions` array, with a "Select..." placeholder
-   - `InputCard` for **Jersey #** — same as current
-   - `SelectCard` for **Class Year** — same as current
+Alternatively, since the Opponent field only needs the university name (no abbreviation/color side effects), create a simpler variant: a `UniversitySearchCard` that takes `label`, `value`, `onChange` (string), and `placeholder`. Internally it reuses the same filtering logic against the `universities` array.
 
-Position becomes a native `<select>` dropdown (using the existing `SelectCard` component) instead of the pill-toggle grid, saving vertical space.
+**2. Replace the Opponent `InputCard`** (line 745) with:
+```
+<UniversitySearchCard
+  label="Opponent"
+  value={game.opponent}
+  onChange={(name) => setGame("opponent", name)}
+  placeholder="Search schools..."
+/>
+```
+
+The dropdown will show the same styled list (color dot, name, abbreviation) but on select it simply sets the opponent string to the university name.
+
+**3. Keep SchoolSearchCard as-is** for the School field since it has extra side effects (setting abbreviation, teamColor, etc.).
 
 ### Files modified
 - `src/features/builder/components/IdentityForm.tsx`
