@@ -154,7 +154,7 @@ const HeightInputCard = ({
           value={totalInches > 0 ? String(feet) : ""}
           onChange={(e) => handleFeetChange(e.target.value)}
           inputMode="numeric"
-          placeholder="6"
+          placeholder="0"
         />
         <span className="text-on-surface-variant text-sm shrink-0">ft</span>
         <input
