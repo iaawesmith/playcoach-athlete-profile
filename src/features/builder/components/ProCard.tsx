@@ -126,7 +126,7 @@ export const ProCard = () => {
                 <span className="text-[10px] uppercase tracking-widest text-on-surface-variant block">
                   {attr.label}
                 </span>
-                <span className={`font-black text-xl ${attr.value === "—" ? "text-on-surface/40" : "text-on-surface"}`}>
+                <span className={`font-black text-xl ${["0'0\"", "0", "0.0"].includes(attr.value) ? "text-on-surface/40" : "text-on-surface"}`}>
                   {attr.value}
                 </span>
               </div>
