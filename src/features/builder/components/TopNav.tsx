@@ -2,7 +2,11 @@ import playcoachLogo from "@/assets/playcoach-logo.png";
 import { useAthleteStore } from "@/store/athleteStore";
 
 export const TopNav = () => {
-  const { firstName, lastName } = useAthleteStore();
+  const firstName = useAthleteStore((s) => s.firstName);
+  const lastName = useAthleteStore((s) => s.lastName);
+  const hasBeenPublished = useAthleteStore((s) => s.hasBeenPublished);
+  const hasUnpublishedChanges = useAthleteStore((s) => s.hasUnpublishedChanges);
+  const publishProfile = useAthleteStore((s) => s.publishProfile);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-card border-b border-white/10 flex items-center justify-between px-6">
@@ -18,6 +22,30 @@ export const TopNav = () => {
         <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors duration-200 ml-2">
           <span className="material-symbols-outlined text-on-surface-variant text-lg">link</span>
         </button>
+
+        {/* Publish Button / Live Status */}
+        <div className="ml-3">
+          {!hasBeenPublished ? (
+            <button
+              onClick={publishProfile}
+              className="h-8 px-4 rounded-full bg-[#50C4CA] text-white font-bold uppercase tracking-wide text-xs active:scale-95 transition-all duration-150"
+            >
+              Go Live
+            </button>
+          ) : hasUnpublishedChanges ? (
+            <button
+              onClick={publishProfile}
+              className="h-8 px-4 rounded-full bg-[#50C4CA] text-white font-bold uppercase tracking-wide text-xs active:scale-95 transition-all duration-150 animate-pulse"
+            >
+              Publish Changes
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
+              <span className="text-on-surface-variant text-xs font-medium">Live</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right */}
