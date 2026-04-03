@@ -695,6 +695,7 @@ export const IdentityForm = () => {
                   value={eligibilityYears === 0 ? "" : String(eligibilityYears)}
                   type="number"
                   onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
+                  placeholder="0"
                 />
                 <SelectCard
                   label="Transfer Eligible"
