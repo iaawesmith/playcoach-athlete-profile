@@ -1,17 +1,17 @@
 
 
-## Align All Three Rows Into a Consistent 2-Column Grid
+## Fix Profile Strength Starting at 5%
 
-**Problem**: The first two rows (First/Last Name, Action Photo/School Logo) use `grid grid-cols-2 gap-4`, but the third row (School / Team Color) uses `flex` with different sizing — so the columns don't align vertically.
+**Root cause**: `computeProfileStrength` in `SideNav.tsx` line 21 checks `state.teamColor !== "#00e639"`, but the store default is `"#50C4CA"`. Since `"#50C4CA" !== "#00e639"`, it scores 5% on a fresh profile.
 
-**Fix in `src/features/builder/components/IdentityForm.tsx` (lines 526–562)**:
+**Fix**: Change the check to exclude **both** known defaults, or better — only award the 5% when a school has been selected (since team color is tied to school selection):
 
-Replace the `flex gap-4 items-stretch` container with `grid grid-cols-2 gap-4` to match the rows above. This ensures:
-- Left column: First Name → Action Photo → School — all same width
-- Right column: Last Name → School Logo → Team Color — all same width
+```tsx
+if (state.teamColor && state.teamColor !== "#00e639" && state.teamColor !== "#50C4CA") score += 5;
+```
 
-Remove `flex-1` wrapper around SchoolAutocomplete and `min-w-[160px]` from Team Color card — the grid handles equal sizing automatically.
+Alternatively, tie it to school being set (since team color auto-populates with school). But the simplest correct fix is to treat `#50C4CA` as a default too.
 
 ### Files modified
-- `src/features/builder/components/IdentityForm.tsx`
+- `src/features/builder/components/SideNav.tsx`
 
