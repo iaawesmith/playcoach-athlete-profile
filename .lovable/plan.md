@@ -1,9 +1,11 @@
 
-## Make School Name on ProCard Bolder
 
-**`src/features/builder/components/ProCard.tsx`**
+## Remove "(Default)" from Team Color Field
 
-Lines 73 and 77: Change `text-[9px]` to `text-[11px]` on both the filled and placeholder school name spans. The weight is already `font-black` (maximum), so increasing the size will make it appear thicker and more prominent in the banner.
+**`src/features/builder/components/IdentityForm.tsx`**
+
+Find the Team Color label that conditionally appends `(Default)` when the value is `#50C4CA`. Change it to always show `"Team Color (Hex)"` without any conditional suffix.
 
 ### Files modified
-- `src/features/builder/components/ProCard.tsx`
+- `src/features/builder/components/IdentityForm.tsx`
+
