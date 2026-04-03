@@ -1,40 +1,44 @@
 
 
-## Add Consistent Sticky Header Band Across All Three Columns
+## Add Icons and Color Accents to Three Column Headers
 
-Three header bars — same height (48px), same bg/border, different content and accent — forming a continuous visual band below the TopNav.
+### Changes
 
-### 1. SideNav (`src/features/builder/components/SideNav.tsx`)
+**1. SideNav header** (`src/features/builder/components/SideNav.tsx`, line 39)
 
-**Add a sticky header bar** at the top of the aside, before the current profile header content:
-- `h-12 px-5 py-3 bg-surface-container-high border-b border-white/10`
-- Line 1: "BRAND HQ" — `text-on-surface font-bold uppercase text-xs tracking-widest`
-- Line 2: "Build your profile to 100%" — `text-on-surface-variant text-[0.65rem] italic`
-- No accent color (neutral)
+Add `person` icon before "Brand HQ" title:
+```tsx
+<div className="flex items-center gap-1.5">
+  <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "18px" }}>person</span>
+  <span className="text-on-surface font-bold uppercase text-xs tracking-widest">Brand HQ</span>
+</div>
+```
 
-**Move** the existing "Brand HQ" h2 out (replaced by the header bar). The Profile Strength label, percentage, and segmented bar stay below the header in the scrollable area, inside the existing `p-6 space-y-4` block.
+No border accent — stays neutral.
 
-### 2. Center Column — Preview (`src/features/builder/BuilderLayout.tsx`)
+**2. Preview header** (`src/features/builder/BuilderLayout.tsx`, line 49)
 
-**Replace** the current floating header (lines 49–98: the `pt-8 px-8` div with section label, publish/share buttons, and draft/live status) with a **sticky header bar** inside a flex-col + overflow structure:
+Add `visibility` icon before the section label, colored `#50C4CA`. The `border-l-2` in `#50C4CA` already exists on this header — no change needed there.
 
-- Outer div becomes `flex flex-col overflow-hidden` (like the editor column already does)
-- Header bar: `h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex items-center` with a `border-l-2` in `#50C4CA`
-- Line 1: `"IDENTITY LIVE PREVIEW"` — same font treatment as the other bars. Updates per section.
-- Line 2: Draft/Live status dot + text moves here as subtext (same `text-[0.65rem]` italic style)
-- Publish + Share buttons move to the right side of this header bar
-- Scrollable preview content below: `flex-1 overflow-y-auto`
+```tsx
+<div className="flex items-center gap-1.5">
+  <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#50C4CA" }}>visibility</span>
+  <span className="text-on-surface font-bold uppercase text-xs tracking-widest">{sectionLabels[activeSection]}</span>
+</div>
+```
 
-Section label map updates from `"Identity Preview"` → `"Identity Live Preview"`, etc.
+**3. Editor header** (`src/features/builder/BuilderLayout.tsx`, line 124–125)
 
-### 3. Right Column — Editor (`src/features/builder/BuilderLayout.tsx`)
+Change `edit` icon color to `#00e639` and size to 18px. Add `border-l-2` in `#00e639` to the header bar via inline style.
 
-**Update** the existing sticky editor header (lines 126–136) to match the 48px height:
-- Change from `px-6 py-3` to `h-12 px-5 py-3 shrink-0 flex flex-col justify-center`
-- Keep content as-is (edit icon + "EDITING IDENTITY" + subtext)
-- Already has `bg-surface-container-high border-b border-white/10`
+```tsx
+<div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex flex-col justify-center"
+     style={{ borderLeft: "2px solid #00e639" }}>
+  <div className="flex items-center gap-1.5">
+    <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#00e639" }}>edit</span>
+```
 
 ### Files modified
-- `src/features/builder/components/SideNav.tsx` — replace "Brand HQ" header with 48px sticky bar, keep strength bar below
-- `src/features/builder/BuilderLayout.tsx` — restructure center column with sticky header, update editor header height
+- `src/features/builder/components/SideNav.tsx`
+- `src/features/builder/BuilderLayout.tsx`
 
