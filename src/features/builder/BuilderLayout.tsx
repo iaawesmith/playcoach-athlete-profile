@@ -55,8 +55,7 @@ export const BuilderLayout = () => {
                     </>
                   ) : (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      <span className="text-[0.65rem] italic text-white">Publish changes via the icon above</span>
+                       <span className="text-[0.65rem] italic text-white">Publish changes via the icon above</span>
                     </>
                   )}
                 </div>
