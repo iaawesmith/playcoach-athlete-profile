@@ -18,7 +18,7 @@ const computeProfileStrength = (state: ReturnType<typeof useAthleteStore.getStat
   if (state.firstName && state.lastName) score += 10;
   if (state.position) score += 10;
   if (state.school) score += 10;
-  if (state.teamColor && state.teamColor !== "#00e639") score += 5;
+  if (state.teamColor && state.teamColor !== "#00e639" && state.teamColor !== "#50C4CA") score += 5;
   if (state.classYear) score += 5;
   if (state.number) score += 3;
   // socialLinks not yet in store → 2% reserved
