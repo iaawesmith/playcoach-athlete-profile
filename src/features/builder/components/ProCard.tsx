@@ -78,7 +78,7 @@ export const ProCard = () => {
               className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px]"
               style={{ backgroundColor: "var(--team-color)", color: "white" }}
             >
-              {positionLabel || "--"}
+              {position || "--"}
             </span>
             <span
               className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-[3px]"
