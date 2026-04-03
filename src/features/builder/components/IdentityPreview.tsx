@@ -1,21 +1,18 @@
 import { useAthleteStore } from "@/store/athleteStore";
 
-const MeasurableTile = ({ label, value }: { label: string; value: string }) => {
-  const hasValue = value && value !== "—";
-  return (
-    <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-3 flex flex-col items-center justify-center">
-      <span
-        className="text-[9px] font-bold uppercase tracking-widest mb-1"
-        style={{ color: "var(--team-color)" }}
-      >
-        {label}
-      </span>
-      <span className={`font-black text-xl ${hasValue ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-        {hasValue ? value : "—"}
-      </span>
+const MeasurableTile = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-3 flex flex-col justify-center">
+    <span
+      className="text-[9px] font-bold uppercase tracking-widest mb-1"
+      style={{ color: "var(--team-color)" }}
+    >
+      {label}
+    </span>
+    <div className="font-black text-xl text-on-surface flex items-baseline gap-0.5">
+      {children}
     </div>
-  );
-};
+  </div>
+);
 
 const commitmentLabels: Record<string, string> = {
   committed: "Committed",
@@ -43,23 +40,21 @@ export const IdentityPreview = () => {
     schoolLogoUrl, position,
   } = useAthleteStore();
 
-  // Format height from total inches to X'Y"
-  const formatHeight = (val: string) => {
+  // Parse height from total inches
+  const parseHeight = (val: string) => {
     const total = parseInt(val, 10);
-    if (!total) return "—";
-    return `${Math.floor(total / 12)}'${total % 12}"`;
+    if (!total) return null;
+    return { ft: Math.floor(total / 12), inches: total % 12 };
   };
 
-  // Format weight with lbs suffix
-  const formatWeight = (val: string) => {
-    if (!val) return "—";
+  const cleanWeight = (val: string) => {
+    if (!val) return null;
     return val.replace(/\s*lbs?/i, "");
   };
 
-  // Format inches values with " suffix
-  const formatInches = (val: string) => {
-    if (!val) return "—";
-    return `${val}"`;
+  const cleanInches = (val: string) => {
+    if (!val) return null;
+    return val.replace(/"/g, "");
   };
 
   const showBothLocations = hometown && highSchool && hometown.trim().toLowerCase() !== highSchool.trim().toLowerCase();
@@ -73,13 +68,61 @@ export const IdentityPreview = () => {
         <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant block mb-3">
           Measurables
         </span>
-        <div className="grid grid-cols-3 gap-2">
-          <MeasurableTile label="Height" value={formatHeight(height)} />
-          <MeasurableTile label="Weight" value={formatWeight(weight)} />
-          <MeasurableTile label="40 Time" value={fortyTime || "—"} />
-          <MeasurableTile label="Vertical" value={formatInches(vertical)} />
-          <MeasurableTile label="Wingspan" value={formatInches(wingspan)} />
-          <MeasurableTile label="Hand Size" value={formatInches(handSize)} />
+        <div className="grid grid-cols-2 gap-2">
+          <MeasurableTile label="Height">
+            {(() => {
+              const h = parseHeight(height);
+              if (!h) return <span className="text-on-surface-variant/30">—</span>;
+              return (
+                <>
+                  <span>{h.ft}</span>
+                  <span className="text-on-surface-variant text-sm font-medium ml-0.5">ft</span>
+                  <span className="ml-1">{h.inches}</span>
+                  <span className="text-on-surface-variant text-sm font-medium ml-0.5">in</span>
+                </>
+              );
+            })()}
+          </MeasurableTile>
+          <MeasurableTile label="Weight">
+            {cleanWeight(weight) ? (
+              <>
+                <span>{cleanWeight(weight)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">lbs</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="40 Time">
+            {fortyTime ? (
+              <>
+                <span>{fortyTime}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">s</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="Vertical">
+            {cleanInches(vertical) ? (
+              <>
+                <span>{cleanInches(vertical)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">"</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="Wingspan">
+            {cleanInches(wingspan) ? (
+              <>
+                <span>{cleanInches(wingspan)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">"</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
+          <MeasurableTile label="Hand Size">
+            {cleanInches(handSize) ? (
+              <>
+                <span>{cleanInches(handSize)}</span>
+                <span className="text-on-surface-variant text-sm font-medium ml-0.5">"</span>
+              </>
+            ) : <span className="text-on-surface-variant/30">—</span>}
+          </MeasurableTile>
         </div>
       </div>
 
