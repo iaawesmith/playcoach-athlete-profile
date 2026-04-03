@@ -1,21 +1,18 @@
 import { useAthleteStore } from "@/store/athleteStore";
 
-const MeasurableTile = ({ label, value }: { label: string; value: string }) => {
-  const hasValue = value && value !== "—";
-  return (
-    <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-3 flex flex-col items-center justify-center">
-      <span
-        className="text-[9px] font-bold uppercase tracking-widest mb-1"
-        style={{ color: "var(--team-color)" }}
-      >
-        {label}
-      </span>
-      <span className={`font-black text-xl ${hasValue ? "text-on-surface" : "text-on-surface-variant/30"}`}>
-        {hasValue ? value : "—"}
-      </span>
+const MeasurableTile = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-3 flex flex-col justify-center">
+    <span
+      className="text-[9px] font-bold uppercase tracking-widest mb-1"
+      style={{ color: "var(--team-color)" }}
+    >
+      {label}
+    </span>
+    <div className="font-black text-xl text-on-surface flex items-baseline gap-0.5">
+      {children}
     </div>
-  );
-};
+  </div>
+);
 
 const commitmentLabels: Record<string, string> = {
   committed: "Committed",
