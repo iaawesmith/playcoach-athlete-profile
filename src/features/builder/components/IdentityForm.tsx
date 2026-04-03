@@ -83,31 +83,37 @@ const NumericInputCard = ({
   value,
   onChange,
   suffix,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (val: string) => void;
   suffix: string;
-}) => (
-  <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
-    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
-      {label}
-    </label>
-    <div className="flex items-center">
-      <input
-        className="bg-transparent text-on-surface text-sm font-normal outline-none"
-        style={{ width: `${Math.max((value || "").length, 1) * 0.6 + 0.2}em` }}
-        value={value}
-        onChange={(e) => {
-          const v = e.target.value.replace(/[^\d.]/g, "");
-          onChange(v);
-        }}
-        inputMode="decimal"
-      />
-      <span className="text-on-surface-variant text-sm font-normal shrink-0">{suffix}</span>
+  placeholder?: string;
+}) => {
+  const isEmpty = !value;
+  return (
+    <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus cursor-text">
+      <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
+        {label}
+      </label>
+      <div className={`flex items-center ${isEmpty ? "border-b border-dashed border-outline-variant/30" : ""} pb-0.5`}>
+        <input
+          className="bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
+          style={{ width: `${Math.max((value || placeholder || "").length, 1) * 0.6 + 0.4}em` }}
+          value={value}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^\d.]/g, "");
+            onChange(v);
+          }}
+          inputMode="decimal"
+          placeholder={placeholder}
+        />
+        <span className="text-on-surface-variant text-sm font-normal shrink-0">{suffix}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const HeightInputCard = ({
   value,
@@ -132,26 +138,27 @@ const HeightInputCard = ({
     onChange(String(feet * 12 + i));
   };
 
+  const isEmpty = totalInches === 0;
   return (
-    <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
+    <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus cursor-text">
       <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
         Height
       </label>
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${isEmpty ? "border-b border-dashed border-outline-variant/30" : ""} pb-0.5`}>
         <input
-          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center placeholder:text-on-surface/40"
           value={totalInches > 0 ? String(feet) : ""}
           onChange={(e) => handleFeetChange(e.target.value)}
           inputMode="numeric"
-          placeholder="–"
+          placeholder="6"
         />
         <span className="text-on-surface-variant text-sm shrink-0">ft</span>
         <input
-          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center"
+          className="w-12 bg-transparent text-on-surface text-sm font-normal outline-none text-center placeholder:text-on-surface/40"
           value={totalInches > 0 ? String(inches) : ""}
           onChange={(e) => handleInchesChange(e.target.value)}
           inputMode="numeric"
-          placeholder="–"
+          placeholder="2"
         />
         <span className="text-on-surface-variant text-sm shrink-0">in</span>
       </div>
@@ -592,16 +599,17 @@ export const IdentityForm = () => {
                   label="Weight"
                   value={weightRaw}
                   suffix=" lbs"
+                  placeholder="195"
                   onChange={(v) => setAthlete({ weight: v })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <NumericInputCard label="40 Time" value={fortyTime} suffix="s" onChange={(v) => setAthlete({ fortyTime: v })} />
-                <NumericInputCard label="Vertical" value={vertical} suffix='"' onChange={(v) => setAthlete({ vertical: v })} />
+                <NumericInputCard label="40 Time" value={fortyTime} suffix="s" placeholder="4.40" onChange={(v) => setAthlete({ fortyTime: v })} />
+                <NumericInputCard label="Vertical" value={vertical} suffix='"' placeholder="36.5" onChange={(v) => setAthlete({ vertical: v })} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <NumericInputCard label="Wingspan" value={wingspan} suffix='"' onChange={(v) => setAthlete({ wingspan: v })} />
-                <NumericInputCard label="Hand Size" value={handSize} suffix='"' onChange={(v) => setAthlete({ handSize: v })} />
+                <NumericInputCard label="Wingspan" value={wingspan} suffix='"' placeholder="76.0" onChange={(v) => setAthlete({ wingspan: v })} />
+                <NumericInputCard label="Hand Size" value={handSize} suffix='"' placeholder="9.5" onChange={(v) => setAthlete({ handSize: v })} />
               </div>
             </div>
           </section>
