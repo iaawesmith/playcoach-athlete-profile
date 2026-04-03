@@ -51,7 +51,7 @@ interface AthleteState {
   setActiveSection: (section: ActiveSection) => void;
 }
 
-type AthleteData = Omit<AthleteState, "setAthlete" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "activeSection" | "setActiveSection">;
+type AthleteData = Omit<AthleteState, "setAthlete" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "lastPublishedAt" | "hasUnpublishedChanges" | "activeSection" | "setActiveSection">;
 
 const defaults: AthleteData = {
   firstName: "",
