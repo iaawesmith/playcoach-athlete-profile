@@ -1685,8 +1685,7 @@
     "name": "Michigan Wolverines",
     "colors": [
       "#FFFFFF",
-      "#FFCB05",
-      "#00274C"
+      "#FFCB05,
     ],
     "id": "cec76c74-652b-4833-b40a-acab06687205",
     "slug": "michigan_wolverines"
