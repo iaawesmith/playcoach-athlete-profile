@@ -476,8 +476,8 @@ export const IdentityForm = () => {
             <SectionHeader title="Your Identity" />
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} />
-                <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
+                <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} placeholder="Your" />
+                <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} placeholder="Name" />
               </div>
 
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
