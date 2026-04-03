@@ -601,7 +601,7 @@ export const IdentityForm = () => {
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
-                      <span className="text-on-surface-variant/60 text-[9px]">This is the hero of your card</span>
+                      <span className="text-on-surface-variant/60 text-[9px]">Action Photo</span>
                     </>
                   )}
                 </button>
@@ -641,7 +641,7 @@ export const IdentityForm = () => {
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
-                      <span className="text-on-surface-variant/60 text-[9px]">Your logo appears on the card</span>
+                      <span className="text-on-surface-variant/60 text-[9px]">School Logo</span>
                     </>
                   )}
                 </button>
