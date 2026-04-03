@@ -25,24 +25,17 @@ export const TopNav = () => {
 
         {/* Publish Button / Live Status */}
         <div className="ml-3">
-          {!hasBeenPublished ? (
+          {(!hasBeenPublished || hasUnpublishedChanges) ? (
             <button
               onClick={publishProfile}
-              className="h-8 px-4 rounded-full bg-[#50C4CA] text-white font-bold uppercase tracking-wide text-xs active:scale-95 transition-all duration-150"
+              className="h-8 px-4 rounded-full bg-[#F59E0B] text-on-surface font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 animate-pulse"
             >
-              Go Live
-            </button>
-          ) : hasUnpublishedChanges ? (
-            <button
-              onClick={publishProfile}
-              className="h-8 px-4 rounded-full bg-[#50C4CA] text-white font-bold uppercase tracking-wide text-xs active:scale-95 transition-all duration-150 animate-pulse"
-            >
-              Publish Changes
+              Publish
             </button>
           ) : (
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
-              <span className="text-on-surface-variant text-xs font-medium">Live</span>
+            <div className="h-7 px-3 rounded-full border border-[#00e639] flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00e639]" />
+              <span className="text-[#00e639] text-[10px] font-bold uppercase tracking-widest">Live</span>
             </div>
           )}
         </div>
