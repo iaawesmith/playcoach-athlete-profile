@@ -39,6 +39,7 @@ const InputCard = ({
   onChange,
   suffix,
   helperText,
+  placeholder,
 }: {
   label: string;
   value: string;
@@ -46,6 +47,7 @@ const InputCard = ({
   onChange: (val: string) => void;
   suffix?: string;
   helperText?: string;
+  placeholder?: string;
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
     <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
@@ -54,9 +56,10 @@ const InputCard = ({
     {type === "textarea" ? (
       <>
         <textarea
-          className="w-full bg-transparent text-on-surface text-sm font-normal resize-none outline-none min-h-[80px]"
+          className="w-full bg-transparent text-on-surface text-sm font-normal resize-none outline-none min-h-[80px] placeholder:text-on-surface/40"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
         />
         {helperText && (
           <p className="text-[10px] text-on-surface-variant/50 mt-1">{helperText}</p>
@@ -65,10 +68,11 @@ const InputCard = ({
     ) : (
       <div className="flex items-center">
         <input
-          className="w-full bg-transparent text-on-surface text-sm font-normal outline-none"
+          className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           type={type}
+          placeholder={placeholder}
         />
         {suffix && (
           <span className="text-on-surface-variant text-sm font-normal ml-1 shrink-0">{suffix}</span>
@@ -472,8 +476,8 @@ export const IdentityForm = () => {
             <SectionHeader title="Your Identity" />
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} />
-                <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} />
+                <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} placeholder="Your" />
+                <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} placeholder="Name" />
               </div>
 
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
@@ -578,7 +582,7 @@ export const IdentityForm = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} />
+                <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} placeholder="0" />
                 <SelectCard
                   label="Class Year"
                   value={classYear}
@@ -662,12 +666,14 @@ export const IdentityForm = () => {
                   value={nationalRank !== null ? String(nationalRank) : ""}
                   type="number"
                   onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
+                  placeholder="0"
                 />
                 <InputCard
                   label="Position Rank"
                   value={positionRank !== null ? String(positionRank) : ""}
                   type="number"
                   onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
+                  placeholder="0"
                 />
               </div>
               <SelectCard
@@ -689,6 +695,7 @@ export const IdentityForm = () => {
                   value={eligibilityYears === 0 ? "" : String(eligibilityYears)}
                   type="number"
                   onChange={(v) => setAthlete({ eligibilityYears: Number(v) || 0 })}
+                  placeholder="0"
                 />
                 <SelectCard
                   label="Transfer Eligible"
@@ -719,7 +726,7 @@ export const IdentityForm = () => {
             <SectionHeader title="Upcoming Game" />
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} />
+                <InputCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} placeholder="–" />
                 <DateInputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -730,9 +737,9 @@ export const IdentityForm = () => {
                   onTimeChange={handleTimeChange}
                   onPeriodChange={handlePeriodChange}
                 />
-                <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} />
+                <InputCard label="Network" value={game.network} onChange={(v) => setGame("network", v)} placeholder="–" />
               </div>
-              <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} />
+              <InputCard label="Location" value={game.location} onChange={(v) => setGame("location", v)} placeholder="–" />
             </div>
           </section>
 
