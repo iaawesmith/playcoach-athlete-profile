@@ -214,7 +214,9 @@ const DateInputCard = ({
     </label>
     <input
       type="date"
-      className="w-full bg-transparent text-on-surface text-sm font-normal outline-none [color-scheme:dark]"
+      className={`w-full bg-transparent text-sm font-normal outline-none [color-scheme:dark] ${
+        value ? "text-on-surface" : "text-on-surface/40"
+      }`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
