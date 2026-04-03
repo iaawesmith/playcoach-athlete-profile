@@ -24,11 +24,8 @@ const sectionIcons: Record<string, string> = {
 export const BuilderLayout = () => {
   const teamColor = useAthleteStore((s) => s.teamColor);
   const activeSection = useAthleteStore((s) => s.activeSection);
-  const profileStatus = useAthleteStore((s) => s.profileStatus);
-  const publishProfile = useAthleteStore((s) => s.publishProfile);
   const hasBeenPublished = useAthleteStore((s) => s.hasBeenPublished);
-
-  const isDraft = profileStatus === "draft";
+  const hasUnpublishedChanges = useAthleteStore((s) => s.hasUnpublishedChanges);
 
   return (
     <div
