@@ -30,6 +30,7 @@ interface AthleteState {
   wingspan: string;
   handSize: string;
   actionPhotoUrl: string | null;
+  profilePictureUrl: string | null;
   schoolLogoUrl: string | null;
   eligibilityYears: number;
   transferEligible: string;
