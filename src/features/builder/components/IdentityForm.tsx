@@ -523,7 +523,7 @@ export const IdentityForm = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-4 items-stretch">
                 <div className="flex-1">
                   <SchoolAutocomplete
                     value={school}
@@ -543,7 +543,7 @@ export const IdentityForm = () => {
                     }}
                   />
                 </div>
-                <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus" style={{ minWidth: 160 }}>
+                <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus min-w-[160px]">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Team Color (Hex)
                   </label>
@@ -554,7 +554,7 @@ export const IdentityForm = () => {
                       onChange={(e) => setAthlete({ teamColor: e.target.value })}
                     />
                     <div
-                      className="w-8 h-8 rounded-lg border border-outline-variant/10 shrink-0"
+                      className="w-6 h-6 rounded-lg border border-outline-variant/10 shrink-0"
                       style={{ backgroundColor: teamColor }}
                     />
                   </div>
