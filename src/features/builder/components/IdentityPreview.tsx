@@ -152,7 +152,7 @@ export const IdentityPreview = () => {
           Eligibility
         </span>
         <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
-          <div className="flex items-center gap-4 text-sm">
+          <div className="grid grid-cols-3 text-sm">
             <div>
               <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Years Left</span>
               <span className="text-on-surface font-black">{eligibilityYears}</span>
