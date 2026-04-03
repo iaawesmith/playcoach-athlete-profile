@@ -246,22 +246,16 @@ const TimeInputCard = ({
         placeholder="0:00"
         inputMode="numeric"
       />
-      <div className="flex rounded-full overflow-hidden">
-        {["AM", "PM"].map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onPeriodChange(p)}
-            className={`px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 ${
-              period === p
-                ? "text-[#00460a] kinetic-gradient"
-                : "text-on-surface-variant bg-surface-container-highest border border-white/10"
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
+      <select
+        value={period}
+        onChange={(e) => onPeriodChange(e.target.value)}
+        className="bg-surface-container-highest text-on-surface-variant rounded-lg border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 outline-none cursor-pointer appearance-none"
+        style={{ minWidth: 56 }}
+      >
+        <option value="">—</option>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
     </div>
   </div>
 );
