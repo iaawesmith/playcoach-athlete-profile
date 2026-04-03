@@ -478,13 +478,15 @@ export const IdentityForm = () => {
   // Parse time into value and period
   const timeMatch = game.time.match(/^([\d:]+)\s*(AM|PM)?$/i);
   const timeValue = timeMatch ? timeMatch[1] : game.time;
-  const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "PM";
+  const timePeriod = timeMatch?.[2]?.toUpperCase() ?? "";
 
   const handleTimeChange = (val: string) => {
-    setGame("time", `${val} ${timePeriod}`);
+    setGame("time", timePeriod ? `${val} ${timePeriod}` : val);
   };
   const handlePeriodChange = (p: string) => {
-    setGame("time", `${timeValue} ${p}`);
+    if (timeValue) {
+      setGame("time", `${timeValue} ${p}`);
+    }
   };
 
   // Weight: raw number stored now
