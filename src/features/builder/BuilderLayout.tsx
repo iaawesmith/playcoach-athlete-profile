@@ -46,9 +46,10 @@ export const BuilderLayout = () => {
             {/* Sticky Preview Header Bar */}
             <div className="h-12 px-5 py-3 bg-surface-container-high border-b border-white/10 shrink-0 flex items-center justify-between z-10" style={{ borderLeft: "2px solid #50C4CA" }}>
               <div className="flex flex-col justify-center">
-                <span className="text-on-surface font-bold uppercase text-xs tracking-widest">
-                  {sectionLabels[activeSection]}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#50C4CA" }}>visibility</span>
+                  <span className="text-on-surface font-bold uppercase text-xs tracking-widest">{sectionLabels[activeSection]}</span>
+                </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {isDraft ? (
                     <>
