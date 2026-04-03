@@ -1,33 +1,24 @@
 
 
-## Replace Publish Button with Icon-Based 2-State System
+## Two Fixes: Amber Publish Icon + Subtext Display
 
-### Concept
-Replace the flashing amber "PUBLISH" button with a clean icon button that toggles between two states. Update the preview column subtext to guide the user.
+### 1. Publish icon color — amber when unpublished (`TopNav.tsx`, line 31)
 
-### TopNav Changes (`src/features/builder/components/TopNav.tsx`)
+Change the `publish` icon color from `text-on-surface-variant` to `#F59E0B` (amber) to signal that changes need attention.
 
-**State 1 — Unpublished changes (or never published):**
-- Icon button: `publish` Material Symbol (looks like an upload/send icon), 20px
-- Icon color: `text-on-surface-variant` (neutral, not distracting)
-- Clickable — calls `publishProfile` on click
-- No text label, no pulse animation — just a clean icon button (same style as link/notification icons)
+```tsx
+<span className="material-symbols-outlined" style={{ fontSize: "20px", color: "#F59E0B" }}>publish</span>
+```
 
-**State 2 — Live, no pending changes:**
-- Icon: `cell_tower` Material Symbol (broadcast/live icon), 20px
-- Icon color: `#00e639` (Performance Green)
-- Not clickable — just a status indicator
-- No border pill, no text — the green icon alone signals "live"
+### 2. Subtext not displaying — debug (`BuilderLayout.tsx`, lines 50–61)
 
-Both states use the same `w-8 h-8 rounded-full flex items-center justify-center` container as the link icon beside it.
+The subtext code looks correct in the source. The issue is likely that it's only visible on `lg:` screens (the preview column has `hidden lg:flex`). At 1104px viewport width, `lg` (1024px) should apply. Let me check if the text is being clipped or if there's a conditional preventing it.
 
-### Preview Column Subtext (`src/features/builder/BuilderLayout.tsx`, lines 50–62)
+The subtext references `hasBeenPublished` and `hasUnpublishedChanges` from the store. On initial load, `hasBeenPublished` is `false` and `hasUnpublishedChanges` is `false`, so the else branch fires showing "Publish changes via the icon above" — this is correct behavior. The text should be visible.
 
-Replace the current Draft/Live subtext logic:
-- **When live**: `"Live"` with white dot (keep as-is)
-- **When draft/unpublished changes**: Subtext becomes `"Publish changes via the icon above"` — white, italic, 0.65rem
+Possible issue: the text might be too long for the container and getting clipped. I'll add `whitespace-nowrap` removal or ensure the container allows wrapping.
 
 ### Files modified
-- `src/features/builder/components/TopNav.tsx`
-- `src/features/builder/BuilderLayout.tsx`
+- `src/features/builder/components/TopNav.tsx` — change publish icon color to `#F59E0B`
+- `src/features/builder/BuilderLayout.tsx` — verify subtext renders (may need minor layout fix)
 
