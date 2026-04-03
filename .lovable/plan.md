@@ -1,22 +1,18 @@
 
-
-## Dynamic Position Rank Label
+## Match Profile Picture Empty Icon
 
 ### Change in `src/features/builder/components/IdentityForm.tsx`
 
-**Line 784**: Replace the static `"Position Rank"` label with a dynamic one based on the athlete's selected position.
+**Line 623**: Change the profile picture empty-state icon from `photo_camera` to `add_a_photo` to match the action photo and school logo boxes.
 
 Change:
 ```
-label="Position Rank"
+<span className="material-symbols-outlined text-on-surface-variant text-3xl">photo_camera</span>
 ```
 To:
 ```
-label={position ? `${position} Rank` : "Position Rank"}
+<span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
 ```
-
-This uses the `position` value from the store (e.g. "QB", "WR", "RB") to show "QB Rank", "WR Rank", etc. Falls back to "Position Rank" when no position is selected.
 
 ### Files modified
 - `src/features/builder/components/IdentityForm.tsx`
-
