@@ -534,7 +534,13 @@ export const IdentityForm = () => {
                         teamColor: uni.primaryColor,
                       });
                     }}
-                    onManualChange={(v) => setAthlete({ school: v })}
+                    onManualChange={(v) => {
+                      if (v === "") {
+                        setAthlete({ school: "", schoolAbbrev: "", teamColor: "#50C4CA" });
+                      } else {
+                        setAthlete({ school: v });
+                      }
+                    }}
                   />
                 </div>
                 <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus" style={{ minWidth: 160 }}>
