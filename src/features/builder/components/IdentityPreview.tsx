@@ -91,6 +91,12 @@ export const IdentityPreview = () => {
         <div className="grid grid-cols-2 gap-2">
           {/* Box 1: Stars + Ranks */}
           <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-4">
+            <span
+              className="text-[9px] font-bold uppercase tracking-widest block mb-1"
+              style={{ color: "var(--team-color)" }}
+            >
+              {starRating}-STAR
+            </span>
             <div className="flex items-center gap-0.5 mb-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span
@@ -101,17 +107,16 @@ export const IdentityPreview = () => {
                   star
                 </span>
               ))}
-              <span className="text-on-surface-variant text-xs ml-2">{starRating}-Star</span>
             </div>
             <div className="flex items-center gap-4 text-sm">
               <div>
-                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">National</span>
+                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">NAT.</span>
                 <span className={`font-black ${nationalRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
                   {nationalRank ? `#${nationalRank}` : "Not ranked"}
                 </span>
               </div>
               <div>
-                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">Position</span>
+                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant block">{position || "POS."}</span>
                 <span className={`font-black ${positionRank ? "text-on-surface" : "text-on-surface-variant/30"}`}>
                   {positionRank ? `#${positionRank}` : "Not ranked"}
                 </span>
