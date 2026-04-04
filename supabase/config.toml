@@ -1,1 +1,13 @@
 project_id = "nwgljkjckcizbrpbqsro"
+
+[functions.firecrawl-profile]
+verify_jwt = false
+
+[functions.firecrawl-scrape]
+verify_jwt = false
+
+[functions.firecrawl-search]
+verify_jwt = false
+
+[functions.firecrawl-crawl]
+verify_jwt = false
