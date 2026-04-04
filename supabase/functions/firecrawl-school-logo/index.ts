@@ -30,16 +30,47 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Strategy 1: Search for the school's athletics site and extract branding/logo
+    const authHeaders = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+
+    // Strategy 1: SportsLogos.net — most reliable for NCAA logos
+    const sportsLogosQuery = `site:sportslogos.net ${school} logo`;
+
+    const slSearchRes = await fetch("https://api.firecrawl.dev/v1/search", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        query: sportsLogosQuery,
+        limit: 3,
+        scrapeOptions: { formats: ["markdown"] },
+      }),
+    });
+
+    if (slSearchRes.ok) {
+      const slData = await slSearchRes.json();
+      if (slData.data?.length) {
+        for (const result of slData.data) {
+          const md = result.markdown || "";
+          const imgMatch = md.match(/https?:\/\/content\.sportslogos\.net\/logos\/[^\s)"\]]+\.(png|gif|svg)/i);
+          if (imgMatch) {
+            const logoUrl = imgMatch[0].replace("/thumbs/", "/full/");
+            return new Response(
+              JSON.stringify({ success: true, logoUrl }),
+              { headers },
+            );
+          }
+        }
+      }
+    }
+
+    // Strategy 2: Search for athletics site and extract branding
     const searchQuery = `${school} athletics official logo`;
-    console.log("Searching for school logo:", searchQuery);
 
     const searchRes = await fetch("https://api.firecrawl.dev/v1/search", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: authHeaders,
       body: JSON.stringify({
         query: searchQuery,
         limit: 3,
@@ -50,16 +81,11 @@ Deno.serve(async (req: Request) => {
     const searchData = await searchRes.json();
 
     if (searchRes.ok && searchData.data?.length) {
-      // Try to scrape the top result for branding
       const topUrl = searchData.data[0].url;
-      console.log("Scraping top result for branding:", topUrl);
 
       const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           url: topUrl,
           formats: ["branding"],
@@ -76,7 +102,6 @@ Deno.serve(async (req: Request) => {
           branding?.images?.favicon;
 
         if (logoUrl && logoUrl.startsWith("http")) {
-          console.log("Found logo via branding:", logoUrl);
           return new Response(
             JSON.stringify({ success: true, logoUrl }),
             { headers },
@@ -85,16 +110,12 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Strategy 2: Direct image search fallback
+    // Strategy 3: Direct image search fallback
     const fallbackQuery = `${school} logo png transparent`;
-    console.log("Fallback search:", fallbackQuery);
 
     const fallbackRes = await fetch("https://api.firecrawl.dev/v1/search", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: authHeaders,
       body: JSON.stringify({
         query: fallbackQuery,
         limit: 5,
@@ -105,15 +126,11 @@ Deno.serve(async (req: Request) => {
     const fallbackData = await fallbackRes.json();
 
     if (fallbackRes.ok && fallbackData.data?.length) {
-      // Try scraping each result for branding
       for (const result of fallbackData.data.slice(0, 2)) {
         try {
           const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
+            headers: authHeaders,
             body: JSON.stringify({
               url: result.url,
               formats: ["branding"],
@@ -129,7 +146,6 @@ Deno.serve(async (req: Request) => {
               branding?.images?.favicon;
 
             if (logoUrl && logoUrl.startsWith("http")) {
-              console.log("Found logo via fallback:", logoUrl);
               return new Response(
                 JSON.stringify({ success: true, logoUrl }),
                 { headers },
@@ -142,14 +158,12 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log("No logo found for:", school);
     return new Response(
       JSON.stringify({ success: false, error: "No logo found" }),
       { headers },
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Failed to fetch school logo";
-    console.error("Error:", msg);
     return new Response(
       JSON.stringify({ success: false, error: msg }),
       { status: 500, headers },
