@@ -3,6 +3,8 @@ import { cfbdApi, type CfbdTeam } from "@/services/cfbd";
 
 export interface SchoolOption {
   name: string;
+  displayName: string;
+  mascot: string;
   abbrev: string;
   primaryColor: string;
   altColor: string;
