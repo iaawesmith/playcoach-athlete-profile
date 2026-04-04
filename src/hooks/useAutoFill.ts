@@ -131,9 +131,7 @@ export function useAutoFill() {
     if (result.imageUrls?.actionPhoto) {
       preview.actionPhotoUrl = result.imageUrls.actionPhoto;
     }
-    if (result.imageUrls?.schoolLogo) {
-      preview.schoolLogoUrl = result.imageUrls.schoolLogo;
-    }
+    // School logo comes from CFBD — don't override with scraped data
     if (data.height) preview.height = data.height;
     if (data.weight) preview.weight = data.weight;
     if (Object.keys(preview).length > 0) {

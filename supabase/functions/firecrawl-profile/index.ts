@@ -460,26 +460,24 @@ Position: ${posLabel || "unknown"}
 School: ${school || "unknown"}
 Jersey: ${jerseyNum || "unknown"}
 
-I'm showing you ${imagesToCheck.length} candidate images. For EACH image, determine:
-1. Is this an IN-GAME or ON-FIELD ACTION shot? (running a route, catching, blocking, tackling, throwing, rushing, etc.)
-2. Could this plausibly be ${name} based on jersey number, school uniform colors, or context?
+Extract ONLY one high-quality in-game ACTION photo of this exact player from the ${imagesToCheck.length} candidates below.
 
-STRICT REQUIREMENTS — only include images that meet ALL of these:
-- Must show a football player actively performing a football action (not standing, posing, or walking)
-- Must be on a football field or sideline during a game/practice
-- Must be a single identifiable player (not a wide crowd/team shot)
-- Prefer highest quality/resolution images
-- Prioritize images from 247Sports, On3, ESPN, or official team sources
+Must show the player ACTIVELY playing football — running a route, catching, throwing, blocking, tackling, rushing, etc.
+
+Prioritize:
+- Highest resolution images
+- Images from 247Sports player profile, On3 player profile, or official team media
+- Images with alt text or context containing player name + jersey number
 
 ABSOLUTELY REJECT:
-- Headshots, studio portraits, posed photos, media day photos
+- Headshots, studio portraits, smiling close-ups, media day photos
 - Team group photos, crowd shots, fan photos
 - Logos, graphics, advertisements, thumbnails under 200px
 - Random unrelated images, cars, landscapes
-- Photos where the player is just standing or walking
+- Photos where the player is just standing, walking, or posing
 
-Return a JSON array of ONLY the URLs that pass ALL checks, ranked by action quality (most dynamic action first). Example: ["url1", "url2"]
-If none pass, return: []`,
+Return a JSON array of ONLY the URLs that pass ALL checks, ranked best action first. Example: ["url1", "url2"]
+If none found, return: []`,
             },
           ];
 
