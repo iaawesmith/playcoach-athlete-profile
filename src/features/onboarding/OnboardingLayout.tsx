@@ -20,6 +20,7 @@ function getTotalSteps(role: string | null): number {
 
 export function OnboardingLayout() {
   const { role } = useUserStore();
+  const { teamColor } = useAthleteStore();
   const location = useLocation();
   const navigate = useNavigate();
 
