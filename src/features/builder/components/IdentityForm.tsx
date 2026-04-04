@@ -840,6 +840,33 @@ export const IdentityForm = () => {
                   placeholder="0"
                 />
               </div>
+              <div className="grid grid-cols-3 gap-4">
+                <InputCard
+                  label="247 Rating"
+                  value={store.rating247}
+                  onChange={(v) => setAthlete({ rating247: v })}
+                  placeholder="0.0000"
+                />
+                <InputCard
+                  label="On3 Rating"
+                  value={store.ratingOn3}
+                  onChange={(v) => setAthlete({ ratingOn3: v })}
+                  placeholder="0.0000"
+                />
+                <InputCard
+                  label="Composite"
+                  value={store.ratingComposite}
+                  onChange={(v) => setAthlete({ ratingComposite: v })}
+                  placeholder="0.0000"
+                />
+              </div>
+              <InputCard
+                label="Total Offers"
+                value={store.offersCount !== null ? String(store.offersCount) : ""}
+                type="number"
+                onChange={(v) => setAthlete({ offersCount: v ? Number(v) : null })}
+                placeholder="0"
+              />
             </div>
           </section>
 

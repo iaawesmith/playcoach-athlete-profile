@@ -453,7 +453,7 @@ Deno.serve(async (req: Request) => {
           const contentParts: Array<Record<string, unknown>> = [
             {
               type: "text",
-              text: `You are verifying action photos for a football player profile card.
+              text: `You are verifying ACTION photos for a football player profile card.
 
 Player: ${name}
 Position: ${posLabel || "unknown"}
@@ -461,10 +461,24 @@ School: ${school || "unknown"}
 Jersey: ${jerseyNum || "unknown"}
 
 I'm showing you ${imagesToCheck.length} candidate images. For EACH image, determine:
-1. Does it show a football player in game action or a football-related photo? (not a car, landscape, logo, headshot, crowd, or unrelated image)
+1. Is this an IN-GAME or ON-FIELD ACTION shot? (running a route, catching, blocking, tackling, throwing, rushing, etc.)
 2. Could this plausibly be ${name} based on jersey number, school uniform colors, or context?
 
-Return a JSON array of ONLY the URLs that pass BOTH checks, ranked by quality for a portrait card (prefer dynamic action shots over static poses). Example: ["url1", "url2"]
+STRICT REQUIREMENTS — only include images that meet ALL of these:
+- Must show a football player actively performing a football action (not standing, posing, or walking)
+- Must be on a football field or sideline during a game/practice
+- Must be a single identifiable player (not a wide crowd/team shot)
+- Prefer highest quality/resolution images
+- Prioritize images from 247Sports, On3, ESPN, or official team sources
+
+ABSOLUTELY REJECT:
+- Headshots, studio portraits, posed photos, media day photos
+- Team group photos, crowd shots, fan photos
+- Logos, graphics, advertisements, thumbnails under 200px
+- Random unrelated images, cars, landscapes
+- Photos where the player is just standing or walking
+
+Return a JSON array of ONLY the URLs that pass ALL checks, ranked by action quality (most dynamic action first). Example: ["url1", "url2"]
 If none pass, return: []`,
             },
           ];
