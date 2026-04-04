@@ -288,24 +288,119 @@ Deno.serve(async (req: Request) => {
         allPhotoResults.push(...(d.data || []));
       }
 
-      // Collect candidate image URLs from markdown ![alt](url) syntax
-      const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-
+      // Identify high-value URLs for direct scraping — prioritize individual player pages
+      // Also include URLs from the initial text search (sources array)
+      const allUrls = new Set<string>();
       for (const pr of allPhotoResults) {
-        const md = (pr.markdown || (pr.data as Record<string, unknown>)?.markdown || "") as string;
+        const pageUrl = String(pr.url || "");
+        if (pageUrl) allUrls.add(pageUrl);
+      }
+      for (const s of sources) {
+        allUrls.add(s);
+      }
+
+      // Prioritize: individual athlete pages first, then recruiting profiles
+      const playerPagePatterns = [
+        /roster\/.*\d+$/i,           // e.g. utahutes.com/roster/devon-dampier/17509
+        /player\/.*\d+\/?$/i,        // e.g. 247sports.com/player/devon-dampier-46112767/
+        /rivals\.com\/.*\/$/i,       // e.g. on3.com/rivals/devon-dampier-36365/
+        /espn\.com\/.*player\//i,    // e.g. espn.com/college-football/player/...
+      ];
+      const generalPatterns = [
+        /on3\.com/i,
+        /maxpreps\.com/i,
+      ];
+
+      const priorityUrls: string[] = [];
+      const secondaryUrls: string[] = [];
+      for (const url of allUrls) {
+        if (playerPagePatterns.some((p) => p.test(url))) {
+          priorityUrls.push(url);
+        } else if (generalPatterns.some((p) => p.test(url))) {
+          secondaryUrls.push(url);
+        }
+      }
+      
+      // Scrape up to 3 URLs: priority first, then secondary
+      const scrapeTargets = [...priorityUrls, ...secondaryUrls].slice(0, 3);
+      const scrapePromises = scrapeTargets.map((url) =>
+        fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: authHdrs,
+          body: JSON.stringify({
+            url,
+            formats: ["markdown", "html"],
+            onlyMainContent: true,
+          }),
+        }).then(async (r) => {
+          if (!r.ok) return null;
+          const d = await r.json();
+          return d.data || d;
+        }).catch(() => null)
+      );
+      const scrapedPages = await Promise.all(scrapePromises);
+
+      // Helper: extract image URLs from markdown and HTML content
+      const extractImages = (md: string, html: string): string[] => {
+        const imgs: string[] = [];
+        // Markdown images
+        const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
         let m;
         while ((m = mdImgRegex.exec(md)) !== null) {
-          let src = m[1];
-          // Skip tiny utility images
-          if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|rating/i.test(src)) continue;
-          if (src.length < 30) continue;
-          // Skip explicitly tiny thumbnails (width or height <= 100)
-          if (/[?&](?:width|w|height|h)=(?:[1-9]?\d|100)(?:&|$)/i.test(src)) continue;
-          // Upgrade sidearm/CDN crop URLs to larger versions for better AI vision analysis
+          imgs.push(m[1]);
+        }
+        // HTML <img> tags
+        const htmlImgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+        while ((m = htmlImgRegex.exec(html)) !== null) {
+          imgs.push(m[1]);
+        }
+        return imgs;
+      };
+
+      // Filter helper for candidate URLs — skip only truly tiny utility images
+      const isUtilityImage = (src: string): boolean => {
+        if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent/i.test(src)) return true;
+        if (src.length < 30) return true;
+        // Skip explicitly tiny thumbnails (width or height <= 60)
+        if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) return true;
+        return false;
+      };
+
+      // Collect from search preview markdown
+      for (const pr of allPhotoResults) {
+        const md = (pr.markdown || (pr.data as Record<string, unknown>)?.markdown || "") as string;
+        const rawImgs = extractImages(md, "");
+        for (let src of rawImgs) {
+          if (isUtilityImage(src)) continue;
           src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
           if (!candidateUrls.includes(src)) candidateUrls.push(src);
         }
       }
+
+      // Collect from directly scraped pages (much richer image content)
+      for (const page of scrapedPages) {
+        if (!page) continue;
+        const md = String(page.markdown || "");
+        const html = String(page.html || "");
+        const rawImgs = extractImages(md, html);
+        for (let src of rawImgs) {
+          if (isUtilityImage(src)) continue;
+          src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
+          if (!candidateUrls.includes(src)) candidateUrls.push(src);
+        }
+      }
+
+      // Pre-sort candidates: URLs containing athlete's name go first
+      const nameTokens = name.toLowerCase().split(/\s+/);
+      candidateUrls.sort((a, b) => {
+        const aLower = decodeURIComponent(a).toLowerCase();
+        const bLower = decodeURIComponent(b).toLowerCase();
+        const aMatch = nameTokens.some((t) => aLower.includes(t));
+        const bMatch = nameTokens.some((t) => bLower.includes(t));
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
 
       // Vision-based AI filtering: send actual images to Gemini for verification
       if (candidateUrls.length > 0) {
@@ -450,14 +545,16 @@ If none pass, return: []`,
     // Validate candidate URLs are actual renderable images via HEAD requests
     const validateImageUrl = async (url: string): Promise<boolean> => {
       try {
+        // Some CDN crop URLs don't support HEAD — try GET with range header
         const resp = await fetch(url, {
-          method: "HEAD",
-          headers: { "User-Agent": "Mozilla/5.0" },
+          method: "GET",
+          headers: { "User-Agent": "Mozilla/5.0", "Range": "bytes=0-0" },
           redirect: "follow",
         });
-        if (!resp.ok) return false;
+        if (!resp.ok && resp.status !== 206) return false;
         const ct = resp.headers.get("content-type") || "";
-        return ct.startsWith("image/");
+        // Accept image types and also octet-stream from CDNs
+        return ct.startsWith("image/") || ct.includes("octet-stream");
       } catch {
         return false;
       }
