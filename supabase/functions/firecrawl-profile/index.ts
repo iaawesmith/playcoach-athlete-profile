@@ -305,16 +305,16 @@ Deno.serve(async (req: Request) => {
     // ===== PIPELINE 2: Action Photos via Search + Scrape =====
     try {
       const jerseyTag = jerseyNum ? ` #${jerseyNum}` : "";
-      const photoQuery = `${name}${jerseyTag} ${posLabel} ${school} football game photo`.trim();
+      const photoQuery = `${name}${jerseyTag} ${posLabel} ${school} football game action photo image`.trim();
 
-      // Step 1: Firecrawl search for image-heavy pages
+      // Step 1: Firecrawl search for image-heavy pages — request both markdown and html
       const photoSearchResp = await fetch("https://api.firecrawl.dev/v1/search", {
         method: "POST",
         headers: authHdrs,
         body: JSON.stringify({
           query: photoQuery,
           limit: 5,
-          scrapeOptions: { formats: ["markdown"] },
+          scrapeOptions: { formats: ["markdown", "html"] },
         }),
       });
 
@@ -333,60 +333,82 @@ Deno.serve(async (req: Request) => {
             if (src.length < 30) continue;
             if (!candidateUrls.includes(src)) candidateUrls.push(src);
           }
-        }
 
-        // Step 2: Scrape top 3 result URLs for rendered HTML images
-        const urlsToScrape = photoResults
-          .filter((r: Record<string, unknown>) => r.url)
-          .map((r: Record<string, unknown>) => String(r.url))
-          .slice(0, 3);
-
-        const scrapePromises = urlsToScrape.map(async (pageUrl: string) => {
-          try {
-            const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-              method: "POST",
-              headers: authHdrs,
-              body: JSON.stringify({
-                url: pageUrl,
-                formats: ["html"],
-                onlyMainContent: true,
-              }),
-            });
-            if (!resp.ok) return [];
-            const data = await resp.json();
-            const html = String(data.data?.html || data.html || "");
-
-            const extracted: string[] = [];
+          // Also extract from HTML returned by search
+          const html = r.html || r.data?.html || "";
+          if (html) {
             const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
             let m;
             while ((m = imgRegex.exec(html)) !== null) {
               const src = m[1];
               if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement/i.test(src)) continue;
               if (src.length < 30) continue;
-              // Skip explicitly tiny images
               if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
-              extracted.push(src);
+              if (!candidateUrls.includes(src)) candidateUrls.push(src);
             }
-
-            // Also check data-src attributes
+            // data-src
             const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
             while ((m = dataSrcRegex.exec(html)) !== null) {
               const src = m[1];
               if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
               if (src.length < 30) continue;
-              extracted.push(src);
+              if (!candidateUrls.includes(src)) candidateUrls.push(src);
             }
-
-            return extracted;
-          } catch {
-            return [];
           }
-        });
+        }
 
-        const scrapeResults = await Promise.all(scrapePromises);
-        for (const imgs of scrapeResults) {
-          for (const src of imgs) {
-            if (!candidateUrls.includes(src)) candidateUrls.push(src);
+        // Step 2: If not enough candidates, scrape top 3 URLs for full HTML
+        if (candidateUrls.length < 5) {
+          const urlsToScrape = photoResults
+            .filter((r: Record<string, unknown>) => r.url)
+            .map((r: Record<string, unknown>) => String(r.url))
+            .slice(0, 3);
+
+          const scrapePromises = urlsToScrape.map(async (pageUrl: string) => {
+            try {
+              const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+                method: "POST",
+                headers: authHdrs,
+                body: JSON.stringify({
+                  url: pageUrl,
+                  formats: ["html"],
+                  onlyMainContent: false,
+                }),
+              });
+              if (!resp.ok) return [];
+              const data = await resp.json();
+              const html = String(data.data?.html || data.html || "");
+
+              const extracted: string[] = [];
+              const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
+              let m;
+              while ((m = imgRegex.exec(html)) !== null) {
+                const src = m[1];
+                if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement/i.test(src)) continue;
+                if (src.length < 30) continue;
+                if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
+                extracted.push(src);
+              }
+
+              const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
+              while ((m = dataSrcRegex.exec(html)) !== null) {
+                const src = m[1];
+                if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
+                if (src.length < 30) continue;
+                extracted.push(src);
+              }
+
+              return extracted;
+            } catch {
+              return [];
+            }
+          });
+
+          const scrapeResults = await Promise.all(scrapePromises);
+          for (const imgs of scrapeResults) {
+            for (const src of imgs) {
+              if (!candidateUrls.includes(src)) candidateUrls.push(src);
+            }
           }
         }
       }
