@@ -108,13 +108,16 @@ export function useAutoFill() {
     setImageUrls(result.imageUrls || null);
     setSources(result.sources || []);
 
-    // Live preview: set action photo + measurables immediately
+    // Live preview: set action photo + key fields immediately on ProCard
     const preview: Record<string, unknown> = {};
     if (result.imageUrls?.actionPhoto) {
       preview.actionPhotoUrl = result.imageUrls.actionPhoto;
     }
     if (data.height) preview.height = data.height;
     if (data.weight) preview.weight = data.weight;
+    if (data.ratingComposite) preview.ratingComposite = data.ratingComposite;
+    if (data.nationalRank) preview.nationalRank = data.nationalRank;
+    if (data.positionRank) preview.positionRank = data.positionRank;
     if (Object.keys(preview).length > 0) {
       setAthlete(preview as Parameters<typeof setAthlete>[0]);
     }
