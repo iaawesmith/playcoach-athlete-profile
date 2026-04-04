@@ -288,20 +288,88 @@ Deno.serve(async (req: Request) => {
         allPhotoResults.push(...(d.data || []));
       }
 
-      // Collect candidate image URLs from markdown ![alt](url) syntax
-      const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-
+      // Identify high-value URLs from search results for direct scraping
+      const highValuePatterns = [
+        /247sports\.com/i,
+        /on3\.com/i,
+        /rivals\.com/i,
+        /espn\.com/i,
+        /\.edu\/.*roster/i,
+        /\.edu\/.*football/i,
+        /maxpreps\.com/i,
+      ];
+      const highValueUrls: string[] = [];
       for (const pr of allPhotoResults) {
-        const md = (pr.markdown || (pr.data as Record<string, unknown>)?.markdown || "") as string;
+        const pageUrl = String(pr.url || "");
+        if (pageUrl && highValuePatterns.some((p) => p.test(pageUrl)) && !highValueUrls.includes(pageUrl)) {
+          highValueUrls.push(pageUrl);
+        }
+      }
+
+      // Direct scrape top 3 high-value URLs for full rendered content (JS-rendered images)
+      const scrapeTargets = highValueUrls.slice(0, 3);
+      const scrapePromises = scrapeTargets.map((url) =>
+        fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: authHdrs,
+          body: JSON.stringify({
+            url,
+            formats: ["markdown", "html"],
+            onlyMainContent: false,
+          }),
+        }).then(async (r) => {
+          if (!r.ok) return null;
+          const d = await r.json();
+          return d.data || d;
+        }).catch(() => null)
+      );
+      const scrapedPages = await Promise.all(scrapePromises);
+
+      // Helper: extract image URLs from markdown and HTML content
+      const extractImages = (md: string, html: string): string[] => {
+        const imgs: string[] = [];
+        // Markdown images
+        const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
         let m;
         while ((m = mdImgRegex.exec(md)) !== null) {
-          let src = m[1];
-          // Skip tiny utility images
-          if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|rating/i.test(src)) continue;
-          if (src.length < 30) continue;
-          // Skip explicitly tiny thumbnails (width or height <= 100)
-          if (/[?&](?:width|w|height|h)=(?:[1-9]?\d|100)(?:&|$)/i.test(src)) continue;
-          // Upgrade sidearm/CDN crop URLs to larger versions for better AI vision analysis
+          imgs.push(m[1]);
+        }
+        // HTML <img> tags
+        const htmlImgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+        while ((m = htmlImgRegex.exec(html)) !== null) {
+          imgs.push(m[1]);
+        }
+        return imgs;
+      };
+
+      // Filter helper for candidate URLs — skip only truly tiny utility images
+      const isUtilityImage = (src: string): boolean => {
+        if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent/i.test(src)) return true;
+        if (src.length < 30) return true;
+        // Skip explicitly tiny thumbnails (width or height <= 60)
+        if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) return true;
+        return false;
+      };
+
+      // Collect from search preview markdown
+      for (const pr of allPhotoResults) {
+        const md = (pr.markdown || (pr.data as Record<string, unknown>)?.markdown || "") as string;
+        const rawImgs = extractImages(md, "");
+        for (let src of rawImgs) {
+          if (isUtilityImage(src)) continue;
+          src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
+          if (!candidateUrls.includes(src)) candidateUrls.push(src);
+        }
+      }
+
+      // Collect from directly scraped pages (much richer image content)
+      for (const page of scrapedPages) {
+        if (!page) continue;
+        const md = String(page.markdown || "");
+        const html = String(page.html || "");
+        const rawImgs = extractImages(md, html);
+        for (let src of rawImgs) {
+          if (isUtilityImage(src)) continue;
           src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
           if (!candidateUrls.includes(src)) candidateUrls.push(src);
         }
