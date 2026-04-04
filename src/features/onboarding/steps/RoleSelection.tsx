@@ -72,7 +72,7 @@ export function RoleSelection() {
               key={r.role}
               onClick={() => handleSelect(r)}
               disabled={r.comingSoon}
-              className={`grid grid-rows-[64px_24px_48px_24px] items-center justify-items-center w-full min-h-[240px] py-6 px-4 rounded-xl border transition-all duration-200 ${
+              className={`grid grid-rows-[64px_28px_48px_40px] items-center justify-items-center w-full min-h-[260px] py-6 px-4 rounded-xl border transition-all duration-200 ${
                 r.comingSoon
                   ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
                   : isSelected
@@ -98,11 +98,11 @@ export function RoleSelection() {
                 {r.description}
               </span>
               {r.comingSoon ? (
-                <span className="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant text-[9px] font-bold uppercase tracking-widest">
+                <span className="px-3 py-1 rounded bg-surface-container-highest text-on-surface-variant text-[9px] font-bold uppercase tracking-widest self-end">
                   Coming Soon
                 </span>
               ) : (
-                <span className="invisible text-[9px]">.</span>
+                <span className="invisible text-[9px] self-end">.</span>
               )}
             </button>
           );
