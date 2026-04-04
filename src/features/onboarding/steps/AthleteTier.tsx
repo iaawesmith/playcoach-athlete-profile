@@ -59,7 +59,10 @@ export function AthleteTier() {
               >
                 {t.icon}
               </span>
-              <span className="text-on-surface font-black text-sm uppercase tracking-[0.2em]">
+              <span
+                className="text-on-surface font-black text-sm uppercase tracking-[0.2em]"
+                style={{ color: t.active ? "#50C4CA" : undefined }}
+              >
                 {t.label}
               </span>
             </button>
