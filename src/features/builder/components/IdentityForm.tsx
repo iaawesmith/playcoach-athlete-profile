@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
-const classYears = ["2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"];
+const classYears = ["Freshman", "Sophomore", "Junior", "Senior"];
 const commitmentOptions = [
   { value: "", label: "Select..." },
   { value: "committed", label: "Committed" },
