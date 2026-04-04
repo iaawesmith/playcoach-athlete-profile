@@ -19,32 +19,6 @@ const STATUS_MESSAGES = [
 ];
 
 
-function AnimatedPct({ target }: { target: number }) {
-  const [current, setCurrent] = useState(0);
-  const ref = useRef(0);
-
-  useEffect(() => {
-    const start = ref.current;
-    const diff = target - start;
-    if (diff === 0) return;
-    const steps = Math.max(Math.abs(diff), 1);
-    const duration = 800;
-    const stepTime = duration / steps;
-    let step = 0;
-
-    const interval = setInterval(() => {
-      step++;
-      const val = Math.round(start + (diff * step) / steps);
-      setCurrent(val);
-      ref.current = val;
-      if (step >= steps) clearInterval(interval);
-    }, stepTime);
-
-    return () => clearInterval(interval);
-  }, [target]);
-
-  return <>{current}</>;
-}
 
 export function ProfilePreview() {
   const navigate = useNavigate();
