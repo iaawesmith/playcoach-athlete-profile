@@ -142,6 +142,24 @@ Deno.serve(async (req: Request) => {
 
       const posMatch = content.match(/Position[:\s]*(QB|RB|WR|TE|OL|DL|LB|CB|S|K|P|FB|LS|ATH)/i);
       if (posMatch && !merged.position) merged.position = posMatch[1].toUpperCase();
+
+      // ESPN-style combined HT/WT
+      const htwtMatch = content.match(/HT\/WT[:\s]*(\d+['-]\d+)[,\s]+(\d+)\s*lbs/i);
+      if (htwtMatch) {
+        if (!merged.height) merged.height = htwtMatch[1];
+        if (!merged.weight) merged.weight = htwtMatch[2];
+      }
+
+      // Roster-style Ht./Wt.
+      const htMatch2 = content.match(/Ht\.?[:\s]*(\d+['-]\d+)/i);
+      if (htMatch2 && !merged.height) merged.height = htMatch2[1];
+
+      const wtMatch2 = content.match(/Wt\.?[:\s]*(\d+)/i);
+      if (wtMatch2 && !merged.weight) merged.weight = wtMatch2[1];
+
+      // Jersey number from roster
+      const jerseyMatch = content.match(/#(\d{1,3})\b/);
+      if (jerseyMatch && !merged.number) merged.number = jerseyMatch[1];
     }
 
     return new Response(

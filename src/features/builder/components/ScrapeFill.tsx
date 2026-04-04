@@ -135,7 +135,7 @@ export const ScrapeFill = () => {
           ))}
         </div>
         <p className="text-on-surface-variant text-[11px]">
-          Searching 247Sports, Rivals, and On3 for {fullName}...
+          Searching recruiting sites, ESPN, and school rosters for {fullName}...
         </p>
       </div>
     );
