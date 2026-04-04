@@ -481,7 +481,7 @@ const UniversitySearchCard = ({
               ) : (
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: opt.primaryColor }} />
               )}
-              <span className="text-on-surface text-sm font-normal truncate">{opt.name}</span>
+              <span className="text-on-surface text-sm font-normal truncate">{opt.displayName}</span>
               <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">{opt.abbrev}</span>
             </li>
           ))}
