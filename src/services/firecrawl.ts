@@ -60,6 +60,7 @@ type ProfileResponse = {
   success: boolean;
   error?: string;
   data?: AthleteProfileData;
+  imageUrls?: { headshot?: string; actionPhoto?: string; schoolLogo?: string };
   sources?: string[];
   resultsCount?: number;
 };

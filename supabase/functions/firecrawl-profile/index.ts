@@ -238,10 +238,133 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // --- Image extraction ---
+    const imageUrls: Record<string, string> = {};
+
+    // 1. Scrape ESPN and/or roster source URLs for athlete photos
+    const espnSource = sources.find((s) => s.includes("espn.com") && /player|roster|athlete/i.test(s));
+    const rosterSource = sources.find((s) =>
+      /roster|player/i.test(s) && !s.includes("247sports") && !s.includes("rivals") && !s.includes("on3.com") && !s.includes("espn.com")
+    );
+    const photoSources = [espnSource, rosterSource].filter(Boolean) as string[];
+
+    for (const photoSource of photoSources) {
+      if (imageUrls.headshot && imageUrls.actionPhoto) break;
+      try {
+        const photoScrape = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: photoSource,
+            formats: ["html"],
+            onlyMainContent: false,
+          }),
+        });
+
+        if (photoScrape.ok) {
+          const photoData = await photoScrape.json();
+          const html = photoData.data?.html || photoData.html || "";
+
+          // Collect all img src URLs from the page
+          const allImgs: string[] = [];
+          const imgRegex = /<img[^>]+(?:src|data-src)=["']([^"']+)/gi;
+          let imgMatch;
+          while ((imgMatch = imgRegex.exec(html)) !== null) {
+            allImgs.push(imgMatch[1]);
+          }
+
+          // Also check background-image CSS
+          const bgRegex = /background(?:-image)?:\s*url\(["']?([^"')]+)/gi;
+          let bgMatch;
+          while ((bgMatch = bgRegex.exec(html)) !== null) {
+            allImgs.push(bgMatch[1]);
+          }
+
+          for (const src of allImgs) {
+            // Skip utility/tiny images
+            if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|traits|rating/i.test(src)) continue;
+            if (src.length < 20) continue;
+            // Skip non-photo PNGs (icons, graphics) — prefer jpg/webp for photos
+            if (/\.png/i.test(src) && !/photo|headshot|player|roster|media/i.test(src)) continue;
+
+            // ESPN CDN images
+            if (/espncdn\.com/i.test(src) && /combiner|photo|headshot|player|media/i.test(src)) {
+              if (!imageUrls.headshot) {
+                let cleaned = src.replace(/&[wh]=\d+/g, "");
+                if (!cleaned.includes("?")) cleaned += "?";
+                else cleaned += "&";
+                cleaned += "w=600&h=436";
+                imageUrls.headshot = cleaned;
+              } else if (!imageUrls.actionPhoto) {
+                imageUrls.actionPhoto = src;
+              }
+              continue;
+            }
+
+            // School roster / profile images (jpg/webp)
+            if (/\.(jpg|jpeg|webp)/i.test(src)) {
+              const srcIdx = html.indexOf(src);
+              const context = srcIdx >= 0 ? html.substring(Math.max(0, srcIdx - 300), srcIdx + 50).toLowerCase() : "";
+              const isHeadshot = /headshot|player.?photo|roster.?photo|profile.?image|bio.?image|portrait|mug/i.test(context);
+
+              if (isHeadshot && !imageUrls.headshot) {
+                imageUrls.headshot = src;
+              } else if (!imageUrls.actionPhoto) {
+                imageUrls.actionPhoto = src;
+              }
+            }
+          }
+        }
+      } catch (_imgErr) {
+        // Non-critical
+      }
+    }
+
+    // 2. School logo via branding format
+    if (school && apiKey) {
+      try {
+        // Derive athletics domain from school name
+        const schoolSlug = school
+          .toLowerCase()
+          .replace(/university of /i, "")
+          .replace(/\s+state\s+university/i, "state")
+          .replace(/\s+university/i, "")
+          .replace(/[^a-z]/g, "");
+
+        // Search for the athletics site to get the real domain
+        const logoSearch = await fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: school + " athletics official site",
+            limit: 1,
+            scrapeOptions: { formats: ["branding"] },
+          }),
+        });
+
+        if (logoSearch.ok) {
+          const logoData = await logoSearch.json();
+          const firstResult = logoData.data?.[0];
+          const branding = firstResult?.branding;
+          const logo = branding?.logo || branding?.images?.logo;
+          if (logo) imageUrls.schoolLogo = logo;
+        }
+      } catch (_logoErr) {
+        // Non-critical
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         data: merged,
+        imageUrls: Object.keys(imageUrls).length > 0 ? imageUrls : undefined,
         sources: sources,
         resultsCount: results.length,
       }),
