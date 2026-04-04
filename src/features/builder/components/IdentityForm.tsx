@@ -577,7 +577,7 @@ export const IdentityForm = () => {
           <section>
            <SectionHeader title="Your Identity" />
             <div className="space-y-4">
-              <ScrapeFill />
+              
               <div className="grid grid-cols-2 gap-4">
                 <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} placeholder="Your" />
                 <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} placeholder="Name" />
