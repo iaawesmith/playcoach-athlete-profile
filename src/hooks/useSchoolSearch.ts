@@ -7,7 +7,7 @@ export interface SchoolOption {
   primaryColor: string;
   altColor: string;
   logoUrl: string | null;
-  source: "cfbd" | "local";
+  source: "cfbd";
 }
 
 let cachedTeams: CfbdTeam[] | null = null;
