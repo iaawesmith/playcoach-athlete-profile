@@ -79,12 +79,19 @@ function extractRecruitingFields(content: string, merged: Record<string, string 
   if (!merged.fortyTime) { const m = content.match(/40[- ]?(?:yard|yd)?[:\s]*(\d+\.\d+)/i); if (m) merged.fortyTime = m[1]; }
 }
 
-// Score an image URL + context for action-photo likelihood (no vision model)
+// Score an image URL + context for college action-photo likelihood (no vision model)
 function scoreActionCandidate(
   src: string, altText: string, nameTokens: string[], jerseyNum: string
 ): number {
   let score = 0;
   const combined = `${decodeURIComponent(src)} ${altText}`.toLowerCase();
+
+  // ── HARD EXCLUSIONS (return -999) ──
+  if (/hudl\.com|hudl\.tv|vi\.hudl/i.test(src)) return -999;
+  if (/headshot|portrait|mugshot|posed|studio|staff|coach|logo|icon|badge|practice|warmup|training/i.test(combined)) return -999;
+  if (/high[\s-]?school|hs\b|prep\b|middle[\s-]?school/i.test(combined)) return -999;
+  if (/stock|getty|shutterstock|istock|alamy|depositphoto/i.test(combined)) return -999;
+  if (/team[\s-]?photo|group[\s-]?photo|class[\s-]?photo/i.test(combined)) return -999;
 
   // Name match signals
   const nameHits = nameTokens.filter(t => t.length > 2 && combined.includes(t)).length;
@@ -93,20 +100,22 @@ function scoreActionCandidate(
   // Jersey number match
   if (jerseyNum && combined.includes(jerseyNum)) score += 15;
 
-  // Action keywords in alt text or URL
-  const actionWords = /action|game|play|catch|throw|run|route|tackle|block|rush|pass|touchdown|scramble|sprint|celebration|snap|huddle/i;
-  if (actionWords.test(altText)) score += 25;
-  if (actionWords.test(src)) score += 10;
+  // College game action keywords
+  if (/action|game|catch|throw|run|route|tackle|block|rush|pass|touchdown|scramble|sprint|snap|sack|interception/i.test(altText)) score += 25;
+  if (/action|game|catch|throw|run|route|tackle|block|rush|pass|touchdown/i.test(src)) score += 10;
 
-  // Source quality: player gallery / profile photo sections
+  // College context signals
+  if (/vs\.?|versus|college|ncaa|cfb|bowl|playoff|conference|sec\b|big[\s-]?(?:ten|12|east)|acc\b|pac[\s-]?12/i.test(combined)) score += 15;
+  if (/highlight|game[\s-]?day|broadcast/i.test(combined)) score += 10;
+
+  // Source quality tiers
+  if (/247sports/i.test(src)) score += 12;
+  if (/on3\.com|on3static/i.test(src)) score += 10;
+  if (/espn\.com|espncdn/i.test(src)) score += 10;
+  if (/rivals\.com/i.test(src)) score += 5;
   if (/profilephoto|player.*photo|gallery|media/i.test(src)) score += 15;
-  if (/247sports/i.test(src)) score += 10;
-  if (/on3\.com/i.test(src)) score += 8;
 
-  // Penalty for headshot/portrait signals
-  if (/headshot|portrait|mugshot|posed|studio|staff|coach|logo|icon|badge/i.test(combined)) score -= 50;
-
-  // Penalty for tiny images (width param)
+  // Penalty for tiny images
   if (/[?&](?:width|w|height|h)=(?:[1-9]\d?|1[0-5]\d)(?:&|$)/i.test(src)) score -= 30;
   if (/[/,]w_([1-9]\d?|1[0-5]\d)[/,]/i.test(src)) score -= 30;
 
