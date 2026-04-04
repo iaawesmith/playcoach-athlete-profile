@@ -3,7 +3,8 @@ import { useAthleteStore } from "@/store/athleteStore";
 export const ProCard = () => {
   const {
     firstName, lastName, position, classYear, school, number,
-    height, weight, fortyTime, actionPhotoUrl, schoolLogoUrl, teamColor,
+    height, weight, actionPhotoUrl, schoolLogoUrl, teamColor,
+    ratingComposite, nationalRank, positionRank,
   } = useAthleteStore();
 
   const hasName = firstName || lastName;
