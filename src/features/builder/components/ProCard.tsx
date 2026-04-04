@@ -104,12 +104,28 @@ export const ProCard = () => {
                 <span className="text-[10px] uppercase tracking-widest text-on-surface-variant block">
                   {attr.label}
                 </span>
-                <span className={`font-black text-xl ${["0'0\"", "0", "0.0"].includes(attr.value) ? "text-on-surface/40" : "text-on-surface"}`}>
+                <span className={`font-black text-xl ${["0'0\"", "0", "—"].includes(attr.value) ? "text-on-surface/40" : "text-on-surface"}`}>
                   {attr.value}
                 </span>
               </div>
             ))}
           </div>
+
+          {/* Rank badges */}
+          {(nationalRank || positionRank) && (
+            <div className="flex gap-3 mt-2">
+              {nationalRank && (
+                <span className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-[3px] border border-white/15 text-on-surface-variant">
+                  Natl #{nationalRank}
+                </span>
+              )}
+              {positionRank && (
+                <span className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-[3px] border border-white/15 text-on-surface-variant">
+                  {position || "Pos"} #{positionRank}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
