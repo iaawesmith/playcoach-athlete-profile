@@ -238,89 +238,109 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // --- Image extraction ---
+    // --- Image extraction via AI-powered search ---
     const imageUrls: Record<string, string> = {};
 
-    // 1. Scrape ESPN and/or roster source URLs for athlete photos
-    const espnSource = sources.find((s) => s.includes("espn.com") && /player|roster|athlete/i.test(s));
-    const rosterSource = sources.find((s) =>
-      /roster|player/i.test(s) && !s.includes("247sports") && !s.includes("rivals") && !s.includes("on3.com") && !s.includes("espn.com")
-    );
-    const photoSources = [espnSource, rosterSource].filter(Boolean) as string[];
+    // 1. Dedicated photo search via Firecrawl
+    const posLabel = knownFields.position || merged.position || "";
+    const photoQuery = `${name} ${posLabel} ${school} action game photo`.trim();
 
-    for (const photoSource of photoSources) {
-      if (imageUrls.headshot && imageUrls.actionPhoto) break;
-      try {
-        const photoScrape = await fetch("https://api.firecrawl.dev/v1/scrape", {
-          method: "POST",
-          headers: {
-            "Authorization": "Bearer " + apiKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            url: photoSource,
-            formats: ["html"],
-            onlyMainContent: false,
-          }),
-        });
+    try {
+      const photoSearchResp = await fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: photoQuery,
+          limit: 5,
+          scrapeOptions: { formats: ["markdown"] },
+        }),
+      });
 
-        if (photoScrape.ok) {
-          const photoData = await photoScrape.json();
-          const html = photoData.data?.html || photoData.html || "";
+      if (photoSearchResp.ok) {
+        const photoSearchData = await photoSearchResp.json();
+        const photoResults = photoSearchData.data || [];
 
-          // Collect all img src URLs from the page
-          const allImgs: string[] = [];
-          const imgRegex = /<img[^>]+(?:src|data-src)=["']([^"']+)/gi;
-          let imgMatch;
-          while ((imgMatch = imgRegex.exec(html)) !== null) {
-            allImgs.push(imgMatch[1]);
-          }
+        // Collect candidate image URLs from markdown ![alt](url) syntax
+        const candidateUrls: string[] = [];
+        const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
 
-          // Also check background-image CSS
-          const bgRegex = /background(?:-image)?:\s*url\(["']?([^"')]+)/gi;
-          let bgMatch;
-          while ((bgMatch = bgRegex.exec(html)) !== null) {
-            allImgs.push(bgMatch[1]);
-          }
-
-          for (const src of allImgs) {
-            // Skip utility/tiny images
-            if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|traits|rating/i.test(src)) continue;
-            if (src.length < 20) continue;
-            // Skip non-photo PNGs (icons, graphics) — prefer jpg/webp for photos
-            if (/\.png/i.test(src) && !/photo|headshot|player|roster|media/i.test(src)) continue;
-
-            // ESPN CDN images
-            if (/espncdn\.com/i.test(src) && /combiner|photo|headshot|player|media/i.test(src)) {
-              if (!imageUrls.headshot) {
-                let cleaned = src.replace(/&[wh]=\d+/g, "");
-                if (!cleaned.includes("?")) cleaned += "?";
-                else cleaned += "&";
-                cleaned += "w=600&h=436";
-                imageUrls.headshot = cleaned;
-              } else if (!imageUrls.actionPhoto) {
-                imageUrls.actionPhoto = src;
-              }
-              continue;
-            }
-
-            // School roster / profile images (jpg/webp)
-            if (/\.(jpg|jpeg|webp)/i.test(src)) {
-              const srcIdx = html.indexOf(src);
-              const context = srcIdx >= 0 ? html.substring(Math.max(0, srcIdx - 300), srcIdx + 50).toLowerCase() : "";
-              const isHeadshot = /headshot|player.?photo|roster.?photo|profile.?image|bio.?image|portrait|mug/i.test(context);
-
-              if (isHeadshot && !imageUrls.headshot) {
-                imageUrls.headshot = src;
-              } else if (!imageUrls.actionPhoto) {
-                imageUrls.actionPhoto = src;
-              }
-            }
+        for (const pr of photoResults) {
+          const md = pr.markdown || pr.data?.markdown || "";
+          let m;
+          while ((m = mdImgRegex.exec(md)) !== null) {
+            const src = m[1];
+            // Skip tiny utility images
+            if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|rating/i.test(src)) continue;
+            if (src.length < 30) continue;
+            if (!candidateUrls.includes(src)) candidateUrls.push(src);
           }
         }
-      } catch (_imgErr) {
-        // Non-critical
+
+        // 2. Ask Gemini to pick the best action photo
+        if (candidateUrls.length > 0) {
+          const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+          if (lovableKey) {
+            const aiPrompt = `You are an image selection assistant for athlete profile cards.
+
+I have these candidate image URLs found from a web search for "${name}" (${posLabel}, ${school}):
+
+${candidateUrls.slice(0, 20).map((u, i) => `${i + 1}. ${u}`).join("\n")}
+
+Which single URL is most likely a high-quality action photo of ${name} playing football? 
+The image should be suitable for a portrait-oriented card (3:4 aspect ratio).
+Prefer game action shots over posed portraits, headshots, or logos.
+If none look like good action photos, respond with just the word "NONE".
+Otherwise respond with ONLY the URL, nothing else.`;
+
+            try {
+              const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Authorization": "Bearer " + lovableKey,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash",
+                  messages: [{ role: "user", content: aiPrompt }],
+                }),
+              });
+
+              if (aiResp.ok) {
+                const aiData = await aiResp.json();
+                const picked = (aiData.choices?.[0]?.message?.content || "").trim();
+                if (picked && picked !== "NONE" && picked.startsWith("http")) {
+                  imageUrls.actionPhoto = picked;
+                }
+              }
+            } catch (_aiErr) {
+              // Non-critical — proceed without AI selection
+            }
+          }
+
+          // Fallback: if AI didn't pick, use first large jpg/webp candidate
+          if (!imageUrls.actionPhoto) {
+            const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp)/i.test(u));
+            if (fallback) imageUrls.actionPhoto = fallback;
+          }
+        }
+
+        // 3. Try to find a headshot from ESPN results
+        const espnResult = photoResults.find((r: Record<string, unknown>) =>
+          String(r.url || "").includes("espn.com")
+        );
+        if (espnResult) {
+          const md = espnResult.markdown || "";
+          const espnImgMatch = md.match(/!\[[^\]]*\]\((https:\/\/a\.espncdn\.com[^)]+)\)/);
+          if (espnImgMatch && !imageUrls.headshot) {
+            imageUrls.headshot = espnImgMatch[1];
+          }
+        }
       }
+    } catch (_photoErr) {
+      // Non-critical — continue without photos
     }
 
     // 2. School logo via branding format
