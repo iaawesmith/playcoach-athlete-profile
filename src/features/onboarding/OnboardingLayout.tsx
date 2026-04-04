@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useUserStore } from "@/store/userStore";
+import { useAthleteStore } from "@/store/athleteStore";
 import playcoachLogo from "@/assets/playcoach-logo.png";
 
 const STEP_MAP: Record<string, number> = {
@@ -19,6 +20,7 @@ function getTotalSteps(role: string | null): number {
 
 export function OnboardingLayout() {
   const { role } = useUserStore();
+  const { teamColor } = useAthleteStore();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -28,7 +30,7 @@ export function OnboardingLayout() {
   const showBack = location.pathname !== "/onboarding/role";
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-background relative" style={{ "--team-color": teamColor } as React.CSSProperties}>
       {/* Background texture */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(39,45,50,0.4)_0%,_rgba(11,15,18,0)_70%)] pointer-events-none" />
 
