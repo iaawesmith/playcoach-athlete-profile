@@ -162,6 +162,22 @@ Deno.serve(async (req: Request) => {
       const posRankMatch = content.match(/(?:Position|Pos)\s*(?:Rank|#)[:\s]*(\d+)/i);
       if (posRankMatch && !merged.positionRank) merged.positionRank = parseInt(posRankMatch[1], 10);
 
+      // 247 Rating (e.g. "247 Rating: 0.9150" or "247Sports Rating: 91")
+      const rating247Match = content.match(/247\s*(?:Sports?)?\s*(?:Rating|Score)[:\s]*([\d.]+)/i);
+      if (rating247Match && !merged.rating247) merged.rating247 = rating247Match[1];
+
+      // On3 Rating / NIL Value
+      const ratingOn3Match = content.match(/On3\s*(?:Rating|Score|Consensus)[:\s]*([\d.]+)/i);
+      if (ratingOn3Match && !merged.ratingOn3) merged.ratingOn3 = ratingOn3Match[1];
+
+      // Composite Rating
+      const compositeMatch = content.match(/(?:Composite|Industry)\s*(?:Rating|Score|Ranking)[:\s]*([\d.]+)/i);
+      if (compositeMatch && !merged.ratingComposite) merged.ratingComposite = compositeMatch[1];
+
+      // Offers count
+      const offersMatch = content.match(/(\d+)\s*(?:total\s*)?offers/i);
+      if (offersMatch && !merged.offersCount) merged.offersCount = parseInt(offersMatch[1], 10);
+
       // Position: multiple patterns, only from relevant pages, skip bare "S"
       if (!merged.position && pageRelevant) {
         // Pattern 1: structured label like "Position: QB"
