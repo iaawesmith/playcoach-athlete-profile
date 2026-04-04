@@ -415,10 +415,10 @@ const UniversitySearchCard = ({
   useEffect(() => { setQuery(value); }, [value]);
 
   const handleSelect = useCallback((opt: SchoolOption) => {
-    setQuery(opt.name);
+    setQuery(opt.displayName);
     setOpen(false);
     setFocusIndex(-1);
-    onChange(opt.name);
+    onChange(opt.displayName);
   }, [onChange]);
 
   const handleInputChange = (val: string) => {
