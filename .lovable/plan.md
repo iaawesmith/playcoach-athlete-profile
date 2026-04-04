@@ -1,29 +1,29 @@
 
 
-## Fix: Unchecking School Logo Doesn't Remove It
+## Fix Black Action Photo Thumbnails
 
 ### Problem
-When scrape results come back, `schoolLogoUrl` is immediately set on the athlete store as a live preview (line 128-129 of `useAutoFill.ts`). When the user unchecks the school logo checkbox and clicks "Apply Selected," the `apply` function only uploads and sets images that are in `selectedImages` — it never removes the previewed logo that was already written to the store. So the logo persists into Brand HQ.
+The image thumbnails in the scrape results panel appear black because there's an overlay div with `bg-surface/60` (`absolute inset-0`) sitting on top of the entire image. Surface color is `#0b0f12` (near-black) at 60% opacity — this makes the thumbnail almost entirely dark. The ProCard shows the photo fine because it doesn't have this overlay.
 
 ### Fix
 
-**`src/hooks/useAutoFill.ts`** — in the `apply` callback (~line 191-225):
+**`src/features/onboarding/steps/ProfilePreview.tsx`** (line 247) and **`src/features/builder/components/ScrapeFill.tsx`** (line 358):
 
-After processing `selectedImages`, add a cleanup step: for any image key that was previewed but is NOT in `selectedImages`, restore the original value from `originalValues.current`.
+Change the overlay from covering the full image to only covering the bottom portion where the label sits. Replace:
 
-```typescript
-// After the selectedImages loop, revert any live-previewed images the user unchecked
-const previewedImageKeys: (keyof ImageUrls)[] = ["actionPhoto", "schoolLogo"];
-for (const imgKey of previewedImageKeys) {
-  if (imageUrls?.[imgKey] && !selectedImages.has(imgKey)) {
-    const storeKey = imageStoreKeys[imgKey];
-    update[storeKey] = originalValues.current[storeKey] ?? null;
-  }
-}
+```
+<div className="absolute inset-0 bg-surface/60 flex items-end p-1.5">
 ```
 
-This ensures that if the user unchecks school logo (or action photo), the store reverts to whatever value existed before the scrape ran.
+with a bottom-anchored gradient overlay that only darkens the label area:
+
+```
+<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
+```
+
+This keeps the label readable while letting the actual photo be visible.
 
 ### Files Modified
-- `src/hooks/useAutoFill.ts`
+- `src/features/onboarding/steps/ProfilePreview.tsx`
+- `src/features/builder/components/ScrapeFill.tsx`
 
