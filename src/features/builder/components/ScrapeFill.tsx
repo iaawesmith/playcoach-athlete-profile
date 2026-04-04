@@ -32,7 +32,7 @@ const formatDisplayValue = (field: FieldKey, val: unknown): string => {
 };
 
 export const ScrapeFill = () => {
-  const { firstName, lastName, school, setAthlete } = useAthleteStore();
+  const { firstName, lastName, school, position, number, classYear, setAthlete } = useAthleteStore();
   const [status, setStatus] = useState<"idle" | "loading" | "results" | "error">("idle");
   const [scrapedData, setScrapedData] = useState<AthleteProfileData | null>(null);
   const [sources, setSources] = useState<string[]>([]);
@@ -47,7 +47,11 @@ export const ScrapeFill = () => {
     setStatus("loading");
     setErrorMessage("");
 
-    const result = await firecrawlApi.fetchAthleteProfile(fullName, school || undefined);
+    const result = await firecrawlApi.fetchAthleteProfile(
+      fullName,
+      school || undefined,
+      { position, number, classYear },
+    );
 
     if (!result.success || !result.data) {
       setStatus("error");
