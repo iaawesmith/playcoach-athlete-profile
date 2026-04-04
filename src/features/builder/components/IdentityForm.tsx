@@ -690,6 +690,7 @@ export const IdentityForm = () => {
                       schoolAbbrev: uni.abbrev,
                       teamColor: uni.primaryColor,
                     });
+                    autoFetchSchoolLogo(uni.name);
                   }}
                   onManualChange={(v) => {
                     if (v === "") {
