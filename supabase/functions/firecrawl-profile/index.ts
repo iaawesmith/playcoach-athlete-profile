@@ -5,7 +5,7 @@ const corsHeaders = {
 };
 
 const athleteSchema = {
-  type: "object" as const,
+  type: "object",
   properties: {
     height: { type: "string", description: "Height e.g. 6'2\"" },
     weight: { type: "string", description: "Weight in lbs e.g. 195" },
