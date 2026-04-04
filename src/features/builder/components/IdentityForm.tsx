@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
 import { useSchoolSearch, type SchoolOption } from "@/hooks/useSchoolSearch";
-import { universities, type University } from "@/data/universities";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -411,17 +410,15 @@ const UniversitySearchCard = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  const { results: filtered } = useSchoolSearch(open ? query : "");
+
   useEffect(() => { setQuery(value); }, [value]);
 
-  const filtered = query.length >= 1
-    ? universities.filter((u) => u.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : [];
-
-  const handleSelect = useCallback((uni: University) => {
-    setQuery(uni.name);
+  const handleSelect = useCallback((opt: SchoolOption) => {
+    setQuery(opt.name);
     setOpen(false);
     setFocusIndex(-1);
-    onChange(uni.name);
+    onChange(opt.name);
   }, [onChange]);
 
   const handleInputChange = (val: string) => {
@@ -472,16 +469,20 @@ const UniversitySearchCard = ({
       </div>
       {open && filtered.length > 0 && (
         <ul ref={listRef} className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[240px] overflow-y-auto rounded-xl bg-surface-container-high shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-          {filtered.map((uni, i) => (
+          {filtered.map((opt, i) => (
             <li
-              key={uni.name}
-              onMouseDown={() => handleSelect(uni)}
+              key={opt.name}
+              onMouseDown={() => handleSelect(opt)}
               onMouseEnter={() => setFocusIndex(i)}
               className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100 ${i === focusIndex ? "bg-surface-container-highest" : "hover:bg-surface-container-highest/50"}`}
             >
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: uni.primaryColor }} />
-              <span className="text-on-surface text-sm font-normal truncate">{uni.name}</span>
-              <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">{uni.abbrev}</span>
+              {opt.logoUrl ? (
+                <img src={opt.logoUrl} alt="" className="w-5 h-5 object-contain shrink-0" />
+              ) : (
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: opt.primaryColor }} />
+              )}
+              <span className="text-on-surface text-sm font-normal truncate">{opt.name}</span>
+              <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">{opt.abbrev}</span>
             </li>
           ))}
         </ul>
