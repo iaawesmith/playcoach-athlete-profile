@@ -238,7 +238,7 @@ export const ScrapeFill = () => {
               {fieldLabels[field] || field}
             </span>
             <span className="text-on-surface text-sm font-normal truncate flex-1">
-              {String(scrapedData?.[field] ?? "")}
+              {formatDisplayValue(field, scrapedData?.[field])}
             </span>
           </button>
         ))}
