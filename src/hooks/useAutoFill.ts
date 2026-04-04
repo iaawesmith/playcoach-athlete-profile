@@ -137,10 +137,8 @@ export function useAutoFill() {
     setSelectedFields(fields);
 
     const imgs = new Set<keyof ImageUrls>();
-    if (result.imageUrls) {
-      for (const key of Object.keys(result.imageUrls) as (keyof ImageUrls)[]) {
-        if (key !== "schoolLogo" && result.imageUrls[key]) imgs.add(key);
-      }
+    if (result.imageUrls?.actionPhoto) {
+      imgs.add("actionPhoto");
     }
     setSelectedImages(imgs);
     setStatus("results");
