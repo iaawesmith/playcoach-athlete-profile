@@ -239,7 +239,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // --- Image extraction: three isolated pipelines ---
+    // ===== IMAGE EXTRACTION: Three isolated pipelines =====
     const imageUrls: Record<string, string> = {};
     let candidateUrls: string[] = [];
 
