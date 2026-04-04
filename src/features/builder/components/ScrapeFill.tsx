@@ -352,7 +352,7 @@ export const ScrapeFill = () => {
                     alt={imageLabels[imgKey]}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
+                      (e.target as HTMLImageElement).style.opacity = "0";
                     }}
                   />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
