@@ -260,7 +260,7 @@ export function ProfilePreview() {
                               <span className="material-symbols-outlined text-[12px] text-surface">check</span>
                             )}
                           </div>
-                          {/* Refresh overlay for action photo with multiple candidates */}
+                          {/* Compact corner control for cycling action photo candidates */}
                           {isActionPhoto && autoFill.hasMultipleActionPhotos && (
                             <div
                               role="button"
@@ -275,16 +275,14 @@ export function ProfilePreview() {
                                   autoFill.nextActionPhoto();
                                 }
                               }}
-                              className="absolute inset-0 flex items-center justify-center bg-surface/70 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                              className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-surface/80 backdrop-blur-sm rounded-full px-2 py-0.5 cursor-pointer hover:bg-surface/90 transition-colors duration-150 z-10"
                             >
-                              <div className="flex flex-col items-center gap-1">
-                                <span className="material-symbols-outlined text-2xl text-on-surface">
-                                  refresh
-                                </span>
-                                <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface-variant">
-                                  {autoFill.activeActionPhotoIndex + 1}/{autoFill.actionPhotoCandidateCount}
-                                </span>
-                              </div>
+                              <span className="material-symbols-outlined text-[14px] text-on-surface">
+                                refresh
+                              </span>
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                {autoFill.activeActionPhotoIndex + 1}/{autoFill.actionPhotoCandidateCount}
+                              </span>
                             </div>
                           )}
                         </button>
