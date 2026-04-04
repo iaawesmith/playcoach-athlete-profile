@@ -68,7 +68,6 @@ export function ProfilePreview() {
     await autoFill.apply();
   };
 
-  const displayName = firstName && lastName ? `${firstName} ${lastName}` : "Your Name";
   const tc = teamColor || "#50C4CA";
 
   return (
