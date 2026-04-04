@@ -302,45 +302,91 @@ Deno.serve(async (req: Request) => {
       // Non-critical
     }
 
-    // ===== PIPELINE 2: Action Photos via Google Images Scrape =====
+    // ===== PIPELINE 2: Action Photos via Search + Scrape =====
     try {
       const jerseyTag = jerseyNum ? ` #${jerseyNum}` : "";
-      const googleQuery = `${name}${jerseyTag} ${posLabel} ${school} football action photo game`.trim();
-      const googleImagesUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}&tbm=isch&hl=en`;
+      const photoQuery = `${name}${jerseyTag} ${posLabel} ${school} football game photo`.trim();
 
-      const googleScrapeResp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      // Step 1: Firecrawl search for image-heavy pages
+      const photoSearchResp = await fetch("https://api.firecrawl.dev/v1/search", {
         method: "POST",
         headers: authHdrs,
         body: JSON.stringify({
-          url: googleImagesUrl,
-          formats: ["html"],
-          waitFor: 2000,
+          query: photoQuery,
+          limit: 5,
+          scrapeOptions: { formats: ["markdown"] },
         }),
       });
 
-      if (googleScrapeResp.ok) {
-        const googleData = await googleScrapeResp.json();
-        const html = String(googleData.data?.html || googleData.html || "");
+      if (photoSearchResp.ok) {
+        const photoSearchData = await photoSearchResp.json();
+        const photoResults = photoSearchData.data || [];
 
-        // Extract image URLs from Google Images HTML
-        // Google uses data-src, data-iurl, and src attributes
-        const patterns = [
-          /data-iurl=["']([^"']+)["']/gi,
-          /data-src=["'](https?:\/\/[^"']+)["']/gi,
-          /<img[^>]+src=["'](https?:\/\/(?!www\.google|encrypted-tbn|www\.gstatic|ssl\.gstatic)[^"']+)["']/gi,
-        ];
-
-        const seen = new Set<string>();
-        for (const pattern of patterns) {
-          let m;
-          while ((m = pattern.exec(html)) !== null) {
-            const src = m[1];
-            if (seen.has(src)) continue;
-            seen.add(src);
-            // Skip Google's own assets and tiny images
-            if (/gstatic\.com|google\.com\/images|favicon|pixel|\.gif|\.svg/i.test(src)) continue;
+        // Extract image URLs from search result markdown
+        for (const r of photoResults) {
+          const md = r.markdown || r.data?.markdown || "";
+          const imgMatches = md.matchAll(/!\[[^\]]*\]\(([^)]+)\)/gi);
+          for (const im of imgMatches) {
+            const src = im[1];
+            if (!src.startsWith("http")) continue;
+            if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
             if (src.length < 30) continue;
-            candidateUrls.push(src);
+            if (!candidateUrls.includes(src)) candidateUrls.push(src);
+          }
+        }
+
+        // Step 2: Scrape top 3 result URLs for rendered HTML images
+        const urlsToScrape = photoResults
+          .filter((r: Record<string, unknown>) => r.url)
+          .map((r: Record<string, unknown>) => String(r.url))
+          .slice(0, 3);
+
+        const scrapePromises = urlsToScrape.map(async (pageUrl: string) => {
+          try {
+            const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+              method: "POST",
+              headers: authHdrs,
+              body: JSON.stringify({
+                url: pageUrl,
+                formats: ["html"],
+                onlyMainContent: true,
+              }),
+            });
+            if (!resp.ok) return [];
+            const data = await resp.json();
+            const html = String(data.data?.html || data.html || "");
+
+            const extracted: string[] = [];
+            const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
+            let m;
+            while ((m = imgRegex.exec(html)) !== null) {
+              const src = m[1];
+              if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement/i.test(src)) continue;
+              if (src.length < 30) continue;
+              // Skip explicitly tiny images
+              if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
+              extracted.push(src);
+            }
+
+            // Also check data-src attributes
+            const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
+            while ((m = dataSrcRegex.exec(html)) !== null) {
+              const src = m[1];
+              if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
+              if (src.length < 30) continue;
+              extracted.push(src);
+            }
+
+            return extracted;
+          } catch {
+            return [];
+          }
+        });
+
+        const scrapeResults = await Promise.all(scrapePromises);
+        for (const imgs of scrapeResults) {
+          for (const src of imgs) {
+            if (!candidateUrls.includes(src)) candidateUrls.push(src);
           }
         }
       }
@@ -357,7 +403,7 @@ Deno.serve(async (req: Request) => {
         return 0;
       });
 
-      // Vision-based AI filtering: send actual images to Gemini for verification
+      // Vision-based AI filtering
       if (candidateUrls.length > 0) {
         const lovableKey = Deno.env.get("LOVABLE_API_KEY");
         if (lovableKey) {
@@ -423,7 +469,7 @@ If none pass, return: []`,
               }
             }
           } catch (_aiErr) {
-            // Non-critical — fall through to fallback
+            // Non-critical
           }
         }
 
