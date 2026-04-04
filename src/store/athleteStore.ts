@@ -86,6 +86,10 @@ const defaults: AthleteData = {
   starRating: 0,
   nationalRank: null,
   positionRank: null,
+  rating247: "",
+  ratingOn3: "",
+  ratingComposite: "",
+  offersCount: null,
   commitmentStatus: "",
   upcomingGame: null,
 };
