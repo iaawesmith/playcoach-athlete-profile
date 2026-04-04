@@ -181,14 +181,44 @@ export function useAutoFill() {
 
     const nextUrl = actionPhotoCandidates[nextIdx];
 
-    // Update imageUrls so the thumbnail reflects the new pick
     setImageUrls((prev) => prev ? { ...prev, actionPhoto: nextUrl } : { actionPhoto: nextUrl });
-
-    // Live preview on ProCard
     setAthlete({ actionPhotoUrl: nextUrl } as Parameters<typeof setAthlete>[0]);
   }, [actionPhotoCandidates, activeActionPhotoIndex, setAthlete]);
 
-  const hasMultipleActionPhotos = actionPhotoCandidates.length > 1;
+  // Called when an action photo candidate fails to load in the browser
+  const handleActionPhotoError = useCallback(() => {
+    if (actionPhotoCandidates.length === 0) return;
+    const currentUrl = actionPhotoCandidates[activeActionPhotoIndex];
+    const newFailed = new Set(failedCandidates);
+    newFailed.add(currentUrl);
+    setFailedCandidates(newFailed);
+
+    // Find next non-failed candidate
+    const remaining = actionPhotoCandidates.filter((u) => !newFailed.has(u));
+    if (remaining.length > 0) {
+      const nextUrl = remaining[0];
+      const nextIdx = actionPhotoCandidates.indexOf(nextUrl);
+      setActiveActionPhotoIndex(nextIdx);
+      setImageUrls((prev) => prev ? { ...prev, actionPhoto: nextUrl } : { actionPhoto: nextUrl });
+      setAthlete({ actionPhotoUrl: nextUrl } as Parameters<typeof setAthlete>[0]);
+    } else {
+      // All failed — clear action photo preview
+      setImageUrls((prev) => {
+        if (!prev) return prev;
+        const copy = { ...prev };
+        delete copy.actionPhoto;
+        return Object.keys(copy).length > 0 ? copy : null;
+      });
+      setSelectedImages((prev) => {
+        const next = new Set(prev);
+        next.delete("actionPhoto");
+        return next;
+      });
+      setAthlete({ actionPhotoUrl: originalValues.current.actionPhotoUrl ?? null } as Parameters<typeof setAthlete>[0]);
+    }
+  }, [actionPhotoCandidates, activeActionPhotoIndex, failedCandidates, setAthlete]);
+
+  const hasMultipleActionPhotos = actionPhotoCandidates.filter((u) => !failedCandidates.has(u)).length > 1;
 
   const apply = useCallback(async () => {
     if (!scrapedData && selectedImages.size === 0) return;
