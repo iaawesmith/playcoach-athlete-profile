@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useUserStore } from "@/store/userStore";
+import playcoachLogo from "@/assets/playcoach-logo.png";
 
 const STEP_MAP: Record<string, number> = {
   "/onboarding/role": 1,
