@@ -50,6 +50,118 @@ type Recruit = {
   year: number;
 };
 
+// ── Recruiting field extraction from markdown ────────────────────────────
+function extractRecruitingFields(content: string, merged: Record<string, string | number>) {
+  // 247 Rating — look for various patterns
+  if (!merged.rating247) {
+    const patterns247 = [
+      /247\s*(?:Sports?)?\s*(?:Rating|Score|Composite|Grade)[:\s]*([\d.]+)/i,
+      /(?:Rating|Score|Composite)[:\s]*([\d.]+)\s*.*?247/i,
+      /247Sports\s*[\w\s]*?[:\s]*(0\.\d{4})/i,
+      /(?:^|\s)(0\.(?:9|8)\d{2,3})(?:\s|$)/m,  // bare decimal like 0.9876
+    ];
+    for (const pat of patterns247) {
+      const m = content.match(pat);
+      if (m) { merged.rating247 = m[1]; break; }
+    }
+  }
+
+  // On3 Rating
+  if (!merged.ratingOn3) {
+    const patternsOn3 = [
+      /On3\s*(?:Rating|Score|Consensus|Grade|NIL)[:\s]*([\d.]+)/i,
+      /On3[:\s]*([\d.]+)\s*(?:out|\/)/i,
+      /(?:Rating|Score)[:\s]*([\d.]+)\s*.*?On3/i,
+    ];
+    for (const pat of patternsOn3) {
+      const m = content.match(pat);
+      if (m) { merged.ratingOn3 = m[1]; break; }
+    }
+  }
+
+  // Composite Rating
+  if (!merged.ratingComposite) {
+    const patternsComp = [
+      /(?:Composite|Industry|Overall)\s*(?:Rating|Score|Ranking|Grade)[:\s]*([\d.]+)/i,
+      /(?:Comp\.?|COMPRTG)[:\s]*([\d.]+)/i,
+    ];
+    for (const pat of patternsComp) {
+      const m = content.match(pat);
+      if (m) { merged.ratingComposite = m[1]; break; }
+    }
+  }
+
+  // Offers count
+  if (!merged.offersCount) {
+    const patternsOffers = [
+      /(\d+)\s*(?:total\s*)?offers/i,
+      /Offers[:\s]*(\d+)/i,
+      /Offer\s*(?:Count|Total)[:\s]*(\d+)/i,
+    ];
+    for (const pat of patternsOffers) {
+      const m = content.match(pat);
+      if (m) { merged.offersCount = parseInt(m[1], 10); break; }
+    }
+  }
+
+  // Star rating
+  if (!merged.starRating) {
+    const starMatch = content.match(/(\d)\s*-?\s*Star/i);
+    if (starMatch) merged.starRating = parseInt(starMatch[1], 10);
+  }
+
+  // National rank
+  if (!merged.nationalRank) {
+    const natRank = content.match(/(?:National|Natl?|Overall)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i);
+    if (natRank) merged.nationalRank = parseInt(natRank[1], 10);
+  }
+
+  // Position rank
+  if (!merged.positionRank) {
+    const posRank = content.match(/(?:Position|Pos)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i);
+    if (posRank) merged.positionRank = parseInt(posRank[1], 10);
+  }
+
+  // Height
+  if (!merged.height) {
+    const hm = content.match(/Height[:\s]*(\d+['']\d+[""]?|\d+-\d+)/i)
+      || content.match(/HT\/WT[:\s]*(\d+['-]\d+)/i)
+      || content.match(/Ht\.?[:\s]*(\d+['-]\d+)/i);
+    if (hm) merged.height = hm[1];
+  }
+
+  // Weight
+  if (!merged.weight) {
+    const wm = content.match(/Weight[:\s]*(\d+)\s*(?:lbs?)?/i)
+      || content.match(/HT\/WT[:\s]*\d+['-]\d+[,\s]+(\d+)\s*lbs/i)
+      || content.match(/Wt\.?[:\s]*(\d+)/i);
+    if (wm) merged.weight = wm[1];
+  }
+
+  // Hometown
+  if (!merged.hometown) {
+    const htown = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i);
+    if (htown) merged.hometown = htown[1].trim();
+  }
+
+  // High school
+  if (!merged.highSchool) {
+    const hs = content.match(
+      /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect|Natl)([A-Z][A-Za-z0-9 .'()-]{2,39})/
+    );
+    if (hs) {
+      const cleaned = hs[1].trim().replace(/[\[\]|]+$/, "").trim();
+      if (cleaned.length >= 3 && !/^\d+$/.test(cleaned)) merged.highSchool = cleaned;
+    }
+  }
+
+  // 40-yard dash
+  if (!merged.fortyTime) {
+    const ft = content.match(/40[- ]?(?:yard|yd)?[:\s]*(\d+\.\d+)/i);
+    if (ft) merged.fortyTime = ft[1];
+  }
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -92,14 +204,12 @@ Deno.serve(async (req: Request) => {
     if (cfbdKey && school) {
       const currentYear = new Date().getFullYear();
 
-      // Parallel: roster + recruiting for current and previous year
       const [roster, recruits, recruitsPrev] = await Promise.all([
         cfbdFetch<RosterPlayer[]>(cfbdKey, "/roster", { team: school, year: currentYear }),
         cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: currentYear }),
         cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: currentYear - 1 }),
       ]);
 
-      // Match player from roster
       if (roster && Array.isArray(roster)) {
         const match = roster.find((p) => {
           const fn = p.first_name?.toLowerCase() || "";
@@ -124,7 +234,6 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Match player from recruiting data
       const allRecruits = [...(recruits || []), ...(recruitsPrev || [])];
       if (allRecruits.length > 0) {
         const rMatch = allRecruits.find((r) => {
@@ -146,109 +255,54 @@ Deno.serve(async (req: Request) => {
     // PHASE 2: Firecrawl — deeper recruiting + action photos
     // ═══════════════════════════════════════════════════════════════════════
     if (!firecrawlKey) {
-      // Return CFBD-only results if no Firecrawl
       return new Response(JSON.stringify({
         success: true, data: merged, sources, resultsCount: sources.length,
       }), { headers });
     }
 
     const authHdrs = { "Authorization": "Bearer " + firecrawlKey, "Content-Type": "application/json" };
-    const posTag = knownFields.position || merged.position || "";
+    const posTag = knownFields.position || String(merged.position || "");
 
-    // Targeted search: 247Sports + On3 profile pages only
-    const searchQuery = `${name}${posTag ? " " + posTag : ""} ${school || ""} football profile site:247sports.com OR site:on3.com`.trim();
-
-    const searchResponse = await fetch("https://api.firecrawl.dev/v1/search", {
-      method: "POST",
-      headers: authHdrs,
-      body: JSON.stringify({
-        query: searchQuery,
-        limit: 4,
-        scrapeOptions: { formats: ["markdown"] },
+    // Two targeted searches: one for 247Sports, one for On3
+    const searchBase = `${name}${posTag ? " " + posTag : ""} ${school || ""} football`.trim();
+    const [search247Resp, searchOn3Resp] = await Promise.all([
+      fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: authHdrs,
+        body: JSON.stringify({
+          query: `${searchBase} profile site:247sports.com`,
+          limit: 3,
+          scrapeOptions: { formats: ["markdown"] },
+        }),
       }),
-    });
+      fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: authHdrs,
+        body: JSON.stringify({
+          query: `${searchBase} profile site:on3.com`,
+          limit: 3,
+          scrapeOptions: { formats: ["markdown"] },
+        }),
+      }),
+    ]);
 
-    let firecrawlResults: Array<Record<string, unknown>> = [];
-    if (searchResponse.ok) {
-      const searchData = await searchResponse.json();
-      firecrawlResults = searchData.data || [];
+    const firecrawlResults: Array<Record<string, unknown>> = [];
+    for (const resp of [search247Resp, searchOn3Resp]) {
+      if (resp.ok) {
+        const d = await resp.json();
+        if (d.data) firecrawlResults.push(...d.data);
+      }
     }
 
-    // Parse recruiting-specific fields from Firecrawl markdown
+    // Parse recruiting fields from all results
     for (const result of firecrawlResults) {
-      if (result.url || (result.metadata as Record<string, unknown>)?.sourceURL) {
-        sources.push(String(result.url || (result.metadata as Record<string, unknown>)?.sourceURL));
-      }
+      const srcUrl = String(result.url || (result.metadata as Record<string, unknown>)?.sourceURL || "");
+      if (srcUrl && !sources.includes(srcUrl)) sources.push(srcUrl);
 
       const content = String(result.markdown || (result.data as Record<string, unknown>)?.markdown || "");
       if (!content) continue;
 
-      // 247 Rating
-      const r247 = content.match(/247\s*(?:Sports?)?\s*(?:Rating|Score|Composite)[:\s]*([\d.]+)/i);
-      if (r247 && !merged.rating247) merged.rating247 = r247[1];
-
-      // On3 Rating
-      const rOn3 = content.match(/On3\s*(?:Rating|Score|Consensus|NIL)[:\s]*([\d.]+)/i);
-      if (rOn3 && !merged.ratingOn3) merged.ratingOn3 = rOn3[1];
-
-      // Composite Rating
-      const rComp = content.match(/(?:Composite|Industry)\s*(?:Rating|Score|Ranking)[:\s]*([\d.]+)/i);
-      if (rComp && !merged.ratingComposite) merged.ratingComposite = rComp[1];
-
-      // Offers count
-      const rOffers = content.match(/(\d+)\s*(?:total\s*)?offers/i);
-      if (rOffers && !merged.offersCount) merged.offersCount = parseInt(rOffers[1], 10);
-
-      // Star rating (if CFBD didn't have it)
-      const starMatch = content.match(/(\d)\s*-?\s*Star/i);
-      if (starMatch && !merged.starRating) merged.starRating = parseInt(starMatch[1], 10);
-
-      // National rank
-      const natRank = content.match(/(?:National|Natl?)\s*(?:Rank|#)[:\s]*(\d+)/i);
-      if (natRank && !merged.nationalRank) merged.nationalRank = parseInt(natRank[1], 10);
-
-      // Position rank
-      const posRank = content.match(/(?:Position|Pos)\s*(?:Rank|#)[:\s]*(\d+)/i);
-      if (posRank && !merged.positionRank) merged.positionRank = parseInt(posRank[1], 10);
-
-      // Height (if CFBD didn't have it)
-      if (!merged.height) {
-        const hm = content.match(/Height[:\s]*(\d+['']\d+[""]?|\d+-\d+)/i)
-          || content.match(/HT\/WT[:\s]*(\d+['-]\d+)/i)
-          || content.match(/Ht\.?[:\s]*(\d+['-]\d+)/i);
-        if (hm) merged.height = hm[1];
-      }
-
-      // Weight
-      if (!merged.weight) {
-        const wm = content.match(/Weight[:\s]*(\d+)\s*(?:lbs?)?/i)
-          || content.match(/HT\/WT[:\s]*\d+['-]\d+[,\s]+(\d+)\s*lbs/i)
-          || content.match(/Wt\.?[:\s]*(\d+)/i);
-        if (wm) merged.weight = wm[1];
-      }
-
-      // Hometown
-      if (!merged.hometown) {
-        const htown = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i);
-        if (htown) merged.hometown = htown[1].trim();
-      }
-
-      // High school
-      if (!merged.highSchool) {
-        const hs = content.match(
-          /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect|Natl)([A-Z][A-Za-z0-9 .'()-]{2,39})/
-        );
-        if (hs) {
-          const cleaned = hs[1].trim().replace(/[\[\]|]+$/, "").trim();
-          if (cleaned.length >= 3 && !/^\d+$/.test(cleaned)) merged.highSchool = cleaned;
-        }
-      }
-
-      // 40-yard dash
-      if (!merged.fortyTime) {
-        const ft = content.match(/40[- ]?(?:yard|yd)?[:\s]*(\d+\.\d+)/i);
-        if (ft) merged.fortyTime = ft[1];
-      }
+      extractRecruitingFields(content, merged);
     }
 
     // Normalize height to total inches
@@ -269,17 +323,25 @@ Deno.serve(async (req: Request) => {
     if (knownFields.classYear) delete merged.classYear;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 3: Action Photo extraction from 247/On3 profile pages
+    // PHASE 3: Action Photo — targeted extraction from 247/On3 profiles
     // ═══════════════════════════════════════════════════════════════════════
     const imageUrls: Record<string, string> = {};
     let candidateUrls: string[] = [];
 
     try {
-      const imageSourceUrls = sources.filter((s) =>
-        /247sports|on3\.com|espn\.com/i.test(s)
-      ).slice(0, 3);
+      // Prioritize 247Sports first, then On3
+      const profileUrls = sources.filter((s) =>
+        /247sports\.com|on3\.com/i.test(s)
+      );
+      // Sort: 247 first
+      profileUrls.sort((a, b) => {
+        const a247 = /247sports/i.test(a) ? 0 : 1;
+        const b247 = /247sports/i.test(b) ? 0 : 1;
+        return a247 - b247;
+      });
+      const imageSourceUrls = profileUrls.slice(0, 4);
 
-      // Scrape HTML from top sources for image extraction
+      // Scrape HTML from profile pages for image extraction
       const scrapePromises = imageSourceUrls.map(async (pageUrl: string) => {
         try {
           const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
@@ -292,17 +354,29 @@ Deno.serve(async (req: Request) => {
           const html = String(data.data?.html || data.html || "");
           const extracted: string[] = [];
 
+          // Standard img src
           const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
           let m;
           while ((m = imgRegex.exec(html)) !== null) {
             const src = m[1];
+            const fullTag = m[0];
             if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement|sponsor/i.test(src)) continue;
             if (src.length < 30) continue;
             if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
             if (/[/,]w_([1-9]\d?)[/,]/i.test(src)) continue;
-            extracted.push(src);
+            // Boost images with player name or jersey in alt text
+            const altMatch = fullTag.match(/alt=["']([^"']*)["']/i);
+            const altText = altMatch ? altMatch[1].toLowerCase() : "";
+            const nameTokens = name.toLowerCase().split(/\s+/);
+            const hasNameInAlt = nameTokens.some(t => t.length > 2 && altText.includes(t));
+            if (hasNameInAlt) {
+              extracted.unshift(src); // prioritize
+            } else {
+              extracted.push(src);
+            }
           }
-          // Lazy-loaded images
+
+          // Lazy-loaded images (data-src)
           const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
           while ((m = dataSrcRegex.exec(html)) !== null) {
             const src = m[1];
@@ -310,11 +384,11 @@ Deno.serve(async (req: Request) => {
             if (src.length < 30) continue;
             extracted.push(src);
           }
-          // og:image
-          const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["'](https?:\/\/[^"']+)["']/i);
-          if (ogMatch) extracted.push(ogMatch[1]);
-          const ogMatch2 = html.match(/<meta[^>]+content=["'](https?:\/\/[^"']+)["'][^>]+property=["']og:image["']/i);
-          if (ogMatch2) extracted.push(ogMatch2[1]);
+
+          // og:image (often a good player action shot on profile pages)
+          const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["'](https?:\/\/[^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["'](https?:\/\/[^"']+)["'][^>]+property=["']og:image["']/i);
+          if (ogMatch) extracted.unshift(ogMatch[1]); // prioritize og:image
 
           return extracted;
         } catch { return []; }
@@ -327,7 +401,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Upscale CDN URLs
+      // Upscale CDN URLs for better resolution
       candidateUrls = candidateUrls.map((url) => {
         let u = url;
         u = u.replace(/\/cdn-cgi\/image\/[^/]+\//, "/");
@@ -349,27 +423,31 @@ Deno.serve(async (req: Request) => {
         return 0;
       });
 
-      // Gemini Vision verification
+      // Gemini Vision verification — strict action photo only
       if (candidateUrls.length > 0 && lovableKey) {
         const imagesToCheck = candidateUrls.slice(0, 15);
         const jerseyNum = knownFields.number || String(merged.number || "");
         const contentParts: Array<Record<string, unknown>> = [
           {
             type: "text",
-            text: `You are verifying ACTION photos for a football player profile card.
+            text: `You are selecting the SINGLE best in-game ACTION photo for a college football player's profile card.
 
 Player: ${name}
 Position: ${posTag || "unknown"}
 School: ${school || "unknown"}
-Jersey: ${jerseyNum || "unknown"}
+Jersey: #${jerseyNum || "unknown"}
 
-Extract ONLY a high-quality in-game ACTION photo of this exact player from the ${imagesToCheck.length} candidates below.
-Must show the player ACTIVELY playing football — running, catching, throwing, blocking, tackling, etc.
-Prioritize highest resolution from 247Sports or On3 player profiles.
-Look for name or jersey in alt text.
-ABSOLUTELY REJECT: headshots, studio shots, group photos, crowd shots, logos, ads, thumbnails.
-Return JSON array of passing URLs ranked best first. Example: ["url1","url2"]
-If none found, return: []`,
+From the ${imagesToCheck.length} candidate images below, find the SINGLE best high-resolution in-game ACTION photo of this exact player.
+
+REQUIREMENTS:
+- Must show the player ACTIVELY playing football: running a route, catching a ball, throwing, blocking, tackling, celebrating after a play, etc.
+- Prioritize: clear face/jersey visible, high resolution, action pose, player is the main subject
+- Strong signals: jersey number matches, player name in URL, 247Sports or On3 player gallery image
+- ABSOLUTELY REJECT: headshots, portraits, posed studio shots, smiling close-ups, team group photos, crowd shots, logos, ads, thumbnails under 200px, generic stock photos, coaches, other players
+
+Return a JSON array of qualifying action photo URLs, ranked best first.
+If NONE qualify as real in-game action shots, return an empty array: []
+Do NOT include any image you're unsure about — when in doubt, exclude it.`,
           },
         ];
         for (const url of imagesToCheck) {
@@ -395,6 +473,9 @@ If none found, return: []`,
               if (Array.isArray(filtered) && filtered.length > 0) {
                 candidateUrls = filtered.filter((u: unknown) => typeof u === "string" && String(u).startsWith("http"));
                 if (candidateUrls.length > 0) imageUrls.actionPhoto = candidateUrls[0];
+              } else {
+                // Vision returned empty — no valid action photos
+                candidateUrls = [];
               }
             } catch {
               if (raw.startsWith("http")) imageUrls.actionPhoto = raw;
@@ -402,11 +483,7 @@ If none found, return: []`,
           }
         } catch { /* non-critical */ }
 
-        // Fallback if vision didn't pick
-        if (!imageUrls.actionPhoto) {
-          const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp|png)/i.test(u));
-          if (fallback) imageUrls.actionPhoto = fallback;
-        }
+        // Do NOT fall back to random images if vision found nothing
       }
     } catch { /* non-critical */ }
 
@@ -438,7 +515,7 @@ If none found, return: []`,
 
     if (verifiedCandidates.length > 0) {
       imageUrls.actionPhoto = verifiedCandidates[0];
-    } else if (actionPhotoCandidates.length > 0) {
+    } else {
       delete imageUrls.actionPhoto;
     }
 
