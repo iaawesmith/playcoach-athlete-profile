@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
 import { universities, type University } from "@/data/universities";
+import { firecrawlApi } from "@/services/firecrawl";
+import { supabase } from "@/integrations/supabase/client";
 
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
@@ -521,6 +523,31 @@ export const IdentityForm = () => {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const profilePicInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoLoading, setLogoLoading] = useState(false);
+
+  const autoFetchSchoolLogo = useCallback(async (schoolName: string) => {
+    if (schoolLogoUrl) return;
+    setLogoLoading(true);
+    try {
+      const result = await firecrawlApi.fetchSchoolLogo(schoolName);
+      if (result.success && result.logoUrl) {
+        const proxyRes = await supabase.functions.invoke("image-proxy", {
+          body: {
+            imageUrl: result.logoUrl,
+            fileName: `logos/${schoolName.replace(/\s+/g, "-").toLowerCase()}-logo.png`,
+            bucket: "athlete-media",
+          },
+        });
+        if (!proxyRes.error && proxyRes.data?.success && proxyRes.data?.publicUrl) {
+          setAthlete({ schoolLogoUrl: proxyRes.data.publicUrl });
+        }
+      }
+    } catch {
+      // silently fail — user can still upload manually
+    } finally {
+      setLogoLoading(false);
+    }
+  }, [schoolLogoUrl, setAthlete]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -632,7 +659,12 @@ export const IdentityForm = () => {
                   onClick={() => logoInputRef.current?.click()}
                   className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 overflow-hidden"
                 >
-                  {schoolLogoUrl ? (
+                  {logoLoading ? (
+                    <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
+                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">search</span>
+                      <span className="text-on-surface-variant/60 text-[9px]">Finding Logo…</span>
+                    </div>
+                  ) : schoolLogoUrl ? (
                     <div className="relative w-full h-full group/img flex items-center justify-center min-h-[100px]">
                       <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 object-contain mx-auto my-auto" />
                       <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
@@ -658,6 +690,7 @@ export const IdentityForm = () => {
                       schoolAbbrev: uni.abbrev,
                       teamColor: uni.primaryColor,
                     });
+                    autoFetchSchoolLogo(uni.name);
                   }}
                   onManualChange={(v) => {
                     if (v === "") {
