@@ -106,7 +106,7 @@ export function ProfilePreview() {
               {displayName}
             </div>
             <div className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: tc }}>
-              {position || "POS"} {number ? `#${number}` : ""}
+              {position || "POS"} {number ? `#${number}` : ""}{classYear ? ` · ${classYear}` : ""}
             </div>
           </div>
         </div>
