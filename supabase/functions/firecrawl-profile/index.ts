@@ -84,16 +84,17 @@ function extractRecruitingFields(content: string, merged: Record<string, string 
   if (!merged.hometown) { const m = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i); if (m) merged.hometown = m[1].trim(); }
   // High school extraction — broader patterns
   if (!merged.highSchool) {
+    const hsExclude = /^(the|a|an|in|at|Natl|National|QB|WR|RB|TE|OL|DL|LB|CB|S|K|P|FB|ATH)/i;
     for (const pat of [
       /High\s*School[:\s]+([A-Z][A-Za-z0-9 .'()-]{2,39}?)(?:\s*\(|\s*-|\s*$|\s*\n|\s*\|)/,
-      /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect|Natl|QB|WR|RB|DL|LB|CB)([A-Z][A-Za-z0-9 .'()-]{2,39})/,
+      /High\s*School[:\s]+([A-Z][A-Za-z0-9 .'()-]{2,39})/,
       /(?:attends|attended|from)\s+([A-Z][A-Za-z .'()-]+?)\s+(?:High|HS)/i,
-      /([A-Z][A-Za-z .'()-]+?)\s+High\s+School/,
+      /([A-Z][A-Za-z .'()-]{3,}?)\s+High\s+School/,
     ]) {
       const m = content.match(pat);
       if (m) {
         const c = m[1].trim().replace(/[\[\]|]+$/, "").trim();
-        if (c.length >= 3 && !/^\d+$/.test(c) && !/^(the|a|an|in|at|Natl|National)$/i.test(c) && !/^(QB|WR|RB|TE|OL|DL|LB|CB|S|K|P)/i.test(c)) {
+        if (c.length >= 3 && !/^\d+$/.test(c) && !hsExclude.test(c) && !/recruit|player|prospect/i.test(c)) {
           merged.highSchool = c;
           break;
         }
