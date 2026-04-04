@@ -28,6 +28,10 @@ export const fieldLabels: Record<FieldKey, string> = {
   number: "Jersey Number",
   bio: "Bio",
   commitmentStatus: "Commitment Status",
+  rating247: "247 Rating",
+  ratingOn3: "On3 Rating",
+  ratingComposite: "Composite Rating",
+  offersCount: "Offers",
 };
 
 export const imageLabels: Record<keyof ImageUrls, string> = {

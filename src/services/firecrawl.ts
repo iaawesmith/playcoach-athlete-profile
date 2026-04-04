@@ -17,6 +17,10 @@ export type AthleteProfileData = {
   number?: string;
   bio?: string;
   commitmentStatus?: string;
+  rating247?: string;
+  ratingOn3?: string;
+  ratingComposite?: string;
+  offersCount?: number;
 };
 
 type ProfileResponse = {
