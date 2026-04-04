@@ -265,7 +265,7 @@ Deno.serve(async (req: Request) => {
         const photoResults = photoSearchData.data || [];
 
         // Collect candidate image URLs from markdown ![alt](url) syntax
-        const candidateUrls: string[] = [];
+        candidateUrls = [];
         const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
 
         for (const pr of photoResults) {
