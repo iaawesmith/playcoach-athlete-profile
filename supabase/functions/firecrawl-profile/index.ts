@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Extract data from markdown results
-    const results = searchData.data || [];
+    const results = [...(searchData.data || []), ...rosterResults];
     const sources: string[] = [];
     const merged: Record<string, string | number> = {};
 
