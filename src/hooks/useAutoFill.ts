@@ -278,6 +278,7 @@ export function useAutoFill() {
     setErrorMessage("");
     setActionPhotoCandidates([]);
     setActiveActionPhotoIndex(0);
+    setFailedCandidates(new Set());
   }, [setAthlete]);
 
   const availableFields = scrapedData
