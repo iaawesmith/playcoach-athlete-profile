@@ -1,51 +1,30 @@
 
 
-## AI-Powered Action Photo Search
+## Update Role Selection Screen
 
-### Problem
-Firecrawl's HTML scraping approach for finding athlete photos is unreliable — it parses `<img>` tags with regex and guesses based on CSS class names, which breaks across different site structures.
+### Changes to `src/features/onboarding/steps/RoleSelection.tsx`
 
-### Solution
-Replace the HTML-scraping image extraction with an AI-driven pipeline:
+**1. Split into 4 separate roles**: Athlete, Coach, Trainer, Agency (remove combined labels)
 
-1. **Dedicated image search** — Use Firecrawl search with a photo-specific query: `"Bear Bachmeier QB BYU Cougars action game photo"`
-2. **Collect candidate image URLs** — Extract all image URLs from the top search results' markdown/HTML
-3. **AI image selection** — Send the candidate URLs to a Gemini vision model, asking it to pick the best action photo for a portrait-oriented card (aspect 3:4)
-4. **Download and persist** — The selected image gets proxied through `image-proxy` to permanent storage
+**2. Make Athlete prominent**: Apply `#50C4CA` teal to the Athlete card's icon and label text by default (not just on selection). Give it a subtle teal border glow to stand out.
 
-### Architecture
+**3. Center "Coming Soon" badges**: Move from `absolute top-3 right-3` to centered within the card (below the description text), removing absolute positioning.
 
+**4. Grid layout**: Change to `md:grid-cols-4` for the four cards, or keep responsive with `sm:grid-cols-2 md:grid-cols-4`.
+
+### Changes to `src/features/onboarding/OnboardingLayout.tsx`
+
+**5. Add PlayCoach logo**: Import `playcoach-logo.png` from `@/assets/playcoach-logo.png` (same asset used in builder TopNav) and replace the text "PlayCoach" with the `<img>` logo.
+
+### Role Cards Data
 ```text
-firecrawl-profile edge function
-  ├── existing text search (measurables, stats) — unchanged
-  └── NEW image pipeline:
-       ├── Firecrawl search: "[name] [position] [school] action game photo"
-       ├── Collect candidate image URLs from results
-       ├── Call Gemini vision: "Which URL is the best action photo?"
-       └── Return selected URL as imageUrls.actionPhoto
+Athlete   → icon: person,          "Build your identity"                    → active
+Coach     → icon: sports,          "Develop and track athletes"             → coming soon
+Trainer   → icon: exercise,        "Train and measure performance"          → coming soon
+Agency    → icon: business_center, "Manage athletes and partnerships"       → coming soon
 ```
 
-### Changes
-
-**`supabase/functions/firecrawl-profile/index.ts`**
-- Replace the current HTML-scraping image logic (lines 241–324) with:
-  - A Firecrawl search query specifically for photos: `"[name] [position] [school] action game photo"`
-  - Extract image URLs from the search results (from markdown image syntax and HTML img tags)
-  - Call the Lovable AI gateway (Gemini Flash) with the list of candidate URLs, asking: "Which of these image URLs is most likely a high-quality action photo of [name] playing football? Pick the one best suited for a 3:4 portrait card. Return only the URL."
-  - Use the AI-selected URL as `imageUrls.actionPhoto`
-- Keep the school logo branding search as-is (lines 326–361)
-- Keep the headshot extraction from ESPN/roster pages but simplify it
-
-**`src/hooks/useAutoFill.ts`** — No changes needed (already handles `imageUrls` from the edge function)
-
-**`src/features/onboarding/steps/ProfilePreview.tsx`** — No changes needed
-
-### Technical Detail
-- The Gemini call uses `LOVABLE_API_KEY` (already available as a secret) via the AI gateway endpoint
-- Model: `google/gemini-2.5-flash` for speed — it only needs to evaluate a list of URLs and pick one
-- If no good candidate is found, the AI returns empty and no action photo is offered
-- Firecrawl credit cost: 1 additional search (photo-specific) = 1 extra credit per Auto-Fill
-
 ### Files Modified
-- `supabase/functions/firecrawl-profile/index.ts` — replace HTML image scraping with AI-powered image search and selection
+- `src/features/onboarding/steps/RoleSelection.tsx`
+- `src/features/onboarding/OnboardingLayout.tsx`
 
