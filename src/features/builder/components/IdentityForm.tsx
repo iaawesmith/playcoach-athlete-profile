@@ -289,7 +289,7 @@ const SchoolAutocomplete = ({
   }, [value]);
 
   const handleSelect = useCallback((opt: SchoolOption) => {
-    setQuery(opt.name);
+    setQuery(opt.displayName);
     setOpen(false);
     setFocusIndex(-1);
     onSelect(opt);
