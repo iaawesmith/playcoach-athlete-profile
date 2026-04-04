@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
       // High school: require the captured name to start with a capital letter (proper noun)
       // and exclude common false-positive phrases
       const highSchoolMatch = content.match(
-        /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect)([A-Z][A-Za-z0-9\s.'()-]{2,39})/
+        /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect|Natl)([A-Z][A-Za-z0-9 .'()-]{2,39})/
       );
       if (highSchoolMatch && !merged.highSchool) {
         const cleaned = highSchoolMatch[1].trim().replace(/[\[\]|]+$/, "").trim();
