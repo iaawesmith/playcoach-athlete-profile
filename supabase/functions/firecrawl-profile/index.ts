@@ -240,6 +240,7 @@ Deno.serve(async (req: Request) => {
 
     // --- Image extraction via AI-powered search ---
     const imageUrls: Record<string, string> = {};
+    let candidateUrls: string[] = [];
 
     // 1. Dedicated photo search via Firecrawl
     const posLabel = knownFields.position || merged.position || "";
