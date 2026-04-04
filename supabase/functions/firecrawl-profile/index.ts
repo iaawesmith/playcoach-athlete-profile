@@ -330,7 +330,7 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({
             url,
             formats: ["markdown", "html"],
-            onlyMainContent: false,
+            onlyMainContent: true,
           }),
         }).then(async (r) => {
           if (!r.ok) return null;
