@@ -366,7 +366,7 @@ Deno.serve(async (req: Request) => {
           const searchData = await searchResp.json();
           const results: Array<Record<string, unknown>> = searchData.data || [];
           // Filter for reputable sports sources
-          const reputableDomains = /247sports|on3\.com|espn\.com|si\.com|maxpreps|rivals\.com|ncaa\.com|bleacherreport|theathletic|hudl\.com/i;
+          const reputableDomains = /247sports|on3\.com|espn\.com|si\.com|maxpreps|rivals\.com|ncaa\.com|bleacherreport|theathletic/i;
           const fallbackCandidates: ScoredImage[] = [];
 
           for (const r of results) {
