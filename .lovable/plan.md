@@ -1,62 +1,71 @@
 
 
-## Expand Firecrawl Profile to Include ESPN and School Roster Sources
+## Fix Firecrawl Profile Data Parsing
 
-Currently the edge function searches only `site:247sports.com OR site:rivals.com OR site:on3.com`. We'll broaden the search to include ESPN and school roster pages, and add regex patterns for the formats those sites use.
+Three bugs traced to the edge function's regex extraction and a format mismatch with the store.
+
+### Problem Analysis
+
+1. **Height "0 ft 6 in"** — The store expects height as total inches (e.g. `"74"`), but the scraper returns `"6-2"`. `parseInt("6-2")` = `6`, so the form shows 0 ft 6 in.
+2. **Position "S" instead of "QB"** — The regex `Position[:\s]*(QB|RB|...)` grabs the first match across all scraped pages. If a different player's page or a sidebar element mentions "S" first, it wins.
+3. **High school "in Murrieta"** — The regex `High\s*School[:\s]+(.{3,40})` matched markdown text like "High School in Murrieta" — capturing "in Murrieta" instead of the actual school name.
+4. **Jersey number "47"** — The `#(\d{1,3})\b` regex is too greedy and grabs any `#` number from any page.
 
 ### Changes in `supabase/functions/firecrawl-profile/index.ts`
 
-**1. Expand the search query** (around line 41-43)
-
-Add `site:espn.com` and remove the site restriction for one of the search slots so school `.edu` roster pages can surface:
-
-```
-const searchQuery = school
-  ? `${name} ${school} football roster profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com`
-  : `${name} football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com`;
-```
-
-Also increase the search `limit` from 3 to 5 to capture more sources.
-
-**2. Add a second search for school roster pages** — a separate Firecrawl search call:
-
-```
-const rosterQuery = school
-  ? `${name} ${school} football roster`
-  : null;
-```
-
-If `school` is provided, run a second search (limit 2) without site restrictions so `.edu` roster pages can appear. Merge results into the same extraction pipeline.
-
-**3. Add regex patterns for ESPN and roster page formats**
-
-ESPN uses patterns like `HT/WT: 6-2, 195 lbs` and school rosters often use table formats like `Ht.: 6-2 | Wt.: 195`. Add:
+**Convert height to total inches before returning.** After all regex extraction is done, if `merged.height` is in `X-Y` or `X'Y"` format, convert to total inches:
 
 ```typescript
-// ESPN-style combined HT/WT
-const htwtMatch = content.match(/HT\/WT[:\s]*(\d+['-]\d+)[,\s]+(\d+)\s*lbs/i);
-if (htwtMatch) {
-  if (!merged.height) merged.height = htwtMatch[1];
-  if (!merged.weight) merged.weight = htwtMatch[2];
+// Normalize height to total inches for the store
+if (merged.height) {
+  const h = String(merged.height);
+  const dashMatch = h.match(/^(\d+)['-](\d+)$/);
+  if (dashMatch) {
+    merged.height = String(parseInt(dashMatch[1], 10) * 12 + parseInt(dashMatch[2], 10));
+  }
 }
-
-// Roster-style Ht./Wt.
-const htMatch2 = content.match(/Ht\.?[:\s]*(\d+['-]\d+)/i);
-if (htMatch2 && !merged.height) merged.height = htMatch2[1];
-
-const wtMatch2 = content.match(/Wt\.?[:\s]*(\d+)/i);
-if (wtMatch2 && !merged.weight) merged.weight = wtMatch2[1];
-
-// Jersey number from roster
-const jerseyMatch = content.match(/#(\d{1,3})\b/);
-if (jerseyMatch && !merged.number) merged.number = jerseyMatch[1];
 ```
 
-**4. Update the loading text in `ScrapeFill.tsx`** (line 138)
+**Improve position regex** — require the position to appear in a structured context (not just anywhere in the text). Add the athlete's name as a proximity check: only accept position from content that also contains the athlete's first or last name nearby. Also move position matching to prefer pages whose URL contains the athlete name:
 
-Change "Searching 247Sports, Rivals, and On3" to "Searching recruiting sites, ESPN, and school rosters" for accuracy.
+```typescript
+// More specific position patterns
+const posMatch = content.match(
+  /(?:Position|Pos\.?)\s*[:\-]\s*(QB|RB|WR|TE|OL|OT|OG|C|DL|DE|DT|LB|CB|S|FS|SS|K|P|FB|LS|ATH)\b/i
+);
+```
+
+Also: skip the single-letter position "S" — it's too ambiguous. Map `FS`/`SS` to `S`, but don't accept bare `S` as a position match from a `Position:` label. Instead require at least 2 characters or a known full form.
+
+**Fix high school regex** — reject matches that start with prepositions like "in", "at", "from":
+
+```typescript
+const highSchoolMatch = content.match(
+  /High\s*School[:\s]+(?!in\b|at\b|from\b)([A-Za-z0-9\s.'()-]{3,40})/i
+);
+```
+
+**Strip "lbs" from weight** so it stores cleanly as a number string.
+
+**Validate jersey number** — only accept `#` numbers from lines that also contain the athlete's name, to avoid grabbing random `#47` from other content.
+
+### Changes in `src/features/builder/components/ScrapeFill.tsx`
+
+Add a display formatter so height shows as `6'2"` in the review list instead of `74`:
+
+```typescript
+const formatDisplayValue = (field: FieldKey, val: unknown): string => {
+  if (field === "height") {
+    const total = parseInt(String(val), 10);
+    if (total > 11) return `${Math.floor(total / 12)}'${total % 12}"`;
+  }
+  return String(val ?? "");
+};
+```
+
+Use this in the results list instead of raw `String(scrapedData?.[field])`.
 
 ### Files modified
-- `supabase/functions/firecrawl-profile/index.ts` — broader search query, second roster search, additional regex patterns
-- `src/features/builder/components/ScrapeFill.tsx` — updated status text
+- `supabase/functions/firecrawl-profile/index.ts` — height conversion, improved position/highSchool/jersey regex, weight cleanup
+- `src/features/builder/components/ScrapeFill.tsx` — display formatter for height in review list
 
