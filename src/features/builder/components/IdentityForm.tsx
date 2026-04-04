@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
 import { universities, type University } from "@/data/universities";
-import { ScrapeFill } from "./ScrapeFill";
+
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
 const classYears = ["2024", "2025", "2026", "2027", "2028", "2029", "2030"];
@@ -577,7 +577,7 @@ export const IdentityForm = () => {
           <section>
            <SectionHeader title="Your Identity" />
             <div className="space-y-4">
-              <ScrapeFill />
+              
               <div className="grid grid-cols-2 gap-4">
                 <InputCard label="First Name" value={firstName} onChange={(v) => setAthlete({ firstName: v })} placeholder="Your" />
                 <InputCard label="Last Name" value={lastName} onChange={(v) => setAthlete({ lastName: v })} placeholder="Name" />
