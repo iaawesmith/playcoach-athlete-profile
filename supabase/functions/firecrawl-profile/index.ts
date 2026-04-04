@@ -208,7 +208,7 @@ Deno.serve(async (req: Request) => {
         sources.push("CFBD Recruiting");
         if (rMatch.stars && !merged.starRating) merged.starRating = rMatch.stars;
         if (rMatch.ranking && !merged.nationalRank) merged.nationalRank = rMatch.ranking;
-        if (rMatch.city && rMatch.state_province && !merged.hometown) merged.hometown = `${rMatch.city}, ${rMatch.state_province}`;
+        if (rMatch.city && rMatch.stateProvince && !merged.hometown) merged.hometown = `${rMatch.city}, ${rMatch.stateProvince}`;
       }
     }
 
