@@ -222,6 +222,15 @@ export function useAutoFill() {
       }
     }
 
+    // Revert any live-previewed images the user unchecked
+    const previewedImageKeys: (keyof ImageUrls)[] = ["actionPhoto", "schoolLogo"];
+    for (const imgKey of previewedImageKeys) {
+      if (imageUrls?.[imgKey] && !selectedImages.has(imgKey)) {
+        const storeKey = imageStoreKeys[imgKey];
+        update[storeKey] = originalValues.current[storeKey] ?? null;
+      }
+    }
+
     setAthlete(update as Partial<Parameters<typeof setAthlete>[0]>);
     setStatus("done");
   }, [scrapedData, imageUrls, selectedFields, selectedImages, firstName, lastName, setAthlete]);
