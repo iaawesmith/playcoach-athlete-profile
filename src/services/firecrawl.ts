@@ -90,6 +90,14 @@ export const firecrawlApi = {
     return data;
   },
 
+  async fetchSchoolLogo(school: string): Promise<{ success: boolean; logoUrl?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("firecrawl-school-logo", {
+      body: { school },
+    });
+    if (error) return { success: false, error: error.message };
+    return data as { success: boolean; logoUrl?: string; error?: string };
+  },
+
   async fetchAthleteProfile(
     name: string,
     school?: string,
