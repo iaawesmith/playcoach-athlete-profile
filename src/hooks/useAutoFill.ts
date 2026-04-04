@@ -80,6 +80,7 @@ export function useAutoFill() {
   // Action photo candidate cycling
   const [actionPhotoCandidates, setActionPhotoCandidates] = useState<string[]>([]);
   const [activeActionPhotoIndex, setActiveActionPhotoIndex] = useState(0);
+  const [failedCandidates, setFailedCandidates] = useState<Set<string>>(new Set());
   const originalValues = useRef<Record<string, unknown>>({});
 
   const fullName = `${firstName} ${lastName}`.trim();
