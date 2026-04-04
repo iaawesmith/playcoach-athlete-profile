@@ -242,7 +242,11 @@ export function ProfilePreview() {
                             src={url}
                             alt={imageLabels[imgKey]}
                             className="w-full h-full object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            onError={() => {
+                              if (isActionPhoto && autoFill.hasMultipleActionPhotos) {
+                                autoFill.nextActionPhoto();
+                              }
+                            }}
                           />
                           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
                             <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface">
