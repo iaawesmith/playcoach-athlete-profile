@@ -8,6 +8,7 @@ import {
   imageLabels,
   formatDisplayValue,
 } from "@/hooks/useAutoFill";
+import { ProCard } from "@/features/builder/components/ProCard";
 
 const STATUS_MESSAGES = [
   "Searching 247Sports, Rivals, On3...",
