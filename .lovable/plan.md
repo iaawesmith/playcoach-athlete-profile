@@ -1,71 +1,62 @@
 
 
-## Firecrawl Integration — Full Scraping Pipeline
+## Expand Firecrawl Profile to Include ESPN and School Roster Sources
 
-Firecrawl is now connected. Here's the plan to build a scraping pipeline that auto-populates athlete profile fields from recruiting sites, school pages, and news mentions.
+Currently the edge function searches only `site:247sports.com OR site:rivals.com OR site:on3.com`. We'll broaden the search to include ESPN and school roster pages, and add regex patterns for the formats those sites use.
 
-### Architecture
+### Changes in `supabase/functions/firecrawl-profile/index.ts`
 
-```text
-┌─────────────┐      ┌──────────────────────┐      ┌───────────────┐
-│  Frontend    │ ───► │  Edge Functions       │ ───► │  Firecrawl    │
-│  (scrape UI) │      │  firecrawl-scrape     │      │  API v1       │
-│              │      │  firecrawl-search     │      │               │
-│              │      │  firecrawl-profile    │      │               │
-└─────────────┘      └──────────────────────┘      └───────────────┘
-       │                        │
-       ▼                        ▼
-  athleteStore           AI extraction
-  (auto-populate)        (parse fields)
+**1. Expand the search query** (around line 41-43)
+
+Add `site:espn.com` and remove the site restriction for one of the search slots so school `.edu` roster pages can surface:
+
+```
+const searchQuery = school
+  ? `${name} ${school} football roster profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com`
+  : `${name} football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com`;
 ```
 
-### 1. Edge Functions (4 functions)
+Also increase the search `limit` from 3 to 5 to capture more sources.
 
-**`supabase/functions/firecrawl-scrape/index.ts`** — General single-URL scrape. Accepts URL + format options, returns markdown/html/screenshot.
+**2. Add a second search for school roster pages** — a separate Firecrawl search call:
 
-**`supabase/functions/firecrawl-search/index.ts`** — Web search with optional scraping. Used for finding athlete mentions, news articles.
+```
+const rosterQuery = school
+  ? `${name} ${school} football roster`
+  : null;
+```
 
-**`supabase/functions/firecrawl-crawl/index.ts`** — Multi-page crawl for school athletics sites (rosters, schedules).
+If `school` is provided, run a second search (limit 2) without site restrictions so `.edu` roster pages can appear. Merge results into the same extraction pipeline.
 
-**`supabase/functions/firecrawl-profile/index.ts`** — Smart profile scraper. Accepts athlete name + school, uses Firecrawl search to find 247Sports/Rivals/MaxPreps pages, scrapes them with JSON extraction format to pull structured data (star rating, rankings, measurables, stats, height, weight, 40 time, hometown, high school). Returns a normalized object matching athleteStore fields.
+**3. Add regex patterns for ESPN and roster page formats**
 
-### 2. Frontend API Layer
+ESPN uses patterns like `HT/WT: 6-2, 195 lbs` and school rosters often use table formats like `Ht.: 6-2 | Wt.: 195`. Add:
 
-**`src/services/firecrawl.ts`** — Client-side API wrapper with typed methods:
-- `scrape(url, options)` — single URL scrape
-- `search(query, options)` — web search
-- `crawl(url, options)` — multi-page crawl
-- `fetchAthleteProfile(name, school)` — calls the smart profile edge function, returns structured athlete data
+```typescript
+// ESPN-style combined HT/WT
+const htwtMatch = content.match(/HT\/WT[:\s]*(\d+['-]\d+)[,\s]+(\d+)\s*lbs/i);
+if (htwtMatch) {
+  if (!merged.height) merged.height = htwtMatch[1];
+  if (!merged.weight) merged.weight = htwtMatch[2];
+}
 
-### 3. Builder Integration
+// Roster-style Ht./Wt.
+const htMatch2 = content.match(/Ht\.?[:\s]*(\d+['-]\d+)/i);
+if (htMatch2 && !merged.height) merged.height = htMatch2[1];
 
-**`src/features/builder/components/ScrapeFill.tsx`** — A button/panel in the Identity editor that triggers `fetchAthleteProfile()` using the athlete's name + school from the store. Shows a loading state, then presents scraped data for the athlete to review and accept (auto-populates store fields like height, weight, 40 time, star rating, rankings, hometown, high school, bio draft).
+const wtMatch2 = content.match(/Wt\.?[:\s]*(\d+)/i);
+if (wtMatch2 && !merged.weight) merged.weight = wtMatch2[1];
 
-Flow:
-1. Athlete enters name + school in CoreSetup or Identity
-2. Clicks "Auto-Fill from Web" button
-3. Edge function searches 247Sports/Rivals for their profile
-4. Scrapes the page with JSON extraction schema
-5. Returns structured data
-6. UI shows preview of found data with checkboxes
-7. Athlete confirms which fields to import → `setAthlete()` updates store
+// Jersey number from roster
+const jerseyMatch = content.match(/#(\d{1,3})\b/);
+if (jerseyMatch && !merged.number) merged.number = jerseyMatch[1];
+```
 
-### 4. Data Sources & Field Mapping
+**4. Update the loading text in `ScrapeFill.tsx`** (line 138)
 
-| Source | Fields Extracted |
-|--------|-----------------|
-| 247Sports / Rivals | starRating, nationalRank, positionRank, height, weight, hometown, highSchool |
-| School athletics site | roster confirmation, jersey number, class year, position, bio |
-| News / social search | recent mentions, highlight links |
+Change "Searching 247Sports, Rivals, and On3" to "Searching recruiting sites, ESPN, and school rosters" for accuracy.
 
-### Files Created
-- `supabase/functions/firecrawl-scrape/index.ts`
-- `supabase/functions/firecrawl-search/index.ts`
-- `supabase/functions/firecrawl-crawl/index.ts`
-- `supabase/functions/firecrawl-profile/index.ts`
-- `src/services/firecrawl.ts`
-- `src/features/builder/components/ScrapeFill.tsx`
-
-### Files Modified
-- `src/features/builder/components/IdentityForm.tsx` — add ScrapeFill button/panel
+### Files modified
+- `supabase/functions/firecrawl-profile/index.ts` — broader search query, second roster search, additional regex patterns
+- `src/features/builder/components/ScrapeFill.tsx` — updated status text
 
