@@ -63,7 +63,7 @@ export function RoleSelection() {
         I Am A...
       </h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
         {ROLES.map((r) => {
           const isAthlete = r.role === "athlete";
           const isSelected = role === r.role;
@@ -72,7 +72,7 @@ export function RoleSelection() {
               key={r.role}
               onClick={() => handleSelect(r)}
               disabled={r.comingSoon}
-              className={`flex flex-col items-center gap-4 px-16 py-6 rounded-xl border transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center gap-4 w-full min-h-[200px] py-6 rounded-xl border transition-all duration-200 ${
                 r.comingSoon
                   ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
                   : isSelected
