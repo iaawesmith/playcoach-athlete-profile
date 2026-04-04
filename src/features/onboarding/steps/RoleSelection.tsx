@@ -102,7 +102,7 @@ export function RoleSelection() {
                   Coming Soon
                 </span>
               ) : (
-                <span className="invisible text-[9px] self-end">.</span>
+                <span className="invisible text-[9px] self-end justify-self-center">.</span>
               )}
             </button>
           );
