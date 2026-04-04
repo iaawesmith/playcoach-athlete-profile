@@ -553,7 +553,7 @@ If none pass, return: []`,
       }
     }
 
-    // Validate candidate URLs are actual renderable images via HEAD requests
+    // ===== URL VALIDATION: Verify candidate URLs are actual renderable images =====
     const validateImageUrl = async (url: string): Promise<boolean> => {
       try {
         // Some CDN crop URLs don't support HEAD — try GET with range header
