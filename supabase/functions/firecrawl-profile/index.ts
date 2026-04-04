@@ -359,7 +359,7 @@ Deno.serve(async (req: Request) => {
             while ((m = dataSrcRegex.exec(html)) !== null) {
               const src = m[1];
               if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
-              if (src.length < 30) continue;
+              if (src.length < 30 || isTinyImage(src)) continue;
               if (!candidateUrls.includes(src)) candidateUrls.push(src);
             }
           }
