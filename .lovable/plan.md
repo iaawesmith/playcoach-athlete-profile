@@ -1,23 +1,29 @@
 
 
-## Add Teal Hover Effect to Active Sport Cards
+## Fix: Unchecking School Logo Doesn't Remove It
 
-### Change
-Apply the same teal styling from RoleSelection and AthleteTier to the active "Football" card in SportSelection.
+### Problem
+When scrape results come back, `schoolLogoUrl` is immediately set on the athlete store as a live preview (line 128-129 of `useAutoFill.ts`). When the user unchecks the school logo checkbox and clicks "Apply Selected," the `apply` function only uploads and sets images that are in `selectedImages` — it never removes the previewed logo that was already written to the store. So the logo persists into Brand HQ.
 
-**`src/features/onboarding/steps/SportSelection.tsx`**
+### Fix
 
-1. **Line 49** — Change the default active (non-selected) card styling from:
-   `border-outline-variant/10 bg-surface-container-high hover:border-outline-variant/30`
-   to:
-   `border-[#50C4CA]/40 bg-[rgba(80,196,202,0.05)] hover:border-[#50C4CA]/60`
+**`src/hooks/useAutoFill.ts`** — in the `apply` callback (~line 191-225):
 
-2. **Line 59** — Update icon color to show teal for all active cards:
-   `color: s.active ? "#50C4CA" : undefined` (instead of only when selected)
+After processing `selectedImages`, add a cleanup step: for any image key that was previewed but is NOT in `selectedImages`, restore the original value from `originalValues.current`.
 
-3. **Line 63** — Update label text to teal for active cards:
-   Add `style={{ color: s.active ? "#50C4CA" : undefined }}`
+```typescript
+// After the selectedImages loop, revert any live-previewed images the user unchecked
+const previewedImageKeys: (keyof ImageUrls)[] = ["actionPhoto", "schoolLogo"];
+for (const imgKey of previewedImageKeys) {
+  if (imageUrls?.[imgKey] && !selectedImages.has(imgKey)) {
+    const storeKey = imageStoreKeys[imgKey];
+    update[storeKey] = originalValues.current[storeKey] ?? null;
+  }
+}
+```
+
+This ensures that if the user unchecks school logo (or action photo), the store reverts to whatever value existed before the scrape ran.
 
 ### Files Modified
-- `src/features/onboarding/steps/SportSelection.tsx`
+- `src/hooks/useAutoFill.ts`
 
