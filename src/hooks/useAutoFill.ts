@@ -226,8 +226,8 @@ export function useAutoFill() {
       })
     : [];
 
-  const availableImages = imageUrls
-    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => k !== "schoolLogo" && !!imageUrls[k])
+  const availableImages = imageUrls?.actionPhoto
+    ? (["actionPhoto"] as (keyof ImageUrls)[])
     : [];
 
   return {
