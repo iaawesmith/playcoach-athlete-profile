@@ -11,7 +11,7 @@ export function lookupSchoolLogo(query: string): string | null {
   const match = schools.find(s =>
     s.s.toLowerCase() === q ||
     s.a.toLowerCase() === q ||
-    s.n.some(n => n.toLowerCase() === q) ||
+    s.n.some(n => n.toLowerCase() === q || q.includes(n.toLowerCase()) || n.toLowerCase().includes(q)) ||
     s.s.toLowerCase().includes(q) ||
     q.includes(s.s.toLowerCase())
   );

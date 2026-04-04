@@ -1685,7 +1685,7 @@ export function findSchoolLogo(query: string): SchoolLogo | null {
     s.school.toLowerCase() === q ||
     s.abbreviation.toLowerCase() === q ||
     s.mascot.toLowerCase() === q ||
-    s.altNames.some(a => a.toLowerCase() === q) ||
+    s.altNames.some(a => a.toLowerCase() === q || q.includes(a.toLowerCase()) || a.toLowerCase().includes(q)) ||
     s.school.toLowerCase().includes(q) ||
     q.includes(s.school.toLowerCase())
   ) ?? null;
