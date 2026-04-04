@@ -5,7 +5,7 @@ import { useAthleteStore } from "@/store/athleteStore";
 import { universities, type University } from "@/data/universities";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "FB"];
-const CLASS_YEARS = ["2025", "2026", "2027", "2028", "2029"];
+const CLASS_YEARS = ["2023", "2024", "2025", "2026", "2027", "2028", "2029"];
 
 export function CoreSetup() {
   const navigate = useNavigate();
