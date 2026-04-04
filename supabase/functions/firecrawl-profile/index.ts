@@ -361,54 +361,28 @@ If none are likely photos of ${name}, respond with: []`;
       // Non-critical — continue without photos
     }
 
-    // 2. School logo via robust multi-strategy search
-    if (school && apiKey) {
+    // 2. School logo via ESPN CDN static lookup
+    if (school) {
       try {
-        let foundLogo: string | null = null;
-        const authHdrs = {
-          "Authorization": "Bearer " + apiKey,
-          "Content-Type": "application/json",
-        };
-
-        // Strategy 1: SportsLogos.net — most reliable for NCAA logos
-        const slQuery = `site:sportslogos.net ${school} logo`;
-        const slRes = await fetch("https://api.firecrawl.dev/v1/search", {
-          method: "POST",
-          headers: authHdrs,
-          body: JSON.stringify({
-            query: slQuery,
-            limit: 3,
-            scrapeOptions: { formats: ["markdown"] },
-          }),
-        });
-
-        if (slRes.ok) {
-          const slData = await slRes.json();
-          if (slData.data?.length) {
-            for (const result of slData.data) {
-              const md = result.markdown || "";
-              const imgMatch = md.match(/https?:\/\/content\.sportslogos\.net\/logos\/[^\s)"\]]+\.(png|gif|svg)/i);
-              if (imgMatch) {
-                foundLogo = imgMatch[0].replace("/thumbs/", "/full/");
-                break;
-              }
-            }
-          }
-        }
-
-        // Strategy 2: Search for athletics site and extract branding
-        if (!foundLogo) {
-          const logoSearchQuery = `${school} athletics official logo`;
+        const { lookupSchoolLogo } = await import("../_shared/espnLogos.ts");
+        const espnLogo = lookupSchoolLogo(school);
+        if (espnLogo) {
+          imageUrls.schoolLogo = espnLogo;
+        } else if (apiKey) {
+          // Fallback: Firecrawl branding search for non-NCAA schools
+          const authHdrs = {
+            "Authorization": "Bearer " + apiKey,
+            "Content-Type": "application/json",
+          };
           const logoSearchRes = await fetch("https://api.firecrawl.dev/v1/search", {
             method: "POST",
             headers: authHdrs,
             body: JSON.stringify({
-              query: logoSearchQuery,
+              query: `${school} athletics official logo`,
               limit: 3,
               scrapeOptions: { formats: ["links"] },
             }),
           });
-
           if (logoSearchRes.ok) {
             const logoSearchData = await logoSearchRes.json();
             if (logoSearchData.data?.length) {
@@ -423,55 +397,11 @@ If none are likely photos of ${name}, respond with: []`;
                 const branding = scrapeData.data?.branding || scrapeData.branding;
                 const logoUrl = branding?.images?.logo || branding?.logo || branding?.images?.favicon;
                 if (logoUrl && String(logoUrl).startsWith("http")) {
-                  foundLogo = logoUrl;
+                  imageUrls.schoolLogo = String(logoUrl);
                 }
               }
             }
           }
-        }
-
-        // Strategy 3: Fallback — search for logo png transparent
-        if (!foundLogo) {
-          const fallbackQuery = `${school} logo png transparent`;
-          const fallbackRes = await fetch("https://api.firecrawl.dev/v1/search", {
-            method: "POST",
-            headers: authHdrs,
-            body: JSON.stringify({
-              query: fallbackQuery,
-              limit: 5,
-              scrapeOptions: { formats: ["links"] },
-            }),
-          });
-
-          if (fallbackRes.ok) {
-            const fallbackData = await fallbackRes.json();
-            if (fallbackData.data?.length) {
-              for (const result of fallbackData.data.slice(0, 2)) {
-                try {
-                  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-                    method: "POST",
-                    headers: authHdrs,
-                    body: JSON.stringify({ url: result.url, formats: ["branding"] }),
-                  });
-                  if (res.ok) {
-                    const data = await res.json();
-                    const branding = data.data?.branding || data.branding;
-                    const logoUrl = branding?.images?.logo || branding?.logo || branding?.images?.favicon;
-                    if (logoUrl && String(logoUrl).startsWith("http")) {
-                      foundLogo = logoUrl;
-                      break;
-                    }
-                  }
-                } catch {
-                  // continue to next result
-                }
-              }
-            }
-          }
-        }
-
-        if (foundLogo) {
-          imageUrls.schoolLogo = foundLogo;
         }
       } catch (_logoErr) {
         // Non-critical
