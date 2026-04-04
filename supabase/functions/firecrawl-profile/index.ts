@@ -238,155 +238,110 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // --- Image extraction via AI-powered search ---
+    // --- Image extraction: three isolated pipelines ---
     const imageUrls: Record<string, string> = {};
     let candidateUrls: string[] = [];
 
     const posLabel = knownFields.position || merged.position || "";
     const jerseyNum = knownFields.number || merged.number || "";
-    const jerseyTag = jerseyNum ? ` #${jerseyNum}` : "";
 
-    // Two targeted searches for better coverage
-    const identityQuery = `${name}${jerseyTag} ${school} football`.trim();
-    const photoQuery = `${name} ${posLabel} ${school} football action photo game`.trim();
+    const authHdrs = {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json",
+    };
 
+    // ===== PIPELINE 1: Roster Headshot → Profile Photo =====
     try {
-      const authHdrs = {
-        "Authorization": "Bearer " + apiKey,
-        "Content-Type": "application/json",
-      };
+      // Find the athlete's individual roster page from sources
+      const rosterUrl = sources.find((s) =>
+        /roster\/.*\d+$/i.test(s) || /player\//i.test(s)
+      );
 
-      // Run both searches in parallel
-      const [identityResp, photoResp] = await Promise.all([
-        fetch("https://api.firecrawl.dev/v1/search", {
+      if (rosterUrl) {
+        const rosterScrapeResp = await fetch("https://api.firecrawl.dev/v1/scrape", {
           method: "POST",
           headers: authHdrs,
           body: JSON.stringify({
-            query: identityQuery,
-            limit: 4,
-            scrapeOptions: { formats: ["markdown"] },
-          }),
-        }),
-        fetch("https://api.firecrawl.dev/v1/search", {
-          method: "POST",
-          headers: authHdrs,
-          body: JSON.stringify({
-            query: photoQuery,
-            limit: 8,
-            scrapeOptions: { formats: ["markdown"] },
-          }),
-        }),
-      ]);
-
-      const allPhotoResults: Array<Record<string, unknown>> = [];
-      if (identityResp.ok) {
-        const d = await identityResp.json();
-        allPhotoResults.push(...(d.data || []));
-      }
-      if (photoResp.ok) {
-        const d = await photoResp.json();
-        allPhotoResults.push(...(d.data || []));
-      }
-
-      // Identify high-value URLs for direct scraping — prioritize individual player pages
-      // Also include URLs from the initial text search (sources array)
-      const allUrls = new Set<string>();
-      for (const pr of allPhotoResults) {
-        const pageUrl = String(pr.url || "");
-        if (pageUrl) allUrls.add(pageUrl);
-      }
-      for (const s of sources) {
-        allUrls.add(s);
-      }
-
-      // Prioritize: individual athlete pages first, then recruiting profiles
-      const playerPagePatterns = [
-        /roster\/.*\d+$/i,           // e.g. utahutes.com/roster/devon-dampier/17509
-        /player\/.*\d+\/?$/i,        // e.g. 247sports.com/player/devon-dampier-46112767/
-        /rivals\.com\/.*\/$/i,       // e.g. on3.com/rivals/devon-dampier-36365/
-        /espn\.com\/.*player\//i,    // e.g. espn.com/college-football/player/...
-      ];
-      const generalPatterns = [
-        /on3\.com/i,
-        /maxpreps\.com/i,
-      ];
-
-      const priorityUrls: string[] = [];
-      const secondaryUrls: string[] = [];
-      for (const url of allUrls) {
-        if (playerPagePatterns.some((p) => p.test(url))) {
-          priorityUrls.push(url);
-        } else if (generalPatterns.some((p) => p.test(url))) {
-          secondaryUrls.push(url);
-        }
-      }
-      
-      // Scrape up to 3 URLs: priority first, then secondary
-      const scrapeTargets = [...priorityUrls, ...secondaryUrls].slice(0, 3);
-      const scrapePromises = scrapeTargets.map((url) =>
-        fetch("https://api.firecrawl.dev/v1/scrape", {
-          method: "POST",
-          headers: authHdrs,
-          body: JSON.stringify({
-            url,
-            formats: ["markdown", "html"],
+            url: rosterUrl,
+            formats: ["html"],
             onlyMainContent: true,
           }),
-        }).then(async (r) => {
-          if (!r.ok) return null;
-          const d = await r.json();
-          return d.data || d;
-        }).catch(() => null)
-      );
-      const scrapedPages = await Promise.all(scrapePromises);
+        });
 
-      // Helper: extract image URLs from markdown and HTML content
-      const extractImages = (md: string, html: string): string[] => {
-        const imgs: string[] = [];
-        // Markdown images
-        const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-        let m;
-        while ((m = mdImgRegex.exec(md)) !== null) {
-          imgs.push(m[1]);
-        }
-        // HTML <img> tags
-        const htmlImgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
-        while ((m = htmlImgRegex.exec(html)) !== null) {
-          imgs.push(m[1]);
-        }
-        return imgs;
-      };
+        if (rosterScrapeResp.ok) {
+          const rosterData = await rosterScrapeResp.json();
+          const html = String(rosterData.data?.html || rosterData.html || "");
 
-      // Filter helper for candidate URLs — skip only truly tiny utility images
-      const isUtilityImage = (src: string): boolean => {
-        if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent/i.test(src)) return true;
-        if (src.length < 30) return true;
-        // Skip explicitly tiny thumbnails (width or height <= 60)
-        if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) return true;
-        return false;
-      };
+          // Extract large images from the individual roster page
+          const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*/gi;
+          let match;
+          const rosterImages: string[] = [];
+          while ((match = imgRegex.exec(html)) !== null) {
+            const src = match[1];
+            // Skip tiny utility images
+            if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent/i.test(src)) continue;
+            if (src.length < 30) continue;
+            // Skip explicitly tiny images
+            if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
+            rosterImages.push(src);
+          }
 
-      // Collect from search preview markdown
-      for (const pr of allPhotoResults) {
-        const md = (pr.markdown || (pr.data as Record<string, unknown>)?.markdown || "") as string;
-        const rawImgs = extractImages(md, "");
-        for (let src of rawImgs) {
-          if (isUtilityImage(src)) continue;
-          src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
-          if (!candidateUrls.includes(src)) candidateUrls.push(src);
+          // The first large image on an individual player roster page is the headshot
+          if (rosterImages.length > 0) {
+            // Prefer images with the athlete's name in the URL
+            const nameTokens = name.toLowerCase().split(/\s+/);
+            const namedImg = rosterImages.find((u) => {
+              const uLower = decodeURIComponent(u).toLowerCase();
+              return nameTokens.some((t) => uLower.includes(t));
+            });
+            imageUrls.headshot = namedImg || rosterImages[0];
+          }
         }
       }
+    } catch (_headshotErr) {
+      // Non-critical
+    }
 
-      // Collect from directly scraped pages (much richer image content)
-      for (const page of scrapedPages) {
-        if (!page) continue;
-        const md = String(page.markdown || "");
-        const html = String(page.html || "");
-        const rawImgs = extractImages(md, html);
-        for (let src of rawImgs) {
-          if (isUtilityImage(src)) continue;
-          src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
-          if (!candidateUrls.includes(src)) candidateUrls.push(src);
+    // ===== PIPELINE 2: Action Photos via Google Images Scrape =====
+    try {
+      const jerseyTag = jerseyNum ? ` #${jerseyNum}` : "";
+      const googleQuery = `${name}${jerseyTag} ${posLabel} ${school} football action photo game`.trim();
+      const googleImagesUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}&tbm=isch&hl=en`;
+
+      const googleScrapeResp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: authHdrs,
+        body: JSON.stringify({
+          url: googleImagesUrl,
+          formats: ["html"],
+          waitFor: 2000,
+        }),
+      });
+
+      if (googleScrapeResp.ok) {
+        const googleData = await googleScrapeResp.json();
+        const html = String(googleData.data?.html || googleData.html || "");
+
+        // Extract image URLs from Google Images HTML
+        // Google uses data-src, data-iurl, and src attributes
+        const patterns = [
+          /data-iurl=["']([^"']+)["']/gi,
+          /data-src=["'](https?:\/\/[^"']+)["']/gi,
+          /<img[^>]+src=["'](https?:\/\/(?!www\.google|encrypted-tbn|www\.gstatic|ssl\.gstatic)[^"']+)["']/gi,
+        ];
+
+        const seen = new Set<string>();
+        for (const pattern of patterns) {
+          let m;
+          while ((m = pattern.exec(html)) !== null) {
+            const src = m[1];
+            if (seen.has(src)) continue;
+            seen.add(src);
+            // Skip Google's own assets and tiny images
+            if (/gstatic\.com|google\.com\/images|favicon|pixel|\.gif|\.svg/i.test(src)) continue;
+            if (src.length < 30) continue;
+            candidateUrls.push(src);
+          }
         }
       }
 
@@ -406,8 +361,7 @@ Deno.serve(async (req: Request) => {
       if (candidateUrls.length > 0) {
         const lovableKey = Deno.env.get("LOVABLE_API_KEY");
         if (lovableKey) {
-          // Build multimodal content parts: text prompt + image URLs
-          const imagesToCheck = candidateUrls.slice(0, 12);
+          const imagesToCheck = candidateUrls.slice(0, 15);
           const contentParts: Array<Record<string, unknown>> = [
             {
               type: "text",
@@ -469,30 +423,18 @@ If none pass, return: []`,
               }
             }
           } catch (_aiErr) {
-            // Non-critical — fall through to URL-based fallback
+            // Non-critical — fall through to fallback
           }
         }
 
         // Fallback: if vision didn't pick, use first large jpg/webp candidate
         if (!imageUrls.actionPhoto) {
-          const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp)/i.test(u));
+          const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp|png)/i.test(u));
           if (fallback) imageUrls.actionPhoto = fallback;
         }
       }
-
-      // Try to find a headshot from ESPN results
-      const espnResult = allPhotoResults.find((r: Record<string, unknown>) =>
-        String(r.url || "").includes("espn.com")
-      );
-      if (espnResult) {
-        const md = (espnResult.markdown || "") as string;
-        const espnImgMatch = md.match(/!\[[^\]]*\]\((https:\/\/a\.espncdn\.com[^)]+)\)/);
-        if (espnImgMatch && !imageUrls.headshot) {
-          imageUrls.headshot = espnImgMatch[1];
-        }
-      }
-    } catch (_photoErr) {
-      // Non-critical — continue without photos
+    } catch (_actionErr) {
+      // Non-critical — continue without action photos
     }
 
     // 2. School logo via ESPN CDN static lookup
