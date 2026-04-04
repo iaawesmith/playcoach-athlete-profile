@@ -18,28 +18,6 @@ const STATUS_MESSAGES = [
   "Analyzing results...",
 ];
 
-function computeCompletion(store: ReturnType<typeof useAthleteStore.getState>): number {
-  let score = 0;
-  let total = 0;
-
-  const add = (weight: number, filled: boolean) => {
-    total += weight;
-    if (filled) score += weight;
-  };
-
-  add(15, !!(store.firstName && store.lastName));
-  add(10, !!store.position);
-  add(10, !!store.school);
-  add(15, store.bio.length >= 20);
-  add(20, !!store.actionPhotoUrl);
-  add(10, !!store.schoolLogoUrl);
-  add(5, store.teamColor !== "#50C4CA" && store.teamColor !== "#00e639");
-  add(5, !!(store.number && store.classYear));
-  add(5, !!(store.fortyTime || store.vertical || store.wingspan));
-  add(5, !!store.commitmentStatus);
-
-  return total > 0 ? Math.round((score / total) * 100) : 0;
-}
 
 function AnimatedPct({ target }: { target: number }) {
   const [current, setCurrent] = useState(0);
