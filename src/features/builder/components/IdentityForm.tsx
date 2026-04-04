@@ -680,25 +680,41 @@ export const IdentityForm = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <SchoolAutocomplete
+              <SchoolAutocomplete
                   value={school}
-                  onSelect={(uni) => {
+                  onSelect={(opt) => {
                     setAthlete({
-                      school: uni.name,
-                      schoolAbbrev: uni.abbrev,
-                      teamColor: uni.primaryColor,
+                      school: opt.name,
+                      schoolAbbrev: opt.abbrev,
+                      teamColor: opt.primaryColor,
+                      schoolLogoUrl: opt.logoUrl,
                     });
-                    autoFetchSchoolLogo(uni.name);
+                    // Fallback: if CFBD had no logo, try firecrawl
+                    if (!opt.logoUrl) {
+                      autoFetchSchoolLogo(opt.name);
+                    }
                   }}
                   onManualChange={(v) => {
                     if (v === "") {
-                      setAthlete({ school: "", schoolAbbrev: "", teamColor: "#50C4CA" });
+                      setAthlete({ school: "", schoolAbbrev: "", teamColor: "#50C4CA", schoolLogoUrl: null });
                     } else {
                       setAthlete({ school: v });
                     }
                   }}
                 />
+
+              {/* Advanced color customization toggle */}
+              <button
+                type="button"
+                onClick={() => setShowColorOverride((p) => !p)}
+                className="flex items-center gap-2 text-on-surface-variant/60 hover:text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest transition-colors duration-200 mt-1"
+              >
+                <span className="material-symbols-outlined text-sm">
+                  {showColorOverride ? "expand_less" : "tune"}
+                </span>
+                Advanced color customization
+              </button>
+              {showColorOverride && (
                 <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Team Color (Hex)
@@ -716,7 +732,7 @@ export const IdentityForm = () => {
                     />
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </section>
 
