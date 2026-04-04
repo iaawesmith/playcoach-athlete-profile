@@ -380,11 +380,23 @@ Otherwise respond with ONLY the URL, nothing else.`;
       }
     }
 
+    // Build actionPhotoCandidates: AI pick first, then remaining candidates
+    const actionPhotoCandidates: string[] = [];
+    if (imageUrls.actionPhoto) {
+      actionPhotoCandidates.push(imageUrls.actionPhoto);
+    }
+    for (const c of candidateUrls || []) {
+      if (!actionPhotoCandidates.includes(c)) {
+        actionPhotoCandidates.push(c);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         data: merged,
         imageUrls: Object.keys(imageUrls).length > 0 ? imageUrls : undefined,
+        actionPhotoCandidates: actionPhotoCandidates.length > 0 ? actionPhotoCandidates.slice(0, 10) : undefined,
         sources: sources,
         resultsCount: results.length,
       }),
