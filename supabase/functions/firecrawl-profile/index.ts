@@ -267,8 +267,12 @@ Deno.serve(async (req: Request) => {
     const scoredCandidates: ScoredImage[] = [];
 
     try {
-      const profileUrls = sources.filter(s => /247sports\.com|on3\.com/i.test(s));
-      profileUrls.sort((a, b) => (/247sports/i.test(a) ? 0 : 1) - (/247sports/i.test(b) ? 0 : 1));
+      // Priority: 247Sports → On3 → ESPN → Official team site → Rivals
+      const profileUrls = sources.filter(s => /247sports\.com|on3\.com|espn\.com|rivals\.com/i.test(s));
+      profileUrls.sort((a, b) => {
+        const priority = (u: string) => /247sports/i.test(u) ? 0 : /on3/i.test(u) ? 1 : /espn/i.test(u) ? 2 : 3;
+        return priority(a) - priority(b);
+      });
       const imageSourceUrls = profileUrls.slice(0, 4);
       const jerseyNum = knownFields.number || String(merged.number || "");
 
