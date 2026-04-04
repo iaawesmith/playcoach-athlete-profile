@@ -223,9 +223,9 @@ export function useAutoFill() {
   }, [scrapedData, imageUrls, selectedFields, selectedImages, firstName, lastName, setAthlete]);
 
   const dismiss = useCallback(() => {
-    // Restore original action photo if user dismisses
-    if (originalActionPhotoUrl.current !== null) {
-      setAthlete({ actionPhotoUrl: originalActionPhotoUrl.current } as Parameters<typeof setAthlete>[0]);
+    // Restore all original values if user dismisses
+    if (Object.keys(originalValues.current).length > 0) {
+      setAthlete(originalValues.current as Parameters<typeof setAthlete>[0]);
     }
     setStatus("idle");
     setScrapedData(null);
