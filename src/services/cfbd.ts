@@ -49,6 +49,7 @@ export type CfbdTeam = {
   abbreviation: string;
   alternateNames: string[];
   conference: string;
+  classification: string | null;
   color: string;
   alternateColor: string;
   logos: string[];
