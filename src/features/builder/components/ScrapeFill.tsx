@@ -21,7 +21,7 @@ const fieldLabels: Record<FieldKey, string> = {
   hometown: "Hometown",
   highSchool: "High School",
   position: "Position",
-  classYear: "Class Year",
+  classYear: "Class",
   starRating: "Star Rating",
   nationalRank: "National Rank",
   positionRank: "Position Rank",

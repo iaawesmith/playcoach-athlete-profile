@@ -81,7 +81,7 @@ export const ProCard = () => {
               #{number || "--"}
             </span>
             <span className="text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-[3px] border border-white/20 text-on-surface-variant">
-              Class of {classYear || "--"}
+              {classYear || "--"}
             </span>
           </div>
 
