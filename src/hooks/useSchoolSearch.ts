@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cfbdApi, type CfbdTeam } from "@/services/cfbd";
-import { universities } from "@/data/universities";
 
 export interface SchoolOption {
   name: string;
