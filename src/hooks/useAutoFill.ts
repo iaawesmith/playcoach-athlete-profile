@@ -120,6 +120,7 @@ export function useAutoFill() {
     const candidates = result.actionPhotoCandidates || [];
     setActionPhotoCandidates(candidates);
     setActiveActionPhotoIndex(0);
+    setFailedCandidates(new Set());
 
     // Live preview: set action photo + measurables on the store immediately
     const preview: Record<string, unknown> = {};
