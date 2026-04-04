@@ -233,7 +233,7 @@ export function ProfilePreview() {
                     {autoFill.availableImages.map((imgKey) => {
                       const url = autoFill.imageUrls![imgKey]!;
                       const selected = autoFill.selectedImages.has(imgKey);
-                      const isActionPhoto = imgKey === "actionPhoto";
+                      
                       return (
                         <button
                           key={imgKey}
@@ -249,10 +249,8 @@ export function ProfilePreview() {
                             src={url}
                             alt={imageLabels[imgKey]}
                             className="w-full h-full object-cover"
-                            onError={() => {
-                              if (isActionPhoto) {
-                                autoFill.handleActionPhotoError();
-                              }
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.opacity = "0";
                             }}
                           />
                           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
@@ -271,31 +269,6 @@ export function ProfilePreview() {
                               <span className="material-symbols-outlined text-[12px] text-surface">check</span>
                             )}
                           </div>
-                          {/* Compact corner control for cycling action photo candidates */}
-                          {isActionPhoto && autoFill.hasMultipleActionPhotos && (
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                autoFill.nextActionPhoto();
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.stopPropagation();
-                                  autoFill.nextActionPhoto();
-                                }
-                              }}
-                              className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-surface/80 backdrop-blur-sm rounded-full px-2 py-0.5 cursor-pointer hover:bg-surface/90 transition-colors duration-150 z-10"
-                            >
-                              <span className="material-symbols-outlined text-[14px] text-on-surface">
-                                refresh
-                              </span>
-                              <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface-variant">
-                                {autoFill.activeActionPhotoIndex + 1}/{autoFill.actionPhotoCandidateCount}
-                              </span>
-                            </div>
-                          )}
                         </button>
                       );
                     })}
