@@ -35,14 +35,31 @@ const matchesQuery = (team: CfbdTeam, q: string): boolean => {
   return false;
 };
 
-const teamToOption = (team: CfbdTeam): SchoolOption => ({
-  name: team.school,
-  abbrev: team.abbreviation || team.school.split(" ").map((w) => w[0]).join("").toUpperCase(),
-  primaryColor: team.color?.startsWith("#") ? team.color : `#${team.color || "50C4CA"}`,
-  altColor: team.alternateColor?.startsWith("#") ? team.alternateColor : `#${team.alternateColor || ""}`,
-  logoUrl: team.logos?.[0] || null,
-  source: "cfbd",
-});
+const isValidColor = (c: string | null | undefined): boolean => {
+  if (!c || c === "#null" || c === "null") return false;
+  return /^#?[0-9a-fA-F]{3,8}$/.test(c);
+};
+
+const teamToOption = (team: CfbdTeam): SchoolOption => {
+  const rawColor = isValidColor(team.color) ? team.color : null;
+  const primaryColor = rawColor
+    ? (rawColor.startsWith("#") ? rawColor : `#${rawColor}`)
+    : "#50C4CA";
+  const rawAlt = isValidColor(team.alternateColor) ? team.alternateColor : null;
+  const altColor = rawAlt
+    ? (rawAlt.startsWith("#") ? rawAlt : `#${rawAlt}`)
+    : "";
+  // Prefer dark variant logo (index 1) for dark backgrounds, fall back to index 0
+  const logoUrl = team.logos?.[1] || team.logos?.[0] || null;
+  return {
+    name: team.school,
+    abbrev: team.abbreviation || team.school.split(" ").map((w) => w[0]).join("").toUpperCase(),
+    primaryColor,
+    altColor,
+    logoUrl,
+    source: "cfbd",
+  };
+};
 
 export function useSchoolSearch(query: string) {
   const [results, setResults] = useState<SchoolOption[]>([]);
