@@ -153,7 +153,7 @@ Deno.serve(async (req: Request) => {
         cfbdFetch<RosterPlayer[]>(cfbdKey, "/roster", { team: school, year: yr - 1 }),
         cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: yr }),
         cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: yr - 1 }),
-        cfbdFetch<Array<{ first_name: string; last_name: string; position: string; jersey: number; height: number; weight: number; team: string; year: number; home_city: string; home_state: string }>>(
+        cfbdFetch<Array<{ firstName: string; lastName: string; position: string; jersey: number; height: number; weight: number; team: string; year: number; homeCity: string; homeState: string }>>(
           cfbdKey, "/player/search", { searchTerm: name, team: school }
         ),
       ]);
