@@ -1,24 +1,13 @@
 
 
-## Rename "Class Year" to "Class" with Freshman–Senior Values
+## Add Skip Button to Onboarding Preview
+
+Add a "Skip" button visible during the `idle` state (before auto-populate is triggered) that lets users bypass the auto-fill step entirely and go straight to the builder.
 
 ### Changes
 
-**1. `src/features/onboarding/steps/CoreSetup.tsx`**
-- Rename `CLASS_YEARS` to `CLASS_OPTIONS` with values: `["Freshman", "Sophomore", "Junior", "Senior"]`
-- Change label from "Class Year" to "Class"
-
-**2. `src/features/builder/components/IdentityForm.tsx`**
-- Change `classYears` array from year strings to `["Freshman", "Sophomore", "Junior", "Senior"]`
-- Change label from "Class Year" to "Class"
-
-**3. `src/features/builder/components/ProCard.tsx`**
-- Change display from `Class of {classYear}` to just `{classYear}` (since the value is now "Freshman" etc., no prefix needed)
-
-**4. `src/features/builder/components/ScrapeFill.tsx`**
-- Update the label mapping from `"Class Year"` to `"Class"`
-
-### Notes
-- The `classYear` field name in the Zustand store stays the same (no store changes needed — it's just a string field)
-- Existing data with year values like "2025" will still display but won't match any pill/option — users would need to re-select
+**`src/features/onboarding/steps/ProfilePreview.tsx`**
+- Add a text-style "Skip" button below the "Auto-Populate My Profile" button in the `idle` state
+- On click, calls `completeOnboarding()` and navigates to `/builder` (same logic as `handleComplete`)
+- Styled as a subtle text link: `text-on-surface-variant text-xs font-bold uppercase tracking-[0.2em]` with hover underline — not competing with the primary CTA
 
