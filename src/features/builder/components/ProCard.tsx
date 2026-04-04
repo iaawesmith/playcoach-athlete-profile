@@ -36,14 +36,7 @@ export const ProCard = () => {
             alt={`${firstName} ${lastName}`}
             className="absolute inset-0 w-full h-full object-cover"
           />
-        ) : (
-          <div className="absolute top-8 bottom-[40%] left-0 right-0 flex items-center justify-center z-[1]">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" className="h-[120px] opacity-[0.07]" fill="currentColor" style={{ color: 'white' }}>
-              <ellipse cx="60" cy="18" rx="14" ry="16" />
-              <path d="M60 36c-12 0-22 8-26 20l-6 28c-1 4 2 7 5 7s6-3 7-6l4-16 4 14v72c0 5 4 9 8 9s8-4 8-9v-40h4v40c0 5 4 9 8 9s8-4 8-9V83l4-14 4 16c1 3 4 6 7 6s6-3 5-7l-6-28c-4-12-14-20-26-20z" />
-            </svg>
-          </div>
-        )}
+        ) : null}
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent" />
