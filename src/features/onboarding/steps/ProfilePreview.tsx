@@ -8,6 +8,7 @@ import {
   imageLabels,
   formatDisplayValue,
 } from "@/hooks/useAutoFill";
+import { ProCard } from "@/features/builder/components/ProCard";
 
 const STATUS_MESSAGES = [
   "Searching 247Sports, Rivals, On3...",
@@ -24,7 +25,7 @@ export function ProfilePreview() {
   const navigate = useNavigate();
   const { role, athleteTier, completeOnboarding } = useUserStore();
   const store = useAthleteStore();
-  const { firstName, lastName, position, number, school, schoolAbbrev, teamColor, actionPhotoUrl, classYear } = store;
+  const { teamColor } = store;
 
   const autoFill = useAutoFill();
   const [msgIndex, setMsgIndex] = useState(0);
@@ -67,48 +68,18 @@ export function ProfilePreview() {
     await autoFill.apply();
   };
 
-  const displayName = firstName && lastName ? `${firstName} ${lastName}` : "Your Name";
   const tc = teamColor || "#50C4CA";
 
   return (
     <div className="space-y-8">
       <h1 className="text-on-surface font-black text-3xl md:text-4xl uppercase tracking-tight text-center">
-        Your Profile Is Ready To Build
+        Let's Auto-Populate Your Profile
       </h1>
 
-      {/* Mini ProCard */}
+      {/* ProCard — same component as builder */}
       <div className="flex justify-center">
-        <div
-          className="w-56 aspect-[3/4] rounded-xl overflow-hidden relative"
-          style={{ boxShadow: `0 0 40px ${tc}30` }}
-        >
-          <div
-            className="absolute top-0 left-0 right-0 h-7 z-10 flex items-center justify-center"
-            style={{ backgroundColor: tc }}
-          >
-            <span className="text-[9px] font-black uppercase tracking-[0.25em] text-on-surface/90">
-              {school || schoolAbbrev || "SCHOOL"}
-            </span>
-          </div>
-
-          <div className="w-full h-[65%] bg-surface-container-high flex items-center justify-center">
-            {actionPhotoUrl ? (
-              <img src={actionPhotoUrl} alt="Action" className="w-full h-full object-cover" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface/10 text-6xl">person</span>
-            )}
-          </div>
-
-          <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
-
-          <div className="absolute bottom-0 left-0 right-0 p-3">
-            <div className="text-on-surface font-black italic uppercase tracking-tighter text-base leading-none">
-              {displayName}
-            </div>
-            <div className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: tc }}>
-              {position || "POS"} {number ? `#${number}` : ""}{classYear ? ` · ${classYear}` : ""}
-            </div>
-          </div>
+        <div className="w-full max-w-sm">
+          <ProCard />
         </div>
       </div>
 
