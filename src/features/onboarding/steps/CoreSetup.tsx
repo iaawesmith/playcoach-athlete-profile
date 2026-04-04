@@ -28,10 +28,10 @@ export function CoreSetup() {
   }, []);
 
   const handleSelectSchool = (opt: SchoolOption) => {
-    setQuery(opt.name);
+    setQuery(opt.displayName);
     setOpen(false);
     setAthlete({
-      school: opt.name,
+      school: opt.displayName,
       schoolAbbrev: opt.abbrev,
       teamColor: opt.primaryColor,
       schoolLogoUrl: opt.logoUrl,
