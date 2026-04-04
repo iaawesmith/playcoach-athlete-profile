@@ -1,22 +1,33 @@
 
 
-## Show School Logo in Auto-Populate Results
+## Use SportsLogos.net as Primary Logo Source
 
-### Problem
-The `firecrawl-profile` edge function attempts to find a school logo via a single branding search (lines 365-399), but it frequently fails — as confirmed by a live test with "Bear Bachmeier / BYU" returning no `schoolLogo` in `imageUrls`. Meanwhile, a dedicated `firecrawl-school-logo` edge function exists with a more robust two-strategy approach (branding + fallback image search) that works better.
+### What Changes
+Replace the current unreliable branding-extraction approach with a targeted search on sportslogos.net. The site has a consistent structure: each team page lists logo images hosted at `content.sportslogos.net/logos/...`. By searching `site:sportslogos.net {school} logo` via Firecrawl, then scraping the resulting page for markdown, we can reliably extract the primary logo image URL.
 
-Because `imageUrls.schoolLogo` is empty, it never appears in the "Photos" grid on the onboarding preview page.
+### How It Works
 
-### Fix
+**New Strategy 1 (Primary)**: Search sportslogos.net directly
+- Firecrawl search query: `site:sportslogos.net {school} logo`
+- Scrape the top result with `formats: ["markdown"]`
+- Parse markdown for the first image URL matching `content.sportslogos.net/logos/` — these are the actual logo images (`.gif` or `.png`)
+- Use the full-size version by replacing `/thumbs/` with `/full/` in the URL path (or use the thumb directly — they're clean vector-style images)
 
-**`supabase/functions/firecrawl-profile/index.ts`** — Replace the current school logo search (lines 364-399) with the same two-strategy logic from `firecrawl-school-logo`:
+**Existing strategies demoted to fallbacks**: The current branding-extraction and "logo png transparent" searches become Strategy 2 and Strategy 3, only tried if sportslogos.net yields nothing.
 
-1. **Strategy 1**: Search for `{school} athletics official logo`, scrape top result with `branding` format, extract `logo` or `favicon` from branding data
-2. **Strategy 2 (fallback)**: Search for `{school} logo png transparent`, scrape top 2 results for branding, extract logo
-3. **Strategy 3 (fallback)**: Search markdown results for image URLs containing "logo" in the path — pick the first matching `.png` or `.svg`
+### Changes
 
-This ensures the school logo reliably appears alongside the action photo and headshot in the auto-populate results grid.
+**`supabase/functions/firecrawl-school-logo/index.ts`**
+- Add new Strategy 1: search `site:sportslogos.net {school} logo`, scrape top result as markdown, regex-extract first `content.sportslogos.net/logos/` image URL
+- Demote current Strategy 1 (branding extraction) to Strategy 2
+- Demote current Strategy 2 (fallback search) to Strategy 3
+
+**`supabase/functions/firecrawl-profile/index.ts`** (lines 364-458)
+- Apply the same sportslogos.net-first approach to the school logo search block within the profile scraper
+- Same pattern: search site:sportslogos.net, scrape markdown, extract `content.sportslogos.net` image URL
+- Keep existing branding strategies as fallbacks
 
 ### Files Modified
+- `supabase/functions/firecrawl-school-logo/index.ts`
 - `supabase/functions/firecrawl-profile/index.ts`
 
