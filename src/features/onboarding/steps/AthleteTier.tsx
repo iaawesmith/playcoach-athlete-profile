@@ -45,7 +45,7 @@ export function AthleteTier() {
                   ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
                   : isSelected
                   ? "border-[#50C4CA] bg-[rgba(80,196,202,0.08)] cursor-pointer active:scale-95"
-                  : "border-outline-variant/10 bg-surface-container-high hover:border-outline-variant/30 cursor-pointer active:scale-95"
+                  : "border-[#50C4CA]/40 bg-[rgba(80,196,202,0.05)] cursor-pointer active:scale-95 hover:border-[#50C4CA]/60"
               }`}
             >
               {!t.active && (
@@ -55,11 +55,14 @@ export function AthleteTier() {
               )}
               <span
                 className="material-symbols-outlined text-4xl"
-                style={{ color: isSelected ? "#50C4CA" : undefined }}
+                style={{ color: t.active ? "#50C4CA" : undefined }}
               >
                 {t.icon}
               </span>
-              <span className="text-on-surface font-black text-sm uppercase tracking-[0.2em]">
+              <span
+                className="text-on-surface font-black text-sm uppercase tracking-[0.2em]"
+                style={{ color: t.active ? "#50C4CA" : undefined }}
+              >
                 {t.label}
               </span>
             </button>
