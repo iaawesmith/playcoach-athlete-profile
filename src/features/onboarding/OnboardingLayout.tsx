@@ -45,7 +45,7 @@ export function OnboardingLayout() {
                 <span className="material-symbols-outlined text-on-surface text-lg">arrow_back</span>
               </button>
             )}
-            <span className="text-on-surface font-black text-lg tracking-tight uppercase">PlayCoach</span>
+            <img src={playcoachLogo} alt="PlayCoach" className="h-5 w-auto" />
           </div>
 
           {/* Step counter */}
