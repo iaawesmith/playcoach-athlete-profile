@@ -27,12 +27,12 @@ async function cfbdFetch<T = unknown>(
 }
 
 type RosterPlayer = {
-  first_name: string; last_name: string; position: string; jersey: number;
-  height: number; weight: number; year: number; home_city: string; home_state: string;
+  firstName: string; lastName: string; position: string; jersey: number;
+  height: number; weight: number; year: number; homeCity: string; homeState: string;
 };
 type Recruit = {
   name: string; school: string; stars: number; ranking: number;
-  position: string; city: string; state_province: string; year: number;
+  position: string; city: string; stateProvince: string; year: number;
 };
 
 function extractRecruitingFields(content: string, merged: Record<string, string | number>) {
