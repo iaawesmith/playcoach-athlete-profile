@@ -685,7 +685,7 @@ export const IdentityForm = () => {
                   value={school}
                   onSelect={(opt) => {
                     setAthlete({
-                      school: opt.name,
+                      school: opt.displayName,
                       schoolAbbrev: opt.abbrev,
                       teamColor: opt.primaryColor,
                       schoolLogoUrl: opt.logoUrl,
