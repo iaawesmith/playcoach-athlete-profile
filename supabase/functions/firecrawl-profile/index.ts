@@ -27,12 +27,12 @@ async function cfbdFetch<T = unknown>(
 }
 
 type RosterPlayer = {
-  first_name: string; last_name: string; position: string; jersey: number;
-  height: number; weight: number; year: number; home_city: string; home_state: string;
+  firstName: string; lastName: string; position: string; jersey: number;
+  height: number; weight: number; year: number; homeCity: string; homeState: string;
 };
 type Recruit = {
   name: string; school: string; stars: number; ranking: number;
-  position: string; city: string; state_province: string; year: number;
+  position: string; city: string; stateProvince: string; year: number;
 };
 
 function extractRecruitingFields(content: string, merged: Record<string, string | number>) {
@@ -147,34 +147,68 @@ Deno.serve(async (req: Request) => {
     // ═══ PHASE 1: CFBD ═══
     if (cfbdKey && school) {
       const yr = new Date().getFullYear();
-      const [roster, recruits, recruitsPrev] = await Promise.all([
+      // Fetch current year + previous year rosters for fallback (measurables may lag)
+      const [roster, rosterPrev, recruits, recruitsPrev, playerSearch] = await Promise.all([
         cfbdFetch<RosterPlayer[]>(cfbdKey, "/roster", { team: school, year: yr }),
+        cfbdFetch<RosterPlayer[]>(cfbdKey, "/roster", { team: school, year: yr - 1 }),
         cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: yr }),
         cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: yr - 1 }),
+        cfbdFetch<Array<{ firstName: string; lastName: string; position: string; jersey: number; height: number; weight: number; team: string; year: number; homeCity: string; homeState: string }>>(
+          cfbdKey, "/player/search", { searchTerm: name, team: school }
+        ),
       ]);
-      if (roster && Array.isArray(roster)) {
-        const match = roster.find(p => p.first_name?.toLowerCase() === firstName && p.last_name?.toLowerCase() === lastName);
-        if (match) {
-          sources.push("CFBD Roster");
-          if (match.height) merged.height = String(match.height);
-          if (match.weight) merged.weight = String(match.weight);
-          if (match.position && !knownFields.position) merged.position = match.position;
-          if (match.jersey != null && !knownFields.number) merged.number = String(match.jersey);
-          if (match.home_city && match.home_state) merged.hometown = `${match.home_city}, ${match.home_state}`;
-          else if (match.home_city) merged.hometown = match.home_city;
-          if (match.year && !knownFields.classYear) {
-            const ym: Record<number, string> = { 1: "Freshman", 2: "Sophomore", 3: "Junior", 4: "Senior", 5: "5th Year" };
-            merged.classYear = ym[match.year] || String(match.year);
-          }
+
+      // Try matching from current roster, then previous year, then player search
+      const findMatch = (list: RosterPlayer[] | null) => {
+        if (!list || !Array.isArray(list)) return null;
+        // Try exact name match first
+        let m = list.find(p => p.firstName?.toLowerCase() === firstName && p.lastName?.toLowerCase() === lastName);
+        if (m) return m;
+        // Try with jersey number filter if known
+        const jNum = knownFields.number ? parseInt(knownFields.number, 10) : null;
+        if (jNum != null) {
+          m = list.find(p => p.jersey === jNum && p.lastName?.toLowerCase() === lastName);
+          if (m) return m;
+        }
+        return null;
+      };
+
+      const match = findMatch(roster) || findMatch(rosterPrev);
+      // Also check playerSearch results
+      const psMatch = (playerSearch && Array.isArray(playerSearch))
+        ? playerSearch.find(p => p.firstName?.toLowerCase() === firstName && p.lastName?.toLowerCase() === lastName)
+        : null;
+
+      const rosterHit = match || psMatch;
+      if (rosterHit) {
+        sources.push("CFBD Roster");
+        if (rosterHit.height) merged.height = String(rosterHit.height);
+        if (rosterHit.weight) merged.weight = String(rosterHit.weight);
+        if (rosterHit.position && !knownFields.position) merged.position = rosterHit.position;
+        if (rosterHit.jersey != null && !knownFields.number) merged.number = String(rosterHit.jersey);
+        if (rosterHit.homeCity && rosterHit.homeState) merged.hometown = `${rosterHit.homeCity}, ${rosterHit.homeState}`;
+        else if (rosterHit.homeCity) merged.hometown = rosterHit.homeCity;
+        if ((rosterHit as RosterPlayer).year && !knownFields.classYear) {
+          const ym: Record<number, string> = { 1: "Freshman", 2: "Sophomore", 3: "Junior", 4: "Senior", 5: "5th Year" };
+          merged.classYear = ym[(rosterHit as RosterPlayer).year] || String((rosterHit as RosterPlayer).year);
         }
       }
+      // If height/weight still missing from match, check the other roster year
+      if (match && (!match.height || !match.weight)) {
+        const altMatch = findMatch(match === findMatch(roster) ? rosterPrev : roster);
+        if (altMatch) {
+          if (!merged.height && altMatch.height) merged.height = String(altMatch.height);
+          if (!merged.weight && altMatch.weight) merged.weight = String(altMatch.weight);
+        }
+      }
+
       const allR = [...(recruits || []), ...(recruitsPrev || [])];
       const rMatch = allR.find(r => { const n = (r.name || "").toLowerCase(); return n.includes(firstName) && n.includes(lastName); });
       if (rMatch) {
         sources.push("CFBD Recruiting");
         if (rMatch.stars && !merged.starRating) merged.starRating = rMatch.stars;
         if (rMatch.ranking && !merged.nationalRank) merged.nationalRank = rMatch.ranking;
-        if (rMatch.city && rMatch.state_province && !merged.hometown) merged.hometown = `${rMatch.city}, ${rMatch.state_province}`;
+        if (rMatch.city && rMatch.stateProvince && !merged.hometown) merged.hometown = `${rMatch.city}, ${rMatch.stateProvince}`;
       }
     }
 
