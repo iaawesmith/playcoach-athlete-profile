@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const name = typeof body.athleteName === "string" ? body.athleteName.trim() : "";
-    const school = typeof body.schoolName === "string" ? body.schoolName.trim() : "";
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const school = typeof body.school === "string" ? body.school.trim() : "";
 
     if (!name) {
       return new Response(
