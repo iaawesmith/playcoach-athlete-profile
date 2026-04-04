@@ -56,7 +56,7 @@ export function SportSelection() {
               )}
               <span
                 className="material-symbols-outlined text-4xl"
-                style={{ color: isSelected ? "#50C4CA" : undefined }}
+                style={{ color: s.active ? "#50C4CA" : undefined }}
               >
                 {s.icon}
               </span>
