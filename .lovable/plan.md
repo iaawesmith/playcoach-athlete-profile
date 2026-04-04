@@ -1,33 +1,43 @@
 
 
-## Use SportsLogos.net as Primary Logo Source
+## Use ESPN CDN Logo Lookup Instead of Firecrawl Scraping
 
 ### What Changes
-Replace the current unreliable branding-extraction approach with a targeted search on sportslogos.net. The site has a consistent structure: each team page lists logo images hosted at `content.sportslogos.net/logos/...`. By searching `site:sportslogos.net {school} logo` via Firecrawl, then scraping the resulting page for markdown, we can reliably extract the primary logo image URL.
+Replace the entire multi-strategy Firecrawl logo scraping (3 API calls, unreliable, hotlink-blocked) with a simple lookup against the GitHub gist CSV data. Every NCAA team maps to a publicly accessible ESPN CDN URL like `http://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png` — no hotlinking issues, instant, zero Firecrawl credits.
+
+The gist also provides dark-mode logo variants (`500-dark/{id}.png`), team colors, abbreviations, and mascots — bonus data we can use.
 
 ### How It Works
 
-**New Strategy 1 (Primary)**: Search sportslogos.net directly
-- Firecrawl search query: `site:sportslogos.net {school} logo`
-- Scrape the top result with `formats: ["markdown"]`
-- Parse markdown for the first image URL matching `content.sportslogos.net/logos/` — these are the actual logo images (`.gif` or `.png`)
-- Use the full-size version by replacing `/thumbs/` with `/full/` in the URL path (or use the thumb directly — they're clean vector-style images)
+1. **Embed the logo lookup data** as a static JSON map in the edge function. The gist has ~1,600 schools. We extract just `school → logo URL` pairs (and alt names for fuzzy matching). This is ~50KB — fine for an edge function.
 
-**Existing strategies demoted to fallbacks**: The current branding-extraction and "logo png transparent" searches become Strategy 2 and Strategy 3, only tried if sportslogos.net yields nothing.
+2. **Fuzzy match the school name** the athlete entered against the CSV data using normalized lowercase comparison, checking `school`, `alt_name1`, `alt_name2`, `alt_name3` fields.
+
+3. **Return the ESPN CDN URL directly** — no scraping, no branding extraction, no proxy needed. ESPN CDN serves these logos publicly.
 
 ### Changes
 
-**`supabase/functions/firecrawl-school-logo/index.ts`**
-- Add new Strategy 1: search `site:sportslogos.net {school} logo`, scrape top result as markdown, regex-extract first `content.sportslogos.net/logos/` image URL
-- Demote current Strategy 1 (branding extraction) to Strategy 2
-- Demote current Strategy 2 (fallback search) to Strategy 3
+**`supabase/functions/firecrawl-profile/index.ts`**
+- Replace lines 364-475 (the entire 3-strategy Firecrawl logo search) with a simple lookup function
+- Import a static school-logo map (embedded in the function)
+- Match school name → return `http://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png`
+- If no match found, fall back to a single Firecrawl branding search (Strategy 2 from current code) as last resort
 
-**`supabase/functions/firecrawl-profile/index.ts`** (lines 364-458)
-- Apply the same sportslogos.net-first approach to the school logo search block within the profile scraper
-- Same pattern: search site:sportslogos.net, scrape markdown, extract `content.sportslogos.net` image URL
-- Keep existing branding strategies as fallbacks
+**`supabase/functions/firecrawl-school-logo/index.ts`**
+- Same approach: ESPN CDN lookup first, Firecrawl fallback only if not in the dataset
+
+**`src/data/schoolLogos.ts`** (new file)
+- Export a lookup map from the gist data for any client-side use (e.g., auto-populating logo when school is selected in onboarding, without waiting for the edge function)
+
+### Benefits
+- Instant logo resolution — no API calls needed for NCAA schools
+- 100% reliable for any school in the ESPN dataset (~1,600 teams)
+- Zero Firecrawl credits consumed for logos
+- No hotlinking issues (ESPN CDN is public)
+- Dark-mode variants available for future use
 
 ### Files Modified
-- `supabase/functions/firecrawl-school-logo/index.ts`
 - `supabase/functions/firecrawl-profile/index.ts`
+- `supabase/functions/firecrawl-school-logo/index.ts`
+- `src/data/schoolLogos.ts` (new)
 
