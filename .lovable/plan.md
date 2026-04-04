@@ -1,30 +1,11 @@
 
 
-## Update Role Selection Screen
+## Make Role Selection Cards Wider
 
-### Changes to `src/features/onboarding/steps/RoleSelection.tsx`
+Increase the horizontal padding and add a minimum width to each card so they feel more spacious.
 
-**1. Split into 4 separate roles**: Athlete, Coach, Trainer, Agency (remove combined labels)
+### Change in `src/features/onboarding/steps/RoleSelection.tsx`
 
-**2. Make Athlete prominent**: Apply `#50C4CA` teal to the Athlete card's icon and label text by default (not just on selection). Give it a subtle teal border glow to stand out.
-
-**3. Center "Coming Soon" badges**: Move from `absolute top-3 right-3` to centered within the card (below the description text), removing absolute positioning.
-
-**4. Grid layout**: Change to `md:grid-cols-4` for the four cards, or keep responsive with `sm:grid-cols-2 md:grid-cols-4`.
-
-### Changes to `src/features/onboarding/OnboardingLayout.tsx`
-
-**5. Add PlayCoach logo**: Import `playcoach-logo.png` from `@/assets/playcoach-logo.png` (same asset used in builder TopNav) and replace the text "PlayCoach" with the `<img>` logo.
-
-### Role Cards Data
-```text
-Athlete   → icon: person,          "Build your identity"                    → active
-Coach     → icon: sports,          "Develop and track athletes"             → coming soon
-Trainer   → icon: exercise,        "Train and measure performance"          → coming soon
-Agency    → icon: business_center, "Manage athletes and partnerships"       → coming soon
-```
-
-### Files Modified
-- `src/features/onboarding/steps/RoleSelection.tsx`
-- `src/features/onboarding/OnboardingLayout.tsx`
+- Line 66: Change `gap-4` to `gap-6` and add `max-w-4xl mx-auto` to the grid so it centers with more room
+- Line 75: Change card padding from `p-8` to `px-12 py-8` for wider horizontal spacing
 
