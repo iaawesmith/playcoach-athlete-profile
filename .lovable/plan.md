@@ -1,17 +1,24 @@
 
 
-## Change Selected Pill Text to White + Bold
+## Fix Team Color Not Carrying Over to Onboarding Preview
 
 ### Problem
-When a position or class year pill is selected, the text uses `text-surface` (dark) on the teamColor background. User wants white bold text instead.
+The `ProCard` component uses `var(--team-color)` CSS variable for the school banner, position badges, and jersey number badges. The `BuilderLayout` sets this variable on its root div using the Zustand `teamColor` value, but the `OnboardingLayout` does not. So on `/onboarding/preview`, the ProCard falls back to `#CC0000` (the CSS default in `index.css`), which is why it appears red regardless of which school was selected.
 
-### Changes to `src/features/onboarding/steps/CoreSetup.tsx`
+### Fix — `src/features/onboarding/OnboardingLayout.tsx`
 
-1. **Line 161**: Change `"text-surface"` to `"text-white font-bold"` for selected position pills
-2. **Line 184**: Change `"text-surface"` to `"text-white font-bold"` for selected class year pills
+1. Import `useAthleteStore` and read `teamColor` from the store
+2. On the root `<div>` (line 31), set the `--team-color` CSS variable inline — identical to how `BuilderLayout` does it:
+   ```tsx
+   style={{ "--team-color": teamColor } as React.CSSProperties}
+   ```
 
-Both already have `font-black` from the shared class, so `font-bold` is redundant — the key fix is replacing `text-surface` with `text-white`.
+This ensures the ProCard (and any other element using `var(--team-color)`) renders with the correct school color throughout the onboarding flow.
+
+### Also fix the CSS default
+Update `index.css` line 51: change `--team-color: #CC0000` to `--team-color: #50C4CA` so the fallback matches the store default (PlayCoach Steel for onboarding context), not Georgia Red.
 
 ### Files Modified
-- `src/features/onboarding/steps/CoreSetup.tsx`
+- `src/features/onboarding/OnboardingLayout.tsx`
+- `src/index.css`
 
