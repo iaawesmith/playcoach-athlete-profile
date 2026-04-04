@@ -302,125 +302,119 @@ Deno.serve(async (req: Request) => {
       // Non-critical
     }
 
-    // Utility: skip tiny/thumbnail images (Cloudinary w_XX, query param width, etc.)
-    const isTinyImage = (src: string): boolean => {
-      // Cloudinary-style: /w_16/ or ,w_16,
-      if (/[/,]w_([1-9]\d?)[/,]/i.test(src)) return true;
-      // Query param width/height <= 60
-      if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) return true;
-      return false;
-    };
-
-    // ===== PIPELINE 2: Action Photos via Search + Scrape =====
+    // ===== PIPELINE 2: Action Photos via source page scraping + Gemini Vision =====
     try {
-      const jerseyTag = jerseyNum ? ` #${jerseyNum}` : "";
-      const photoQuery = `${name}${jerseyTag} ${posLabel} ${school} football game action photo image`.trim();
+      // Step 1: Scrape existing source pages (247sports, on3, ESPN player pages) for images
+      const imageSourceUrls = sources.filter((s) =>
+        /247sports|on3\.com|espn\.com|rivals\.com/i.test(s)
+      ).slice(0, 3);
 
-      // Step 1: Firecrawl search for image-heavy pages — request both markdown and html
-      const photoSearchResp = await fetch("https://api.firecrawl.dev/v1/search", {
-        method: "POST",
-        headers: authHdrs,
-        body: JSON.stringify({
-          query: photoQuery,
-          limit: 5,
-          scrapeOptions: { formats: ["markdown", "html"] },
-        }),
-      });
-
-      if (photoSearchResp.ok) {
-        const photoSearchData = await photoSearchResp.json();
-        const photoResults = photoSearchData.data || [];
-
-        // Extract image URLs from search result markdown
-        for (const r of photoResults) {
-          const md = r.markdown || r.data?.markdown || "";
-          const imgMatches = md.matchAll(/!\[[^\]]*\]\(([^)]+)\)/gi);
-          for (const im of imgMatches) {
-            const src = im[1];
-            if (!src.startsWith("http")) continue;
-            if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
-            if (src.length < 30 || isTinyImage(src)) continue;
-            if (!candidateUrls.includes(src)) candidateUrls.push(src);
-          }
-
-          // Also extract from HTML returned by search
-          const html = r.html || r.data?.html || "";
-          if (html) {
-            const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
-            let m;
-            while ((m = imgRegex.exec(html)) !== null) {
-              const src = m[1];
-              if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement/i.test(src)) continue;
-              if (src.length < 30 || isTinyImage(src)) continue;
-              if (!candidateUrls.includes(src)) candidateUrls.push(src);
-            }
-            // data-src
-            const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
-            while ((m = dataSrcRegex.exec(html)) !== null) {
-              const src = m[1];
-              if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
-              if (src.length < 30 || isTinyImage(src)) continue;
-              if (!candidateUrls.includes(src)) candidateUrls.push(src);
-            }
-          }
-        }
-
-        // Step 2: If not enough candidates, scrape top 3 URLs for full HTML
-        if (candidateUrls.length < 5) {
-          const urlsToScrape = photoResults
-            .filter((r: Record<string, unknown>) => r.url)
-            .map((r: Record<string, unknown>) => String(r.url))
-            .slice(0, 3);
-
-          const scrapePromises = urlsToScrape.map(async (pageUrl: string) => {
-            try {
-              const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-                method: "POST",
-                headers: authHdrs,
-                body: JSON.stringify({
-                  url: pageUrl,
-                  formats: ["html"],
-                  onlyMainContent: false,
-                }),
-              });
-              if (!resp.ok) return [];
-              const data = await resp.json();
-              const html = String(data.data?.html || data.html || "");
-
-              const extracted: string[] = [];
-              const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
-              let m;
-              while ((m = imgRegex.exec(html)) !== null) {
-                const src = m[1];
-                if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement/i.test(src)) continue;
-                if (src.length < 30 || isTinyImage(src)) continue;
-                extracted.push(src);
-              }
-
-              const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
-              while ((m = dataSrcRegex.exec(html)) !== null) {
-                const src = m[1];
-                if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
-                if (src.length < 30 || isTinyImage(src)) continue;
-                extracted.push(src);
-              }
-
-              return extracted;
-            } catch {
-              return [];
-            }
+      // Also add a school photo gallery search
+      if (school) {
+        const jerseyTag = jerseyNum ? `#${jerseyNum}` : "";
+        const photoQuery = `${name}${jerseyTag} ${school} football photo`;
+        try {
+          const photoSearchResp = await fetch("https://api.firecrawl.dev/v1/search", {
+            method: "POST",
+            headers: authHdrs,
+            body: JSON.stringify({
+              query: photoQuery,
+              limit: 3,
+              scrapeOptions: { formats: ["markdown"] },
+            }),
           });
-
-          const scrapeResults = await Promise.all(scrapePromises);
-          for (const imgs of scrapeResults) {
-            for (const src of imgs) {
-              if (!candidateUrls.includes(src)) candidateUrls.push(src);
+          if (photoSearchResp.ok) {
+            const photoData = await photoSearchResp.json();
+            for (const r of (photoData.data || [])) {
+              if (r.url && !imageSourceUrls.includes(r.url)) {
+                imageSourceUrls.push(r.url);
+              }
             }
           }
+        } catch {
+          // Non-critical
         }
       }
 
-      // Pre-sort candidates: URLs containing athlete's name go first
+      // Step 2: Scrape top pages for HTML to extract images
+      const scrapePromises = imageSourceUrls.slice(0, 5).map(async (pageUrl: string) => {
+        try {
+          const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+            method: "POST",
+            headers: authHdrs,
+            body: JSON.stringify({
+              url: pageUrl,
+              formats: ["html"],
+              onlyMainContent: false,
+            }),
+          });
+          if (!resp.ok) return [];
+          const data = await resp.json();
+          const html = String(data.data?.html || data.html || "");
+
+          const extracted: string[] = [];
+          // Extract src attributes
+          const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
+          let m;
+          while ((m = imgRegex.exec(html)) !== null) {
+            const src = m[1];
+            if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement|sponsor/i.test(src)) continue;
+            if (src.length < 30) continue;
+            // Skip tiny images
+            if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
+            if (/[/,]w_([1-9]\d?)[/,]/i.test(src)) continue;
+            extracted.push(src);
+          }
+          // Extract data-src (lazy loaded)
+          const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
+          while ((m = dataSrcRegex.exec(html)) !== null) {
+            const src = m[1];
+            if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
+            if (src.length < 30) continue;
+            if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
+            extracted.push(src);
+          }
+          // Extract og:image meta tags
+          const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["'](https?:\/\/[^"']+)["']/i);
+          if (ogMatch) extracted.push(ogMatch[1]);
+          const ogMatch2 = html.match(/<meta[^>]+content=["'](https?:\/\/[^"']+)["'][^>]+property=["']og:image["']/i);
+          if (ogMatch2) extracted.push(ogMatch2[1]);
+
+          return extracted;
+        } catch {
+          return [];
+        }
+      });
+
+      const scrapeResults = await Promise.all(scrapePromises);
+      for (const imgs of scrapeResults) {
+        for (const src of imgs) {
+          if (!candidateUrls.includes(src)) candidateUrls.push(src);
+        }
+      }
+
+      // Upscale CDN URLs: remove size constraints to get full-resolution images
+      candidateUrls = candidateUrls.map((url) => {
+        let u = url;
+        // on3static CDN: remove /cdn-cgi/image/height=X,width=Y,.../ prefix
+        u = u.replace(/\/cdn-cgi\/image\/[^/]+\//, "/");
+        // 247sports: remove ?fit=crop&width=100 etc query params
+        u = u.replace(/\?fit=(?:crop|bounds)[^&]*(?:&amp;[^&]*)*$/i, "");
+        u = u.replace(/\?fit=(?:crop|bounds)[^&]*(?:&[^&]*)*$/i, "");
+        // Cloudinary: upgrade small widths to 800
+        u = u.replace(/\/w_\d+\b/, "/w_800");
+        return u;
+      });
+
+      // Deduplicate after URL cleaning
+      candidateUrls = [...new Set(candidateUrls)];
+
+      // Remove the headshot from candidates (don't want it as an action photo)
+      if (imageUrls.headshot) {
+        candidateUrls = candidateUrls.filter((u) => u !== imageUrls.headshot);
+      }
+
+      // Pre-sort: URLs containing athlete's name go first
       const nameTokens = name.toLowerCase().split(/\s+/);
       candidateUrls.sort((a, b) => {
         const aLower = decodeURIComponent(a).toLowerCase();
@@ -432,7 +426,9 @@ Deno.serve(async (req: Request) => {
         return 0;
       });
 
-      // Vision-based AI filtering
+      
+
+      // Step 3: Vision verification with Gemini
       if (candidateUrls.length > 0) {
         const lovableKey = Deno.env.get("LOVABLE_API_KEY");
         if (lovableKey) {
@@ -464,7 +460,7 @@ If none pass, return: []`,
           }
 
           try {
-            const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            const visionResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
               headers: {
                 "Authorization": "Bearer " + lovableKey,
@@ -472,19 +468,16 @@ If none pass, return: []`,
               },
               body: JSON.stringify({
                 model: "google/gemini-2.5-flash",
-                messages: [{
-                  role: "user",
-                  content: contentParts,
-                }],
+                messages: [{ role: "user", content: contentParts }],
               }),
             });
 
-            if (aiResp.ok) {
-              const aiData = await aiResp.json();
-              const raw = ((aiData.choices?.[0]?.message?.content as string) || "").trim();
-              const jsonStr = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+            if (visionResp.ok) {
+              const visionData = await visionResp.json();
+              const raw = ((visionData.choices?.[0]?.message?.content as string) || "").trim();
+              const visionJson = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
               try {
-                const filtered = JSON.parse(jsonStr);
+                const filtered = JSON.parse(visionJson);
                 if (Array.isArray(filtered) && filtered.length > 0) {
                   candidateUrls = filtered.filter((u: unknown) => typeof u === "string" && String(u).startsWith("http"));
                   if (candidateUrls.length > 0) {
@@ -497,15 +490,15 @@ If none pass, return: []`,
                 }
               }
             }
-          } catch (_aiErr) {
+          } catch (_visionErr) {
             // Non-critical
           }
-        }
 
-        // Fallback: if vision didn't pick, use first large jpg/webp candidate
-        if (!imageUrls.actionPhoto) {
-          const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp|png)/i.test(u));
-          if (fallback) imageUrls.actionPhoto = fallback;
+          // Fallback: if vision didn't pick, use first large jpg/webp candidate
+          if (!imageUrls.actionPhoto) {
+            const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp|png)/i.test(u));
+            if (fallback) imageUrls.actionPhoto = fallback;
+          }
         }
       }
     } catch (_actionErr) {
