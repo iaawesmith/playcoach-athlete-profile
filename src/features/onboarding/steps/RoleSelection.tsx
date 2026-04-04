@@ -72,7 +72,7 @@ export function RoleSelection() {
               key={r.role}
               onClick={() => handleSelect(r)}
               disabled={r.comingSoon}
-              className={`flex flex-col items-center gap-4 p-8 rounded-xl border transition-all duration-200 ${
+              className={`flex flex-col items-center gap-4 px-12 py-8 rounded-xl border transition-all duration-200 ${
                 r.comingSoon
                   ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
                   : isSelected
