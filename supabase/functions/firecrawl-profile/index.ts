@@ -186,8 +186,8 @@ Deno.serve(async (req: Request) => {
         if (rosterHit.weight) merged.weight = String(rosterHit.weight);
         if (rosterHit.position && !knownFields.position) merged.position = rosterHit.position;
         if (rosterHit.jersey != null && !knownFields.number) merged.number = String(rosterHit.jersey);
-        if (rosterHit.home_city && rosterHit.home_state) merged.hometown = `${rosterHit.home_city}, ${rosterHit.home_state}`;
-        else if (rosterHit.home_city) merged.hometown = rosterHit.home_city;
+        if (rosterHit.homeCity && rosterHit.homeState) merged.hometown = `${rosterHit.homeCity}, ${rosterHit.homeState}`;
+        else if (rosterHit.homeCity) merged.hometown = rosterHit.homeCity;
         if ((rosterHit as RosterPlayer).year && !knownFields.classYear) {
           const ym: Record<number, string> = { 1: "Freshman", 2: "Sophomore", 3: "Junior", 4: "Senior", 5: "5th Year" };
           merged.classYear = ym[(rosterHit as RosterPlayer).year] || String((rosterHit as RosterPlayer).year);
