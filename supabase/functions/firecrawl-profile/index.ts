@@ -176,7 +176,7 @@ Deno.serve(async (req: Request) => {
       const match = findMatch(roster) || findMatch(rosterPrev);
       // Also check playerSearch results
       const psMatch = (playerSearch && Array.isArray(playerSearch))
-        ? playerSearch.find(p => p.first_name?.toLowerCase() === firstName && p.last_name?.toLowerCase() === lastName)
+        ? playerSearch.find(p => p.firstName?.toLowerCase() === firstName && p.lastName?.toLowerCase() === lastName)
         : null;
 
       const rosterHit = match || psMatch;
