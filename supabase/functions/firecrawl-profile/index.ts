@@ -302,6 +302,15 @@ Deno.serve(async (req: Request) => {
       // Non-critical
     }
 
+    // Utility: skip tiny/thumbnail images (Cloudinary w_XX, query param width, etc.)
+    const isTinyImage = (src: string): boolean => {
+      // Cloudinary-style: /w_16/ or ,w_16,
+      if (/[/,]w_([1-9]\d?)[/,]/i.test(src)) return true;
+      // Query param width/height <= 60
+      if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) return true;
+      return false;
+    };
+
     // ===== PIPELINE 2: Action Photos via Search + Scrape =====
     try {
       const jerseyTag = jerseyNum ? ` #${jerseyNum}` : "";
