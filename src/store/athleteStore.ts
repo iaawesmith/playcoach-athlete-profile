@@ -38,6 +38,10 @@ interface AthleteState {
   starRating: number;
   nationalRank: number | null;
   positionRank: number | null;
+  rating247: string;
+  ratingOn3: string;
+  ratingComposite: string;
+  offersCount: number | null;
   commitmentStatus: "" | "committed" | "uncommitted" | "portal";
   upcomingGame: UpcomingGame | null;
   profileStatus: "draft" | "live";
@@ -82,6 +86,10 @@ const defaults: AthleteData = {
   starRating: 0,
   nationalRank: null,
   positionRank: null,
+  rating247: "",
+  ratingOn3: "",
+  ratingComposite: "",
+  offersCount: null,
   commitmentStatus: "",
   upcomingGame: null,
 };

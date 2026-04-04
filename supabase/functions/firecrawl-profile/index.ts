@@ -162,6 +162,22 @@ Deno.serve(async (req: Request) => {
       const posRankMatch = content.match(/(?:Position|Pos)\s*(?:Rank|#)[:\s]*(\d+)/i);
       if (posRankMatch && !merged.positionRank) merged.positionRank = parseInt(posRankMatch[1], 10);
 
+      // 247 Rating (e.g. "247 Rating: 0.9150" or "247Sports Rating: 91")
+      const rating247Match = content.match(/247\s*(?:Sports?)?\s*(?:Rating|Score)[:\s]*([\d.]+)/i);
+      if (rating247Match && !merged.rating247) merged.rating247 = rating247Match[1];
+
+      // On3 Rating / NIL Value
+      const ratingOn3Match = content.match(/On3\s*(?:Rating|Score|Consensus)[:\s]*([\d.]+)/i);
+      if (ratingOn3Match && !merged.ratingOn3) merged.ratingOn3 = ratingOn3Match[1];
+
+      // Composite Rating
+      const compositeMatch = content.match(/(?:Composite|Industry)\s*(?:Rating|Score|Ranking)[:\s]*([\d.]+)/i);
+      if (compositeMatch && !merged.ratingComposite) merged.ratingComposite = compositeMatch[1];
+
+      // Offers count
+      const offersMatch = content.match(/(\d+)\s*(?:total\s*)?offers/i);
+      if (offersMatch && !merged.offersCount) merged.offersCount = parseInt(offersMatch[1], 10);
+
       // Position: multiple patterns, only from relevant pages, skip bare "S"
       if (!merged.position && pageRelevant) {
         // Pattern 1: structured label like "Position: QB"
@@ -437,7 +453,7 @@ Deno.serve(async (req: Request) => {
           const contentParts: Array<Record<string, unknown>> = [
             {
               type: "text",
-              text: `You are verifying action photos for a football player profile card.
+              text: `You are verifying ACTION photos for a football player profile card.
 
 Player: ${name}
 Position: ${posLabel || "unknown"}
@@ -445,10 +461,24 @@ School: ${school || "unknown"}
 Jersey: ${jerseyNum || "unknown"}
 
 I'm showing you ${imagesToCheck.length} candidate images. For EACH image, determine:
-1. Does it show a football player in game action or a football-related photo? (not a car, landscape, logo, headshot, crowd, or unrelated image)
+1. Is this an IN-GAME or ON-FIELD ACTION shot? (running a route, catching, blocking, tackling, throwing, rushing, etc.)
 2. Could this plausibly be ${name} based on jersey number, school uniform colors, or context?
 
-Return a JSON array of ONLY the URLs that pass BOTH checks, ranked by quality for a portrait card (prefer dynamic action shots over static poses). Example: ["url1", "url2"]
+STRICT REQUIREMENTS — only include images that meet ALL of these:
+- Must show a football player actively performing a football action (not standing, posing, or walking)
+- Must be on a football field or sideline during a game/practice
+- Must be a single identifiable player (not a wide crowd/team shot)
+- Prefer highest quality/resolution images
+- Prioritize images from 247Sports, On3, ESPN, or official team sources
+
+ABSOLUTELY REJECT:
+- Headshots, studio portraits, posed photos, media day photos
+- Team group photos, crowd shots, fan photos
+- Logos, graphics, advertisements, thumbnails under 200px
+- Random unrelated images, cars, landscapes
+- Photos where the player is just standing or walking
+
+Return a JSON array of ONLY the URLs that pass ALL checks, ranked by action quality (most dynamic action first). Example: ["url1", "url2"]
 If none pass, return: []`,
             },
           ];
