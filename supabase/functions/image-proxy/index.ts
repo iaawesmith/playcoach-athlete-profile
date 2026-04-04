@@ -1,3 +1,5 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -49,42 +51,32 @@ Deno.serve(async (req: Request) => {
     const contentType = imgResponse.headers.get("content-type") || "image/jpeg";
     const imageBytes = new Uint8Array(await imgResponse.arrayBuffer());
 
-    // Upload to Supabase Storage
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // Upload via Supabase client with service role key
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    const { data, error } = await adminClient.storage
+      .from(bucket)
+      .upload(fileName, imageBytes, {
+        contentType,
+        upsert: true,
+      });
+
+    if (error) {
       return new Response(
-        JSON.stringify({ success: false, error: "Storage not configured" }),
+        JSON.stringify({ success: false, error: `Upload failed: ${error.message}` }),
         { status: 500, headers },
       );
     }
 
-    const storagePath = `${bucket}/${fileName}`;
-    const uploadUrl = `${supabaseUrl}/storage/v1/object/${storagePath}`;
-
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${serviceRoleKey}`,
-        "Content-Type": contentType,
-        "x-upsert": "true",
-      },
-      body: imageBytes,
-    });
-
-    if (!uploadResponse.ok) {
-      const errText = await uploadResponse.text();
-      return new Response(
-        JSON.stringify({ success: false, error: `Upload failed: ${errText}` }),
-        { status: 500, headers },
-      );
-    }
-
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${storagePath}`;
+    const { data: urlData } = adminClient.storage
+      .from(bucket)
+      .getPublicUrl(data.path);
 
     return new Response(
-      JSON.stringify({ success: true, publicUrl, contentType, size: imageBytes.length }),
+      JSON.stringify({ success: true, publicUrl: urlData.publicUrl, contentType, size: imageBytes.length }),
       { headers },
     );
   } catch (error: unknown) {
