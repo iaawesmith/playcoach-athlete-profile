@@ -295,10 +295,14 @@ Deno.serve(async (req: Request) => {
         const md = (pr.markdown || (pr.data as Record<string, unknown>)?.markdown || "") as string;
         let m;
         while ((m = mdImgRegex.exec(md)) !== null) {
-          const src = m[1];
+          let src = m[1];
           // Skip tiny utility images
           if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|rating/i.test(src)) continue;
           if (src.length < 30) continue;
+          // Skip explicitly tiny thumbnails (width or height <= 100)
+          if (/[?&](?:width|w|height|h)=(?:[1-9]?\d|100)(?:&|$)/i.test(src)) continue;
+          // Upgrade sidearm/CDN crop URLs to larger versions for better AI vision analysis
+          src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
           if (!candidateUrls.includes(src)) candidateUrls.push(src);
         }
       }
