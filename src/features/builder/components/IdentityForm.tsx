@@ -523,6 +523,31 @@ export const IdentityForm = () => {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const profilePicInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoLoading, setLogoLoading] = useState(false);
+
+  const autoFetchSchoolLogo = useCallback(async (schoolName: string) => {
+    if (schoolLogoUrl) return;
+    setLogoLoading(true);
+    try {
+      const result = await firecrawlApi.fetchSchoolLogo(schoolName);
+      if (result.success && result.logoUrl) {
+        const proxyRes = await supabase.functions.invoke("image-proxy", {
+          body: {
+            imageUrl: result.logoUrl,
+            fileName: `logos/${schoolName.replace(/\s+/g, "-").toLowerCase()}-logo.png`,
+            bucket: "athlete-media",
+          },
+        });
+        if (!proxyRes.error && proxyRes.data?.success && proxyRes.data?.publicUrl) {
+          setAthlete({ schoolLogoUrl: proxyRes.data.publicUrl });
+        }
+      }
+    } catch {
+      // silently fail — user can still upload manually
+    } finally {
+      setLogoLoading(false);
+    }
+  }, [schoolLogoUrl, setAthlete]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
