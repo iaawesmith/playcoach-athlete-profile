@@ -447,6 +447,22 @@ If none pass, return: []`,
       }
     }
 
+    // Validate candidate URLs are actual renderable images via HEAD requests
+    const validateImageUrl = async (url: string): Promise<boolean> => {
+      try {
+        const resp = await fetch(url, {
+          method: "HEAD",
+          headers: { "User-Agent": "Mozilla/5.0" },
+          redirect: "follow",
+        });
+        if (!resp.ok) return false;
+        const ct = resp.headers.get("content-type") || "";
+        return ct.startsWith("image/");
+      } catch {
+        return false;
+      }
+    };
+
     // Build actionPhotoCandidates: AI pick first, then remaining candidates
     const actionPhotoCandidates: string[] = [];
     if (imageUrls.actionPhoto) {
@@ -458,12 +474,25 @@ If none pass, return: []`,
       }
     }
 
+    // Validate top candidates in parallel (check up to 10)
+    const toValidate = actionPhotoCandidates.slice(0, 10);
+    const validationResults = await Promise.all(toValidate.map(validateImageUrl));
+    const verifiedCandidates = toValidate.filter((_, i) => validationResults[i]);
+
+    // Update actionPhoto to first verified candidate
+    if (verifiedCandidates.length > 0) {
+      imageUrls.actionPhoto = verifiedCandidates[0];
+    } else if (actionPhotoCandidates.length > 0) {
+      // None verified — clear to avoid black boxes
+      delete imageUrls.actionPhoto;
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         data: merged,
         imageUrls: Object.keys(imageUrls).length > 0 ? imageUrls : undefined,
-        actionPhotoCandidates: actionPhotoCandidates.length > 0 ? actionPhotoCandidates.slice(0, 10) : undefined,
+        actionPhotoCandidates: verifiedCandidates.length > 0 ? verifiedCandidates.slice(0, 10) : undefined,
         sources: sources,
         resultsCount: results.length,
       }),
