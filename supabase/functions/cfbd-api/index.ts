@@ -1,4 +1,4 @@
-import { corsHeaders } from "https://deno.land/x/supabase_functions_js_cors@1/mod.ts";
+
 
 const CFBD_BASE = "https://apinext.collegefootballdata.com";
 
