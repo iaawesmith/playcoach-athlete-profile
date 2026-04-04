@@ -38,6 +38,10 @@ interface AthleteState {
   starRating: number;
   nationalRank: number | null;
   positionRank: number | null;
+  rating247: string;
+  ratingOn3: string;
+  ratingComposite: string;
+  offersCount: number | null;
   commitmentStatus: "" | "committed" | "uncommitted" | "portal";
   upcomingGame: UpcomingGame | null;
   profileStatus: "draft" | "live";
