@@ -207,16 +207,6 @@ export const ScrapeFill = () => {
                       )}
                     </div>
                   </button>
-                  {imgKey === "actionPhoto" && hasMultipleActionPhotos && (
-                    <button
-                      type="button"
-                      onClick={nextActionPhoto}
-                      className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-surface/80 flex items-center justify-center hover:bg-surface transition-colors"
-                      title="Next photo"
-                    >
-                      <span className="material-symbols-outlined text-on-surface text-sm">navigate_next</span>
-                    </button>
-                  )}
                 </div>
               );
             })}
