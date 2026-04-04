@@ -238,10 +238,118 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // --- Image extraction ---
+    const imageUrls: Record<string, string> = {};
+
+    // 1. Find ESPN or roster source URL and scrape for athlete photos
+    const espnSource = sources.find((s) => s.includes("espn.com"));
+    const rosterSource = sources.find((s) =>
+      /roster|player/i.test(s) && !s.includes("247sports") && !s.includes("rivals") && !s.includes("on3.com")
+    );
+    const photoSource = espnSource || rosterSource;
+
+    if (photoSource && apiKey) {
+      try {
+        const photoScrape = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: photoSource,
+            formats: ["html"],
+            onlyMainContent: false,
+          }),
+        });
+
+        if (photoScrape.ok) {
+          const photoData = await photoScrape.json();
+          const html = photoData.data?.html || photoData.html || "";
+
+          // ESPN headshot patterns
+          const espnHeadshot = html.match(
+            /(?:headshot|PlayerImage|player-headshot)[^>]*?(?:src|data-src)=["']([^"']+(?:espncdn|a\.espncdn)[^"']+)/i
+          );
+          if (espnHeadshot) {
+            let url = espnHeadshot[1];
+            // Upgrade to higher res
+            url = url.replace(/&[wh]=\d+/g, "").replace(/\?.*$/, "") + "?w=600&h=436";
+            imageUrls.headshot = url;
+          }
+
+          // School roster headshot
+          if (!imageUrls.headshot) {
+            const rosterHeadshot = html.match(
+              /(?:player[_-]?photo|roster[_-]?photo|headshot|profile[_-]?image|bio[_-]?image)[^>]*?(?:src|data-src)=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)/i
+            );
+            if (rosterHeadshot) imageUrls.headshot = rosterHeadshot[1];
+          }
+
+          // Action photo: larger images on the page (not icons/logos)
+          const imgTags = html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)/gi);
+          for (const m of imgTags) {
+            const src = m[1];
+            if (src === imageUrls.headshot) continue;
+            // Skip small images, icons, logos
+            if (/logo|icon|sprite|badge|arrow|button/i.test(src)) continue;
+            // Prefer larger images (ESPN uses combiner with w/h params)
+            const widthMatch = src.match(/[wW]=(\d+)/);
+            if (widthMatch && parseInt(widthMatch[1], 10) < 200) continue;
+            // Accept action/game photos
+            if (/action|game|photo|media|image/i.test(src) || (widthMatch && parseInt(widthMatch[1], 10) >= 400)) {
+              imageUrls.actionPhoto = src;
+              break;
+            }
+          }
+        }
+      } catch (_imgErr) {
+        // Non-critical, continue without images
+      }
+    }
+
+    // 2. School logo via branding format
+    if (school && apiKey) {
+      try {
+        // Derive athletics domain from school name
+        const schoolSlug = school
+          .toLowerCase()
+          .replace(/university of /i, "")
+          .replace(/\s+state\s+university/i, "state")
+          .replace(/\s+university/i, "")
+          .replace(/[^a-z]/g, "");
+
+        // Search for the athletics site to get the real domain
+        const logoSearch = await fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: school + " athletics official site",
+            limit: 1,
+            scrapeOptions: { formats: ["branding"] },
+          }),
+        });
+
+        if (logoSearch.ok) {
+          const logoData = await logoSearch.json();
+          const firstResult = logoData.data?.[0];
+          const branding = firstResult?.branding;
+          const logo = branding?.logo || branding?.images?.logo;
+          if (logo) imageUrls.schoolLogo = logo;
+        }
+      } catch (_logoErr) {
+        // Non-critical
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         data: merged,
+        imageUrls: Object.keys(imageUrls).length > 0 ? imageUrls : undefined,
         sources: sources,
         resultsCount: results.length,
       }),
