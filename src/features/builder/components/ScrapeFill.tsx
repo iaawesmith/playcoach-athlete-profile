@@ -28,9 +28,6 @@ export const ScrapeFill = () => {
     errorMessage,
     totalSelected,
     totalItems,
-    nextActionPhoto,
-    hasMultipleActionPhotos,
-    handleActionPhotoError,
   } = useAutoFill();
 
   if (status === "idle" || status === "done") {
