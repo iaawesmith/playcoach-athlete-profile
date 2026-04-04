@@ -7,7 +7,7 @@ export interface SchoolOption {
   primaryColor: string;
   altColor: string;
   logoUrl: string | null;
-  source: "cfbd" | "local";
+  source: "cfbd";
 }
 
 let cachedTeams: CfbdTeam[] | null = null;
@@ -18,8 +18,11 @@ const loadTeams = async (): Promise<CfbdTeam[]> => {
   if (fetchPromise) return fetchPromise;
   fetchPromise = cfbdApi.teams().then((res) => {
     if (res.success && res.data) {
-      cachedTeams = res.data;
-      return res.data;
+      // Only keep FBS and FCS teams (proper NCAA Division I)
+      cachedTeams = res.data.filter(
+        (t) => t.classification === "fbs" || t.classification === "fcs"
+      );
+      return cachedTeams;
     }
     return [];
   }).catch(() => []);
