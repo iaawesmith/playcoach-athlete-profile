@@ -367,14 +367,16 @@ export function ProfilePreview() {
         </div>
       )}
 
-      {/* CTA */}
-      <button
-        onClick={handleComplete}
-        className="w-full py-3.5 rounded-full font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-200"
-        style={{ backgroundColor: "#50C4CA", color: "white" }}
-      >
-        Enter Brand HQ →
-      </button>
+      {/* CTA — only after apply */}
+      {autoFill.status === "done" && (
+        <button
+          onClick={handleComplete}
+          className="w-full py-3.5 rounded-full font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-200"
+          style={{ backgroundColor: "#50C4CA", color: "white" }}
+        >
+          Enter Brand HQ →
+        </button>
+      )}
     </div>
   );
 }
