@@ -6,7 +6,6 @@ const corsHeaders = {
 
 const CFBD_BASE = "https://apinext.collegefootballdata.com";
 
-// ── Helpers ──────────────────────────────────────────────────────────────
 async function cfbdFetch<T = unknown>(
   apiKey: string,
   path: string,
@@ -28,507 +27,288 @@ async function cfbdFetch<T = unknown>(
 }
 
 type RosterPlayer = {
-  first_name: string;
-  last_name: string;
-  position: string;
-  jersey: number;
-  height: number;
-  weight: number;
-  year: number;
-  home_city: string;
-  home_state: string;
+  first_name: string; last_name: string; position: string; jersey: number;
+  height: number; weight: number; year: number; home_city: string; home_state: string;
 };
-
 type Recruit = {
-  name: string;
-  school: string;
-  stars: number;
-  ranking: number;
-  position: string;
-  city: string;
-  state_province: string;
-  year: number;
+  name: string; school: string; stars: number; ranking: number;
+  position: string; city: string; state_province: string; year: number;
 };
 
-// ── Recruiting field extraction from markdown ────────────────────────────
 function extractRecruitingFields(content: string, merged: Record<string, string | number>) {
-  // 247 Rating — look for various patterns
   if (!merged.rating247) {
-    const patterns247 = [
+    for (const pat of [
       /247\s*(?:Sports?)?\s*(?:Rating|Score|Composite|Grade)[:\s]*([\d.]+)/i,
       /(?:Rating|Score|Composite)[:\s]*([\d.]+)\s*.*?247/i,
-      /247Sports\s*[\w\s]*?[:\s]*(0\.\d{4})/i,
-      /(?:^|\s)(0\.(?:9|8)\d{2,3})(?:\s|$)/m,  // bare decimal like 0.9876
-    ];
-    for (const pat of patterns247) {
-      const m = content.match(pat);
-      if (m) { merged.rating247 = m[1]; break; }
-    }
+      /(?:^|\s)(0\.(?:9|8)\d{2,3})(?:\s|$)/m,
+    ]) { const m = content.match(pat); if (m) { merged.rating247 = m[1]; break; } }
   }
-
-  // On3 Rating
   if (!merged.ratingOn3) {
-    const patternsOn3 = [
+    for (const pat of [
       /On3\s*(?:Rating|Score|Consensus|Grade|NIL)[:\s]*([\d.]+)/i,
-      /On3[:\s]*([\d.]+)\s*(?:out|\/)/i,
       /(?:Rating|Score)[:\s]*([\d.]+)\s*.*?On3/i,
-    ];
-    for (const pat of patternsOn3) {
-      const m = content.match(pat);
-      if (m) { merged.ratingOn3 = m[1]; break; }
-    }
+    ]) { const m = content.match(pat); if (m) { merged.ratingOn3 = m[1]; break; } }
   }
-
-  // Composite Rating
   if (!merged.ratingComposite) {
-    const patternsComp = [
+    for (const pat of [
       /(?:Composite|Industry|Overall)\s*(?:Rating|Score|Ranking|Grade)[:\s]*([\d.]+)/i,
       /(?:Comp\.?|COMPRTG)[:\s]*([\d.]+)/i,
-    ];
-    for (const pat of patternsComp) {
-      const m = content.match(pat);
-      if (m) { merged.ratingComposite = m[1]; break; }
-    }
+    ]) { const m = content.match(pat); if (m) { merged.ratingComposite = m[1]; break; } }
   }
-
-  // Offers count
   if (!merged.offersCount) {
-    const patternsOffers = [
-      /(\d+)\s*(?:total\s*)?offers/i,
-      /Offers[:\s]*(\d+)/i,
-      /Offer\s*(?:Count|Total)[:\s]*(\d+)/i,
-    ];
-    for (const pat of patternsOffers) {
-      const m = content.match(pat);
-      if (m) { merged.offersCount = parseInt(m[1], 10); break; }
+    for (const pat of [/(\d+)\s*(?:total\s*)?offers/i, /Offers[:\s]*(\d+)/i]) {
+      const m = content.match(pat); if (m) { merged.offersCount = parseInt(m[1], 10); break; }
     }
   }
-
-  // Star rating
-  if (!merged.starRating) {
-    const starMatch = content.match(/(\d)\s*-?\s*Star/i);
-    if (starMatch) merged.starRating = parseInt(starMatch[1], 10);
-  }
-
-  // National rank
-  if (!merged.nationalRank) {
-    const natRank = content.match(/(?:National|Natl?|Overall)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i);
-    if (natRank) merged.nationalRank = parseInt(natRank[1], 10);
-  }
-
-  // Position rank
-  if (!merged.positionRank) {
-    const posRank = content.match(/(?:Position|Pos)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i);
-    if (posRank) merged.positionRank = parseInt(posRank[1], 10);
-  }
-
-  // Height
+  if (!merged.starRating) { const m = content.match(/(\d)\s*-?\s*Star/i); if (m) merged.starRating = parseInt(m[1], 10); }
+  if (!merged.nationalRank) { const m = content.match(/(?:National|Natl?|Overall)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i); if (m) merged.nationalRank = parseInt(m[1], 10); }
+  if (!merged.positionRank) { const m = content.match(/(?:Position|Pos)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i); if (m) merged.positionRank = parseInt(m[1], 10); }
   if (!merged.height) {
-    const hm = content.match(/Height[:\s]*(\d+['']\d+[""]?|\d+-\d+)/i)
-      || content.match(/HT\/WT[:\s]*(\d+['-]\d+)/i)
-      || content.match(/Ht\.?[:\s]*(\d+['-]\d+)/i);
+    const hm = content.match(/Height[:\s]*(\d+['']\d+[""]?|\d+-\d+)/i) || content.match(/HT\/WT[:\s]*(\d+['-]\d+)/i);
     if (hm) merged.height = hm[1];
   }
-
-  // Weight
   if (!merged.weight) {
-    const wm = content.match(/Weight[:\s]*(\d+)\s*(?:lbs?)?/i)
-      || content.match(/HT\/WT[:\s]*\d+['-]\d+[,\s]+(\d+)\s*lbs/i)
-      || content.match(/Wt\.?[:\s]*(\d+)/i);
+    const wm = content.match(/Weight[:\s]*(\d+)\s*(?:lbs?)?/i) || content.match(/HT\/WT[:\s]*\d+['-]\d+[,\s]+(\d+)\s*lbs/i);
     if (wm) merged.weight = wm[1];
   }
-
-  // Hometown
-  if (!merged.hometown) {
-    const htown = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i);
-    if (htown) merged.hometown = htown[1].trim();
-  }
-
-  // High school
+  if (!merged.hometown) { const m = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i); if (m) merged.hometown = m[1].trim(); }
   if (!merged.highSchool) {
-    const hs = content.match(
-      /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect|Natl)([A-Z][A-Za-z0-9 .'()-]{2,39})/
-    );
-    if (hs) {
-      const cleaned = hs[1].trim().replace(/[\[\]|]+$/, "").trim();
-      if (cleaned.length >= 3 && !/^\d+$/.test(cleaned)) merged.highSchool = cleaned;
-    }
+    const hs = content.match(/High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect|Natl)([A-Z][A-Za-z0-9 .'()-]{2,39})/);
+    if (hs) { const c = hs[1].trim().replace(/[\[\]|]+$/, "").trim(); if (c.length >= 3 && !/^\d+$/.test(c)) merged.highSchool = c; }
   }
+  if (!merged.fortyTime) { const m = content.match(/40[- ]?(?:yard|yd)?[:\s]*(\d+\.\d+)/i); if (m) merged.fortyTime = m[1]; }
+}
 
-  // 40-yard dash
-  if (!merged.fortyTime) {
-    const ft = content.match(/40[- ]?(?:yard|yd)?[:\s]*(\d+\.\d+)/i);
-    if (ft) merged.fortyTime = ft[1];
-  }
+// Score an image URL + context for action-photo likelihood (no vision model)
+function scoreActionCandidate(
+  src: string, altText: string, nameTokens: string[], jerseyNum: string
+): number {
+  let score = 0;
+  const combined = `${decodeURIComponent(src)} ${altText}`.toLowerCase();
+
+  // Name match signals
+  const nameHits = nameTokens.filter(t => t.length > 2 && combined.includes(t)).length;
+  score += nameHits * 20;
+
+  // Jersey number match
+  if (jerseyNum && combined.includes(jerseyNum)) score += 15;
+
+  // Action keywords in alt text or URL
+  const actionWords = /action|game|play|catch|throw|run|route|tackle|block|rush|pass|touchdown|scramble|sprint|celebration|snap|huddle/i;
+  if (actionWords.test(altText)) score += 25;
+  if (actionWords.test(src)) score += 10;
+
+  // Source quality: player gallery / profile photo sections
+  if (/profilephoto|player.*photo|gallery|media/i.test(src)) score += 15;
+  if (/247sports/i.test(src)) score += 10;
+  if (/on3\.com/i.test(src)) score += 8;
+
+  // Penalty for headshot/portrait signals
+  if (/headshot|portrait|mugshot|posed|studio|staff|coach|logo|icon|badge/i.test(combined)) score -= 50;
+
+  // Penalty for tiny images (width param)
+  if (/[?&](?:width|w|height|h)=(?:[1-9]\d?|1[0-5]\d)(?:&|$)/i.test(src)) score -= 30;
+  if (/[/,]w_([1-9]\d?|1[0-5]\d)[/,]/i.test(src)) score -= 30;
+
+  // Bonus for larger explicit sizes
+  const wMatch = src.match(/[/,]w_(\d+)[/,]/i) || src.match(/[?&](?:width|w)=(\d+)/i);
+  if (wMatch && parseInt(wMatch[1], 10) >= 400) score += 10;
+
+  // og:image URLs are usually good
+  if (/og.image|opengraph/i.test(src)) score += 12;
+
+  return score;
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const headers = { ...corsHeaders, "Content-Type": "application/json" };
 
   try {
     const rawText = await req.text();
     let body: Record<string, unknown> = {};
-    if (rawText) {
-      try { body = JSON.parse(rawText); } catch {
-        return new Response(JSON.stringify({ success: false, error: "Could not parse JSON body" }), { status: 400, headers });
-      }
-    }
+    if (rawText) { try { body = JSON.parse(rawText); } catch { return new Response(JSON.stringify({ success: false, error: "Could not parse JSON body" }), { status: 400, headers }); } }
 
     const name = String(body.name || "").trim();
     const school = String(body.school || "").trim();
     const knownFields = (body.knownFields || {}) as Record<string, string | undefined>;
-
-    if (!name) {
-      return new Response(JSON.stringify({ success: false, error: "Athlete name is required" }), { status: 400, headers });
-    }
+    if (!name) return new Response(JSON.stringify({ success: false, error: "Athlete name is required" }), { status: 400, headers });
 
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     const cfbdKey = Deno.env.get("CFBD_API_KEY");
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-
     const nameParts = name.split(/\s+/);
     const lastName = nameParts[nameParts.length - 1].toLowerCase();
     const firstName = nameParts[0].toLowerCase();
-
+    const nameTokens = name.toLowerCase().split(/\s+/);
     const merged: Record<string, string | number> = {};
     const sources: string[] = [];
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 1: CFBD — roster + recruiting data (authoritative, fast, free)
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══ PHASE 1: CFBD ═══
     if (cfbdKey && school) {
-      const currentYear = new Date().getFullYear();
-
+      const yr = new Date().getFullYear();
       const [roster, recruits, recruitsPrev] = await Promise.all([
-        cfbdFetch<RosterPlayer[]>(cfbdKey, "/roster", { team: school, year: currentYear }),
-        cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: currentYear }),
-        cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: currentYear - 1 }),
+        cfbdFetch<RosterPlayer[]>(cfbdKey, "/roster", { team: school, year: yr }),
+        cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: yr }),
+        cfbdFetch<Recruit[]>(cfbdKey, "/recruiting/players", { team: school, year: yr - 1 }),
       ]);
-
       if (roster && Array.isArray(roster)) {
-        const match = roster.find((p) => {
-          const fn = p.first_name?.toLowerCase() || "";
-          const ln = p.last_name?.toLowerCase() || "";
-          return fn === firstName && ln === lastName;
-        });
+        const match = roster.find(p => p.first_name?.toLowerCase() === firstName && p.last_name?.toLowerCase() === lastName);
         if (match) {
           sources.push("CFBD Roster");
-          if (match.height && !merged.height) merged.height = String(match.height);
-          if (match.weight && !merged.weight) merged.weight = String(match.weight);
+          if (match.height) merged.height = String(match.height);
+          if (match.weight) merged.weight = String(match.weight);
           if (match.position && !knownFields.position) merged.position = match.position;
           if (match.jersey != null && !knownFields.number) merged.number = String(match.jersey);
-          if (match.home_city && match.home_state) {
-            merged.hometown = `${match.home_city}, ${match.home_state}`;
-          } else if (match.home_city) {
-            merged.hometown = match.home_city;
-          }
-          if (match.year) {
-            const yearMap: Record<number, string> = { 1: "Freshman", 2: "Sophomore", 3: "Junior", 4: "Senior", 5: "5th Year" };
-            if (!knownFields.classYear) merged.classYear = yearMap[match.year] || String(match.year);
+          if (match.home_city && match.home_state) merged.hometown = `${match.home_city}, ${match.home_state}`;
+          else if (match.home_city) merged.hometown = match.home_city;
+          if (match.year && !knownFields.classYear) {
+            const ym: Record<number, string> = { 1: "Freshman", 2: "Sophomore", 3: "Junior", 4: "Senior", 5: "5th Year" };
+            merged.classYear = ym[match.year] || String(match.year);
           }
         }
       }
-
-      const allRecruits = [...(recruits || []), ...(recruitsPrev || [])];
-      if (allRecruits.length > 0) {
-        const rMatch = allRecruits.find((r) => {
-          const rName = (r.name || "").toLowerCase();
-          return rName.includes(firstName) && rName.includes(lastName);
-        });
-        if (rMatch) {
-          sources.push("CFBD Recruiting");
-          if (rMatch.stars && !merged.starRating) merged.starRating = rMatch.stars;
-          if (rMatch.ranking && !merged.nationalRank) merged.nationalRank = rMatch.ranking;
-          if (rMatch.city && rMatch.state_province && !merged.hometown) {
-            merged.hometown = `${rMatch.city}, ${rMatch.state_province}`;
-          }
-        }
+      const allR = [...(recruits || []), ...(recruitsPrev || [])];
+      const rMatch = allR.find(r => { const n = (r.name || "").toLowerCase(); return n.includes(firstName) && n.includes(lastName); });
+      if (rMatch) {
+        sources.push("CFBD Recruiting");
+        if (rMatch.stars && !merged.starRating) merged.starRating = rMatch.stars;
+        if (rMatch.ranking && !merged.nationalRank) merged.nationalRank = rMatch.ranking;
+        if (rMatch.city && rMatch.state_province && !merged.hometown) merged.hometown = `${rMatch.city}, ${rMatch.state_province}`;
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 2: Firecrawl — deeper recruiting + action photos
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══ PHASE 2: Firecrawl — recruiting + images ═══
     if (!firecrawlKey) {
-      return new Response(JSON.stringify({
-        success: true, data: merged, sources, resultsCount: sources.length,
-      }), { headers });
+      return new Response(JSON.stringify({ success: true, data: merged, sources, resultsCount: sources.length }), { headers });
     }
 
     const authHdrs = { "Authorization": "Bearer " + firecrawlKey, "Content-Type": "application/json" };
     const posTag = knownFields.position || String(merged.position || "");
-
-    // Two targeted searches: one for 247Sports, one for On3
     const searchBase = `${name}${posTag ? " " + posTag : ""} ${school || ""} football`.trim();
-    const [search247Resp, searchOn3Resp] = await Promise.all([
-      fetch("https://api.firecrawl.dev/v1/search", {
-        method: "POST",
-        headers: authHdrs,
-        body: JSON.stringify({
-          query: `${searchBase} profile site:247sports.com`,
-          limit: 3,
-          scrapeOptions: { formats: ["markdown"] },
-        }),
-      }),
-      fetch("https://api.firecrawl.dev/v1/search", {
-        method: "POST",
-        headers: authHdrs,
-        body: JSON.stringify({
-          query: `${searchBase} profile site:on3.com`,
-          limit: 3,
-          scrapeOptions: { formats: ["markdown"] },
-        }),
-      }),
+
+    // Separate searches for better coverage
+    const [s247, sOn3] = await Promise.all([
+      fetch("https://api.firecrawl.dev/v1/search", { method: "POST", headers: authHdrs,
+        body: JSON.stringify({ query: `${searchBase} profile site:247sports.com`, limit: 3, scrapeOptions: { formats: ["markdown"] } }) }),
+      fetch("https://api.firecrawl.dev/v1/search", { method: "POST", headers: authHdrs,
+        body: JSON.stringify({ query: `${searchBase} profile site:on3.com`, limit: 3, scrapeOptions: { formats: ["markdown"] } }) }),
     ]);
 
-    const firecrawlResults: Array<Record<string, unknown>> = [];
-    for (const resp of [search247Resp, searchOn3Resp]) {
-      if (resp.ok) {
-        const d = await resp.json();
-        if (d.data) firecrawlResults.push(...d.data);
-      }
+    const fcResults: Array<Record<string, unknown>> = [];
+    for (const resp of [s247, sOn3]) {
+      if (resp.ok) { const d = await resp.json(); if (d.data) fcResults.push(...d.data); }
     }
 
-    // Parse recruiting fields from all results
-    for (const result of firecrawlResults) {
+    for (const result of fcResults) {
       const srcUrl = String(result.url || (result.metadata as Record<string, unknown>)?.sourceURL || "");
       if (srcUrl && !sources.includes(srcUrl)) sources.push(srcUrl);
-
       const content = String(result.markdown || (result.data as Record<string, unknown>)?.markdown || "");
-      if (!content) continue;
-
-      extractRecruitingFields(content, merged);
+      if (content) extractRecruitingFields(content, merged);
     }
 
-    // Normalize height to total inches
+    // Normalize height/weight
     if (merged.height) {
-      const h = String(merged.height);
-      const dashMatch = h.match(/^(\d+)['\-](\d+)[""]?$/);
-      if (dashMatch) {
-        merged.height = String(parseInt(dashMatch[1], 10) * 12 + parseInt(dashMatch[2], 10));
-      }
+      const dm = String(merged.height).match(/^(\d+)['\-](\d+)[""]?$/);
+      if (dm) merged.height = String(parseInt(dm[1], 10) * 12 + parseInt(dm[2], 10));
     }
-    if (merged.weight) {
-      merged.weight = String(merged.weight).replace(/\s*lbs?\.?\s*/gi, "").trim();
-    }
+    if (merged.weight) merged.weight = String(merged.weight).replace(/\s*lbs?\.?\s*/gi, "").trim();
 
-    // Remove fields the athlete already provided
     if (knownFields.position) delete merged.position;
     if (knownFields.number) delete merged.number;
     if (knownFields.classYear) delete merged.classYear;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 3: Action Photo — targeted extraction from 247/On3 profiles
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══ PHASE 3: Action Photo — URL/alt-text/context scoring (NO vision model) ═══
     const imageUrls: Record<string, string> = {};
-    let candidateUrls: string[] = [];
+    type ScoredImage = { url: string; score: number };
+    const scoredCandidates: ScoredImage[] = [];
 
     try {
-      // Prioritize 247Sports first, then On3
-      const profileUrls = sources.filter((s) =>
-        /247sports\.com|on3\.com/i.test(s)
-      );
-      // Sort: 247 first
-      profileUrls.sort((a, b) => {
-        const a247 = /247sports/i.test(a) ? 0 : 1;
-        const b247 = /247sports/i.test(b) ? 0 : 1;
-        return a247 - b247;
-      });
+      const profileUrls = sources.filter(s => /247sports\.com|on3\.com/i.test(s));
+      profileUrls.sort((a, b) => (/247sports/i.test(a) ? 0 : 1) - (/247sports/i.test(b) ? 0 : 1));
       const imageSourceUrls = profileUrls.slice(0, 4);
+      const jerseyNum = knownFields.number || String(merged.number || "");
 
-      // Scrape HTML from profile pages for image extraction
       const scrapePromises = imageSourceUrls.map(async (pageUrl: string) => {
         try {
           const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-            method: "POST",
-            headers: authHdrs,
+            method: "POST", headers: authHdrs,
             body: JSON.stringify({ url: pageUrl, formats: ["html"], onlyMainContent: false }),
           });
           if (!resp.ok) return [];
           const data = await resp.json();
           const html = String(data.data?.html || data.html || "");
-          const extracted: string[] = [];
+          const results: Array<{ url: string; alt: string }> = [];
 
-          // Standard img src
+          // img src with alt text
           const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
           let m;
           while ((m = imgRegex.exec(html)) !== null) {
             const src = m[1];
-            const fullTag = m[0];
             if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon|tracking|advertisement|sponsor/i.test(src)) continue;
             if (src.length < 30) continue;
-            if (/[?&](?:width|w|height|h)=(?:[1-5]?\d|60)(?:&|$)/i.test(src)) continue;
-            if (/[/,]w_([1-9]\d?)[/,]/i.test(src)) continue;
-            // Boost images with player name or jersey in alt text
-            const altMatch = fullTag.match(/alt=["']([^"']*)["']/i);
-            const altText = altMatch ? altMatch[1].toLowerCase() : "";
-            const nameTokens = name.toLowerCase().split(/\s+/);
-            const hasNameInAlt = nameTokens.some(t => t.length > 2 && altText.includes(t));
-            if (hasNameInAlt) {
-              extracted.unshift(src); // prioritize
-            } else {
-              extracted.push(src);
-            }
+            const altM = m[0].match(/alt=["']([^"']*)["']/i);
+            results.push({ url: src, alt: altM ? altM[1] : "" });
           }
-
-          // Lazy-loaded images (data-src)
-          const dataSrcRegex = /data-src=["'](https?:\/\/[^"']+)["']/gi;
-          while ((m = dataSrcRegex.exec(html)) !== null) {
-            const src = m[1];
-            if (/logo|icon|sprite|badge|button|pixel|\.svg|\.gif|spacer|avatar|favicon/i.test(src)) continue;
-            if (src.length < 30) continue;
-            extracted.push(src);
+          // data-src
+          const dsr = /data-src=["'](https?:\/\/[^"']+)["']/gi;
+          while ((m = dsr.exec(html)) !== null) {
+            if (/logo|icon|sprite|\.svg|\.gif|spacer|favicon/i.test(m[1])) continue;
+            if (m[1].length < 30) continue;
+            results.push({ url: m[1], alt: "" });
           }
-
-          // og:image (often a good player action shot on profile pages)
-          const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["'](https?:\/\/[^"']+)["']/i)
+          // og:image
+          const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["'](https?:\/\/[^"']+)["']/i)
             || html.match(/<meta[^>]+content=["'](https?:\/\/[^"']+)["'][^>]+property=["']og:image["']/i);
-          if (ogMatch) extracted.unshift(ogMatch[1]); // prioritize og:image
+          if (og) results.unshift({ url: og[1], alt: "og:image" });
 
-          return extracted;
+          return results;
         } catch { return []; }
       });
 
-      const scrapeResults = await Promise.all(scrapePromises);
-      for (const imgs of scrapeResults) {
-        for (const src of imgs) {
-          if (!candidateUrls.includes(src)) candidateUrls.push(src);
-        }
+      const allImages = (await Promise.all(scrapePromises)).flat();
+
+      // Deduplicate and score
+      const seen = new Set<string>();
+      for (const { url: rawUrl, alt } of allImages) {
+        // Upscale CDN
+        let u = rawUrl.replace(/\/cdn-cgi\/image\/[^/]+\//, "/").replace(/\?fit=(?:crop|bounds)[^&]*(?:&[^&]*)*$/i, "").replace(/\/w_\d+\b/, "/w_800");
+        if (seen.has(u)) continue;
+        seen.add(u);
+        const s = scoreActionCandidate(u, alt, nameTokens, jerseyNum);
+        if (s > 0) scoredCandidates.push({ url: u, score: s });
       }
 
-      // Upscale CDN URLs for better resolution
-      candidateUrls = candidateUrls.map((url) => {
-        let u = url;
-        u = u.replace(/\/cdn-cgi\/image\/[^/]+\//, "/");
-        u = u.replace(/\?fit=(?:crop|bounds)[^&]*(?:&[^&]*)*$/i, "");
-        u = u.replace(/\/w_\d+\b/, "/w_800");
-        return u;
-      });
-      candidateUrls = [...new Set(candidateUrls)];
-
-      // Pre-sort: URLs containing athlete's name go first
-      const nameTokens = name.toLowerCase().split(/\s+/);
-      candidateUrls.sort((a, b) => {
-        const aLower = decodeURIComponent(a).toLowerCase();
-        const bLower = decodeURIComponent(b).toLowerCase();
-        const aMatch = nameTokens.some((t) => t.length > 2 && aLower.includes(t));
-        const bMatch = nameTokens.some((t) => t.length > 2 && bLower.includes(t));
-        if (aMatch && !bMatch) return -1;
-        if (!aMatch && bMatch) return 1;
-        return 0;
-      });
-
-      // Gemini Vision verification — strict action photo only
-      if (candidateUrls.length > 0 && lovableKey) {
-        const imagesToCheck = candidateUrls.slice(0, 15);
-        const jerseyNum = knownFields.number || String(merged.number || "");
-        const contentParts: Array<Record<string, unknown>> = [
-          {
-            type: "text",
-            text: `You are selecting the SINGLE best in-game ACTION photo for a college football player's profile card.
-
-Player: ${name}
-Position: ${posTag || "unknown"}
-School: ${school || "unknown"}
-Jersey: #${jerseyNum || "unknown"}
-
-From the ${imagesToCheck.length} candidate images below, find the SINGLE best high-resolution in-game ACTION photo of this exact player.
-
-REQUIREMENTS:
-- Must show the player ACTIVELY playing football: running a route, catching a ball, throwing, blocking, tackling, celebrating after a play, etc.
-- Prioritize: clear face/jersey visible, high resolution, action pose, player is the main subject
-- Strong signals: jersey number matches, player name in URL, 247Sports or On3 player gallery image
-- ABSOLUTELY REJECT: headshots, portraits, posed studio shots, smiling close-ups, team group photos, crowd shots, logos, ads, thumbnails under 200px, generic stock photos, coaches, other players
-
-Return a JSON array of qualifying action photo URLs, ranked best first.
-If NONE qualify as real in-game action shots, return an empty array: []
-Do NOT include any image you're unsure about — when in doubt, exclude it.`,
-          },
-        ];
-        for (const url of imagesToCheck) {
-          contentParts.push({ type: "image_url", image_url: { url } });
-        }
-
-        try {
-          const visionResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: { "Authorization": "Bearer " + lovableKey, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [{ role: "user", content: contentParts }],
-            }),
-          });
-
-          if (visionResp.ok) {
-            const visionData = await visionResp.json();
-            const raw = ((visionData.choices?.[0]?.message?.content as string) || "").trim();
-            const visionJson = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-            try {
-              const filtered = JSON.parse(visionJson);
-              if (Array.isArray(filtered) && filtered.length > 0) {
-                candidateUrls = filtered.filter((u: unknown) => typeof u === "string" && String(u).startsWith("http"));
-                if (candidateUrls.length > 0) imageUrls.actionPhoto = candidateUrls[0];
-              } else {
-                // Vision returned empty — no valid action photos
-                candidateUrls = [];
-              }
-            } catch {
-              if (raw.startsWith("http")) imageUrls.actionPhoto = raw;
-            }
-          }
-        } catch { /* non-critical */ }
-
-        // Do NOT fall back to random images if vision found nothing
-      }
+      // Sort by score descending
+      scoredCandidates.sort((a, b) => b.score - a.score);
     } catch { /* non-critical */ }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 4: Validate image URLs
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══ PHASE 4: Validate top candidates ═══
     const validateImageUrl = async (url: string): Promise<boolean> => {
       try {
-        const resp = await fetch(url, {
-          method: "GET",
-          headers: { "User-Agent": "Mozilla/5.0", "Range": "bytes=0-0" },
-          redirect: "follow",
-        });
+        const resp = await fetch(url, { method: "GET", headers: { "User-Agent": "Mozilla/5.0", "Range": "bytes=0-0" }, redirect: "follow" });
         if (!resp.ok && resp.status !== 206) return false;
         const ct = resp.headers.get("content-type") || "";
         return ct.startsWith("image/") || ct.includes("octet-stream");
       } catch { return false; }
     };
 
-    const actionPhotoCandidates: string[] = [];
-    if (imageUrls.actionPhoto) actionPhotoCandidates.push(imageUrls.actionPhoto);
-    for (const c of candidateUrls) {
-      if (!actionPhotoCandidates.includes(c)) actionPhotoCandidates.push(c);
-    }
+    const topCandidates = scoredCandidates.slice(0, 10).map(c => c.url);
+    const validResults = await Promise.all(topCandidates.map(validateImageUrl));
+    const verified = topCandidates.filter((_, i) => validResults[i]);
 
-    const toValidate = actionPhotoCandidates.slice(0, 10);
-    const validationResults = await Promise.all(toValidate.map(validateImageUrl));
-    const verifiedCandidates = toValidate.filter((_, i) => validationResults[i]);
-
-    if (verifiedCandidates.length > 0) {
-      imageUrls.actionPhoto = verifiedCandidates[0];
-    } else {
-      delete imageUrls.actionPhoto;
-    }
+    if (verified.length > 0) imageUrls.actionPhoto = verified[0];
 
     return new Response(JSON.stringify({
       success: true,
       data: merged,
       imageUrls: Object.keys(imageUrls).length > 0 ? imageUrls : undefined,
-      actionPhotoCandidates: verifiedCandidates.length > 0 ? verifiedCandidates.slice(0, 10) : undefined,
+      actionPhotoCandidates: verified.length > 0 ? verified.slice(0, 10) : undefined,
       sources,
       resultsCount: sources.length,
     }), { headers });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Failed to fetch profile";
-    return new Response(JSON.stringify({ success: false, error: errorMessage }), { status: 500, headers });
+    const msg = error instanceof Error ? error.message : "Failed to fetch profile";
+    return new Response(JSON.stringify({ success: false, error: msg }), { status: 500, headers });
   }
 });
