@@ -157,6 +157,7 @@ export function useAutoFill() {
         }
       }
     }
+    setSelectedFields(fields);
 
     const imgs = new Set<keyof ImageUrls>();
     if (result.imageUrls) {
