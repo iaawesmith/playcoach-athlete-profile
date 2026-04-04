@@ -1,102 +1,71 @@
 
 
-## Onboarding Architecture Foundation
+## Firecrawl Integration — Full Scraping Pipeline
 
-Architecture-only scaffold: routes, Zustand store, and empty component shells. No UI styling.
+Firecrawl is now connected. Here's the plan to build a scraping pipeline that auto-populates athlete profile fields from recruiting sites, school pages, and news mentions.
 
-### 1. New Zustand store — `src/store/userStore.ts`
+### Architecture
 
-```typescript
-interface UserProfile {
-  role: 'athlete' | 'coach' | 'trainer' | 'agency' | 'brand' | null
-  athleteTier: 'youth' | 'high-school' | 'college' | 'pro' | null
-  sport: string | null
-  agencyType: 'nil' | 'sports' | 'both' | null
-  onboardingComplete: boolean
-  onboardingStep: number
-  setRole: (role) => void
-  setAthleteTier: (tier) => void
-  setSport: (sport) => void
-  setAgencyType: (type) => void
-  completeOnboarding: () => void
-  setOnboardingStep: (step) => void
-  reset: () => void
-}
+```text
+┌─────────────┐      ┌──────────────────────┐      ┌───────────────┐
+│  Frontend    │ ───► │  Edge Functions       │ ───► │  Firecrawl    │
+│  (scrape UI) │      │  firecrawl-scrape     │      │  API v1       │
+│              │      │  firecrawl-search     │      │               │
+│              │      │  firecrawl-profile    │      │               │
+└─────────────┘      └──────────────────────┘      └───────────────┘
+       │                        │
+       ▼                        ▼
+  athleteStore           AI extraction
+  (auto-populate)        (parse fields)
 ```
 
-All values default to `null` / `false` / `0`.
+### 1. Edge Functions (4 functions)
 
-### 2. New component files (empty shells with placeholder text)
+**`supabase/functions/firecrawl-scrape/index.ts`** — General single-URL scrape. Accepts URL + format options, returns markdown/html/screenshot.
 
-```
-src/features/onboarding/
-  OnboardingLayout.tsx        — wrapper, renders <Outlet>, shows current step/progress text
-  steps/
-    RoleSelection.tsx         — "Role Selection — Athlete | Coach/Trainer | Agency/Brand"
-    AthleteTier.tsx           — "Tier Selection — Youth (Coming Soon) | High School (Coming Soon) | College | Pro (Coming Soon)"
-    SportSelection.tsx        — "Sport Selection — Football | others Coming Soon"
-    CoreSetup.tsx             — "Core Setup — fields vary by role + tier"
-    ProfilePreview.tsx        — "Profile Preview — card preview + completion % + 3 next actions"
-    AgencySetup.tsx           — "Agency Setup — name, type, logo"
-```
+**`supabase/functions/firecrawl-search/index.ts`** — Web search with optional scraping. Used for finding athlete mentions, news articles.
 
-Each component reads/writes `useUserStore`, has a "Next" button calling `navigate()` to the next step, and renders a single `<div>` with descriptive placeholder text.
+**`supabase/functions/firecrawl-crawl/index.ts`** — Multi-page crawl for school athletics sites (rosters, schedules).
 
-### 3. Placeholder dashboard pages
+**`supabase/functions/firecrawl-profile/index.ts`** — Smart profile scraper. Accepts athlete name + school, uses Firecrawl search to find 247Sports/Rivals/MaxPreps pages, scrapes them with JSON extraction format to pull structured data (star rating, rankings, measurables, stats, height, weight, 40 time, hometown, high school). Returns a normalized object matching athleteStore fields.
 
-- `src/pages/AgencyDashboard.tsx` — "Agency Dashboard — Coming Soon"
-- `src/pages/CoachDashboard.tsx` — "Coach Dashboard — Coming Soon"
+### 2. Frontend API Layer
 
-### 4. Route updates in `App.tsx`
+**`src/services/firecrawl.ts`** — Client-side API wrapper with typed methods:
+- `scrape(url, options)` — single URL scrape
+- `search(query, options)` — web search
+- `crawl(url, options)` — multi-page crawl
+- `fetchAthleteProfile(name, school)` — calls the smart profile edge function, returns structured athlete data
 
-```
-/onboarding          → OnboardingLayout wrapper
-  index              → Navigate to /onboarding/role
-  role               → RoleSelection
-  tier               → AthleteTier
-  sport              → SportSelection
-  setup              → CoreSetup
-  preview            → ProfilePreview
-  agency-setup       → AgencySetup
+### 3. Builder Integration
 
-/builder             → BuilderLayout (existing)
-/agency-dashboard    → AgencyDashboard (Coming Soon)
-/coach-dashboard     → CoachDashboard (Coming Soon)
-*                    → NotFound
-```
+**`src/features/builder/components/ScrapeFill.tsx`** — A button/panel in the Identity editor that triggers `fetchAthleteProfile()` using the athlete's name + school from the store. Shows a loading state, then presents scraped data for the athlete to review and accept (auto-populates store fields like height, weight, 40 time, star rating, rankings, hometown, high school, bio draft).
 
-A top-level `<OnboardingGuard>` component wraps the root route logic:
-- If `onboardingComplete === false` and path is `/` or `/builder` → redirect to `/onboarding`
-- If `onboardingComplete === true` and path is `/` → redirect to `/builder`
+Flow:
+1. Athlete enters name + school in CoreSetup or Identity
+2. Clicks "Auto-Fill from Web" button
+3. Edge function searches 247Sports/Rivals for their profile
+4. Scrapes the page with JSON extraction schema
+5. Returns structured data
+6. UI shows preview of found data with checkboxes
+7. Athlete confirms which fields to import → `setAthlete()` updates store
 
-### 5. Step navigation logic inside components
+### 4. Data Sources & Field Mapping
 
-| From | Condition | Next |
-|------|-----------|------|
-| RoleSelection | athlete selected | `/onboarding/tier` |
-| RoleSelection | coach or trainer | `/onboarding/sport` |
-| RoleSelection | agency or brand | `/onboarding/agency-setup` |
-| AthleteTier | college selected | `/onboarding/sport` |
-| AthleteTier | other tiers | disabled (Coming Soon) |
-| SportSelection | football selected | `/onboarding/setup` |
-| SportSelection | other sports | disabled (Coming Soon) |
-| CoreSetup | any | `/onboarding/preview` |
-| ProfilePreview | athlete+college | completes → `/builder` |
-| ProfilePreview | coach/trainer | completes → `/coach-dashboard` |
-| AgencySetup | any | `/onboarding/preview` then completes → `/agency-dashboard` |
+| Source | Fields Extracted |
+|--------|-----------------|
+| 247Sports / Rivals | starRating, nationalRank, positionRank, height, weight, hometown, highSchool |
+| School athletics site | roster confirmation, jersey number, class year, position, bio |
+| News / social search | recent mentions, highlight links |
 
-### Files created
-- `src/store/userStore.ts`
-- `src/features/onboarding/OnboardingLayout.tsx`
-- `src/features/onboarding/steps/RoleSelection.tsx`
-- `src/features/onboarding/steps/AthleteTier.tsx`
-- `src/features/onboarding/steps/SportSelection.tsx`
-- `src/features/onboarding/steps/CoreSetup.tsx`
-- `src/features/onboarding/steps/ProfilePreview.tsx`
-- `src/features/onboarding/steps/AgencySetup.tsx`
-- `src/pages/AgencyDashboard.tsx`
-- `src/pages/CoachDashboard.tsx`
+### Files Created
+- `supabase/functions/firecrawl-scrape/index.ts`
+- `supabase/functions/firecrawl-search/index.ts`
+- `supabase/functions/firecrawl-crawl/index.ts`
+- `supabase/functions/firecrawl-profile/index.ts`
+- `src/services/firecrawl.ts`
+- `src/features/builder/components/ScrapeFill.tsx`
 
-### Files modified
-- `src/App.tsx` — add all new routes + onboarding guard logic
+### Files Modified
+- `src/features/builder/components/IdentityForm.tsx` — add ScrapeFill button/panel
 
