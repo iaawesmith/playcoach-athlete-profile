@@ -1,24 +1,23 @@
 
 
-## Fix ESPN Logo Lookup Not Matching "Brigham Young Cougars"
+## Show School Logo on ProCard During Onboarding Preview
 
 ### Problem
-The `lookupSchoolLogo` function matches aliases with exact equality only (`n.toLowerCase() === q`). The profile scraper sends `school = "Brigham Young Cougars"` but the dataset alias is `"Brigham Young"` — no exact match. The `includes` checks only apply to the `s` field ("BYU"), not aliases.
+When auto-populate results come back, the ProCard live preview updates `actionPhotoUrl`, `height`, and `weight` immediately — but `schoolLogoUrl` is not set on the store until the user clicks "Apply Selected." So the school logo doesn't appear on the ProCard during the review step.
 
 ### Fix
+In `src/hooks/useAutoFill.ts`, add `schoolLogoUrl` to the live preview block (lines 122-131). When `result.imageUrls?.schoolLogo` exists, immediately set it on the store so the ProCard renders the logo at bottom-right — same position as in the builder.
 
-**`supabase/functions/_shared/espnLogos.ts`** — Expand the matching logic to also check substring containment on aliases:
-```
-s.n.some(n => n.toLowerCase() === q || q.includes(n.toLowerCase()) || n.toLowerCase().includes(q))
-```
+Also save the original `schoolLogoUrl` in `originalValues` (line 94-98) so it restores on dismiss.
 
-This way "brigham young cougars".includes("brigham young") → true → match found → returns ESPN CDN URL.
+### Changes
 
-Also add the same improved matching to `src/data/schoolLogos.ts` for client-side consistency.
+**`src/hooks/useAutoFill.ts`**
+- Line 95-98: Add `schoolLogoUrl: useAthleteStore.getState().schoolLogoUrl` to `originalValues`
+- Line 124-128: Add `if (result.imageUrls?.schoolLogo) preview.schoolLogoUrl = result.imageUrls.schoolLogo;` to the live preview block
 
-**Redeploy** both `firecrawl-profile` and `firecrawl-school-logo` edge functions (they import from `_shared/espnLogos.ts`).
+Two lines changed, same file. The ProCard component already renders the logo at `absolute bottom-3 right-3` when `schoolLogoUrl` is truthy — no changes needed there.
 
 ### Files Modified
-- `supabase/functions/_shared/espnLogos.ts`
-- `src/data/schoolLogos.ts`
+- `src/hooks/useAutoFill.ts`
 
