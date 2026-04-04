@@ -162,7 +162,7 @@ Deno.serve(async (req: Request) => {
       const findMatch = (list: RosterPlayer[] | null) => {
         if (!list || !Array.isArray(list)) return null;
         // Try exact name match first
-        let m = list.find(p => p.first_name?.toLowerCase() === firstName && p.last_name?.toLowerCase() === lastName);
+        let m = list.find(p => p.firstName?.toLowerCase() === firstName && p.lastName?.toLowerCase() === lastName);
         if (m) return m;
         // Try with jersey number filter if known
         const jNum = knownFields.number ? parseInt(knownFields.number, 10) : null;
