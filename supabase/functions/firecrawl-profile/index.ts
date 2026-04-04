@@ -63,18 +63,43 @@ function extractRecruitingFields(content: string, merged: Record<string, string 
   if (!merged.starRating) { const m = content.match(/(\d)\s*-?\s*Star/i); if (m) merged.starRating = parseInt(m[1], 10); }
   if (!merged.nationalRank) { const m = content.match(/(?:National|Natl?|Overall)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i); if (m) merged.nationalRank = parseInt(m[1], 10); }
   if (!merged.positionRank) { const m = content.match(/(?:Position|Pos)\s*(?:Rank|#|Ranking)[:\s]*#?(\d+)/i); if (m) merged.positionRank = parseInt(m[1], 10); }
+  // Height extraction — multiple common formats
   if (!merged.height) {
-    const hm = content.match(/Height[:\s]*(\d+['']\d+[""]?|\d+-\d+)/i) || content.match(/HT\/WT[:\s]*(\d+['-]\d+)/i);
-    if (hm) merged.height = hm[1];
+    for (const pat of [
+      /Height[:\s]*(\d+[''′]\s*\d+[""″]?)/i,
+      /Height[:\s]*(\d+-\d+)/i,
+      /HT\/WT[:\s]*(\d+['-]\d+)/i,
+      /(\d+[''′]\s*\d+[""″]?)\s*[\|\/,]\s*\d+\s*(?:lbs?|pounds)/i,
+      /(?:^|\||\n)\s*(\d[''′]\d+[""″]?)\s*(?:\||$|\n)/m,
+    ]) { const m = content.match(pat); if (m) { merged.height = m[1].replace(/\s+/g, ""); break; } }
   }
+  // Weight extraction — multiple formats
   if (!merged.weight) {
-    const wm = content.match(/Weight[:\s]*(\d+)\s*(?:lbs?)?/i) || content.match(/HT\/WT[:\s]*\d+['-]\d+[,\s]+(\d+)\s*lbs/i);
-    if (wm) merged.weight = wm[1];
+    for (const pat of [
+      /Weight[:\s]*(\d{2,3})\s*(?:lbs?|pounds)?/i,
+      /HT\/WT[:\s]*\d+['-]\d+[,\s\/|]+(\d{2,3})\s*(?:lbs?)?/i,
+      /(\d{2,3})\s*(?:lbs|pounds)/i,
+    ]) { const m = content.match(pat); if (m) { merged.weight = m[1]; break; } }
   }
   if (!merged.hometown) { const m = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i); if (m) merged.hometown = m[1].trim(); }
+  // High school extraction — broader patterns
   if (!merged.highSchool) {
-    const hs = content.match(/High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect|Natl)([A-Z][A-Za-z0-9 .'()-]{2,39})/);
-    if (hs) { const c = hs[1].trim().replace(/[\[\]|]+$/, "").trim(); if (c.length >= 3 && !/^\d+$/.test(c)) merged.highSchool = c; }
+    const hsExclude = /^(the|a|an|in|at|Natl|National|QB|WR|RB|TE|OL|DL|LB|CB|S|K|P|FB|ATH)/i;
+    for (const pat of [
+      /High\s*School[:\s]+([A-Z][A-Za-z0-9 .'()-]{2,39}?)(?:\s*\(|\s*-|\s*$|\s*\n|\s*\|)/,
+      /High\s*School[:\s]+([A-Z][A-Za-z0-9 .'()-]{2,39})/,
+      /(?:attends|attended|from)\s+([A-Z][A-Za-z .'()-]+?)\s+(?:High|HS)/i,
+      /([A-Z][A-Za-z .'()-]{3,}?)\s+High\s+School/,
+    ]) {
+      const m = content.match(pat);
+      if (m) {
+        const c = m[1].trim().replace(/[\[\]|]+$/, "").trim();
+        if (c.length >= 3 && !/^\d+$/.test(c) && !hsExclude.test(c) && !/recruit|player|prospect/i.test(c)) {
+          merged.highSchool = c;
+          break;
+        }
+      }
+    }
   }
   if (!merged.fortyTime) { const m = content.match(/40[- ]?(?:yard|yd)?[:\s]*(\d+\.\d+)/i); if (m) merged.fortyTime = m[1]; }
 }
@@ -140,7 +165,7 @@ Deno.serve(async (req: Request) => {
     if (rawText) { try { body = JSON.parse(rawText); } catch { return new Response(JSON.stringify({ success: false, error: "Could not parse JSON body" }), { status: 400, headers }); } }
 
     const name = String(body.name || "").trim();
-    const school = String(body.school || "").trim();
+    const rawSchool = String(body.school || "").trim();
     const knownFields = (body.knownFields || {}) as Record<string, string | undefined>;
     if (!name) return new Response(JSON.stringify({ success: false, error: "Athlete name is required" }), { status: 400, headers });
 
@@ -152,6 +177,23 @@ Deno.serve(async (req: Request) => {
     const nameTokens = name.toLowerCase().split(/\s+/);
     const merged: Record<string, string | number> = {};
     const sources: string[] = [];
+
+    // Strip mascot from school name for CFBD API calls (e.g. "BYU Cougars" → "BYU")
+    // CFBD teams endpoint returns school names without mascot
+    let school = rawSchool;
+    if (cfbdKey && rawSchool) {
+      // Try to resolve the bare school name via CFBD teams lookup
+      try {
+        const teamsResp = await cfbdFetch<Array<{ school: string; mascot: string }>>(cfbdKey, "/teams", {});
+        if (teamsResp && Array.isArray(teamsResp)) {
+          const match = teamsResp.find(t => {
+            const full = t.mascot ? `${t.school} ${t.mascot}` : t.school;
+            return full.toLowerCase() === rawSchool.toLowerCase() || t.school.toLowerCase() === rawSchool.toLowerCase();
+          });
+          if (match) school = match.school;
+        }
+      } catch { /* use rawSchool as-is */ }
+    }
 
     // ═══ PHASE 1: CFBD ═══
     if (cfbdKey && school) {
