@@ -45,7 +45,7 @@ export function AthleteTier() {
                   ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
                   : isSelected
                   ? "border-[#50C4CA] bg-[rgba(80,196,202,0.08)] cursor-pointer active:scale-95"
-                  : "border-outline-variant/10 bg-surface-container-high hover:border-outline-variant/30 cursor-pointer active:scale-95"
+                  : "border-[#50C4CA]/40 bg-[rgba(80,196,202,0.05)] cursor-pointer active:scale-95 hover:border-[#50C4CA]/60"
               }`}
             >
               {!t.active && (
