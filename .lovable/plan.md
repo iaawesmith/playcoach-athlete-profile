@@ -1,16 +1,27 @@
 
 
-## Center "Coming Soon" Badges
+## Fix ProfilePreview: Remove Completion Section and Fix Card Data
 
-The "Coming Soon" badges currently use `self-end` which pushes them to the bottom but they inherit `justify-items-center` from the grid so they should be horizontally centered. The issue is likely that `self-end` only affects vertical alignment. To ensure full centering within their grid row:
+### Problem
+1. The profile completion percentage and segmented bar (lines 163–180) should be removed — completion will be shown inside the builder instead.
+2. The mini ProCard school banner shows `schoolAbbrev` first (line 138), but should show the full school name like the real ProCard does.
+3. The card isn't reading `classYear` from the store, so class year doesn't appear. Jersey number and position are read but may not display if the store fields use different names — `number` is correct per the store, and `position` is correct. The issue is that `classYear` is destructured on line 75 but never rendered in the card.
 
-### Change in `src/features/onboarding/steps/RoleSelection.tsx`
+### Changes to `src/features/onboarding/steps/ProfilePreview.tsx`
 
-- **Line 101**: Add `justify-self-center` to the Coming Soon badge span to explicitly center it horizontally, and keep `self-end` for vertical bottom alignment
-- **Line 105**: Same for the invisible placeholder
+1. **Remove the completion section** (lines 163–180): Delete the animated percentage, segmented bar, and "Profile completion" label entirely. Also remove the `computeCompletion` function and `AnimatedPct` component since they become unused.
 
-This is a one-line class addition to ensure consistent horizontal centering of all three badges.
+2. **Fix school banner text**: Change line 138 from `{schoolAbbrev || school || "SCHOOL"}` to `{school || schoolAbbrev || "SCHOOL"}` — prefer full school name.
+
+3. **Add classYear to the card info**: On line 156–158, update the position/number line to also show class year:
+   ```
+   {position || "POS"} {number ? `#${number}` : ""} {classYear ? `· ${classYear}` : ""}
+   ```
+
+4. **Destructure classYear**: Already destructured on line 75 — no change needed there.
+
+5. **Clean up unused code**: Remove `computeCompletion` function (lines 21–42), `AnimatedPct` component (lines 44–69), and the `completionPct` variable (line 101).
 
 ### Files Modified
-- `src/features/onboarding/steps/RoleSelection.tsx`
+- `src/features/onboarding/steps/ProfilePreview.tsx`
 
