@@ -304,14 +304,18 @@ Deno.serve(async (req: Request) => {
           }
 
           // The first large image on an individual player roster page is the headshot
+          // Only use a headshot if the URL clearly contains the athlete's name
+          // (official roster pages name their images). If uncertain, leave blank.
           if (rosterImages.length > 0) {
-            // Prefer images with the athlete's name in the URL
             const nameTokens = name.toLowerCase().split(/\s+/);
             const namedImg = rosterImages.find((u) => {
               const uLower = decodeURIComponent(u).toLowerCase();
-              return nameTokens.some((t) => uLower.includes(t));
+              return nameTokens.filter((t) => t.length > 2).some((t) => uLower.includes(t));
             });
-            imageUrls.headshot = namedImg || rosterImages[0];
+            // Only set headshot if we found a name-matched image
+            if (namedImg) {
+              imageUrls.headshot = namedImg;
+            }
           }
         }
       }
@@ -460,26 +464,24 @@ Position: ${posLabel || "unknown"}
 School: ${school || "unknown"}
 Jersey: ${jerseyNum || "unknown"}
 
-I'm showing you ${imagesToCheck.length} candidate images. For EACH image, determine:
-1. Is this an IN-GAME or ON-FIELD ACTION shot? (running a route, catching, blocking, tackling, throwing, rushing, etc.)
-2. Could this plausibly be ${name} based on jersey number, school uniform colors, or context?
+Extract ONLY one high-quality in-game ACTION photo of this exact player from the ${imagesToCheck.length} candidates below.
 
-STRICT REQUIREMENTS — only include images that meet ALL of these:
-- Must show a football player actively performing a football action (not standing, posing, or walking)
-- Must be on a football field or sideline during a game/practice
-- Must be a single identifiable player (not a wide crowd/team shot)
-- Prefer highest quality/resolution images
-- Prioritize images from 247Sports, On3, ESPN, or official team sources
+Must show the player ACTIVELY playing football — running a route, catching, throwing, blocking, tackling, rushing, etc.
+
+Prioritize:
+- Highest resolution images
+- Images from 247Sports player profile, On3 player profile, or official team media
+- Images with alt text or context containing player name + jersey number
 
 ABSOLUTELY REJECT:
-- Headshots, studio portraits, posed photos, media day photos
+- Headshots, studio portraits, smiling close-ups, media day photos
 - Team group photos, crowd shots, fan photos
 - Logos, graphics, advertisements, thumbnails under 200px
 - Random unrelated images, cars, landscapes
-- Photos where the player is just standing or walking
+- Photos where the player is just standing, walking, or posing
 
-Return a JSON array of ONLY the URLs that pass ALL checks, ranked by action quality (most dynamic action first). Example: ["url1", "url2"]
-If none pass, return: []`,
+Return a JSON array of ONLY the URLs that pass ALL checks, ranked best action first. Example: ["url1", "url2"]
+If none found, return: []`,
             },
           ];
 
@@ -536,52 +538,7 @@ If none pass, return: []`,
       // Non-critical — continue without action photos
     }
 
-    // ===== PIPELINE 3: School Logo via ESPN CDN static lookup =====
-    if (school) {
-      try {
-        const { lookupSchoolLogo } = await import("../_shared/espnLogos.ts");
-        const espnLogo = lookupSchoolLogo(school);
-        if (espnLogo) {
-          imageUrls.schoolLogo = espnLogo;
-        } else if (apiKey) {
-          // Fallback: Firecrawl branding search for non-NCAA schools
-          const authHdrs = {
-            "Authorization": "Bearer " + apiKey,
-            "Content-Type": "application/json",
-          };
-          const logoSearchRes = await fetch("https://api.firecrawl.dev/v1/search", {
-            method: "POST",
-            headers: authHdrs,
-            body: JSON.stringify({
-              query: `${school} athletics official logo`,
-              limit: 3,
-              scrapeOptions: { formats: ["links"] },
-            }),
-          });
-          if (logoSearchRes.ok) {
-            const logoSearchData = await logoSearchRes.json();
-            if (logoSearchData.data?.length) {
-              const topUrl = logoSearchData.data[0].url;
-              const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-                method: "POST",
-                headers: authHdrs,
-                body: JSON.stringify({ url: topUrl, formats: ["branding"] }),
-              });
-              if (scrapeRes.ok) {
-                const scrapeData = await scrapeRes.json();
-                const branding = scrapeData.data?.branding || scrapeData.branding;
-                const logoUrl = branding?.images?.logo || branding?.logo || branding?.images?.favicon;
-                if (logoUrl && String(logoUrl).startsWith("http")) {
-                  imageUrls.schoolLogo = String(logoUrl);
-                }
-              }
-            }
-          }
-        }
-      } catch (_logoErr) {
-        // Non-critical
-      }
-    }
+    // School logo is handled by CFBD school selection — not extracted here.
 
     // ===== URL VALIDATION: Verify candidate URLs are actual renderable images =====
     const validateImageUrl = async (url: string): Promise<boolean> => {

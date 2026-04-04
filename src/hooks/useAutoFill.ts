@@ -131,9 +131,7 @@ export function useAutoFill() {
     if (result.imageUrls?.actionPhoto) {
       preview.actionPhotoUrl = result.imageUrls.actionPhoto;
     }
-    if (result.imageUrls?.schoolLogo) {
-      preview.schoolLogoUrl = result.imageUrls.schoolLogo;
-    }
+    // School logo comes from CFBD — don't override with scraped data
     if (data.height) preview.height = data.height;
     if (data.weight) preview.weight = data.weight;
     if (Object.keys(preview).length > 0) {
@@ -269,7 +267,7 @@ export function useAutoFill() {
     }
 
     // Revert any live-previewed images the user unchecked
-    const previewedImageKeys: (keyof ImageUrls)[] = ["actionPhoto", "schoolLogo"];
+    const previewedImageKeys: (keyof ImageUrls)[] = ["actionPhoto"];
     for (const imgKey of previewedImageKeys) {
       if (imageUrls?.[imgKey] && !selectedImages.has(imgKey)) {
         const storeKey = imageStoreKeys[imgKey];
@@ -303,7 +301,7 @@ export function useAutoFill() {
     : [];
 
   const availableImages = imageUrls
-    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => !!imageUrls[k])
+    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => k !== "schoolLogo" && !!imageUrls[k])
     : [];
 
   return {
