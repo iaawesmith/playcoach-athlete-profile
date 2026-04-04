@@ -109,6 +109,13 @@ export function ProfilePreview() {
               arrow_forward
             </span>
           </button>
+          <button
+            type="button"
+            onClick={handleComplete}
+            className="w-full text-center text-on-surface-variant text-xs font-bold uppercase tracking-[0.2em] hover:underline active:scale-95 transition-all duration-150 py-2"
+          >
+            Skip
+          </button>
         </div>
       )}
 
