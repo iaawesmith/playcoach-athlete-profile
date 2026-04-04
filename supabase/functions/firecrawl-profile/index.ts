@@ -351,6 +351,7 @@ Only return URLs that are direct links to image files, not HTML pages.`;
 
         if (aiResp.ok) {
           const aiData = await aiResp.json();
+          console.log("Gemini action photo response:", JSON.stringify(aiData).slice(0, 2000));
           // Extract from tool call response
           const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
           let urls: string[] = [];
@@ -369,6 +370,7 @@ Only return URLs that are direct links to image files, not HTML pages.`;
           // Fallback: try parsing from content if tool calling didn't work
           if (urls.length === 0) {
             const content = ((aiData.choices?.[0]?.message?.content as string) || "").trim();
+            console.log("Gemini content fallback:", content.slice(0, 1000));
             const jsonStr = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
             try {
               const parsed = JSON.parse(jsonStr);
@@ -386,6 +388,7 @@ Only return URLs that are direct links to image files, not HTML pages.`;
             }
           }
 
+          console.log("Action photo URLs found:", urls.length, urls.slice(0, 3));
           candidateUrls = urls;
 
           // Vision verification on candidates if we have any
