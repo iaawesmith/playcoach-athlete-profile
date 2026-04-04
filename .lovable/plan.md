@@ -1,15 +1,13 @@
 
 
-## Make Role Cards Wider, Not Taller
+## Widen Role Selection Cards
 
-The cards currently have `px-12 py-8` which made them taller. To make them wider without adding height:
+### Changes to `src/features/onboarding/steps/RoleSelection.tsx`
 
-### Change in `src/features/onboarding/steps/RoleSelection.tsx`
-
-- **Line 66**: Increase `max-w-4xl` to `max-w-5xl` so the grid container allows more horizontal space
-- **Line 75**: Change padding from `px-12 py-8` to `px-16 py-6` — more horizontal padding, slightly less vertical
-
-This gives each card more horizontal breathing room while keeping them compact vertically.
+1. **Expand grid container**: Change `max-w-5xl` to `max-w-6xl` to give the overall background area more room
+2. **Make cards equal width**: Replace the fixed `px-16 py-6` padding with `w-full py-6` so each card fills its grid column equally — all four cards will be the same width
+3. **Add minimum height**: Add `min-h-[200px]` to ensure consistent vertical sizing across all cards (Coming Soon cards have an extra badge element)
+4. **Justify content center**: Add `justify-center` to vertically center content within each card
 
 ### Files Modified
 - `src/features/onboarding/steps/RoleSelection.tsx`
