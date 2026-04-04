@@ -87,7 +87,7 @@ export function ProfilePreview() {
             style={{ backgroundColor: tc }}
           >
             <span className="text-[9px] font-black uppercase tracking-[0.25em] text-on-surface/90">
-              {schoolAbbrev || school || "SCHOOL"}
+              {school || schoolAbbrev || "SCHOOL"}
             </span>
           </div>
 
