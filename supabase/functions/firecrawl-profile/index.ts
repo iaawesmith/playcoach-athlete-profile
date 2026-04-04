@@ -288,26 +288,41 @@ Deno.serve(async (req: Request) => {
         allPhotoResults.push(...(d.data || []));
       }
 
-      // Identify high-value URLs from search results for direct scraping
-      const highValuePatterns = [
-        /247sports\.com/i,
-        /on3\.com/i,
-        /rivals\.com/i,
-        /espn\.com/i,
-        /\.edu\/.*roster/i,
-        /\.edu\/.*football/i,
-        /maxpreps\.com/i,
-      ];
-      const highValueUrls: string[] = [];
+      // Identify high-value URLs for direct scraping — prioritize individual player pages
+      // Also include URLs from the initial text search (sources array)
+      const allUrls = new Set<string>();
       for (const pr of allPhotoResults) {
         const pageUrl = String(pr.url || "");
-        if (pageUrl && highValuePatterns.some((p) => p.test(pageUrl)) && !highValueUrls.includes(pageUrl)) {
-          highValueUrls.push(pageUrl);
-        }
+        if (pageUrl) allUrls.add(pageUrl);
+      }
+      for (const s of sources) {
+        allUrls.add(s);
       }
 
-      // Direct scrape top 3 high-value URLs for full rendered content (JS-rendered images)
-      const scrapeTargets = highValueUrls.slice(0, 3);
+      // Prioritize: individual athlete pages first, then recruiting profiles
+      const playerPagePatterns = [
+        /roster\/.*\d+$/i,           // e.g. utahutes.com/roster/devon-dampier/17509
+        /player\/.*\d+\/?$/i,        // e.g. 247sports.com/player/devon-dampier-46112767/
+        /rivals\.com\/.*\/$/i,       // e.g. on3.com/rivals/devon-dampier-36365/
+        /espn\.com\/.*player\//i,    // e.g. espn.com/college-football/player/...
+      ];
+      const generalPatterns = [
+        /on3\.com/i,
+        /maxpreps\.com/i,
+      ];
+
+      const priorityUrls: string[] = [];
+      const secondaryUrls: string[] = [];
+      for (const url of allUrls) {
+        if (playerPagePatterns.some((p) => p.test(url))) {
+          priorityUrls.push(url);
+        } else if (generalPatterns.some((p) => p.test(url))) {
+          secondaryUrls.push(url);
+        }
+      }
+      
+      // Scrape up to 3 URLs: priority first, then secondary
+      const scrapeTargets = [...priorityUrls, ...secondaryUrls].slice(0, 3);
       const scrapePromises = scrapeTargets.map((url) =>
         fetch("https://api.firecrawl.dev/v1/scrape", {
           method: "POST",
