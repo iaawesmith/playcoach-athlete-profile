@@ -73,38 +73,18 @@ export function useSchoolSearch(query: string) {
 
     setLoading(true);
 
-    // Search cached CFBD first, fall back to local
+    // Search cached CFBD first
     if (cachedTeams) {
       const cfbdResults = cachedTeams.filter((t) => matchesQuery(t, q)).slice(0, 8).map(teamToOption);
-      if (cfbdResults.length > 0) {
-        setResults(cfbdResults);
-        setLoading(false);
-        return;
-      }
+      setResults(cfbdResults);
+      setLoading(false);
+      return;
     }
 
-    // Local fallback while CFBD loads
-    const localResults = universities
-      .filter((u) => u.name.toLowerCase().includes(q.toLowerCase()))
-      .slice(0, 8)
-      .map((u): SchoolOption => ({
-        name: u.name,
-        abbrev: u.abbrev,
-        primaryColor: u.primaryColor,
-        altColor: u.secondaryColor,
-        logoUrl: null,
-        source: "local",
-      }));
-    setResults(localResults);
-
-    // Try CFBD async
+    // CFBD not yet loaded — fetch and search
     loadTeams().then((teams) => {
-      if (teams.length > 0) {
-        const cfbdResults = teams.filter((t) => matchesQuery(t, q)).slice(0, 8).map(teamToOption);
-        if (cfbdResults.length > 0) {
-          setResults(cfbdResults);
-        }
-      }
+      const cfbdResults = teams.filter((t) => matchesQuery(t, q)).slice(0, 8).map(teamToOption);
+      setResults(cfbdResults);
       setLoading(false);
     });
   }, []);
