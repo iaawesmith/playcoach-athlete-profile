@@ -140,14 +140,23 @@ export function useAutoFill() {
       setAthlete(preview as Parameters<typeof setAthlete>[0]);
     }
 
+    // Smart merge: exclude fields the user already provided
+    const userProvidedFields = new Set<FieldKey>();
+    if (firstName || lastName) { userProvidedFields.add("position"); /* name is not a scraped field */ }
+    if (position) userProvidedFields.add("position");
+    if (number) userProvidedFields.add("number");
+    if (classYear) userProvidedFields.add("classYear");
+
     const fields = new Set<FieldKey>();
     for (const key of Object.keys(data) as FieldKey[]) {
       const val = data[key];
       if (val !== null && val !== undefined && val !== "") {
-        fields.add(key);
+        // Don't pre-select fields the user already has values for
+        if (!userProvidedFields.has(key)) {
+          fields.add(key);
+        }
       }
     }
-    setSelectedFields(fields);
 
     const imgs = new Set<keyof ImageUrls>();
     if (result.imageUrls) {
