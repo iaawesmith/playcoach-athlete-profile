@@ -1,85 +1,51 @@
 
 
-## Move Auto-Fill to Onboarding Preview Step
+## AI-Powered Action Photo Search
 
-### What Changes
+### Problem
+Firecrawl's HTML scraping approach for finding athlete photos is unreliable — it parses `<img>` tags with regex and guesses based on CSS class names, which breaks across different site structures.
 
-The "Auto-Fill from Web" scraping is removed from the builder's IdentityForm and moved into the onboarding `/onboarding/preview` step. When the athlete arrives at the preview step, they see their mini ProCard and a prominent "Auto-Populate Profile" button. Pressing it triggers the Firecrawl scrape with an animated progress sequence showing contextual status messages. After completion, the profile completion percentage updates live and the CTA changes to "Enter Brand HQ".
+### Solution
+Replace the HTML-scraping image extraction with an AI-driven pipeline:
 
-### UX Flow
+1. **Dedicated image search** — Use Firecrawl search with a photo-specific query: `"Bear Bachmeier QB BYU Cougars action game photo"`
+2. **Collect candidate image URLs** — Extract all image URLs from the top search results' markdown/HTML
+3. **AI image selection** — Send the candidate URLs to a Gemini vision model, asking it to pick the best action photo for a portrait-oriented card (aspect 3:4)
+4. **Download and persist** — The selected image gets proxied through `image-proxy` to permanent storage
+
+### Architecture
 
 ```text
-Onboarding preview step loads
-  ↓
-Mini ProCard + completion % (from onboarding data only)
-  ↓
-"Auto-Populate My Profile" button (replaces "Do These 3 Things First")
-  ↓
-User taps → animated progress bar with rotating status messages:
-  "Searching recruiting sites..."
-  "Locating action photos..."
-  "Finding measurables..."
-  "Checking school roster..."
-  ↓
-Results appear inline (same checkbox UI from ScrapeFill)
-  ↓
-User taps "Apply Selected" → data populates store
-  ↓
-Completion % animates up to new value
-  ↓
-"Enter Brand HQ →" button enabled
+firecrawl-profile edge function
+  ├── existing text search (measurables, stats) — unchanged
+  └── NEW image pipeline:
+       ├── Firecrawl search: "[name] [position] [school] action game photo"
+       ├── Collect candidate image URLs from results
+       ├── Call Gemini vision: "Which URL is the best action photo?"
+       └── Return selected URL as imageUrls.actionPhoto
 ```
 
+### Changes
+
+**`supabase/functions/firecrawl-profile/index.ts`**
+- Replace the current HTML-scraping image logic (lines 241–324) with:
+  - A Firecrawl search query specifically for photos: `"[name] [position] [school] action game photo"`
+  - Extract image URLs from the search results (from markdown image syntax and HTML img tags)
+  - Call the Lovable AI gateway (Gemini Flash) with the list of candidate URLs, asking: "Which of these image URLs is most likely a high-quality action photo of [name] playing football? Pick the one best suited for a 3:4 portrait card. Return only the URL."
+  - Use the AI-selected URL as `imageUrls.actionPhoto`
+- Keep the school logo branding search as-is (lines 326–361)
+- Keep the headshot extraction from ESPN/roster pages but simplify it
+
+**`src/hooks/useAutoFill.ts`** — No changes needed (already handles `imageUrls` from the edge function)
+
+**`src/features/onboarding/steps/ProfilePreview.tsx`** — No changes needed
+
+### Technical Detail
+- The Gemini call uses `LOVABLE_API_KEY` (already available as a secret) via the AI gateway endpoint
+- Model: `google/gemini-2.5-flash` for speed — it only needs to evaluate a list of URLs and pick one
+- If no good candidate is found, the AI returns empty and no action photo is offered
+- Firecrawl credit cost: 1 additional search (photo-specific) = 1 extra credit per Auto-Fill
+
 ### Files Modified
-
-**`src/features/onboarding/steps/ProfilePreview.tsx`** — major rewrite:
-- Remove the "Do These 3 Things First" action items section entirely
-- Add three states: `idle` (show auto-populate button), `scraping` (animated progress with status messages), `results` (field/image selection from ScrapeFill logic)
-- Scraping state shows a segmented progress bar (matching design system) with rotating status text that cycles through contextual messages every 2-3 seconds
-- After apply, recalculate and animate the completion percentage
-- Keep the mini ProCard (it updates live as images/data are applied)
-- Keep "Enter Brand HQ" CTA at the bottom — always visible, but visually emphasized after auto-fill completes
-
-**`src/features/builder/components/IdentityForm.tsx`** — remove ScrapeFill:
-- Remove the `import { ScrapeFill }` line
-- Remove the `<ScrapeFill />` component usage from the form
-- Keep ScrapeFill.tsx file for now (shared logic), or inline the scraping logic directly into ProfilePreview
-
-**`src/features/builder/components/ScrapeFill.tsx`** — refactor to export reusable logic:
-- Extract the scraping + image upload logic into a custom hook `useAutoFill` that can be called from ProfilePreview
-- The hook returns: `{ scrape, apply, status, scrapedData, imageUrls, selectedFields, selectedImages, toggleField, toggleImage, sources }`
-- This keeps the edge function calling, field selection, and image proxy upload logic in one place
-
-### Scraping Progress Animation
-
-Instead of a generic spinner, show a cinematic progress sequence:
-- Segmented progress bar (10 segments, filling left to right over ~15 seconds)
-- Status text rotates through contextual messages:
-  1. "Searching 247Sports, Rivals, On3..."
-  2. "Scanning ESPN profiles..."
-  3. "Checking school roster..."
-  4. "Locating action photos..."
-  5. "Finding measurables..."
-  6. "Analyzing results..."
-- Each message transitions with a subtle fade
-- Uses `#50C4CA` (PlayCoach Steel — we're still in onboarding) for the progress bar fill
-
-### Completion Percentage
-
-After auto-fill applies data, the completion % recalculates using the same weights from the SideNav `computeProfileStrength` logic and animates from old value to new value with a count-up effect.
-
-### Technical Details
-
-- The `useAutoFill` hook wraps `firecrawlApi.fetchAthleteProfile()` and the image proxy upload logic
-- It reads `firstName`, `lastName`, `school`, `position`, `number`, `classYear` from `useAthleteStore` automatically
-- `formatDisplayValue` helper is shared for height display
-- No new edge functions or migrations needed — uses existing `firecrawl-profile` and `image-proxy`
-
-### Files Summary
-| File | Action |
-|------|--------|
-| `src/hooks/useAutoFill.ts` | Create — extracted scraping hook |
-| `src/features/onboarding/steps/ProfilePreview.tsx` | Rewrite — add auto-fill flow, remove action items |
-| `src/features/builder/components/IdentityForm.tsx` | Edit — remove ScrapeFill import and usage |
-| `src/features/builder/components/ScrapeFill.tsx` | Slim down — delegates to useAutoFill hook |
+- `supabase/functions/firecrawl-profile/index.ts` — replace HTML image scraping with AI-powered image search and selection
 
