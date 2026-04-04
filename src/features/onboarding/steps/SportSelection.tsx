@@ -60,7 +60,10 @@ export function SportSelection() {
               >
                 {s.icon}
               </span>
-              <span className="text-on-surface font-black text-xs uppercase tracking-[0.2em]">
+              <span
+                className="text-on-surface font-black text-xs uppercase tracking-[0.2em]"
+                style={{ color: s.active ? "#50C4CA" : undefined }}
+              >
                 {s.sport}
               </span>
             </button>
