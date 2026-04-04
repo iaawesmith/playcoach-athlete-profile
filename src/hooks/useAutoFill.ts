@@ -80,7 +80,7 @@ export function useAutoFill() {
   // Action photo candidate cycling
   const [actionPhotoCandidates, setActionPhotoCandidates] = useState<string[]>([]);
   const [activeActionPhotoIndex, setActiveActionPhotoIndex] = useState(0);
-  const originalActionPhotoUrl = useRef<string | null>(null);
+  const originalValues = useRef<Record<string, unknown>>({});
 
   const fullName = `${firstName} ${lastName}`.trim();
   const canScrape = fullName.length >= 3;
@@ -90,8 +90,12 @@ export function useAutoFill() {
     setStatus("scraping");
     setErrorMessage("");
 
-    // Save original action photo to restore on dismiss
-    originalActionPhotoUrl.current = actionPhotoUrl;
+    // Save original values to restore on dismiss
+    originalValues.current = {
+      actionPhotoUrl,
+      height: useAthleteStore.getState().height,
+      weight: useAthleteStore.getState().weight,
+    };
 
     const result = await firecrawlApi.fetchAthleteProfile(
       fullName,
@@ -115,9 +119,15 @@ export function useAutoFill() {
     setActionPhotoCandidates(candidates);
     setActiveActionPhotoIndex(0);
 
-    // Live preview: set the action photo on the store immediately
+    // Live preview: set action photo + measurables on the store immediately
+    const preview: Record<string, unknown> = {};
     if (result.imageUrls?.actionPhoto) {
-      setAthlete({ actionPhotoUrl: result.imageUrls.actionPhoto } as Parameters<typeof setAthlete>[0]);
+      preview.actionPhotoUrl = result.imageUrls.actionPhoto;
+    }
+    if (data.height) preview.height = data.height;
+    if (data.weight) preview.weight = data.weight;
+    if (Object.keys(preview).length > 0) {
+      setAthlete(preview as Parameters<typeof setAthlete>[0]);
     }
 
     const fields = new Set<FieldKey>();
@@ -213,9 +223,9 @@ export function useAutoFill() {
   }, [scrapedData, imageUrls, selectedFields, selectedImages, firstName, lastName, setAthlete]);
 
   const dismiss = useCallback(() => {
-    // Restore original action photo if user dismisses
-    if (originalActionPhotoUrl.current !== null) {
-      setAthlete({ actionPhotoUrl: originalActionPhotoUrl.current } as Parameters<typeof setAthlete>[0]);
+    // Restore all original values if user dismisses
+    if (Object.keys(originalValues.current).length > 0) {
+      setAthlete(originalValues.current as Parameters<typeof setAthlete>[0]);
     }
     setStatus("idle");
     setScrapedData(null);

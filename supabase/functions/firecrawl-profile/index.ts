@@ -280,7 +280,7 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // 2. Ask Gemini to pick the best action photo
+        // 2. Ask Gemini to filter and rank ALL candidates for this specific athlete
         if (candidateUrls.length > 0) {
           const lovableKey = Deno.env.get("LOVABLE_API_KEY");
           if (lovableKey) {
@@ -290,11 +290,14 @@ I have these candidate image URLs found from a web search for "${name}" (${posLa
 
 ${candidateUrls.slice(0, 20).map((u, i) => `${i + 1}. ${u}`).join("\n")}
 
-Which single URL is most likely a high-quality action photo of ${name} playing football? 
-The image should be suitable for a portrait-oriented card (3:4 aspect ratio).
-Prefer game action shots over posed portraits, headshots, or logos.
-If none look like good action photos, respond with just the word "NONE".
-Otherwise respond with ONLY the URL, nothing else.`;
+Filter this list to ONLY URLs that are likely photos of ${name} specifically (not other players, not logos, not generic images).
+Then rank them by quality for a portrait-oriented card (3:4 aspect ratio). Prefer game action shots over posed portraits.
+
+IMPORTANT: Look at the URL structure for clues — URLs containing the athlete's name, jersey number, or school-specific paths are more likely correct.
+Exclude URLs that clearly reference other players by name.
+
+Respond with a JSON array of the filtered URLs in ranked order. Example: ["url1", "url2", "url3"]
+If none are likely photos of ${name}, respond with: []`;
 
             try {
               const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -311,13 +314,27 @@ Otherwise respond with ONLY the URL, nothing else.`;
 
               if (aiResp.ok) {
                 const aiData = await aiResp.json();
-                const picked = (aiData.choices?.[0]?.message?.content || "").trim();
-                if (picked && picked !== "NONE" && picked.startsWith("http")) {
-                  imageUrls.actionPhoto = picked;
+                const raw = (aiData.choices?.[0]?.message?.content || "").trim();
+                // Parse JSON array from response (strip markdown fences if present)
+                const jsonStr = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+                try {
+                  const filtered = JSON.parse(jsonStr);
+                  if (Array.isArray(filtered) && filtered.length > 0) {
+                    // Replace candidateUrls with AI-filtered list
+                    candidateUrls = filtered.filter((u: unknown) => typeof u === "string" && String(u).startsWith("http"));
+                    if (candidateUrls.length > 0) {
+                      imageUrls.actionPhoto = candidateUrls[0];
+                    }
+                  }
+                } catch (_parseErr) {
+                  // If AI returned a single URL instead of array
+                  if (raw.startsWith("http")) {
+                    imageUrls.actionPhoto = raw;
+                  }
                 }
               }
             } catch (_aiErr) {
-              // Non-critical — proceed without AI selection
+              // Non-critical — proceed without AI filtering
             }
           }
 
