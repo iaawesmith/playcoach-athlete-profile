@@ -1,192 +1,43 @@
-import { useState } from "react";
-import { useAthleteStore } from "@/store/athleteStore";
-import { firecrawlApi, type AthleteProfileData } from "@/services/firecrawl";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  useAutoFill,
+  fieldLabels,
+  imageLabels,
+  formatDisplayValue,
+  type AutoFillStatus,
+} from "@/hooks/useAutoFill";
 
-type FieldKey = keyof AthleteProfileData;
-
-type ImageUrls = {
-  headshot?: string;
-  actionPhoto?: string;
-  schoolLogo?: string;
-};
-
-const fieldLabels: Record<FieldKey, string> = {
-  height: "Height",
-  weight: "Weight",
-  fortyTime: "40-Yard Dash",
-  vertical: "Vertical",
-  wingspan: "Wingspan",
-  handSize: "Hand Size",
-  hometown: "Hometown",
-  highSchool: "High School",
-  position: "Position",
-  classYear: "Class",
-  starRating: "Star Rating",
-  nationalRank: "National Rank",
-  positionRank: "Position Rank",
-  number: "Jersey Number",
-  bio: "Bio",
-  commitmentStatus: "Commitment Status",
-};
-
-const imageLabels: Record<keyof ImageUrls, string> = {
-  headshot: "Profile Photo",
-  actionPhoto: "Action Photo",
-  schoolLogo: "School Logo",
-};
-
-const imageStoreKeys: Record<keyof ImageUrls, string> = {
-  headshot: "profilePictureUrl",
-  actionPhoto: "actionPhotoUrl",
-  schoolLogo: "schoolLogoUrl",
-};
-
-const formatDisplayValue = (field: FieldKey, val: unknown): string => {
-  if (field === "height") {
-    const total = parseInt(String(val), 10);
-    if (total > 11) return `${Math.floor(total / 12)}'${total % 12}"`;
-  }
-  return String(val ?? "");
-};
-
-const uploadImageViaProxy = async (
-  imageUrl: string,
-  fileName: string,
-): Promise<string | null> => {
-  const { data, error } = await supabase.functions.invoke("image-proxy", {
-    body: { imageUrl, fileName, bucket: "athlete-media" },
-  });
-  if (error || !data?.success) return null;
-  return data.publicUrl || null;
-};
+type ImageKey = "headshot" | "actionPhoto" | "schoolLogo";
 
 export const ScrapeFill = () => {
-  const { firstName, lastName, school, position, number, classYear, setAthlete } = useAthleteStore();
-  const [status, setStatus] = useState<"idle" | "loading" | "results" | "applying" | "error">("idle");
-  const [scrapedData, setScrapedData] = useState<AthleteProfileData | null>(null);
-  const [imageUrls, setImageUrls] = useState<ImageUrls | null>(null);
-  const [sources, setSources] = useState<string[]>([]);
-  const [selectedFields, setSelectedFields] = useState<Set<FieldKey>>(new Set());
-  const [selectedImages, setSelectedImages] = useState<Set<keyof ImageUrls>>(new Set());
-  const [errorMessage, setErrorMessage] = useState("");
+  const {
+    status,
+    canScrape,
+    fullName,
+    scrape,
+    apply,
+    dismiss,
+    scrapedData,
+    imageUrls,
+    sources,
+    selectedFields,
+    selectedImages,
+    toggleField,
+    toggleImage,
+    availableFields,
+    availableImages,
+    errorMessage,
+    totalSelected,
+    totalItems,
+    nextActionPhoto,
+    hasMultipleActionPhotos,
+    handleActionPhotoError,
+  } = useAutoFill();
 
-  const fullName = `${firstName} ${lastName}`.trim();
-  const canScrape = fullName.length >= 3;
-
-  const handleScrape = async () => {
-    if (!canScrape) return;
-    setStatus("loading");
-    setErrorMessage("");
-
-    const result = await firecrawlApi.fetchAthleteProfile(
-      fullName,
-      school || undefined,
-      { position, number, classYear },
-    );
-
-    if (!result.success || !result.data) {
-      setStatus("error");
-      setErrorMessage(result.error || "No profile data found");
-      return;
-    }
-
-    const data = result.data;
-    setScrapedData(data);
-    setImageUrls(result.imageUrls || null);
-    setSources(result.sources || []);
-
-    const fields = new Set<FieldKey>();
-    for (const key of Object.keys(data) as FieldKey[]) {
-      const val = data[key];
-      if (val !== null && val !== undefined && val !== "") {
-        fields.add(key);
-      }
-    }
-    setSelectedFields(fields);
-
-    const imgs = new Set<keyof ImageUrls>();
-    if (result.imageUrls) {
-      for (const key of Object.keys(result.imageUrls) as (keyof ImageUrls)[]) {
-        if (result.imageUrls[key]) imgs.add(key);
-      }
-    }
-    setSelectedImages(imgs);
-    setStatus("results");
-  };
-
-  const toggleField = (field: FieldKey) => {
-    setSelectedFields((prev) => {
-      const next = new Set(prev);
-      if (next.has(field)) next.delete(field);
-      else next.add(field);
-      return next;
-    });
-  };
-
-  const toggleImage = (key: keyof ImageUrls) => {
-    setSelectedImages((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const handleApply = async () => {
-    if (!scrapedData && selectedImages.size === 0) return;
-    setStatus("applying");
-
-    const update: Record<string, unknown> = {};
-
-    // Apply text fields
-    if (scrapedData) {
-      for (const field of selectedFields) {
-        const val = scrapedData[field];
-        if (val !== null && val !== undefined && val !== "") {
-          update[field] = val;
-        }
-      }
-    }
-
-    // Upload selected images via proxy
-    if (imageUrls) {
-      const slug = `${firstName}-${lastName}`.toLowerCase().replace(/[^a-z0-9-]/g, "");
-      const timestamp = Date.now();
-
-      for (const imgKey of selectedImages) {
-        const url = imageUrls[imgKey];
-        if (!url) continue;
-
-        const ext = url.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || "jpg";
-        const fileName = `${slug}/${imgKey}-${timestamp}.${ext}`;
-        const publicUrl = await uploadImageViaProxy(url, fileName);
-
-        if (publicUrl) {
-          const storeKey = imageStoreKeys[imgKey];
-          update[storeKey] = publicUrl;
-        }
-      }
-    }
-
-    setAthlete(update as Partial<Parameters<typeof setAthlete>[0]>);
-    setStatus("idle");
-    setScrapedData(null);
-    setImageUrls(null);
-  };
-
-  const handleDismiss = () => {
-    setStatus("idle");
-    setScrapedData(null);
-    setImageUrls(null);
-    setErrorMessage("");
-  };
-
-  if (status === "idle") {
+  if (status === "idle" || status === "done") {
     return (
       <button
         type="button"
-        onClick={handleScrape}
+        onClick={scrape}
         disabled={!canScrape}
         className="w-full bg-surface-container rounded-xl p-4 flex items-center gap-3 transition-all duration-200 hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 group"
       >
@@ -208,7 +59,7 @@ export const ScrapeFill = () => {
     );
   }
 
-  if (status === "loading") {
+  if (status === "scraping") {
     return (
       <div className="w-full bg-surface-container rounded-xl p-6 space-y-3">
         <div className="flex items-center gap-3">
@@ -258,14 +109,14 @@ export const ScrapeFill = () => {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={handleScrape}
+            onClick={scrape}
             className="text-primary text-xs font-bold uppercase tracking-wide hover:underline"
           >
             Try Again
           </button>
           <button
             type="button"
-            onClick={handleDismiss}
+            onClick={dismiss}
             className="text-on-surface-variant text-xs font-bold uppercase tracking-wide hover:underline"
           >
             Dismiss
@@ -276,20 +127,6 @@ export const ScrapeFill = () => {
   }
 
   // results state
-  const availableFields = scrapedData
-    ? (Object.keys(scrapedData) as FieldKey[]).filter((k) => {
-        const val = scrapedData[k];
-        return val !== null && val !== undefined && val !== "";
-      })
-    : [];
-
-  const availableImages = imageUrls
-    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => !!imageUrls[k])
-    : [];
-
-  const totalItems = availableFields.length + availableImages.length;
-  const totalSelected = selectedFields.size + selectedImages.size;
-
   return (
     <div className="w-full bg-surface-container rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -334,44 +171,57 @@ export const ScrapeFill = () => {
           </span>
           <div className="grid grid-cols-3 gap-2">
             {availableImages.map((imgKey) => {
-              const url = imageUrls![imgKey]!;
+              const url = imageUrls?.[imgKey];
+              if (!url) return null;
               const selected = selectedImages.has(imgKey);
               return (
-                <button
-                  key={imgKey}
-                  type="button"
-                  onClick={() => toggleImage(imgKey)}
-                  className="relative rounded-lg overflow-hidden aspect-square bg-surface-container-lowest group transition-all duration-200"
-                  style={{
-                    outline: selected ? `2px solid var(--team-color, #00e639)` : "2px solid transparent",
-                    outlineOffset: "-2px",
-                  }}
-                >
-                  <img
-                    src={url}
-                    alt={imageLabels[imgKey]}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.opacity = "0";
-                    }}
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
-                    <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface">
-                      {imageLabels[imgKey]}
-                    </span>
-                  </div>
-                  <div
-                    className="absolute top-1.5 right-1.5 w-4 h-4 rounded border flex items-center justify-center"
+                <div key={imgKey} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => toggleImage(imgKey)}
+                    className="relative rounded-lg overflow-hidden aspect-square bg-surface-container-lowest group transition-all duration-200 w-full"
                     style={{
-                      borderColor: selected ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.6)",
-                      backgroundColor: selected ? "var(--team-color, #00e639)" : "rgba(0,0,0,0.5)",
+                      outline: selected ? `2px solid var(--team-color, #00e639)` : "2px solid transparent",
+                      outlineOffset: "-2px",
                     }}
                   >
-                    {selected && (
-                      <span className="material-symbols-outlined text-[12px] text-surface">check</span>
-                    )}
-                  </div>
-                </button>
+                    <img
+                      src={url}
+                      alt={imageLabels[imgKey]}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.opacity = "0";
+                        if (imgKey === "actionPhoto") handleActionPhotoError();
+                      }}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface">
+                        {imageLabels[imgKey]}
+                      </span>
+                    </div>
+                    <div
+                      className="absolute top-1.5 right-1.5 w-4 h-4 rounded border flex items-center justify-center"
+                      style={{
+                        borderColor: selected ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.6)",
+                        backgroundColor: selected ? "var(--team-color, #00e639)" : "rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      {selected && (
+                        <span className="material-symbols-outlined text-[12px] text-surface">check</span>
+                      )}
+                    </div>
+                  </button>
+                  {imgKey === "actionPhoto" && hasMultipleActionPhotos && (
+                    <button
+                      type="button"
+                      onClick={nextActionPhoto}
+                      className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-surface/80 flex items-center justify-center hover:bg-surface transition-colors"
+                      title="Next photo"
+                    >
+                      <span className="material-symbols-outlined text-on-surface text-sm">navigate_next</span>
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -418,7 +268,7 @@ export const ScrapeFill = () => {
       <div className="flex gap-2 pt-2">
         <button
           type="button"
-          onClick={handleApply}
+          onClick={apply}
           disabled={totalSelected === 0}
           className="flex-1 kinetic-gradient text-[#00460a] rounded-full h-10 font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -426,7 +276,7 @@ export const ScrapeFill = () => {
         </button>
         <button
           type="button"
-          onClick={handleDismiss}
+          onClick={dismiss}
           className="glass-card border border-outline-variant/20 text-on-surface rounded-full h-10 px-5 font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150"
         >
           Cancel
