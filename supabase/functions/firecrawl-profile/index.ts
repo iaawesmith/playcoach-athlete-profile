@@ -35,7 +35,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { name, school } = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: "Could not parse JSON body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const name = body.name as string | undefined;
+    const school = body.school as string | undefined;
 
     if (!name) {
       return new Response(
