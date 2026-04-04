@@ -32,7 +32,7 @@ const formatDisplayValue = (field: FieldKey, val: unknown): string => {
 };
 
 export const ScrapeFill = () => {
-  const { firstName, lastName, school, setAthlete } = useAthleteStore();
+  const { firstName, lastName, school, position, number, classYear, setAthlete } = useAthleteStore();
   const [status, setStatus] = useState<"idle" | "loading" | "results" | "error">("idle");
   const [scrapedData, setScrapedData] = useState<AthleteProfileData | null>(null);
   const [sources, setSources] = useState<string[]>([]);
