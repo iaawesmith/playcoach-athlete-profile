@@ -63,7 +63,7 @@ export function RoleSelection() {
         I Am A...
       </h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-7xl mx-auto">
         {ROLES.map((r) => {
           const isAthlete = r.role === "athlete";
           const isSelected = role === r.role;
@@ -72,7 +72,7 @@ export function RoleSelection() {
               key={r.role}
               onClick={() => handleSelect(r)}
               disabled={r.comingSoon}
-              className={`flex flex-col items-center justify-center gap-4 w-full min-h-[200px] py-6 rounded-xl border transition-all duration-200 ${
+              className={`grid grid-rows-[64px_24px_48px_24px] items-center justify-items-center w-full min-h-[240px] py-6 px-4 rounded-xl border transition-all duration-200 ${
                 r.comingSoon
                   ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
                   : isSelected
@@ -94,13 +94,15 @@ export function RoleSelection() {
               >
                 {r.label}
               </span>
-              <span className="text-on-surface-variant text-sm font-normal text-center">
+              <span className="text-on-surface-variant text-sm font-normal text-center self-start">
                 {r.description}
               </span>
-              {r.comingSoon && (
+              {r.comingSoon ? (
                 <span className="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant text-[9px] font-bold uppercase tracking-widest">
                   Coming Soon
                 </span>
+              ) : (
+                <span className="invisible text-[9px]">.</span>
               )}
             </button>
           );
