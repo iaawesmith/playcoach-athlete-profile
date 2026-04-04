@@ -1,73 +1,85 @@
 
 
-## Pull Athlete Photos and School Logo via Firecrawl
+## Move Auto-Fill to Onboarding Preview Step
 
-### What This Does
-Extends the Auto-Fill scraping pipeline to extract three images:
-1. **Profile headshot** — from ESPN or school roster page
-2. **Action photo** — from ESPN or recruiting profile (game action shots)
-3. **School logo** — from the school's athletics website
+### What Changes
 
-### How It Works
+The "Auto-Fill from Web" scraping is removed from the builder's IdentityForm and moved into the onboarding `/onboarding/preview` step. When the athlete arrives at the preview step, they see their mini ProCard and a prominent "Auto-Populate Profile" button. Pressing it triggers the Firecrawl scrape with an animated progress sequence showing contextual status messages. After completion, the profile completion percentage updates live and the CTA changes to "Enter Brand HQ".
 
-Firecrawl can return page screenshots and raw HTML containing image URLs. We'll use two approaches:
-
-**For athlete photos**: Scrape the athlete's ESPN or school roster page and extract `<img>` tags that match known patterns (headshot containers, roster photo classes). ESPN uses predictable image URL patterns like `a.espncdn.com/combiner/i?img=...&w=350&h=254`.
-
-**For school logos**: Use Firecrawl's `branding` format on the school athletics site (e.g. `boisestatebroncos.com`) to extract the official logo URL automatically.
-
-### Architecture
+### UX Flow
 
 ```text
-ScrapeFill button
+Onboarding preview step loads
   ↓
-firecrawl-profile edge function (expanded)
-  ├── existing text search (measurables, stats)
-  ├── NEW: scrape ESPN profile URL → extract headshot + action img URLs
-  └── NEW: scrape school athletics site with branding format → logo URL
+Mini ProCard + completion % (from onboarding data only)
   ↓
-Returns imageUrls: { headshot?, actionPhoto?, schoolLogo? }
+"Auto-Populate My Profile" button (replaces "Do These 3 Things First")
   ↓
-ScrapeFill review panel shows image previews with checkboxes
+User taps → animated progress bar with rotating status messages:
+  "Searching recruiting sites..."
+  "Locating action photos..."
+  "Finding measurables..."
+  "Checking school roster..."
   ↓
-On Apply → downloads images → uploads to Supabase Storage → sets store URLs
+Results appear inline (same checkbox UI from ScrapeFill)
+  ↓
+User taps "Apply Selected" → data populates store
+  ↓
+Completion % animates up to new value
+  ↓
+"Enter Brand HQ →" button enabled
 ```
 
-### Changes
-
-**1. Create a storage bucket** for athlete media (migration)
-- `athlete-media` bucket, public, with insert/select RLS for authenticated users
-
-**2. `supabase/functions/firecrawl-profile/index.ts`**
-- After the text search, if an ESPN or roster URL was found in `sources`, do a targeted scrape of that URL with `formats: ["html"]`
-- Parse `<img>` tags from the HTML to find headshot and action photo URLs using known CSS class / URL patterns (ESPN: `.headshot img`, roster: `.player-photo img`)
-- If `school` is provided, do a branding scrape of the school athletics domain to get the logo
-- Return new fields: `imageUrls: { headshot?, actionPhoto?, schoolLogo? }`
-
-**3. `src/services/firecrawl.ts`**
-- Add `imageUrls` to `AthleteProfileData` type
-
-**4. `src/features/builder/components/ScrapeFill.tsx`**
-- Render image previews in the results panel (small thumbnails with checkboxes)
-- On "Apply Selected", download each selected image via a new edge function, upload to `athlete-media` bucket, and set the resulting public URL on the store (`actionPhotoUrl`, `profilePictureUrl`, `schoolLogoUrl`)
-
-**5. New edge function: `supabase/functions/image-proxy/index.ts`**
-- Accepts an external image URL, downloads it, resizes/optimizes (using sharp or canvas if available, otherwise raw passthrough), and uploads to the `athlete-media` storage bucket
-- Returns the public URL
-- This avoids CORS issues with downloading external images from the browser
-
-### Limitations & Considerations
-- ESPN and school sites change their HTML structure — regex/selector extraction is best-effort
-- Not all athletes will have photos available on these sites
-- Image quality varies — action photos from ESPN are typically low-res thumbnails; full-res may require additional scraping of the image detail page
-- Firecrawl credits: each additional scrape costs 1 credit (branding scrape + HTML scrape = 2 extra credits per Auto-Fill)
-
-### Files Created
-- `supabase/functions/image-proxy/index.ts`
-- Migration for `athlete-media` storage bucket
-
 ### Files Modified
-- `supabase/functions/firecrawl-profile/index.ts` — image extraction logic
-- `src/services/firecrawl.ts` — expanded types
-- `src/features/builder/components/ScrapeFill.tsx` — image preview UI + upload flow
+
+**`src/features/onboarding/steps/ProfilePreview.tsx`** — major rewrite:
+- Remove the "Do These 3 Things First" action items section entirely
+- Add three states: `idle` (show auto-populate button), `scraping` (animated progress with status messages), `results` (field/image selection from ScrapeFill logic)
+- Scraping state shows a segmented progress bar (matching design system) with rotating status text that cycles through contextual messages every 2-3 seconds
+- After apply, recalculate and animate the completion percentage
+- Keep the mini ProCard (it updates live as images/data are applied)
+- Keep "Enter Brand HQ" CTA at the bottom — always visible, but visually emphasized after auto-fill completes
+
+**`src/features/builder/components/IdentityForm.tsx`** — remove ScrapeFill:
+- Remove the `import { ScrapeFill }` line
+- Remove the `<ScrapeFill />` component usage from the form
+- Keep ScrapeFill.tsx file for now (shared logic), or inline the scraping logic directly into ProfilePreview
+
+**`src/features/builder/components/ScrapeFill.tsx`** — refactor to export reusable logic:
+- Extract the scraping + image upload logic into a custom hook `useAutoFill` that can be called from ProfilePreview
+- The hook returns: `{ scrape, apply, status, scrapedData, imageUrls, selectedFields, selectedImages, toggleField, toggleImage, sources }`
+- This keeps the edge function calling, field selection, and image proxy upload logic in one place
+
+### Scraping Progress Animation
+
+Instead of a generic spinner, show a cinematic progress sequence:
+- Segmented progress bar (10 segments, filling left to right over ~15 seconds)
+- Status text rotates through contextual messages:
+  1. "Searching 247Sports, Rivals, On3..."
+  2. "Scanning ESPN profiles..."
+  3. "Checking school roster..."
+  4. "Locating action photos..."
+  5. "Finding measurables..."
+  6. "Analyzing results..."
+- Each message transitions with a subtle fade
+- Uses `#50C4CA` (PlayCoach Steel — we're still in onboarding) for the progress bar fill
+
+### Completion Percentage
+
+After auto-fill applies data, the completion % recalculates using the same weights from the SideNav `computeProfileStrength` logic and animates from old value to new value with a count-up effect.
+
+### Technical Details
+
+- The `useAutoFill` hook wraps `firecrawlApi.fetchAthleteProfile()` and the image proxy upload logic
+- It reads `firstName`, `lastName`, `school`, `position`, `number`, `classYear` from `useAthleteStore` automatically
+- `formatDisplayValue` helper is shared for height display
+- No new edge functions or migrations needed — uses existing `firecrawl-profile` and `image-proxy`
+
+### Files Summary
+| File | Action |
+|------|--------|
+| `src/hooks/useAutoFill.ts` | Create — extracted scraping hook |
+| `src/features/onboarding/steps/ProfilePreview.tsx` | Rewrite — add auto-fill flow, remove action items |
+| `src/features/builder/components/IdentityForm.tsx` | Edit — remove ScrapeFill import and usage |
+| `src/features/builder/components/ScrapeFill.tsx` | Slim down — delegates to useAutoFill hook |
 
