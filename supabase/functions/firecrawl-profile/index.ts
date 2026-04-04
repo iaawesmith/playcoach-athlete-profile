@@ -45,8 +45,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const searchQuery = school
-      ? name + " " + school + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com"
-      : name + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com";
+      ? name + " " + school + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com"
+      : name + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com";
 
     const searchResponse = await fetch("https://api.firecrawl.dev/v1/search", {
       method: "POST",
@@ -56,12 +56,36 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         query: searchQuery,
-        limit: 3,
+        limit: 5,
         scrapeOptions: {
           formats: ["markdown"],
         },
       }),
     });
+
+    // Second search for school roster pages (no site restriction)
+    let rosterResults: Array<Record<string, unknown>> = [];
+    if (school) {
+      const rosterQuery = name + " " + school + " football roster";
+      const rosterResponse = await fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: rosterQuery,
+          limit: 2,
+          scrapeOptions: {
+            formats: ["markdown"],
+          },
+        }),
+      });
+      if (rosterResponse.ok) {
+        const rosterData = await rosterResponse.json();
+        rosterResults = rosterData.data || [];
+      }
+    }
 
     const searchData = await searchResponse.json();
 
