@@ -98,11 +98,11 @@ export function RoleSelection() {
                 {r.description}
               </span>
               {r.comingSoon ? (
-                <span className="px-3 py-1 rounded bg-surface-container-highest text-on-surface-variant text-[9px] font-bold uppercase tracking-widest self-end">
+                <span className="px-3 py-1 rounded bg-surface-container-highest text-on-surface-variant text-[9px] font-bold uppercase tracking-widest self-end justify-self-center">
                   Coming Soon
                 </span>
               ) : (
-                <span className="invisible text-[9px] self-end">.</span>
+                <span className="invisible text-[9px] self-end justify-self-center">.</span>
               )}
             </button>
           );
