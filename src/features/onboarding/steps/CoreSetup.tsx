@@ -158,7 +158,7 @@ export function CoreSetup() {
                 onClick={() => setAthlete({ position: pos })}
                 className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 ${
                   position === pos
-                    ? "text-surface"
+                    ? "text-white font-bold"
                     : "bg-surface-container border border-outline-variant/10 text-on-surface-variant hover:text-on-surface"
                 }`}
                 style={position === pos ? { backgroundColor: tc } : undefined}
