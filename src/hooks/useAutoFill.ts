@@ -267,7 +267,7 @@ export function useAutoFill() {
     }
 
     // Revert any live-previewed images the user unchecked
-    const previewedImageKeys: (keyof ImageUrls)[] = ["actionPhoto", "schoolLogo"];
+    const previewedImageKeys: (keyof ImageUrls)[] = ["actionPhoto"];
     for (const imgKey of previewedImageKeys) {
       if (imageUrls?.[imgKey] && !selectedImages.has(imgKey)) {
         const storeKey = imageStoreKeys[imgKey];
