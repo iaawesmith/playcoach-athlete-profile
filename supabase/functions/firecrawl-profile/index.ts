@@ -28,6 +28,7 @@ Deno.serve(async (req: Request) => {
 
     const name = String(body.name || "").trim();
     const school = String(body.school || "").trim();
+    const knownFields = (body.knownFields || {}) as Record<string, string | undefined>;
 
     if (!name) {
       return new Response(
@@ -48,9 +49,12 @@ Deno.serve(async (req: Request) => {
     const nameParts = name.split(/\s+/);
     const lastName = nameParts[nameParts.length - 1].toLowerCase();
 
+    // Include known position in query for better targeting
+    const posTag = knownFields.position ? " " + knownFields.position : "";
+
     const searchQuery = school
-      ? name + " " + school + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com"
-      : name + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com";
+      ? name + posTag + " " + school + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com"
+      : name + posTag + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com";
 
     const searchResponse = await fetch("https://api.firecrawl.dev/v1/search", {
       method: "POST",
