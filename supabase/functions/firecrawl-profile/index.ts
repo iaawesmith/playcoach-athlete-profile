@@ -393,6 +393,22 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Upscale CDN URLs: remove size constraints to get full-resolution images
+      candidateUrls = candidateUrls.map((url) => {
+        let u = url;
+        // on3static CDN: remove /cdn-cgi/image/height=X,width=Y,.../ prefix
+        u = u.replace(/\/cdn-cgi\/image\/[^/]+\//, "/");
+        // 247sports: remove ?fit=crop&width=100 etc query params
+        u = u.replace(/\?fit=(?:crop|bounds)[^&]*(?:&amp;[^&]*)*$/i, "");
+        u = u.replace(/\?fit=(?:crop|bounds)[^&]*(?:&[^&]*)*$/i, "");
+        // Cloudinary: upgrade small widths to 800
+        u = u.replace(/\/w_\d+\b/, "/w_800");
+        return u;
+      });
+
+      // Deduplicate after URL cleaning
+      candidateUrls = [...new Set(candidateUrls)];
+
       // Remove the headshot from candidates (don't want it as an action photo)
       if (imageUrls.headshot) {
         candidateUrls = candidateUrls.filter((u) => u !== imageUrls.headshot);
