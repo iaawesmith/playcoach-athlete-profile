@@ -365,54 +365,77 @@ If none are likely photos of ${name}, respond with: []`;
     if (school && apiKey) {
       try {
         let foundLogo: string | null = null;
+        const authHdrs = {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json",
+        };
 
-        // Strategy 1: Search for athletics site and extract branding
-        const logoSearchQuery = `${school} athletics official logo`;
-        const logoSearchRes = await fetch("https://api.firecrawl.dev/v1/search", {
+        // Strategy 1: SportsLogos.net — most reliable for NCAA logos
+        const slQuery = `site:sportslogos.net ${school} logo`;
+        const slRes = await fetch("https://api.firecrawl.dev/v1/search", {
           method: "POST",
-          headers: {
-            "Authorization": "Bearer " + apiKey,
-            "Content-Type": "application/json",
-          },
+          headers: authHdrs,
           body: JSON.stringify({
-            query: logoSearchQuery,
+            query: slQuery,
             limit: 3,
-            scrapeOptions: { formats: ["links"] },
+            scrapeOptions: { formats: ["markdown"] },
           }),
         });
 
-        if (logoSearchRes.ok) {
-          const logoSearchData = await logoSearchRes.json();
-          if (logoSearchData.data?.length) {
-            const topUrl = logoSearchData.data[0].url;
-            const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-              method: "POST",
-              headers: {
-                "Authorization": "Bearer " + apiKey,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ url: topUrl, formats: ["branding"] }),
-            });
-            if (scrapeRes.ok) {
-              const scrapeData = await scrapeRes.json();
-              const branding = scrapeData.data?.branding || scrapeData.branding;
-              const logoUrl = branding?.images?.logo || branding?.logo || branding?.images?.favicon;
-              if (logoUrl && String(logoUrl).startsWith("http")) {
-                foundLogo = logoUrl;
+        if (slRes.ok) {
+          const slData = await slRes.json();
+          if (slData.data?.length) {
+            for (const result of slData.data) {
+              const md = result.markdown || "";
+              const imgMatch = md.match(/https?:\/\/content\.sportslogos\.net\/logos\/[^\s)"\]]+\.(png|gif|svg)/i);
+              if (imgMatch) {
+                foundLogo = imgMatch[0].replace("/thumbs/", "/full/");
+                break;
               }
             }
           }
         }
 
-        // Strategy 2: Fallback — search for logo png transparent
+        // Strategy 2: Search for athletics site and extract branding
+        if (!foundLogo) {
+          const logoSearchQuery = `${school} athletics official logo`;
+          const logoSearchRes = await fetch("https://api.firecrawl.dev/v1/search", {
+            method: "POST",
+            headers: authHdrs,
+            body: JSON.stringify({
+              query: logoSearchQuery,
+              limit: 3,
+              scrapeOptions: { formats: ["links"] },
+            }),
+          });
+
+          if (logoSearchRes.ok) {
+            const logoSearchData = await logoSearchRes.json();
+            if (logoSearchData.data?.length) {
+              const topUrl = logoSearchData.data[0].url;
+              const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
+                method: "POST",
+                headers: authHdrs,
+                body: JSON.stringify({ url: topUrl, formats: ["branding"] }),
+              });
+              if (scrapeRes.ok) {
+                const scrapeData = await scrapeRes.json();
+                const branding = scrapeData.data?.branding || scrapeData.branding;
+                const logoUrl = branding?.images?.logo || branding?.logo || branding?.images?.favicon;
+                if (logoUrl && String(logoUrl).startsWith("http")) {
+                  foundLogo = logoUrl;
+                }
+              }
+            }
+          }
+        }
+
+        // Strategy 3: Fallback — search for logo png transparent
         if (!foundLogo) {
           const fallbackQuery = `${school} logo png transparent`;
           const fallbackRes = await fetch("https://api.firecrawl.dev/v1/search", {
             method: "POST",
-            headers: {
-              "Authorization": "Bearer " + apiKey,
-              "Content-Type": "application/json",
-            },
+            headers: authHdrs,
             body: JSON.stringify({
               query: fallbackQuery,
               limit: 5,
@@ -427,10 +450,7 @@ If none are likely photos of ${name}, respond with: []`;
                 try {
                   const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
                     method: "POST",
-                    headers: {
-                      "Authorization": "Bearer " + apiKey,
-                      "Content-Type": "application/json",
-                    },
+                    headers: authHdrs,
                     body: JSON.stringify({ url: result.url, formats: ["branding"] }),
                   });
                   if (res.ok) {
