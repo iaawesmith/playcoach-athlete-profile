@@ -25,7 +25,7 @@ export function ProfilePreview() {
   const navigate = useNavigate();
   const { role, athleteTier, completeOnboarding } = useUserStore();
   const store = useAthleteStore();
-  const { firstName, lastName, position, number, school, schoolAbbrev, teamColor, actionPhotoUrl, classYear } = store;
+  const { firstName, lastName, teamColor } = store;
 
   const autoFill = useAutoFill();
   const [msgIndex, setMsgIndex] = useState(0);
