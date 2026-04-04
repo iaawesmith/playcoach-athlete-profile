@@ -233,7 +233,7 @@ export function ProfilePreview() {
                     {autoFill.availableImages.map((imgKey) => {
                       const url = autoFill.imageUrls![imgKey]!;
                       const selected = autoFill.selectedImages.has(imgKey);
-                      const isActionPhoto = imgKey === "actionPhoto";
+                      
                       return (
                         <button
                           key={imgKey}
