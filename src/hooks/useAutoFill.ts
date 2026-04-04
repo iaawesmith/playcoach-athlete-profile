@@ -33,15 +33,11 @@ export const fieldLabels: Record<FieldKey, string> = {
 };
 
 export const imageLabels: Record<keyof ImageUrls, string> = {
-  headshot: "Profile Photo",
   actionPhoto: "Action Photo",
-  schoolLogo: "School Logo",
 };
 
 const imageStoreKeys: Record<keyof ImageUrls, string> = {
-  headshot: "profilePictureUrl",
   actionPhoto: "actionPhotoUrl",
-  schoolLogo: "schoolLogoUrl",
 };
 
 export const formatDisplayValue = (field: FieldKey, val: unknown): string => {
