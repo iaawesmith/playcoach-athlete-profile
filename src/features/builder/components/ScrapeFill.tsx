@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
 import { firecrawlApi, type AthleteProfileData } from "@/services/firecrawl";
+import { supabase } from "@/integrations/supabase/client";
 
 type FieldKey = keyof AthleteProfileData;
+
+type ImageUrls = {
+  headshot?: string;
+  actionPhoto?: string;
+  schoolLogo?: string;
+};
 
 const fieldLabels: Record<FieldKey, string> = {
   height: "Height",
@@ -23,6 +30,18 @@ const fieldLabels: Record<FieldKey, string> = {
   commitmentStatus: "Commitment Status",
 };
 
+const imageLabels: Record<keyof ImageUrls, string> = {
+  headshot: "Profile Photo",
+  actionPhoto: "Action Photo",
+  schoolLogo: "School Logo",
+};
+
+const imageStoreKeys: Record<keyof ImageUrls, string> = {
+  headshot: "profilePictureUrl",
+  actionPhoto: "actionPhotoUrl",
+  schoolLogo: "schoolLogoUrl",
+};
+
 const formatDisplayValue = (field: FieldKey, val: unknown): string => {
   if (field === "height") {
     const total = parseInt(String(val), 10);
@@ -31,12 +50,25 @@ const formatDisplayValue = (field: FieldKey, val: unknown): string => {
   return String(val ?? "");
 };
 
+const uploadImageViaProxy = async (
+  imageUrl: string,
+  fileName: string,
+): Promise<string | null> => {
+  const { data, error } = await supabase.functions.invoke("image-proxy", {
+    body: { imageUrl, fileName, bucket: "athlete-media" },
+  });
+  if (error || !data?.success) return null;
+  return data.publicUrl || null;
+};
+
 export const ScrapeFill = () => {
   const { firstName, lastName, school, position, number, classYear, setAthlete } = useAthleteStore();
-  const [status, setStatus] = useState<"idle" | "loading" | "results" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "results" | "applying" | "error">("idle");
   const [scrapedData, setScrapedData] = useState<AthleteProfileData | null>(null);
+  const [imageUrls, setImageUrls] = useState<ImageUrls | null>(null);
   const [sources, setSources] = useState<string[]>([]);
   const [selectedFields, setSelectedFields] = useState<Set<FieldKey>>(new Set());
+  const [selectedImages, setSelectedImages] = useState<Set<keyof ImageUrls>>(new Set());
   const [errorMessage, setErrorMessage] = useState("");
 
   const fullName = `${firstName} ${lastName}`.trim();
@@ -61,9 +93,9 @@ export const ScrapeFill = () => {
 
     const data = result.data;
     setScrapedData(data);
+    setImageUrls(result.imageUrls || null);
     setSources(result.sources || []);
 
-    // Pre-select all fields that have values
     const fields = new Set<FieldKey>();
     for (const key of Object.keys(data) as FieldKey[]) {
       const val = data[key];
@@ -72,6 +104,14 @@ export const ScrapeFill = () => {
       }
     }
     setSelectedFields(fields);
+
+    const imgs = new Set<keyof ImageUrls>();
+    if (result.imageUrls) {
+      for (const key of Object.keys(result.imageUrls) as (keyof ImageUrls)[]) {
+        if (result.imageUrls[key]) imgs.add(key);
+      }
+    }
+    setSelectedImages(imgs);
     setStatus("results");
   };
 
@@ -84,25 +124,61 @@ export const ScrapeFill = () => {
     });
   };
 
-  const handleApply = () => {
-    if (!scrapedData) return;
+  const toggleImage = (key: keyof ImageUrls) => {
+    setSelectedImages((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleApply = async () => {
+    if (!scrapedData && selectedImages.size === 0) return;
+    setStatus("applying");
 
     const update: Record<string, unknown> = {};
-    for (const field of selectedFields) {
-      const val = scrapedData[field];
-      if (val !== null && val !== undefined && val !== "") {
-        update[field] = val;
+
+    // Apply text fields
+    if (scrapedData) {
+      for (const field of selectedFields) {
+        const val = scrapedData[field];
+        if (val !== null && val !== undefined && val !== "") {
+          update[field] = val;
+        }
+      }
+    }
+
+    // Upload selected images via proxy
+    if (imageUrls) {
+      const slug = `${firstName}-${lastName}`.toLowerCase().replace(/[^a-z0-9-]/g, "");
+      const timestamp = Date.now();
+
+      for (const imgKey of selectedImages) {
+        const url = imageUrls[imgKey];
+        if (!url) continue;
+
+        const ext = url.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || "jpg";
+        const fileName = `${slug}/${imgKey}-${timestamp}.${ext}`;
+        const publicUrl = await uploadImageViaProxy(url, fileName);
+
+        if (publicUrl) {
+          const storeKey = imageStoreKeys[imgKey];
+          update[storeKey] = publicUrl;
+        }
       }
     }
 
     setAthlete(update as Partial<Parameters<typeof setAthlete>[0]>);
     setStatus("idle");
     setScrapedData(null);
+    setImageUrls(null);
   };
 
   const handleDismiss = () => {
     setStatus("idle");
     setScrapedData(null);
+    setImageUrls(null);
     setErrorMessage("");
   };
 
@@ -121,7 +197,7 @@ export const ScrapeFill = () => {
           </span>
           <span className="text-on-surface-variant text-[11px]">
             {canScrape
-              ? "Search 247Sports, Rivals & more for your profile data"
+              ? "Search recruiting sites, ESPN & school rosters for your profile data and photos"
               : "Enter your name first to enable web search"}
           </span>
         </div>
@@ -148,6 +224,22 @@ export const ScrapeFill = () => {
         </div>
         <p className="text-on-surface-variant text-[11px]">
           Searching recruiting sites, ESPN, and school rosters for {fullName}...
+        </p>
+      </div>
+    );
+  }
+
+  if (status === "applying") {
+    return (
+      <div className="w-full bg-surface-container rounded-xl p-6 space-y-3">
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-primary text-xl animate-spin">progress_activity</span>
+          <span className="text-on-surface text-sm font-bold uppercase tracking-wide">
+            Applying Data...
+          </span>
+        </div>
+        <p className="text-on-surface-variant text-[11px]">
+          Uploading images and filling your profile...
         </p>
       </div>
     );
@@ -191,6 +283,13 @@ export const ScrapeFill = () => {
       })
     : [];
 
+  const availableImages = imageUrls
+    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => !!imageUrls[k])
+    : [];
+
+  const totalItems = availableFields.length + availableImages.length;
+  const totalSelected = selectedFields.size + selectedImages.size;
+
   return (
     <div className="w-full bg-surface-container rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -201,7 +300,7 @@ export const ScrapeFill = () => {
           </span>
         </div>
         <span className="text-on-surface-variant text-[10px] uppercase tracking-widest">
-          {availableFields.length} fields
+          {totalItems} items
         </span>
       </div>
 
@@ -227,40 +326,100 @@ export const ScrapeFill = () => {
         </div>
       )}
 
-      <div className="space-y-1">
-        {availableFields.map((field) => (
-          <button
-            key={field}
-            type="button"
-            onClick={() => toggleField(field)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-high transition-colors duration-150 text-left"
-          >
-            <span
-              className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
-              style={{
-                borderColor: selectedFields.has(field) ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.4)",
-                backgroundColor: selectedFields.has(field) ? "var(--team-color, #00e639)" : "transparent",
-              }}
+      {/* Image previews */}
+      {availableImages.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] block">
+            Photos
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            {availableImages.map((imgKey) => {
+              const url = imageUrls![imgKey]!;
+              const selected = selectedImages.has(imgKey);
+              return (
+                <button
+                  key={imgKey}
+                  type="button"
+                  onClick={() => toggleImage(imgKey)}
+                  className="relative rounded-lg overflow-hidden aspect-square bg-surface-container-lowest group transition-all duration-200"
+                  style={{
+                    outline: selected ? `2px solid var(--team-color, #00e639)` : "2px solid transparent",
+                    outlineOffset: "-2px",
+                  }}
+                >
+                  <img
+                    src={url}
+                    alt={imageLabels[imgKey]}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-surface/60 flex items-end p-1.5">
+                    <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface">
+                      {imageLabels[imgKey]}
+                    </span>
+                  </div>
+                  <div
+                    className="absolute top-1.5 right-1.5 w-4 h-4 rounded border flex items-center justify-center"
+                    style={{
+                      borderColor: selected ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.6)",
+                      backgroundColor: selected ? "var(--team-color, #00e639)" : "rgba(0,0,0,0.5)",
+                    }}
+                  >
+                    {selected && (
+                      <span className="material-symbols-outlined text-[12px] text-surface">check</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Text fields */}
+      {availableFields.length > 0 && (
+        <div className="space-y-1">
+          {availableImages.length > 0 && (
+            <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] block mb-2">
+              Profile Data
+            </span>
+          )}
+          {availableFields.map((field) => (
+            <button
+              key={field}
+              type="button"
+              onClick={() => toggleField(field)}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-high transition-colors duration-150 text-left"
             >
-              {selectedFields.has(field) && (
-                <span className="material-symbols-outlined text-[12px] text-surface">check</span>
-              )}
-            </span>
-            <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0">
-              {fieldLabels[field] || field}
-            </span>
-            <span className="text-on-surface text-sm font-normal truncate flex-1">
-              {formatDisplayValue(field, scrapedData?.[field])}
-            </span>
-          </button>
-        ))}
-      </div>
+              <span
+                className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
+                style={{
+                  borderColor: selectedFields.has(field) ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.4)",
+                  backgroundColor: selectedFields.has(field) ? "var(--team-color, #00e639)" : "transparent",
+                }}
+              >
+                {selectedFields.has(field) && (
+                  <span className="material-symbols-outlined text-[12px] text-surface">check</span>
+                )}
+              </span>
+              <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0">
+                {fieldLabels[field] || field}
+              </span>
+              <span className="text-on-surface text-sm font-normal truncate flex-1">
+                {formatDisplayValue(field, scrapedData?.[field])}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-2 pt-2">
         <button
           type="button"
           onClick={handleApply}
-          disabled={selectedFields.size === 0}
+          disabled={totalSelected === 0}
           className="flex-1 kinetic-gradient text-[#00460a] rounded-full h-10 font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Apply Selected
