@@ -301,7 +301,7 @@ export function useAutoFill() {
     : [];
 
   const availableImages = imageUrls
-    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => !!imageUrls[k])
+    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => k !== "schoolLogo" && !!imageUrls[k])
     : [];
 
   return {
