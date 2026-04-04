@@ -336,6 +336,59 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // ═══ PHASE 5: Fallback — targeted image search if primary found nothing ═══
+    if (!imageUrls.actionPhoto && firecrawlKey) {
+      try {
+        const yr = new Date().getFullYear();
+        const imgQuery = `${name} ${school || ""} ${posTag || ""} game action photo ${yr}`.trim();
+        const searchResp = await fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST", headers: authHdrs,
+          body: JSON.stringify({
+            query: imgQuery,
+            limit: 5,
+            scrapeOptions: { formats: ["html"] },
+          }),
+        });
+        if (searchResp.ok) {
+          const searchData = await searchResp.json();
+          const results: Array<Record<string, unknown>> = searchData.data || [];
+          // Filter for reputable sports sources
+          const reputableDomains = /247sports|on3\.com|espn\.com|si\.com|maxpreps|rivals\.com|ncaa\.com|bleacherreport|theathletic|hudl\.com/i;
+          const fallbackCandidates: ScoredImage[] = [];
+
+          for (const r of results) {
+            const srcUrl = String(r.url || "");
+            // Skip non-reputable sources
+            if (!reputableDomains.test(srcUrl)) continue;
+            const html = String(r.html || (r.data as Record<string, unknown>)?.html || "");
+            if (!html) continue;
+            // Extract images from the page
+            const imgRx = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*/gi;
+            let im;
+            while ((im = imgRx.exec(html)) !== null) {
+              const src = im[1];
+              if (/logo|icon|sprite|badge|\.svg|\.gif|spacer|favicon|tracking|ad|sponsor/i.test(src)) continue;
+              if (src.length < 30) continue;
+              const altM = im[0].match(/alt=["']([^"']*)["']/i);
+              const alt = altM ? altM[1] : "";
+              let u = src.replace(/\/cdn-cgi\/image\/[^/]+\//, "/").replace(/\/w_\d+\b/, "/w_800");
+              const s = scoreActionCandidate(u, alt, nameTokens, jerseyNum);
+              if (s > 5) fallbackCandidates.push({ url: u, score: s });
+            }
+          }
+          fallbackCandidates.sort((a, b) => b.score - a.score);
+          // Validate top 3 fallback candidates
+          for (const c of fallbackCandidates.slice(0, 3)) {
+            if (await validateImageUrl(c.url)) {
+              imageUrls.actionPhoto = c.url;
+              sources.push("Image Search Fallback");
+              break;
+            }
+          }
+        }
+      } catch { /* fallback is non-critical */ }
+    }
+
     return new Response(JSON.stringify({
       success: true,
       data: merged,
