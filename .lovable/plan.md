@@ -1,19 +1,16 @@
 
 
-## Remove ProCard Preview from Onboarding Setup
+## Change Selected Pill Text to White + Bold
 
-### What Changes
-Remove the mini ProCard preview from `/onboarding/setup` so this page is purely a form. The first time the user sees their ProCard will be on `/onboarding/preview`, where the data they entered populates it live and auto-populate runs.
+### Problem
+When a position or class year pill is selected, the text uses `text-surface` (dark) on the teamColor background. User wants white bold text instead.
 
 ### Changes to `src/features/onboarding/steps/CoreSetup.tsx`
 
-1. **Remove the right column card preview** — Delete lines 219–298 (the entire "Right: ProCard-style preview" section including school banner, photo placeholder, gradient, badges, name, physicals).
+1. **Line 161**: Change `"text-surface"` to `"text-white font-bold"` for selected position pills
+2. **Line 184**: Change `"text-surface"` to `"text-white font-bold"` for selected class year pills
 
-2. **Remove the two-column grid** — Change `grid grid-cols-1 md:grid-cols-2 gap-6` (line 91) to just a single-column `space-y-4` since there's no second column anymore. Remove the wrapping `<div className="space-y-4">` around the form fields (line 93) since the parent handles spacing.
-
-3. **Expand input cards** — The form fields now have the full width. No width changes needed since they already use `w-full` inside grid cells.
-
-4. **Remove unused variables** — Remove `displayName`, `formatHeight`, and the destructured `height`, `weight`, `fortyTime` from the store since they're only used by the removed card preview.
+Both already have `font-black` from the shared class, so `font-bold` is redundant — the key fix is replacing `text-surface` with `text-white`.
 
 ### Files Modified
 - `src/features/onboarding/steps/CoreSetup.tsx`
