@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
+import { useSchoolSearch, type SchoolOption } from "@/hooks/useSchoolSearch";
 import { universities, type University } from "@/data/universities";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
@@ -273,7 +274,7 @@ const SchoolAutocomplete = ({
   onManualChange,
 }: {
   value: string;
-  onSelect: (uni: University) => void;
+  onSelect: (opt: SchoolOption) => void;
   onManualChange: (val: string) => void;
 }) => {
   const [query, setQuery] = useState(value);
@@ -282,22 +283,17 @@ const SchoolAutocomplete = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Sync external value changes
+  const { results: filtered } = useSchoolSearch(open ? query : "");
+
   useEffect(() => {
     setQuery(value);
   }, [value]);
 
-  const filtered = query.length >= 1
-    ? universities.filter((u) =>
-        u.name.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 8)
-    : [];
-
-  const handleSelect = useCallback((uni: University) => {
-    setQuery(uni.name);
+  const handleSelect = useCallback((opt: SchoolOption) => {
+    setQuery(opt.name);
     setOpen(false);
     setFocusIndex(-1);
-    onSelect(uni);
+    onSelect(opt);
   }, [onSelect]);
 
   const handleInputChange = (val: string) => {
@@ -323,7 +319,6 @@ const SchoolAutocomplete = ({
     }
   };
 
-  // Scroll focused item into view
   useEffect(() => {
     if (focusIndex >= 0 && listRef.current) {
       const item = listRef.current.children[focusIndex] as HTMLElement | undefined;
@@ -331,7 +326,6 @@ const SchoolAutocomplete = ({
     }
   }, [focusIndex]);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -367,10 +361,10 @@ const SchoolAutocomplete = ({
           ref={listRef}
           className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[240px] overflow-y-auto rounded-xl bg-surface-container-high shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
         >
-          {filtered.map((uni, i) => (
+          {filtered.map((opt, i) => (
             <li
-              key={uni.name}
-              onMouseDown={() => handleSelect(uni)}
+              key={opt.name}
+              onMouseDown={() => handleSelect(opt)}
               onMouseEnter={() => setFocusIndex(i)}
               className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100 ${
                 i === focusIndex
@@ -378,15 +372,19 @@ const SchoolAutocomplete = ({
                   : "hover:bg-surface-container-highest/50"
               }`}
             >
-              <span
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: uni.primaryColor }}
-              />
+              {opt.logoUrl ? (
+                <img src={opt.logoUrl} alt="" className="w-5 h-5 object-contain shrink-0" />
+              ) : (
+                <span
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: opt.primaryColor }}
+                />
+              )}
               <span className="text-on-surface text-sm font-normal truncate">
-                {uni.name}
+                {opt.name}
               </span>
               <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">
-                {uni.abbrev}
+                {opt.abbrev}
               </span>
             </li>
           ))}
@@ -524,6 +522,7 @@ export const IdentityForm = () => {
   const profilePicInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [logoLoading, setLogoLoading] = useState(false);
+  const [showColorOverride, setShowColorOverride] = useState(false);
 
   const autoFetchSchoolLogo = useCallback(async (schoolName: string) => {
     if (schoolLogoUrl) return;
@@ -681,25 +680,41 @@ export const IdentityForm = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <SchoolAutocomplete
+              <SchoolAutocomplete
                   value={school}
-                  onSelect={(uni) => {
+                  onSelect={(opt) => {
                     setAthlete({
-                      school: uni.name,
-                      schoolAbbrev: uni.abbrev,
-                      teamColor: uni.primaryColor,
+                      school: opt.name,
+                      schoolAbbrev: opt.abbrev,
+                      teamColor: opt.primaryColor,
+                      schoolLogoUrl: opt.logoUrl,
                     });
-                    autoFetchSchoolLogo(uni.name);
+                    // Fallback: if CFBD had no logo, try firecrawl
+                    if (!opt.logoUrl) {
+                      autoFetchSchoolLogo(opt.name);
+                    }
                   }}
                   onManualChange={(v) => {
                     if (v === "") {
-                      setAthlete({ school: "", schoolAbbrev: "", teamColor: "#50C4CA" });
+                      setAthlete({ school: "", schoolAbbrev: "", teamColor: "#50C4CA", schoolLogoUrl: null });
                     } else {
                       setAthlete({ school: v });
                     }
                   }}
                 />
+
+              {/* Advanced color customization toggle */}
+              <button
+                type="button"
+                onClick={() => setShowColorOverride((p) => !p)}
+                className="flex items-center gap-2 text-on-surface-variant/60 hover:text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest transition-colors duration-200 mt-1"
+              >
+                <span className="material-symbols-outlined text-sm">
+                  {showColorOverride ? "expand_less" : "tune"}
+                </span>
+                Advanced color customization
+              </button>
+              {showColorOverride && (
                 <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">
                     Team Color (Hex)
@@ -717,7 +732,7 @@ export const IdentityForm = () => {
                     />
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </section>
 

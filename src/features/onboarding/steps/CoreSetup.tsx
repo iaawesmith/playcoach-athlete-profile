@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserStore } from "@/store/userStore";
 import { useAthleteStore } from "@/store/athleteStore";
-import { universities, type University } from "@/data/universities";
+import { useSchoolSearch, type SchoolOption } from "@/hooks/useSchoolSearch";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "FB"];
 const CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"];
@@ -17,9 +17,7 @@ export function CoreSetup() {
   const [focusIndex, setFocusIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const filtered = query.length >= 1
-    ? universities.filter((u) => u.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : [];
+  const { results: filtered } = useSchoolSearch(open ? query : "");
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -29,13 +27,14 @@ export function CoreSetup() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleSelectSchool = (uni: University) => {
-    setQuery(uni.name);
+  const handleSelectSchool = (opt: SchoolOption) => {
+    setQuery(opt.name);
     setOpen(false);
     setAthlete({
-      school: uni.name,
-      schoolAbbrev: uni.abbrev,
-      teamColor: uni.primaryColor,
+      school: opt.name,
+      schoolAbbrev: opt.abbrev,
+      teamColor: opt.primaryColor,
+      schoolLogoUrl: opt.logoUrl,
     });
   };
 
@@ -128,18 +127,22 @@ export function CoreSetup() {
           </div>
           {open && filtered.length > 0 && (
             <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[200px] overflow-y-auto rounded-xl bg-surface-container-high shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-              {filtered.map((uni, i) => (
+              {filtered.map((opt, i) => (
                 <li
-                  key={uni.name}
-                  onMouseDown={() => handleSelectSchool(uni)}
+                  key={opt.name}
+                  onMouseDown={() => handleSelectSchool(opt)}
                   onMouseEnter={() => setFocusIndex(i)}
                   className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100 ${
                     i === focusIndex ? "bg-surface-container-highest" : "hover:bg-surface-container-highest/50"
                   }`}
                 >
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: uni.primaryColor }} />
-                  <span className="text-on-surface text-sm font-normal truncate">{uni.name}</span>
-                  <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">{uni.abbrev}</span>
+                  {opt.logoUrl ? (
+                    <img src={opt.logoUrl} alt="" className="w-5 h-5 object-contain shrink-0" />
+                  ) : (
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: opt.primaryColor }} />
+                  )}
+                  <span className="text-on-surface text-sm font-normal truncate">{opt.name}</span>
+                  <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">{opt.abbrev}</span>
                 </li>
               ))}
             </ul>
@@ -169,7 +172,7 @@ export function CoreSetup() {
           </div>
         </div>
 
-        {/* Class year */}
+        {/* Class */}
         <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10">
           <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-3">
           Class

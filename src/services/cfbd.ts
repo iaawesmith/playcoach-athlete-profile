@@ -42,6 +42,18 @@ export type CfbdRecruit = {
   year: number;
 };
 
+export type CfbdTeam = {
+  id: number;
+  school: string;
+  mascot: string;
+  abbreviation: string;
+  alternateNames: string[];
+  conference: string;
+  color: string;
+  alternateColor: string;
+  logos: string[];
+};
+
 export const cfbdApi = {
   roster: (team: string, year = 2025) =>
     callCfbd<CfbdRosterPlayer[]>("/roster", { team, year }),
@@ -51,4 +63,6 @@ export const cfbdApi = {
 
   recruitingPlayers: (year: number, team?: string) =>
     callCfbd<CfbdRecruit[]>("/recruiting/players", { year, team }),
+
+  teams: () => callCfbd<CfbdTeam[]>("/teams"),
 };
