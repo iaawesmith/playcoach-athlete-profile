@@ -242,119 +242,154 @@ Deno.serve(async (req: Request) => {
     const imageUrls: Record<string, string> = {};
     let candidateUrls: string[] = [];
 
-    // 1. Dedicated photo search via Firecrawl
     const posLabel = knownFields.position || merged.position || "";
-    const photoQuery = `${name} ${posLabel} ${school} action game photo`.trim();
+    const jerseyNum = knownFields.number || merged.number || "";
+    const jerseyTag = jerseyNum ? ` #${jerseyNum}` : "";
+
+    // Two targeted searches for better coverage
+    const identityQuery = `${name}${jerseyTag} ${school} football`.trim();
+    const photoQuery = `${name} ${posLabel} ${school} football action photo game`.trim();
 
     try {
-      const photoSearchResp = await fetch("https://api.firecrawl.dev/v1/search", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: photoQuery,
-          limit: 5,
-          scrapeOptions: { formats: ["markdown"] },
+      const authHdrs = {
+        "Authorization": "Bearer " + apiKey,
+        "Content-Type": "application/json",
+      };
+
+      // Run both searches in parallel
+      const [identityResp, photoResp] = await Promise.all([
+        fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST",
+          headers: authHdrs,
+          body: JSON.stringify({
+            query: identityQuery,
+            limit: 4,
+            scrapeOptions: { formats: ["markdown"] },
+          }),
         }),
-      });
+        fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST",
+          headers: authHdrs,
+          body: JSON.stringify({
+            query: photoQuery,
+            limit: 8,
+            scrapeOptions: { formats: ["markdown"] },
+          }),
+        }),
+      ]);
 
-      if (photoSearchResp.ok) {
-        const photoSearchData = await photoSearchResp.json();
-        const photoResults = photoSearchData.data || [];
+      const allPhotoResults: Array<Record<string, unknown>> = [];
+      if (identityResp.ok) {
+        const d = await identityResp.json();
+        allPhotoResults.push(...(d.data || []));
+      }
+      if (photoResp.ok) {
+        const d = await photoResp.json();
+        allPhotoResults.push(...(d.data || []));
+      }
 
-        // Collect candidate image URLs from markdown ![alt](url) syntax
-        candidateUrls = [];
-        const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+      // Collect candidate image URLs from markdown ![alt](url) syntax
+      const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
 
-        for (const pr of photoResults) {
-          const md = pr.markdown || pr.data?.markdown || "";
-          let m;
-          while ((m = mdImgRegex.exec(md)) !== null) {
-            const src = m[1];
-            // Skip tiny utility images
-            if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|rating/i.test(src)) continue;
-            if (src.length < 30) continue;
-            if (!candidateUrls.includes(src)) candidateUrls.push(src);
-          }
+      for (const pr of allPhotoResults) {
+        const md = (pr.markdown || (pr.data as Record<string, unknown>)?.markdown || "") as string;
+        let m;
+        while ((m = mdImgRegex.exec(md)) !== null) {
+          const src = m[1];
+          // Skip tiny utility images
+          if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent|rating/i.test(src)) continue;
+          if (src.length < 30) continue;
+          if (!candidateUrls.includes(src)) candidateUrls.push(src);
         }
+      }
 
-        // 2. Ask Gemini to filter and rank ALL candidates for this specific athlete
-        if (candidateUrls.length > 0) {
-          const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-          if (lovableKey) {
-            const aiPrompt = `You are an image selection assistant for athlete profile cards.
+      // Vision-based AI filtering: send actual images to Gemini for verification
+      if (candidateUrls.length > 0) {
+        const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+        if (lovableKey) {
+          // Build multimodal content parts: text prompt + image URLs
+          const imagesToCheck = candidateUrls.slice(0, 12);
+          const contentParts: Array<Record<string, unknown>> = [
+            {
+              type: "text",
+              text: `You are verifying action photos for a football player profile card.
 
-I have these candidate image URLs found from a web search for "${name}" (${posLabel}, ${school}):
+Player: ${name}
+Position: ${posLabel || "unknown"}
+School: ${school || "unknown"}
+Jersey: ${jerseyNum || "unknown"}
 
-${candidateUrls.slice(0, 20).map((u, i) => `${i + 1}. ${u}`).join("\n")}
+I'm showing you ${imagesToCheck.length} candidate images. For EACH image, determine:
+1. Does it show a football player in game action or a football-related photo? (not a car, landscape, logo, headshot, crowd, or unrelated image)
+2. Could this plausibly be ${name} based on jersey number, school uniform colors, or context?
 
-Filter this list to ONLY URLs that are likely photos of ${name} specifically (not other players, not logos, not generic images).
-Then rank them by quality for a portrait-oriented card (3:4 aspect ratio). Prefer game action shots over posed portraits.
+Return a JSON array of ONLY the URLs that pass BOTH checks, ranked by quality for a portrait card (prefer dynamic action shots over static poses). Example: ["url1", "url2"]
+If none pass, return: []`,
+            },
+          ];
 
-IMPORTANT: Look at the URL structure for clues — URLs containing the athlete's name, jersey number, or school-specific paths are more likely correct.
-Exclude URLs that clearly reference other players by name.
+          for (const url of imagesToCheck) {
+            contentParts.push({
+              type: "image_url",
+              image_url: { url },
+            });
+          }
 
-Respond with a JSON array of the filtered URLs in ranked order. Example: ["url1", "url2", "url3"]
-If none are likely photos of ${name}, respond with: []`;
+          try {
+            const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": "Bearer " + lovableKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [{
+                  role: "user",
+                  content: contentParts,
+                }],
+              }),
+            });
 
-            try {
-              const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                  "Authorization": "Bearer " + lovableKey,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  model: "google/gemini-2.5-flash",
-                  messages: [{ role: "user", content: aiPrompt }],
-                }),
-              });
-
-              if (aiResp.ok) {
-                const aiData = await aiResp.json();
-                const raw = (aiData.choices?.[0]?.message?.content || "").trim();
-                // Parse JSON array from response (strip markdown fences if present)
-                const jsonStr = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-                try {
-                  const filtered = JSON.parse(jsonStr);
-                  if (Array.isArray(filtered) && filtered.length > 0) {
-                    // Replace candidateUrls with AI-filtered list
-                    candidateUrls = filtered.filter((u: unknown) => typeof u === "string" && String(u).startsWith("http"));
-                    if (candidateUrls.length > 0) {
-                      imageUrls.actionPhoto = candidateUrls[0];
-                    }
-                  }
-                } catch (_parseErr) {
-                  // If AI returned a single URL instead of array
-                  if (raw.startsWith("http")) {
-                    imageUrls.actionPhoto = raw;
+            if (aiResp.ok) {
+              const aiData = await aiResp.json();
+              const raw = ((aiData.choices?.[0]?.message?.content as string) || "").trim();
+              const jsonStr = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+              try {
+                const filtered = JSON.parse(jsonStr);
+                if (Array.isArray(filtered) && filtered.length > 0) {
+                  candidateUrls = filtered.filter((u: unknown) => typeof u === "string" && String(u).startsWith("http"));
+                  if (candidateUrls.length > 0) {
+                    imageUrls.actionPhoto = candidateUrls[0];
                   }
                 }
+              } catch (_parseErr) {
+                if (raw.startsWith("http")) {
+                  imageUrls.actionPhoto = raw;
+                }
               }
-            } catch (_aiErr) {
-              // Non-critical — proceed without AI filtering
             }
-          }
-
-          // Fallback: if AI didn't pick, use first large jpg/webp candidate
-          if (!imageUrls.actionPhoto) {
-            const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp)/i.test(u));
-            if (fallback) imageUrls.actionPhoto = fallback;
+          } catch (_aiErr) {
+            // Non-critical — fall through to URL-based fallback
           }
         }
 
-        // 3. Try to find a headshot from ESPN results
-        const espnResult = photoResults.find((r: Record<string, unknown>) =>
-          String(r.url || "").includes("espn.com")
-        );
-        if (espnResult) {
-          const md = espnResult.markdown || "";
-          const espnImgMatch = md.match(/!\[[^\]]*\]\((https:\/\/a\.espncdn\.com[^)]+)\)/);
-          if (espnImgMatch && !imageUrls.headshot) {
-            imageUrls.headshot = espnImgMatch[1];
-          }
+        // Fallback: if vision didn't pick, use first large jpg/webp candidate
+        if (!imageUrls.actionPhoto) {
+          const fallback = candidateUrls.find((u) => /\.(jpg|jpeg|webp)/i.test(u));
+          if (fallback) imageUrls.actionPhoto = fallback;
+        }
+      }
+
+      // Try to find a headshot from ESPN results
+      const espnResult = allPhotoResults.find((r: Record<string, unknown>) =>
+        String(r.url || "").includes("espn.com")
+      );
+      if (espnResult) {
+        const md = (espnResult.markdown || "") as string;
+        const espnImgMatch = md.match(/!\[[^\]]*\]\((https:\/\/a\.espncdn\.com[^)]+)\)/);
+        if (espnImgMatch && !imageUrls.headshot) {
+          imageUrls.headshot = espnImgMatch[1];
         }
       }
     } catch (_photoErr) {
