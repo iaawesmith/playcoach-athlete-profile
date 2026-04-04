@@ -226,6 +226,7 @@ export function ProfilePreview() {
                     {autoFill.availableImages.map((imgKey) => {
                       const url = autoFill.imageUrls![imgKey]!;
                       const selected = autoFill.selectedImages.has(imgKey);
+                      const isActionPhoto = imgKey === "actionPhoto";
                       return (
                         <button
                           key={imgKey}
@@ -259,6 +260,33 @@ export function ProfilePreview() {
                               <span className="material-symbols-outlined text-[12px] text-surface">check</span>
                             )}
                           </div>
+                          {/* Refresh overlay for action photo with multiple candidates */}
+                          {isActionPhoto && autoFill.hasMultipleActionPhotos && (
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                autoFill.nextActionPhoto();
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.stopPropagation();
+                                  autoFill.nextActionPhoto();
+                                }
+                              }}
+                              className="absolute inset-0 flex items-center justify-center bg-surface/70 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                            >
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="material-symbols-outlined text-2xl text-on-surface">
+                                  refresh
+                                </span>
+                                <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                  {autoFill.activeActionPhotoIndex + 1}/{autoFill.actionPhotoCandidateCount}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </button>
                       );
                     })}

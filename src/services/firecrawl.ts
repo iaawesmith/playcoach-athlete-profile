@@ -61,6 +61,7 @@ type ProfileResponse = {
   error?: string;
   data?: AthleteProfileData;
   imageUrls?: { headshot?: string; actionPhoto?: string; schoolLogo?: string };
+  actionPhotoCandidates?: string[];
   sources?: string[];
   resultsCount?: number;
 };

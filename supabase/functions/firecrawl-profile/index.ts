@@ -240,6 +240,7 @@ Deno.serve(async (req: Request) => {
 
     // --- Image extraction via AI-powered search ---
     const imageUrls: Record<string, string> = {};
+    let candidateUrls: string[] = [];
 
     // 1. Dedicated photo search via Firecrawl
     const posLabel = knownFields.position || merged.position || "";
@@ -264,7 +265,7 @@ Deno.serve(async (req: Request) => {
         const photoResults = photoSearchData.data || [];
 
         // Collect candidate image URLs from markdown ![alt](url) syntax
-        const candidateUrls: string[] = [];
+        candidateUrls = [];
         const mdImgRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
 
         for (const pr of photoResults) {
@@ -380,11 +381,23 @@ Otherwise respond with ONLY the URL, nothing else.`;
       }
     }
 
+    // Build actionPhotoCandidates: AI pick first, then remaining candidates
+    const actionPhotoCandidates: string[] = [];
+    if (imageUrls.actionPhoto) {
+      actionPhotoCandidates.push(imageUrls.actionPhoto);
+    }
+    for (const c of candidateUrls || []) {
+      if (!actionPhotoCandidates.includes(c)) {
+        actionPhotoCandidates.push(c);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         data: merged,
         imageUrls: Object.keys(imageUrls).length > 0 ? imageUrls : undefined,
+        actionPhotoCandidates: actionPhotoCandidates.length > 0 ? actionPhotoCandidates.slice(0, 10) : undefined,
         sources: sources,
         resultsCount: results.length,
       }),

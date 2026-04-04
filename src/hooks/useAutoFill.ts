@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
 import { firecrawlApi, type AthleteProfileData } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,7 +65,8 @@ export type AutoFillStatus = "idle" | "scraping" | "results" | "applying" | "err
 
 export function useAutoFill() {
   const {
-    firstName, lastName, school, position, number, classYear, setAthlete,
+    firstName, lastName, school, position, number, classYear,
+    actionPhotoUrl, setAthlete,
   } = useAthleteStore();
 
   const [status, setStatus] = useState<AutoFillStatus>("idle");
@@ -76,6 +77,11 @@ export function useAutoFill() {
   const [selectedImages, setSelectedImages] = useState<Set<keyof ImageUrls>>(new Set());
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Action photo candidate cycling
+  const [actionPhotoCandidates, setActionPhotoCandidates] = useState<string[]>([]);
+  const [activeActionPhotoIndex, setActiveActionPhotoIndex] = useState(0);
+  const originalActionPhotoUrl = useRef<string | null>(null);
+
   const fullName = `${firstName} ${lastName}`.trim();
   const canScrape = fullName.length >= 3;
 
@@ -83,6 +89,9 @@ export function useAutoFill() {
     if (!canScrape) return;
     setStatus("scraping");
     setErrorMessage("");
+
+    // Save original action photo to restore on dismiss
+    originalActionPhotoUrl.current = actionPhotoUrl;
 
     const result = await firecrawlApi.fetchAthleteProfile(
       fullName,
@@ -101,6 +110,16 @@ export function useAutoFill() {
     setImageUrls(result.imageUrls || null);
     setSources(result.sources || []);
 
+    // Store action photo candidates
+    const candidates = result.actionPhotoCandidates || [];
+    setActionPhotoCandidates(candidates);
+    setActiveActionPhotoIndex(0);
+
+    // Live preview: set the action photo on the store immediately
+    if (result.imageUrls?.actionPhoto) {
+      setAthlete({ actionPhotoUrl: result.imageUrls.actionPhoto } as Parameters<typeof setAthlete>[0]);
+    }
+
     const fields = new Set<FieldKey>();
     for (const key of Object.keys(data) as FieldKey[]) {
       const val = data[key];
@@ -118,7 +137,7 @@ export function useAutoFill() {
     }
     setSelectedImages(imgs);
     setStatus("results");
-  }, [canScrape, fullName, school, position, number, classYear]);
+  }, [canScrape, fullName, school, position, number, classYear, actionPhotoUrl, setAthlete]);
 
   const toggleField = useCallback((field: FieldKey) => {
     setSelectedFields((prev) => {
@@ -137,6 +156,23 @@ export function useAutoFill() {
       return next;
     });
   }, []);
+
+  // Cycle to next action photo candidate
+  const nextActionPhoto = useCallback(() => {
+    if (actionPhotoCandidates.length <= 1) return;
+    const nextIdx = (activeActionPhotoIndex + 1) % actionPhotoCandidates.length;
+    setActiveActionPhotoIndex(nextIdx);
+
+    const nextUrl = actionPhotoCandidates[nextIdx];
+
+    // Update imageUrls so the thumbnail reflects the new pick
+    setImageUrls((prev) => prev ? { ...prev, actionPhoto: nextUrl } : { actionPhoto: nextUrl });
+
+    // Live preview on ProCard
+    setAthlete({ actionPhotoUrl: nextUrl } as Parameters<typeof setAthlete>[0]);
+  }, [actionPhotoCandidates, activeActionPhotoIndex, setAthlete]);
+
+  const hasMultipleActionPhotos = actionPhotoCandidates.length > 1;
 
   const apply = useCallback(async () => {
     if (!scrapedData && selectedImages.size === 0) return;
@@ -177,11 +213,17 @@ export function useAutoFill() {
   }, [scrapedData, imageUrls, selectedFields, selectedImages, firstName, lastName, setAthlete]);
 
   const dismiss = useCallback(() => {
+    // Restore original action photo if user dismisses
+    if (originalActionPhotoUrl.current !== null) {
+      setAthlete({ actionPhotoUrl: originalActionPhotoUrl.current } as Parameters<typeof setAthlete>[0]);
+    }
     setStatus("idle");
     setScrapedData(null);
     setImageUrls(null);
     setErrorMessage("");
-  }, []);
+    setActionPhotoCandidates([]);
+    setActiveActionPhotoIndex(0);
+  }, [setAthlete]);
 
   const availableFields = scrapedData
     ? (Object.keys(scrapedData) as FieldKey[]).filter((k) => {
@@ -213,5 +255,9 @@ export function useAutoFill() {
     errorMessage,
     totalSelected: selectedFields.size + selectedImages.size,
     totalItems: availableFields.length + availableImages.length,
+    nextActionPhoto,
+    hasMultipleActionPhotos,
+    activeActionPhotoIndex,
+    actionPhotoCandidateCount: actionPhotoCandidates.length,
   };
 }
