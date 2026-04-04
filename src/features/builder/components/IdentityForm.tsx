@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 const positions = ["QB", "RB", "FB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "LS"];
-const classYears = ["2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"];
+const classYears = ["Freshman", "Sophomore", "Junior", "Senior"];
 const commitmentOptions = [
   { value: "", label: "Select..." },
   { value: "committed", label: "Committed" },
@@ -733,7 +733,7 @@ export const IdentityForm = () => {
               />
               <InputCard label="Jersey #" value={number} onChange={(v) => setAthlete({ number: v })} placeholder="0" />
               <SelectCard
-                label="Class Year"
+                label="Class"
                 value={classYear}
                 options={[{ value: "", label: "Select..." }, ...classYears.map((y) => ({ value: y, label: y }))]}
                 onChange={(v) => setAthlete({ classYear: v })}

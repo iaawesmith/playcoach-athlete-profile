@@ -5,7 +5,7 @@ import { useAthleteStore } from "@/store/athleteStore";
 import { universities, type University } from "@/data/universities";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "FB"];
-const CLASS_YEARS = ["2023", "2024", "2025", "2026", "2027", "2028", "2029"];
+const CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"];
 
 export function CoreSetup() {
   const navigate = useNavigate();
@@ -172,10 +172,10 @@ export function CoreSetup() {
         {/* Class year */}
         <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10">
           <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-3">
-            Class Year
-          </label>
+          Class
+        </label>
           <div className="flex flex-wrap gap-2">
-            {CLASS_YEARS.map((yr) => (
+            {CLASS_OPTIONS.map((yr) => (
               <button
                 key={yr}
                 onClick={() => setAthlete({ classYear: yr })}
