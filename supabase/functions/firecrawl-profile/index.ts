@@ -530,14 +530,16 @@ If none pass, return: []`,
     // Validate candidate URLs are actual renderable images via HEAD requests
     const validateImageUrl = async (url: string): Promise<boolean> => {
       try {
+        // Some CDN crop URLs don't support HEAD — try GET with range header
         const resp = await fetch(url, {
-          method: "HEAD",
-          headers: { "User-Agent": "Mozilla/5.0" },
+          method: "GET",
+          headers: { "User-Agent": "Mozilla/5.0", "Range": "bytes=0-0" },
           redirect: "follow",
         });
-        if (!resp.ok) return false;
+        if (!resp.ok && resp.status !== 206) return false;
         const ct = resp.headers.get("content-type") || "";
-        return ct.startsWith("image/");
+        // Accept image types and also octet-stream from CDNs
+        return ct.startsWith("image/") || ct.includes("octet-stream");
       } catch {
         return false;
       }
