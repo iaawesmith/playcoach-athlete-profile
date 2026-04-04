@@ -267,39 +267,57 @@ Deno.serve(async (req: Request) => {
           const photoData = await photoScrape.json();
           const html = photoData.data?.html || photoData.html || "";
 
-          // ESPN headshot patterns
-          const espnHeadshot = html.match(
-            /(?:headshot|PlayerImage|player-headshot)[^>]*?(?:src|data-src)=["']([^"']+(?:espncdn|a\.espncdn)[^"']+)/i
-          );
-          if (espnHeadshot) {
-            let url = espnHeadshot[1];
-            // Upgrade to higher res
-            url = url.replace(/&[wh]=\d+/g, "").replace(/\?.*$/, "") + "?w=600&h=436";
-            imageUrls.headshot = url;
+          // Collect all img src URLs from the page
+          const allImgs: string[] = [];
+          const imgRegex = /<img[^>]+(?:src|data-src)=["']([^"']+)/gi;
+          let imgMatch;
+          while ((imgMatch = imgRegex.exec(html)) !== null) {
+            allImgs.push(imgMatch[1]);
           }
 
-          // School roster headshot
-          if (!imageUrls.headshot) {
-            const rosterHeadshot = html.match(
-              /(?:player[_-]?photo|roster[_-]?photo|headshot|profile[_-]?image|bio[_-]?image)[^>]*?(?:src|data-src)=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)/i
-            );
-            if (rosterHeadshot) imageUrls.headshot = rosterHeadshot[1];
+          // Also check for background-image CSS
+          const bgRegex = /background(?:-image)?:\s*url\(["']?([^"')]+)/gi;
+          let bgMatch;
+          while ((bgMatch = bgRegex.exec(html)) !== null) {
+            allImgs.push(bgMatch[1]);
           }
 
-          // Action photo: larger images on the page (not icons/logos)
-          const imgTags = html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)/gi);
-          for (const m of imgTags) {
-            const src = m[1];
-            if (src === imageUrls.headshot) continue;
-            // Skip small images, icons, logos
-            if (/logo|icon|sprite|badge|arrow|button/i.test(src)) continue;
-            // Prefer larger images (ESPN uses combiner with w/h params)
-            const widthMatch = src.match(/[wW]=(\d+)/);
-            if (widthMatch && parseInt(widthMatch[1], 10) < 200) continue;
-            // Accept action/game photos
-            if (/action|game|photo|media|image/i.test(src) || (widthMatch && parseInt(widthMatch[1], 10) >= 400)) {
-              imageUrls.actionPhoto = src;
-              break;
+          for (const src of allImgs) {
+            // Skip tiny/utility images
+            if (/logo|icon|sprite|badge|arrow|button|tracking|pixel|\.svg|\.gif|spacer|transparent/i.test(src)) continue;
+            if (src.length < 20) continue;
+
+            // ESPN CDN images
+            if (/espncdn\.com/i.test(src) && /combiner|photo|image|media/i.test(src)) {
+              if (!imageUrls.headshot) {
+                let cleaned = src;
+                cleaned = cleaned.replace(/&[wh]=\d+/g, "");
+                if (!cleaned.includes("?")) cleaned += "?";
+                cleaned += "&w=600&h=436";
+                imageUrls.headshot = cleaned;
+              } else if (!imageUrls.actionPhoto) {
+                imageUrls.actionPhoto = src;
+              }
+              continue;
+            }
+
+            // School roster / profile page images (jpg/png/webp)
+            if (/\.(jpg|jpeg|png|webp)/i.test(src)) {
+              // Check for headshot-like context
+              const srcIdx = html.indexOf(src);
+              const context = srcIdx >= 0 ? html.substring(Math.max(0, srcIdx - 200), srcIdx + 50).toLowerCase() : "";
+              const isHeadshot = /headshot|player.?photo|roster.?photo|profile.?image|bio.?image|portrait|mug/i.test(context);
+
+              if (isHeadshot && !imageUrls.headshot) {
+                imageUrls.headshot = src;
+              } else if (!imageUrls.actionPhoto && !isHeadshot) {
+                // Accept reasonably-sized images as action photos
+                const wMatch = src.match(/[wW](?:idth)?=(\d+)/);
+                const isLarge = wMatch ? parseInt(wMatch[1], 10) >= 300 : true;
+                if (isLarge) {
+                  imageUrls.actionPhoto = src;
+                }
+              }
             }
           }
         }
