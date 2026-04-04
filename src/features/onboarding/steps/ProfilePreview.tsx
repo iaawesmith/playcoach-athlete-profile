@@ -112,24 +112,6 @@ export function ProfilePreview() {
         </div>
       </div>
 
-      {/* Completion */}
-      <div className="text-center space-y-3">
-        <div className="text-5xl font-black text-on-surface">
-          <AnimatedPct target={completionPct} />%
-        </div>
-        <div className="flex gap-0.5 w-full">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-1 h-2 rounded-sm transition-all duration-500"
-              style={{
-                backgroundColor: i < Math.round(completionPct / 10) ? "#50C4CA" : "hsl(var(--surface-container-high))",
-              }}
-            />
-          ))}
-        </div>
-        <p className="text-on-surface-variant text-sm">Profile completion</p>
-      </div>
 
       {/* Auto-Fill States */}
       {autoFill.status === "idle" && (
