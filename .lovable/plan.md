@@ -1,24 +1,38 @@
 
 
-## Fix Team Color Not Carrying Over to Onboarding Preview
+## Action Photo Preview on Card + "Find Another" Button
 
-### Problem
-The `ProCard` component uses `var(--team-color)` CSS variable for the school banner, position badges, and jersey number badges. The `BuilderLayout` sets this variable on its root div using the Zustand `teamColor` value, but the `OnboardingLayout` does not. So on `/onboarding/preview`, the ProCard falls back to `#CC0000` (the CSS default in `index.css`), which is why it appears red regardless of which school was selected.
+### What It Does
+1. When auto-fill results come back with an action photo, the photo immediately previews on the ProCard (live, before applying).
+2. A refresh icon appears on hover over the action photo thumbnail in the results grid. Clicking it searches for another action photo option.
+3. The ProCard updates in real-time as you cycle through different action photo candidates.
 
-### Fix — `src/features/onboarding/OnboardingLayout.tsx`
+### How It Works
 
-1. Import `useAthleteStore` and read `teamColor` from the store
-2. On the root `<div>` (line 31), set the `--team-color` CSS variable inline — identical to how `BuilderLayout` does it:
-   ```tsx
-   style={{ "--team-color": teamColor } as React.CSSProperties}
-   ```
+**Edge function change: `supabase/functions/firecrawl-profile/index.ts`**
+- Return ALL candidate action photo URLs (up to 10) in a new `actionPhotoCandidates` array alongside the AI-picked best one in `imageUrls.actionPhoto`.
+- This gives the frontend a pool to cycle through without making new API calls each time.
 
-This ensures the ProCard (and any other element using `var(--team-color)`) renders with the correct school color throughout the onboarding flow.
+**Hook change: `src/hooks/useAutoFill.ts`**
+- Add `actionPhotoCandidates: string[]` state to store the full list of candidate URLs.
+- Add `activeActionPhotoIndex: number` state tracking which candidate is currently shown.
+- Add `nextActionPhoto()` callback that increments the index (wraps around) and updates `imageUrls.actionPhoto` to the next candidate.
+- Add `previewActionPhotoUrl: string | null` — the currently previewed (but not yet applied) action photo URL.
+- When results arrive, temporarily set the store's `actionPhotoUrl` to the first candidate so the ProCard shows a live preview. Track original value to restore if user dismisses.
+- On `nextActionPhoto()`, update the store's `actionPhotoUrl` immediately so the ProCard reflects the new choice.
+- Expose `hasMultipleActionPhotos: boolean` and `nextActionPhoto` from the hook.
 
-### Also fix the CSS default
-Update `index.css` line 51: change `--team-color: #CC0000` to `--team-color: #50C4CA` so the fallback matches the store default (PlayCoach Steel for onboarding context), not Georgia Red.
+**UI change: `src/features/onboarding/steps/ProfilePreview.tsx`**
+- On the action photo thumbnail in the image results grid, add a hover overlay with a `refresh` Material Symbol icon. Clicking calls `autoFill.nextActionPhoto()`.
+- The ProCard above already reads from the store, so it updates automatically when the preview URL changes.
+- When user clicks "Apply Selected", the currently previewed action photo is the one that gets uploaded and persisted.
+
+### Why No Extra API Calls
+The edge function already searches for photos and collects candidate URLs. Instead of discarding all but the AI pick, we return the full candidate list. Cycling through them is instant — no new scrapes needed. If the user exhausts all candidates and still isn't satisfied, a "Search for more" option could trigger a new search (future enhancement).
 
 ### Files Modified
-- `src/features/onboarding/OnboardingLayout.tsx`
-- `src/index.css`
+- `supabase/functions/firecrawl-profile/index.ts` — return `actionPhotoCandidates` array
+- `src/hooks/useAutoFill.ts` — candidate cycling logic + live preview on store
+- `src/features/onboarding/steps/ProfilePreview.tsx` — refresh icon overlay on action photo thumbnail
+- `src/services/firecrawl.ts` — add `actionPhotoCandidates` to `ProfileResponse` type
 
