@@ -44,6 +44,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Extract last name for proximity checks
+    const nameParts = name.split(/\s+/);
+    const lastName = nameParts[nameParts.length - 1].toLowerCase();
+
     const searchQuery = school
       ? name + " " + school + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com"
       : name + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com";
@@ -112,6 +116,10 @@ Deno.serve(async (req: Request) => {
       const content = result.markdown || result.data?.markdown || "";
       if (!content) continue;
 
+      // Check if this page is relevant to the athlete (contains their last name)
+      const contentLower = content.toLowerCase();
+      const pageRelevant = contentLower.includes(lastName);
+
       // Parse common recruiting fields from markdown
       const heightMatch = content.match(/Height[:\s]*(\d+['']\d+[""]?|\d+-\d+)/i);
       if (heightMatch && !merged.height) merged.height = heightMatch[1];
@@ -125,9 +133,16 @@ Deno.serve(async (req: Request) => {
       const hometownMatch = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i);
       if (hometownMatch && !merged.hometown) merged.hometown = hometownMatch[1].trim();
 
-      const highSchoolMatch = content.match(/High\s*School[:\s]+([A-Za-z0-9\s.'()-]{3,40})/i);
+      // High school: require the captured name to start with a capital letter (proper noun)
+      // and exclude common false-positive phrases
+      const highSchoolMatch = content.match(
+        /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect)([A-Z][A-Za-z0-9\s.'()-]{2,39})/
+      );
       if (highSchoolMatch && !merged.highSchool) {
-        merged.highSchool = highSchoolMatch[1].trim();
+        const cleaned = highSchoolMatch[1].trim().replace(/[\[\]|]+$/, "").trim();
+        if (cleaned.length >= 3 && !/^\d+$/.test(cleaned)) {
+          merged.highSchool = cleaned;
+        }
       }
 
       const classMatch = content.match(/Class\s*(?:of\s*)?(\d{4})/i);
@@ -142,8 +157,27 @@ Deno.serve(async (req: Request) => {
       const posRankMatch = content.match(/(?:Position|Pos)\s*(?:Rank|#)[:\s]*(\d+)/i);
       if (posRankMatch && !merged.positionRank) merged.positionRank = parseInt(posRankMatch[1], 10);
 
-      const posMatch = content.match(/Position[:\s]*(QB|RB|WR|TE|OL|DL|LB|CB|S|K|P|FB|LS|ATH)/i);
-      if (posMatch && !merged.position) merged.position = posMatch[1].toUpperCase();
+      // Position: multiple patterns, only from relevant pages, skip bare "S"
+      if (!merged.position && pageRelevant) {
+        // Pattern 1: structured label like "Position: QB"
+        const posMatch = content.match(
+          /(?:Position|Pos\.?)\s*[:\-]\s*(QB|RB|WR|TE|OL|OT|OG|DL|DE|DT|LB|CB|FS|SS|ATH|FB|LS|K|P)\b/i
+        );
+        // Pattern 2: standalone position near athlete name on roster pages (e.g. "Bear Bachmeier | QB")
+        const posMatch2 = !posMatch && content.match(
+          new RegExp(lastName + "[\\s|,\\-]+(?:#\\d+\\s*[|,\\-]+\\s*)?(QB|RB|WR|TE|OL|OT|OG|DL|DE|DT|LB|CB|FS|SS|ATH|FB|LS|K|P)\\b", "i")
+        );
+        // Pattern 3: position before athlete name (e.g. "QB Bear Bachmeier")
+        const posMatch3 = !posMatch && !posMatch2 && content.match(
+          new RegExp("\\b(QB|RB|WR|TE|OL|OT|OG|DL|DE|DT|LB|CB|FS|SS|ATH|FB|LS)\\s+" + nameParts[0], "i")
+        );
+        const foundPos = posMatch || posMatch2 || posMatch3;
+        if (foundPos) {
+          let pos = foundPos[posMatch ? 1 : posMatch2 ? 1 : 1].toUpperCase();
+          if (pos === "FS" || pos === "SS") pos = "S";
+          merged.position = pos;
+        }
+      }
 
       // ESPN-style combined HT/WT
       const htwtMatch = content.match(/HT\/WT[:\s]*(\d+['-]\d+)[,\s]+(\d+)\s*lbs/i);
@@ -159,9 +193,33 @@ Deno.serve(async (req: Request) => {
       const wtMatch2 = content.match(/Wt\.?[:\s]*(\d+)/i);
       if (wtMatch2 && !merged.weight) merged.weight = wtMatch2[1];
 
-      // Jersey number from roster
-      const jerseyMatch = content.match(/#(\d{1,3})\b/);
-      if (jerseyMatch && !merged.number) merged.number = jerseyMatch[1];
+      // Jersey number: only from lines containing the athlete's last name
+      if (!merged.number && pageRelevant) {
+        const lines = content.split("\n");
+        for (const line of lines) {
+          if (line.toLowerCase().includes(lastName)) {
+            const jerseyMatch = line.match(/#(\d{1,2})\b/);
+            if (jerseyMatch) {
+              merged.number = jerseyMatch[1];
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Normalize height to total inches for the store
+    if (merged.height) {
+      const h = String(merged.height);
+      const dashMatch = h.match(/^(\d+)['\-](\d+)[""]?$/);
+      if (dashMatch) {
+        merged.height = String(parseInt(dashMatch[1], 10) * 12 + parseInt(dashMatch[2], 10));
+      }
+    }
+
+    // Strip "lbs" from weight
+    if (merged.weight) {
+      merged.weight = String(merged.weight).replace(/\s*lbs?\.?\s*/gi, "").trim();
     }
 
     return new Response(

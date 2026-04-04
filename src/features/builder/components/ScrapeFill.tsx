@@ -23,6 +23,14 @@ const fieldLabels: Record<FieldKey, string> = {
   commitmentStatus: "Commitment Status",
 };
 
+const formatDisplayValue = (field: FieldKey, val: unknown): string => {
+  if (field === "height") {
+    const total = parseInt(String(val), 10);
+    if (total > 11) return `${Math.floor(total / 12)}'${total % 12}"`;
+  }
+  return String(val ?? "");
+};
+
 export const ScrapeFill = () => {
   const { firstName, lastName, school, setAthlete } = useAthleteStore();
   const [status, setStatus] = useState<"idle" | "loading" | "results" | "error">("idle");
@@ -238,7 +246,7 @@ export const ScrapeFill = () => {
               {fieldLabels[field] || field}
             </span>
             <span className="text-on-surface text-sm font-normal truncate flex-1">
-              {String(scrapedData?.[field] ?? "")}
+              {formatDisplayValue(field, scrapedData?.[field])}
             </span>
           </button>
         ))}
