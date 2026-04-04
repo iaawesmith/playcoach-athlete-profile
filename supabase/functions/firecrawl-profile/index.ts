@@ -157,13 +157,23 @@ Deno.serve(async (req: Request) => {
       const posRankMatch = content.match(/(?:Position|Pos)\s*(?:Rank|#)[:\s]*(\d+)/i);
       if (posRankMatch && !merged.positionRank) merged.positionRank = parseInt(posRankMatch[1], 10);
 
-      // Position: only accept from pages relevant to the athlete, and skip bare "S"
+      // Position: multiple patterns, only from relevant pages, skip bare "S"
       if (!merged.position && pageRelevant) {
+        // Pattern 1: structured label like "Position: QB"
         const posMatch = content.match(
           /(?:Position|Pos\.?)\s*[:\-]\s*(QB|RB|WR|TE|OL|OT|OG|DL|DE|DT|LB|CB|FS|SS|ATH|FB|LS|K|P)\b/i
         );
-        if (posMatch) {
-          let pos = posMatch[1].toUpperCase();
+        // Pattern 2: standalone position near athlete name on roster pages (e.g. "Bear Bachmeier | QB")
+        const posMatch2 = !posMatch && content.match(
+          new RegExp(lastName + "[\\s|,\\-]+(?:#\\d+\\s*[|,\\-]+\\s*)?(QB|RB|WR|TE|OL|OT|OG|DL|DE|DT|LB|CB|FS|SS|ATH|FB|LS|K|P)\\b", "i")
+        );
+        // Pattern 3: position before athlete name (e.g. "QB Bear Bachmeier")
+        const posMatch3 = !posMatch && !posMatch2 && content.match(
+          new RegExp("\\b(QB|RB|WR|TE|OL|OT|OG|DL|DE|DT|LB|CB|FS|SS|ATH|FB|LS)\\s+" + nameParts[0], "i")
+        );
+        const foundPos = posMatch || posMatch2 || posMatch3;
+        if (foundPos) {
+          let pos = foundPos[posMatch ? 1 : posMatch2 ? 1 : 1].toUpperCase();
           if (pos === "FS" || pos === "SS") pos = "S";
           merged.position = pos;
         }
