@@ -375,6 +375,18 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Pre-sort candidates: URLs containing athlete's name go first
+      const nameTokens = name.toLowerCase().split(/\s+/);
+      candidateUrls.sort((a, b) => {
+        const aLower = decodeURIComponent(a).toLowerCase();
+        const bLower = decodeURIComponent(b).toLowerCase();
+        const aMatch = nameTokens.some((t) => aLower.includes(t));
+        const bMatch = nameTokens.some((t) => bLower.includes(t));
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+
       // Vision-based AI filtering: send actual images to Gemini for verification
       if (candidateUrls.length > 0) {
         const lovableKey = Deno.env.get("LOVABLE_API_KEY");
