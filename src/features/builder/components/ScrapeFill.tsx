@@ -355,7 +355,7 @@ export const ScrapeFill = () => {
                       (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
-                  <div className="absolute inset-0 bg-surface/60 flex items-end p-1.5">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
                     <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface">
                       {imageLabels[imgKey]}
                     </span>
