@@ -80,7 +80,7 @@ export function useAutoFill() {
   // Action photo candidate cycling
   const [actionPhotoCandidates, setActionPhotoCandidates] = useState<string[]>([]);
   const [activeActionPhotoIndex, setActiveActionPhotoIndex] = useState(0);
-  const originalActionPhotoUrl = useRef<string | null>(null);
+  const originalValues = useRef<Record<string, unknown>>({});
 
   const fullName = `${firstName} ${lastName}`.trim();
   const canScrape = fullName.length >= 3;
