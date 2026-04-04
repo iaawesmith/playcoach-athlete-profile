@@ -6,9 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 type FieldKey = keyof AthleteProfileData;
 
 type ImageUrls = {
-  headshot?: string;
   actionPhoto?: string;
-  schoolLogo?: string;
 };
 
 export const fieldLabels: Record<FieldKey, string> = {
