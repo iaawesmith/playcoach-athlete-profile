@@ -95,6 +95,7 @@ export function useAutoFill() {
       actionPhotoUrl,
       height: useAthleteStore.getState().height,
       weight: useAthleteStore.getState().weight,
+      schoolLogoUrl: useAthleteStore.getState().schoolLogoUrl,
     };
 
     const result = await firecrawlApi.fetchAthleteProfile(
@@ -123,6 +124,9 @@ export function useAutoFill() {
     const preview: Record<string, unknown> = {};
     if (result.imageUrls?.actionPhoto) {
       preview.actionPhotoUrl = result.imageUrls.actionPhoto;
+    }
+    if (result.imageUrls?.schoolLogo) {
+      preview.schoolLogoUrl = result.imageUrls.schoolLogo;
     }
     if (data.height) preview.height = data.height;
     if (data.weight) preview.weight = data.weight;
