@@ -72,7 +72,7 @@ export function RoleSelection() {
               key={r.role}
               onClick={() => handleSelect(r)}
               disabled={r.comingSoon}
-              className={`grid grid-rows-[64px_28px_48px_40px] items-center justify-items-center w-full min-h-[260px] py-6 px-4 rounded-xl border transition-all duration-200 ${
+              className={`grid grid-rows-[64px_28px_40px_1fr] items-center justify-items-center w-full min-h-[280px] py-8 px-4 rounded-xl border transition-all duration-200 ${
                 r.comingSoon
                   ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
                   : isSelected
