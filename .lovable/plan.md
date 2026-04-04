@@ -1,27 +1,38 @@
 
 
-## Fix ProfilePreview: Remove Completion Section and Fix Card Data
+## Auto-Fetch School Logo on School Selection
 
-### Problem
-1. The profile completion percentage and segmented bar (lines 163–180) should be removed — completion will be shown inside the builder instead.
-2. The mini ProCard school banner shows `schoolAbbrev` first (line 138), but should show the full school name like the real ProCard does.
-3. The card isn't reading `classYear` from the store, so class year doesn't appear. Jersey number and position are read but may not display if the store fields use different names — `number` is correct per the store, and `position` is correct. The issue is that `classYear` is destructured on line 75 but never rendered in the card.
+### What It Does
+When a user selects or enters a school name (e.g. "Brigham Young Cougars"), the system automatically searches for the school's official logo using Firecrawl and populates the school logo upload field — no manual upload needed.
 
-### Changes to `src/features/onboarding/steps/ProfilePreview.tsx`
+### How It Works
 
-1. **Remove the completion section** (lines 163–180): Delete the animated percentage, segmented bar, and "Profile completion" label entirely. Also remove the `computeCompletion` function and `AnimatedPct` component since they become unused.
+1. **New edge function `firecrawl-school-logo`** — A lightweight function that takes a school name, uses Firecrawl search with `branding` format to find the school's athletics site, and returns the best logo URL. This is simpler and faster than the full `firecrawl-profile` function.
 
-2. **Fix school banner text**: Change line 138 from `{schoolAbbrev || school || "SCHOOL"}` to `{school || schoolAbbrev || "SCHOOL"}` — prefer full school name.
+2. **New service method** — Add `fetchSchoolLogo(schoolName: string)` to `src/services/firecrawl.ts` that invokes the new edge function.
 
-3. **Add classYear to the card info**: On line 156–158, update the position/number line to also show class year:
-   ```
-   {position || "POS"} {number ? `#${number}` : ""} {classYear ? `· ${classYear}` : ""}
-   ```
+3. **Trigger on school selection in `IdentityForm.tsx`** — When a user selects a school from the autocomplete (the `onSelect` handler around line 655), if `schoolLogoUrl` is not already set, automatically call the new service in the background. Show a subtle loading pulse on the school logo upload slot while fetching. On success, upload the image via the existing `image-proxy` function and set `schoolLogoUrl` in the store.
 
-4. **Destructure classYear**: Already destructured on line 75 — no change needed there.
+4. **Non-blocking UX** — The logo fetch runs in the background. The user can continue editing. If it fails or finds nothing, the upload slot stays empty and the user can still upload manually. If the user has already uploaded a logo, the auto-fetch is skipped.
 
-5. **Clean up unused code**: Remove `computeCompletion` function (lines 21–42), `AnimatedPct` component (lines 44–69), and the `completionPct` variable (line 101).
+### Technical Details
+
+**New file: `supabase/functions/firecrawl-school-logo/index.ts`**
+- Accepts `{ school: string }`
+- Searches Firecrawl for `"{school} athletics official logo"` with `branding` format
+- Falls back to searching `"{school} logo site:espn.com OR site:ncaa.com"` with `screenshot` format if branding yields nothing
+- Returns `{ success: true, logoUrl: string }` or `{ success: false }`
+
+**Modified: `src/services/firecrawl.ts`**
+- Add `fetchSchoolLogo(school: string)` method
+
+**Modified: `src/features/builder/components/IdentityForm.tsx`**
+- In the `onSelect` callback for `SchoolAutocomplete`, trigger logo fetch if no logo is set
+- Add local state `logoLoading` to show pulse animation on the logo upload slot
+- Use `image-proxy` to upload the found logo to storage, then set `schoolLogoUrl`
 
 ### Files Modified
-- `src/features/onboarding/steps/ProfilePreview.tsx`
+- `supabase/functions/firecrawl-school-logo/index.ts` (new)
+- `src/services/firecrawl.ts`
+- `src/features/builder/components/IdentityForm.tsx`
 
