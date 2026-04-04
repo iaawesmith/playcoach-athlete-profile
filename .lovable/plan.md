@@ -1,48 +1,32 @@
 
+Fix black action-photo candidate previews on onboarding
 
-## Improve Action Photo Search Quality with AI Vision Filtering
+What’s happening
+- On `/onboarding/preview`, there is only one action-photo tile that cycles through 3 candidates.
+- In `src/features/onboarding/steps/ProfilePreview.tsx`, that tile gets a full-cover dark refresh overlay (`bg-surface/70`) while hovering/clicking, which makes the photo look black during interaction.
+- Also, `supabase/functions/firecrawl-profile/index.ts` returns raw remote image URLs without validating that they are actually browser-renderable images. When one fails, the current `<img onError>` behavior hides the image and leaves a black box.
 
-### Problem
-The current approach searches for web pages via Firecrawl text search, extracts image URLs from markdown content, then asks Gemini to filter based on **URL strings only**. This fails because:
-- Firecrawl returns articles, not image results — embedded images are often thumbnails, ads, or unrelated photos
-- AI filtering on URL text alone cannot determine if an image actually shows the correct athlete playing football
-- Only 5 search results are scraped, limiting the candidate pool
-- For a well-known starter like Devon Dampier (Utah QB #4), this produces 1 good photo and random noise (cars, etc.)
+Plan
+1. Fix the onboarding cycling UI
+   - In `src/features/onboarding/steps/ProfilePreview.tsx`, remove the full-image dark refresh overlay for action-photo cycling.
+   - Replace it with a small top-right control/pill (refresh icon + `1/3`) so the photo stays visible at all times.
 
-### Solution
-Two changes to `supabase/functions/firecrawl-profile/index.ts`:
+2. Add broken-image fallback in onboarding
+   - In `src/hooks/useAutoFill.ts`, track failed action-photo candidates.
+   - When the current candidate fails to load, automatically advance to the next candidate instead of hiding the image and leaving a black tile.
+   - If all candidates fail, clear the previewed action photo and show a lightweight fallback message/state.
 
-**1. Better search queries targeting image-rich sources**
+3. Harden the backend candidate list
+   - In `supabase/functions/firecrawl-profile/index.ts`, validate each candidate URL before returning it.
+   - Keep only candidates that respond like real images (`image/*`, non-empty, not HTML/error payloads).
+   - Set `imageUrls.actionPhoto` from the first verified candidate so onboarding and Brand HQ both get safer defaults.
 
-Replace the single generic photo search with two targeted searches:
-- School athletics roster/media page (e.g., "Devon Dampier Utah Utes football") — these pages typically have official action photos
-- Sports media search targeting Getty/AP-sourced images (e.g., "Devon Dampier quarterback Utah football action photo") with higher limit (8 results instead of 5)
-
-Also add the jersey number and class year to the search query when available — this disambiguates common names.
-
-**2. Use Gemini vision to verify candidate images**
-
-Instead of asking Gemini to judge images by URL text, send the actual candidate image URLs to a vision-capable model (`google/gemini-2.5-flash`) using the multimodal content format. The prompt instructs the model to:
-- Verify each image shows a football player in action (not a car, headshot, logo, or unrelated image)
-- Check for matching jersey number and school uniform colors when known
-- Return only URLs that are genuine football action photos, ranked by quality
-
-This is the key improvement — visual verification eliminates the random/unrelated images that slip through URL-only filtering.
-
-### Technical Details
-
-**`supabase/functions/firecrawl-profile/index.ts`** — changes to the image extraction section (lines 241-362):
-
-1. **Search query improvement** (line 247): Add jersey number and school abbreviation when available. Use two queries:
-   - `"Devon Dampier #4 Utah Utes football"` (identity-focused, limit 4)
-   - `"Devon Dampier quarterback Utah action photo game"` (image-focused, limit 6)
-
-2. **Increase candidate extraction**: Merge images from both searches, deduplicate, keep up to 30 candidates
-
-3. **Vision-based AI filtering**: Send up to 12 candidate URLs as `image_url` content parts to Gemini 2.5 Flash. The prompt asks the model to visually verify each image shows a football player in game action, filtering out non-football images (cars, logos, crowds, other sports). The model returns a ranked JSON array of verified URLs.
-
-4. **Fallback**: If vision filtering fails or returns empty, fall back to the existing URL-based filtering logic so the feature degrades gracefully.
-
-### Files Modified
+Files to modify
+- `src/features/onboarding/steps/ProfilePreview.tsx`
+- `src/hooks/useAutoFill.ts`
 - `supabase/functions/firecrawl-profile/index.ts`
 
+Technical details
+- Replace full-cover candidate overlay with a compact corner control.
+- Move action-photo error handling into the hook instead of `style.display = "none"`.
+- Server-side candidate validation should filter out blocked/empty image URLs before they ever reach the client.
