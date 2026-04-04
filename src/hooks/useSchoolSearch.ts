@@ -53,10 +53,13 @@ const teamToOption = (team: CfbdTeam): SchoolOption => {
   const altColor = rawAlt
     ? (rawAlt.startsWith("#") ? rawAlt : `#${rawAlt}`)
     : "";
-  // Prefer dark variant logo (index 1) for dark backgrounds, fall back to index 0
   const logoUrl = team.logos?.[1] || team.logos?.[0] || null;
+  const mascot = team.mascot || "";
+  const displayName = mascot ? `${team.school} ${mascot}` : team.school;
   return {
     name: team.school,
+    displayName,
+    mascot,
     abbrev: team.abbreviation || team.school.split(" ").map((w) => w[0]).join("").toUpperCase(),
     primaryColor,
     altColor,
