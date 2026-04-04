@@ -55,7 +55,7 @@ export function AthleteTier() {
               )}
               <span
                 className="material-symbols-outlined text-4xl"
-                style={{ color: isSelected ? "#50C4CA" : undefined }}
+                style={{ color: t.active ? "#50C4CA" : undefined }}
               >
                 {t.icon}
               </span>
