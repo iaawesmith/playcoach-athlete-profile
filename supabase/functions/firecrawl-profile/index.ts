@@ -45,6 +45,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // ===== TEXT DATA EXTRACTION: Search recruiting sites & parse markdown =====
     // Extract last name for proximity checks
     const nameParts = name.split(/\s+/);
     const lastName = nameParts[nameParts.length - 1].toLowerCase();
@@ -107,7 +108,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Extract data from markdown results
+    // ===== FIELD PARSING: Extract structured data from markdown results =====
     const results = [...(searchData.data || []), ...rosterResults];
     const sources: string[] = [];
     const merged: Record<string, string | number> = {};
@@ -238,7 +239,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // --- Image extraction: three isolated pipelines ---
+    // ===== IMAGE EXTRACTION: Three isolated pipelines =====
     const imageUrls: Record<string, string> = {};
     let candidateUrls: string[] = [];
 
@@ -505,7 +506,7 @@ If none pass, return: []`,
       // Non-critical — continue without action photos
     }
 
-    // 2. School logo via ESPN CDN static lookup
+    // ===== PIPELINE 3: School Logo via ESPN CDN static lookup =====
     if (school) {
       try {
         const { lookupSchoolLogo } = await import("../_shared/espnLogos.ts");
@@ -552,7 +553,7 @@ If none pass, return: []`,
       }
     }
 
-    // Validate candidate URLs are actual renderable images via HEAD requests
+    // ===== URL VALIDATION: Verify candidate URLs are actual renderable images =====
     const validateImageUrl = async (url: string): Promise<boolean> => {
       try {
         // Some CDN crop URLs don't support HEAD — try GET with range header
