@@ -327,17 +327,19 @@ Deno.serve(async (req: Request) => {
       } catch { return false; }
     };
 
-    const topCandidates = scoredCandidates.slice(0, 10).map(c => c.url);
-    const validResults = await Promise.all(topCandidates.map(validateImageUrl));
-    const verified = topCandidates.filter((_, i) => validResults[i]);
-
-    if (verified.length > 0) imageUrls.actionPhoto = verified[0];
+    // Validate top 5 candidates, pick the first valid one
+    const topCandidates = scoredCandidates.slice(0, 5).map(c => c.url);
+    for (const url of topCandidates) {
+      if (await validateImageUrl(url)) {
+        imageUrls.actionPhoto = url;
+        break;
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true,
       data: merged,
       imageUrls: Object.keys(imageUrls).length > 0 ? imageUrls : undefined,
-      actionPhotoCandidates: verified.length > 0 ? verified.slice(0, 10) : undefined,
       sources,
       resultsCount: sources.length,
     }), { headers });
