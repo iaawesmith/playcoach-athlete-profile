@@ -426,7 +426,7 @@ Deno.serve(async (req: Request) => {
         return 0;
       });
 
-      console.log("Action photo candidates found:", candidateUrls.length);
+      
 
       // Step 3: Vision verification with Gemini
       if (candidateUrls.length > 0) {
