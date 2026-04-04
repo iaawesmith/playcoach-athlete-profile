@@ -89,9 +89,13 @@ export const firecrawlApi = {
     return data;
   },
 
-  async fetchAthleteProfile(name: string, school?: string): Promise<ProfileResponse> {
+  async fetchAthleteProfile(
+    name: string,
+    school?: string,
+    knownFields?: { position?: string; number?: string; classYear?: string },
+  ): Promise<ProfileResponse> {
     const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
-      body: { name, school },
+      body: { name, school, knownFields },
     });
     if (error) return { success: false, error: error.message };
     return data as ProfileResponse;

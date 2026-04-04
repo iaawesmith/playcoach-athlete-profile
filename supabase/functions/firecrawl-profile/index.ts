@@ -226,6 +226,18 @@ Deno.serve(async (req: Request) => {
       merged.weight = String(merged.weight).replace(/\s*lbs?\.?\s*/gi, "").trim();
     }
 
+    // Remove fields the athlete already provided (known fields take priority)
+    const fieldMap: Record<string, string> = {
+      position: "position",
+      number: "number",
+      classYear: "classYear",
+    };
+    for (const [knownKey, mergedKey] of Object.entries(fieldMap)) {
+      if (knownFields[knownKey]) {
+        delete merged[mergedKey];
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

@@ -47,7 +47,11 @@ export const ScrapeFill = () => {
     setStatus("loading");
     setErrorMessage("");
 
-    const result = await firecrawlApi.fetchAthleteProfile(fullName, school || undefined);
+    const result = await firecrawlApi.fetchAthleteProfile(
+      fullName,
+      school || undefined,
+      { position, number, classYear },
+    );
 
     if (!result.success || !result.data) {
       setStatus("error");
