@@ -536,52 +536,7 @@ If none pass, return: []`,
       // Non-critical — continue without action photos
     }
 
-    // ===== PIPELINE 3: School Logo via ESPN CDN static lookup =====
-    if (school) {
-      try {
-        const { lookupSchoolLogo } = await import("../_shared/espnLogos.ts");
-        const espnLogo = lookupSchoolLogo(school);
-        if (espnLogo) {
-          imageUrls.schoolLogo = espnLogo;
-        } else if (apiKey) {
-          // Fallback: Firecrawl branding search for non-NCAA schools
-          const authHdrs = {
-            "Authorization": "Bearer " + apiKey,
-            "Content-Type": "application/json",
-          };
-          const logoSearchRes = await fetch("https://api.firecrawl.dev/v1/search", {
-            method: "POST",
-            headers: authHdrs,
-            body: JSON.stringify({
-              query: `${school} athletics official logo`,
-              limit: 3,
-              scrapeOptions: { formats: ["links"] },
-            }),
-          });
-          if (logoSearchRes.ok) {
-            const logoSearchData = await logoSearchRes.json();
-            if (logoSearchData.data?.length) {
-              const topUrl = logoSearchData.data[0].url;
-              const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-                method: "POST",
-                headers: authHdrs,
-                body: JSON.stringify({ url: topUrl, formats: ["branding"] }),
-              });
-              if (scrapeRes.ok) {
-                const scrapeData = await scrapeRes.json();
-                const branding = scrapeData.data?.branding || scrapeData.branding;
-                const logoUrl = branding?.images?.logo || branding?.logo || branding?.images?.favicon;
-                if (logoUrl && String(logoUrl).startsWith("http")) {
-                  imageUrls.schoolLogo = String(logoUrl);
-                }
-              }
-            }
-          }
-        }
-      } catch (_logoErr) {
-        // Non-critical
-      }
-    }
+    // School logo is handled by CFBD school selection — not extracted here.
 
     // ===== URL VALIDATION: Verify candidate URLs are actual renderable images =====
     const validateImageUrl = async (url: string): Promise<boolean> => {
