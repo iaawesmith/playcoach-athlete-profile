@@ -133,11 +133,14 @@ Deno.serve(async (req: Request) => {
       const hometownMatch = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i);
       if (hometownMatch && !merged.hometown) merged.hometown = hometownMatch[1].trim();
 
-      const highSchoolMatch = content.match(/High\s*School[:\s]+(?!in\b|at\b|from\b|the\b)([A-Za-z\s.'()-]{3,40})/i);
+      // High school: require the captured name to start with a capital letter (proper noun)
+      // and exclude common false-positive phrases
+      const highSchoolMatch = content.match(
+        /High\s*School[:\s]+(?!in\b|at\b|from\b|the\b|recruit|player|prospect)([A-Z][A-Za-z0-9\s.'()-]{2,39})/
+      );
       if (highSchoolMatch && !merged.highSchool) {
-        // Clean up trailing whitespace and common markdown artifacts
         const cleaned = highSchoolMatch[1].trim().replace(/[\[\]|]+$/, "").trim();
-        if (cleaned.length >= 3) {
+        if (cleaned.length >= 3 && !/^\d+$/.test(cleaned)) {
           merged.highSchool = cleaned;
         }
       }
