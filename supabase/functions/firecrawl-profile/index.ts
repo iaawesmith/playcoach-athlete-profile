@@ -368,12 +368,20 @@ Deno.serve(async (req: Request) => {
         const md = String(page.markdown || "");
         const html = String(page.html || "");
         const rawImgs = extractImages(md, html);
+        console.log("Scraped page images found:", rawImgs.length);
         for (let src of rawImgs) {
           if (isUtilityImage(src)) continue;
           src = src.replace(/([?&])width=\d+/, "$1width=600").replace(/([?&])height=\d+/, "$1height=600");
           if (!candidateUrls.includes(src)) candidateUrls.push(src);
         }
       }
+
+      console.log("Total candidate URLs after extraction:", candidateUrls.length);
+      if (candidateUrls.length > 0) {
+        console.log("First 3 candidates:", candidateUrls.slice(0, 3));
+      }
+      console.log("High-value URLs scraped:", scrapeTargets);
+      console.log("Scraped pages returned:", scrapedPages.filter(Boolean).length);
 
       // Vision-based AI filtering: send actual images to Gemini for verification
       if (candidateUrls.length > 0) {
