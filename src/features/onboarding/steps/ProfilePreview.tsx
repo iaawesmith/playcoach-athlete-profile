@@ -243,8 +243,8 @@ export function ProfilePreview() {
                             alt={imageLabels[imgKey]}
                             className="w-full h-full object-cover"
                             onError={() => {
-                              if (isActionPhoto && autoFill.hasMultipleActionPhotos) {
-                                autoFill.nextActionPhoto();
+                              if (isActionPhoto) {
+                                autoFill.handleActionPhotoError();
                               }
                             }}
                           />

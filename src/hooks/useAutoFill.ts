@@ -312,8 +312,9 @@ export function useAutoFill() {
     totalSelected: selectedFields.size + selectedImages.size,
     totalItems: availableFields.length + availableImages.length,
     nextActionPhoto,
+    handleActionPhotoError,
     hasMultipleActionPhotos,
     activeActionPhotoIndex,
-    actionPhotoCandidateCount: actionPhotoCandidates.length,
+    actionPhotoCandidateCount: actionPhotoCandidates.filter((u) => !failedCandidates.has(u)).length,
   };
 }
