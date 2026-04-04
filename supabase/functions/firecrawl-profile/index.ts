@@ -45,8 +45,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const searchQuery = school
-      ? name + " " + school + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com"
-      : name + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com";
+      ? name + " " + school + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com"
+      : name + " football recruiting profile site:247sports.com OR site:rivals.com OR site:on3.com OR site:espn.com";
 
     const searchResponse = await fetch("https://api.firecrawl.dev/v1/search", {
       method: "POST",
@@ -56,12 +56,36 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         query: searchQuery,
-        limit: 3,
+        limit: 5,
         scrapeOptions: {
           formats: ["markdown"],
         },
       }),
     });
+
+    // Second search for school roster pages (no site restriction)
+    let rosterResults: Array<Record<string, unknown>> = [];
+    if (school) {
+      const rosterQuery = name + " " + school + " football roster";
+      const rosterResponse = await fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: rosterQuery,
+          limit: 2,
+          scrapeOptions: {
+            formats: ["markdown"],
+          },
+        }),
+      });
+      if (rosterResponse.ok) {
+        const rosterData = await rosterResponse.json();
+        rosterResults = rosterData.data || [];
+      }
+    }
 
     const searchData = await searchResponse.json();
 
@@ -76,7 +100,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Extract data from markdown results
-    const results = searchData.data || [];
+    const results = [...(searchData.data || []), ...rosterResults];
     const sources: string[] = [];
     const merged: Record<string, string | number> = {};
 
@@ -101,8 +125,10 @@ Deno.serve(async (req: Request) => {
       const hometownMatch = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i);
       if (hometownMatch && !merged.hometown) merged.hometown = hometownMatch[1].trim();
 
-      const highSchoolMatch = content.match(/(?:High\s*School|HS)[:\s]*([^\n,]+)/i);
-      if (highSchoolMatch && !merged.highSchool) merged.highSchool = highSchoolMatch[1].trim();
+      const highSchoolMatch = content.match(/High\s*School[:\s]+([A-Za-z0-9\s.'()-]{3,40})/i);
+      if (highSchoolMatch && !merged.highSchool) {
+        merged.highSchool = highSchoolMatch[1].trim();
+      }
 
       const classMatch = content.match(/Class\s*(?:of\s*)?(\d{4})/i);
       if (classMatch && !merged.classYear) merged.classYear = classMatch[1];
@@ -118,6 +144,24 @@ Deno.serve(async (req: Request) => {
 
       const posMatch = content.match(/Position[:\s]*(QB|RB|WR|TE|OL|DL|LB|CB|S|K|P|FB|LS|ATH)/i);
       if (posMatch && !merged.position) merged.position = posMatch[1].toUpperCase();
+
+      // ESPN-style combined HT/WT
+      const htwtMatch = content.match(/HT\/WT[:\s]*(\d+['-]\d+)[,\s]+(\d+)\s*lbs/i);
+      if (htwtMatch) {
+        if (!merged.height) merged.height = htwtMatch[1];
+        if (!merged.weight) merged.weight = htwtMatch[2];
+      }
+
+      // Roster-style Ht./Wt.
+      const htMatch2 = content.match(/Ht\.?[:\s]*(\d+['-]\d+)/i);
+      if (htMatch2 && !merged.height) merged.height = htMatch2[1];
+
+      const wtMatch2 = content.match(/Wt\.?[:\s]*(\d+)/i);
+      if (wtMatch2 && !merged.weight) merged.weight = wtMatch2[1];
+
+      // Jersey number from roster
+      const jerseyMatch = content.match(/#(\d{1,3})\b/);
+      if (jerseyMatch && !merged.number) merged.number = jerseyMatch[1];
     }
 
     return new Response(
