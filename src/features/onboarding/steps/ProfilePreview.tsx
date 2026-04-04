@@ -50,7 +50,7 @@ export function ProfilePreview() {
     };
   }, [autoFill.status]);
 
-  const completionPct = computeCompletion(useAthleteStore.getState());
+  
 
   const handleComplete = () => {
     completeOnboarding();
