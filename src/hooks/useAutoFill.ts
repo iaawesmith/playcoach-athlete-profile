@@ -80,11 +80,6 @@ export function useAutoFill() {
   const [selectedFields, setSelectedFields] = useState<Set<FieldKey>>(new Set());
   const [selectedImages, setSelectedImages] = useState<Set<keyof ImageUrls>>(new Set());
   const [errorMessage, setErrorMessage] = useState("");
-
-  // Action photo candidate cycling
-  const [actionPhotoCandidates, setActionPhotoCandidates] = useState<string[]>([]);
-  const [activeActionPhotoIndex, setActiveActionPhotoIndex] = useState(0);
-  const [failedCandidates, setFailedCandidates] = useState<Set<string>>(new Set());
   const originalValues = useRef<Record<string, unknown>>({});
 
   const fullName = `${firstName} ${lastName}`.trim();
@@ -95,7 +90,6 @@ export function useAutoFill() {
     setStatus("scraping");
     setErrorMessage("");
 
-    // Save original values to restore on dismiss
     originalValues.current = {
       actionPhotoUrl,
       height: useAthleteStore.getState().height,
@@ -120,18 +114,11 @@ export function useAutoFill() {
     setImageUrls(result.imageUrls || null);
     setSources(result.sources || []);
 
-    // Store action photo candidates
-    const candidates = result.actionPhotoCandidates || [];
-    setActionPhotoCandidates(candidates);
-    setActiveActionPhotoIndex(0);
-    setFailedCandidates(new Set());
-
-    // Live preview: set action photo + measurables on the store immediately
+    // Live preview: set action photo + measurables immediately
     const preview: Record<string, unknown> = {};
     if (result.imageUrls?.actionPhoto) {
       preview.actionPhotoUrl = result.imageUrls.actionPhoto;
     }
-    // School logo comes from CFBD — don't override with scraped data
     if (data.height) preview.height = data.height;
     if (data.weight) preview.weight = data.weight;
     if (Object.keys(preview).length > 0) {
@@ -140,7 +127,6 @@ export function useAutoFill() {
 
     // Smart merge: exclude fields the user already provided
     const userProvidedFields = new Set<FieldKey>();
-    if (firstName || lastName) { userProvidedFields.add("position"); /* name is not a scraped field */ }
     if (position) userProvidedFields.add("position");
     if (number) userProvidedFields.add("number");
     if (classYear) userProvidedFields.add("classYear");
@@ -149,7 +135,6 @@ export function useAutoFill() {
     for (const key of Object.keys(data) as FieldKey[]) {
       const val = data[key];
       if (val !== null && val !== undefined && val !== "") {
-        // Don't pre-select fields the user already has values for
         if (!userProvidedFields.has(key)) {
           fields.add(key);
         }
@@ -160,7 +145,7 @@ export function useAutoFill() {
     const imgs = new Set<keyof ImageUrls>();
     if (result.imageUrls) {
       for (const key of Object.keys(result.imageUrls) as (keyof ImageUrls)[]) {
-        if (result.imageUrls[key]) imgs.add(key);
+        if (key !== "schoolLogo" && result.imageUrls[key]) imgs.add(key);
       }
     }
     setSelectedImages(imgs);
@@ -184,53 +169,6 @@ export function useAutoFill() {
       return next;
     });
   }, []);
-
-  // Cycle to next action photo candidate
-  const nextActionPhoto = useCallback(() => {
-    if (actionPhotoCandidates.length <= 1) return;
-    const nextIdx = (activeActionPhotoIndex + 1) % actionPhotoCandidates.length;
-    setActiveActionPhotoIndex(nextIdx);
-
-    const nextUrl = actionPhotoCandidates[nextIdx];
-
-    setImageUrls((prev) => prev ? { ...prev, actionPhoto: nextUrl } : { actionPhoto: nextUrl });
-    setAthlete({ actionPhotoUrl: nextUrl } as Parameters<typeof setAthlete>[0]);
-  }, [actionPhotoCandidates, activeActionPhotoIndex, setAthlete]);
-
-  // Called when an action photo candidate fails to load in the browser
-  const handleActionPhotoError = useCallback(() => {
-    if (actionPhotoCandidates.length === 0) return;
-    const currentUrl = actionPhotoCandidates[activeActionPhotoIndex];
-    const newFailed = new Set(failedCandidates);
-    newFailed.add(currentUrl);
-    setFailedCandidates(newFailed);
-
-    // Find next non-failed candidate
-    const remaining = actionPhotoCandidates.filter((u) => !newFailed.has(u));
-    if (remaining.length > 0) {
-      const nextUrl = remaining[0];
-      const nextIdx = actionPhotoCandidates.indexOf(nextUrl);
-      setActiveActionPhotoIndex(nextIdx);
-      setImageUrls((prev) => prev ? { ...prev, actionPhoto: nextUrl } : { actionPhoto: nextUrl });
-      setAthlete({ actionPhotoUrl: nextUrl } as Parameters<typeof setAthlete>[0]);
-    } else {
-      // All failed — clear action photo preview
-      setImageUrls((prev) => {
-        if (!prev) return prev;
-        const copy = { ...prev };
-        delete copy.actionPhoto;
-        return Object.keys(copy).length > 0 ? copy : null;
-      });
-      setSelectedImages((prev) => {
-        const next = new Set(prev);
-        next.delete("actionPhoto");
-        return next;
-      });
-      setAthlete({ actionPhotoUrl: originalValues.current.actionPhotoUrl ?? null } as Parameters<typeof setAthlete>[0]);
-    }
-  }, [actionPhotoCandidates, activeActionPhotoIndex, failedCandidates, setAthlete]);
-
-  const hasMultipleActionPhotos = actionPhotoCandidates.filter((u) => !failedCandidates.has(u)).length > 1;
 
   const apply = useCallback(async () => {
     if (!scrapedData && selectedImages.size === 0) return;
@@ -280,7 +218,6 @@ export function useAutoFill() {
   }, [scrapedData, imageUrls, selectedFields, selectedImages, firstName, lastName, setAthlete]);
 
   const dismiss = useCallback(() => {
-    // Restore all original values if user dismisses
     if (Object.keys(originalValues.current).length > 0) {
       setAthlete(originalValues.current as Parameters<typeof setAthlete>[0]);
     }
@@ -288,9 +225,6 @@ export function useAutoFill() {
     setScrapedData(null);
     setImageUrls(null);
     setErrorMessage("");
-    setActionPhotoCandidates([]);
-    setActiveActionPhotoIndex(0);
-    setFailedCandidates(new Set());
   }, [setAthlete]);
 
   const availableFields = scrapedData
@@ -323,10 +257,5 @@ export function useAutoFill() {
     errorMessage,
     totalSelected: selectedFields.size + selectedImages.size,
     totalItems: availableFields.length + availableImages.length,
-    nextActionPhoto,
-    handleActionPhotoError,
-    hasMultipleActionPhotos,
-    activeActionPhotoIndex,
-    actionPhotoCandidateCount: actionPhotoCandidates.filter((u) => !failedCandidates.has(u)).length,
   };
 }
