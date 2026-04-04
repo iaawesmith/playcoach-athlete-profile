@@ -6,9 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 type FieldKey = keyof AthleteProfileData;
 
 type ImageUrls = {
-  headshot?: string;
   actionPhoto?: string;
-  schoolLogo?: string;
 };
 
 export const fieldLabels: Record<FieldKey, string> = {
@@ -35,15 +33,11 @@ export const fieldLabels: Record<FieldKey, string> = {
 };
 
 export const imageLabels: Record<keyof ImageUrls, string> = {
-  headshot: "Profile Photo",
   actionPhoto: "Action Photo",
-  schoolLogo: "School Logo",
 };
 
 const imageStoreKeys: Record<keyof ImageUrls, string> = {
-  headshot: "profilePictureUrl",
   actionPhoto: "actionPhotoUrl",
-  schoolLogo: "schoolLogoUrl",
 };
 
 export const formatDisplayValue = (field: FieldKey, val: unknown): string => {
@@ -143,10 +137,8 @@ export function useAutoFill() {
     setSelectedFields(fields);
 
     const imgs = new Set<keyof ImageUrls>();
-    if (result.imageUrls) {
-      for (const key of Object.keys(result.imageUrls) as (keyof ImageUrls)[]) {
-        if (key !== "schoolLogo" && result.imageUrls[key]) imgs.add(key);
-      }
+    if (result.imageUrls?.actionPhoto) {
+      imgs.add("actionPhoto");
     }
     setSelectedImages(imgs);
     setStatus("results");
@@ -234,8 +226,8 @@ export function useAutoFill() {
       })
     : [];
 
-  const availableImages = imageUrls
-    ? (Object.keys(imageUrls) as (keyof ImageUrls)[]).filter((k) => k !== "schoolLogo" && !!imageUrls[k])
+  const availableImages = imageUrls?.actionPhoto
+    ? (["actionPhoto"] as (keyof ImageUrls)[])
     : [];
 
   return {
