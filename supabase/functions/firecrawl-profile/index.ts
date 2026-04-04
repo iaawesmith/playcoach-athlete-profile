@@ -506,7 +506,7 @@ If none pass, return: []`,
       // Non-critical — continue without action photos
     }
 
-    // 2. School logo via ESPN CDN static lookup
+    // ===== PIPELINE 3: School Logo via ESPN CDN static lookup =====
     if (school) {
       try {
         const { lookupSchoolLogo } = await import("../_shared/espnLogos.ts");
