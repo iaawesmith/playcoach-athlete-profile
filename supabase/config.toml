@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.firecrawl-school-logo]
 verify_jwt = false
+
+[functions.image-proxy]
+verify_jwt = false
