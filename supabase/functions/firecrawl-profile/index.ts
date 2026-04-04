@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
         // Try with jersey number filter if known
         const jNum = knownFields.number ? parseInt(knownFields.number, 10) : null;
         if (jNum != null) {
-          m = list.find(p => p.jersey === jNum && p.last_name?.toLowerCase() === lastName);
+          m = list.find(p => p.jersey === jNum && p.lastName?.toLowerCase() === lastName);
           if (m) return m;
         }
         return null;
