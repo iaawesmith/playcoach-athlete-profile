@@ -125,8 +125,13 @@ Deno.serve(async (req: Request) => {
       const hometownMatch = content.match(/Hometown[:\s]*([A-Za-z\s]+,\s*[A-Z]{2})/i);
       if (hometownMatch && !merged.hometown) merged.hometown = hometownMatch[1].trim();
 
-      const highSchoolMatch = content.match(/(?:High\s*School|HS)[:\s]*([^\n,]+)/i);
-      if (highSchoolMatch && !merged.highSchool) merged.highSchool = highSchoolMatch[1].trim();
+      const highSchoolMatch = content.match(/(?:High\s*School|HS)[:\s]*([A-Za-z0-9\s.'()-]+)/i);
+      if (highSchoolMatch && !merged.highSchool) {
+        const hsVal = highSchoolMatch[1].trim();
+        if (hsVal.length > 2 && !hsVal.startsWith("]") && !hsVal.startsWith("(")) {
+          merged.highSchool = hsVal;
+        }
+      }
 
       const classMatch = content.match(/Class\s*(?:of\s*)?(\d{4})/i);
       if (classMatch && !merged.classYear) merged.classYear = classMatch[1];
