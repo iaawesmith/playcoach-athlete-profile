@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
     if (rawText) { try { body = JSON.parse(rawText); } catch { return new Response(JSON.stringify({ success: false, error: "Could not parse JSON body" }), { status: 400, headers }); } }
 
     const name = String(body.name || "").trim();
-    const school = String(body.school || "").trim();
+    const rawSchool = String(body.school || "").trim();
     const knownFields = (body.knownFields || {}) as Record<string, string | undefined>;
     if (!name) return new Response(JSON.stringify({ success: false, error: "Athlete name is required" }), { status: 400, headers });
 
@@ -176,6 +176,23 @@ Deno.serve(async (req: Request) => {
     const nameTokens = name.toLowerCase().split(/\s+/);
     const merged: Record<string, string | number> = {};
     const sources: string[] = [];
+
+    // Strip mascot from school name for CFBD API calls (e.g. "BYU Cougars" → "BYU")
+    // CFBD teams endpoint returns school names without mascot
+    let school = rawSchool;
+    if (cfbdKey && rawSchool) {
+      // Try to resolve the bare school name via CFBD teams lookup
+      try {
+        const teamsResp = await cfbdFetch<Array<{ school: string; mascot: string }>>(cfbdKey, "/teams", {});
+        if (teamsResp && Array.isArray(teamsResp)) {
+          const match = teamsResp.find(t => {
+            const full = t.mascot ? `${t.school} ${t.mascot}` : t.school;
+            return full.toLowerCase() === rawSchool.toLowerCase() || t.school.toLowerCase() === rawSchool.toLowerCase();
+          });
+          if (match) school = match.school;
+        }
+      } catch { /* use rawSchool as-is */ }
+    }
 
     // ═══ PHASE 1: CFBD ═══
     if (cfbdKey && school) {
