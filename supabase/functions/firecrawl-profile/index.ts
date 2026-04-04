@@ -304,14 +304,18 @@ Deno.serve(async (req: Request) => {
           }
 
           // The first large image on an individual player roster page is the headshot
+          // Only use a headshot if the URL clearly contains the athlete's name
+          // (official roster pages name their images). If uncertain, leave blank.
           if (rosterImages.length > 0) {
-            // Prefer images with the athlete's name in the URL
             const nameTokens = name.toLowerCase().split(/\s+/);
             const namedImg = rosterImages.find((u) => {
               const uLower = decodeURIComponent(u).toLowerCase();
-              return nameTokens.some((t) => uLower.includes(t));
+              return nameTokens.filter((t) => t.length > 2).some((t) => uLower.includes(t));
             });
-            imageUrls.headshot = namedImg || rosterImages[0];
+            // Only set headshot if we found a name-matched image
+            if (namedImg) {
+              imageUrls.headshot = namedImg;
+            }
           }
         }
       }
