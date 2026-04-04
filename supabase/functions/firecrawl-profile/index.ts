@@ -45,6 +45,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // ===== TEXT DATA EXTRACTION: Search recruiting sites & parse markdown =====
     // Extract last name for proximity checks
     const nameParts = name.split(/\s+/);
     const lastName = nameParts[nameParts.length - 1].toLowerCase();
