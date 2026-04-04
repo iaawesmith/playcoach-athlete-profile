@@ -803,44 +803,21 @@ export const IdentityForm = () => {
           <section>
             <SectionHeader title="Recruiting" />
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              {/* Ratings row */}
+              <div className="grid grid-cols-4 gap-4">
                 <SelectCard
-                  label="Star Rating"
+                  label="Stars"
                   value={starRating ? String(starRating) : ""}
                   options={[
-                    { label: "Select...", value: "" },
-                    { label: "1 Star", value: "1" },
-                    { label: "2 Stars", value: "2" },
-                    { label: "3 Stars", value: "3" },
-                    { label: "4 Stars", value: "4" },
-                    { label: "5 Stars", value: "5" },
+                    { label: "–", value: "" },
+                    { label: "★", value: "1" },
+                    { label: "★★", value: "2" },
+                    { label: "★★★", value: "3" },
+                    { label: "★★★★", value: "4" },
+                    { label: "★★★★★", value: "5" },
                   ]}
                   onChange={(v) => setAthlete({ starRating: v ? Number(v) : 0 })}
                 />
-                <SelectCard
-                  label="Commitment Status"
-                  value={commitmentStatus}
-                  options={commitmentOptions}
-                  onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <InputCard
-                  label="National Rank"
-                  value={nationalRank !== null ? String(nationalRank) : ""}
-                  type="number"
-                  onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
-                  placeholder="0"
-                />
-                <InputCard
-                  label={position ? `${position} Rank` : "Position Rank"}
-                  value={positionRank !== null ? String(positionRank) : ""}
-                  type="number"
-                  onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
                 <InputCard
                   label="247 Rating"
                   value={store.rating247}
@@ -860,13 +837,38 @@ export const IdentityForm = () => {
                   placeholder="0.0000"
                 />
               </div>
-              <InputCard
-                label="Total Offers"
-                value={store.offersCount !== null ? String(store.offersCount) : ""}
-                type="number"
-                onChange={(v) => setAthlete({ offersCount: v ? Number(v) : null })}
-                placeholder="0"
-              />
+              {/* Rankings row */}
+              <div className="grid grid-cols-2 gap-4">
+                <InputCard
+                  label="National Rank"
+                  value={nationalRank !== null ? String(nationalRank) : ""}
+                  type="number"
+                  onChange={(v) => setAthlete({ nationalRank: v ? Number(v) : null })}
+                  placeholder="–"
+                />
+                <InputCard
+                  label={position ? `${position} Rank` : "Position Rank"}
+                  value={positionRank !== null ? String(positionRank) : ""}
+                  type="number"
+                  onChange={(v) => setAthlete({ positionRank: v ? Number(v) : null })}
+                  placeholder="–"
+                />
+              </div>
+              {/* Status + Offers row */}
+              <div className="grid grid-cols-2 gap-4">
+                <SelectCard
+                  label="Commitment Status"
+                  value={commitmentStatus}
+                  options={commitmentOptions}
+                  onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })}
+                />
+                <InputCard
+                  label="Offers"
+                  value={store.offersCount !== null ? String(store.offersCount) : ""}
+                  onChange={(v) => setAthlete({ offersCount: v ? Number(v) : null })}
+                  placeholder="e.g. 12 or notable schools"
+                />
+              </div>
             </div>
           </section>
 
