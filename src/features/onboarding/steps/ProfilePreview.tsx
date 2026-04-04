@@ -18,61 +18,13 @@ const STATUS_MESSAGES = [
   "Analyzing results...",
 ];
 
-function computeCompletion(store: ReturnType<typeof useAthleteStore.getState>): number {
-  let score = 0;
-  let total = 0;
 
-  const add = (weight: number, filled: boolean) => {
-    total += weight;
-    if (filled) score += weight;
-  };
-
-  add(15, !!(store.firstName && store.lastName));
-  add(10, !!store.position);
-  add(10, !!store.school);
-  add(15, store.bio.length >= 20);
-  add(20, !!store.actionPhotoUrl);
-  add(10, !!store.schoolLogoUrl);
-  add(5, store.teamColor !== "#50C4CA" && store.teamColor !== "#00e639");
-  add(5, !!(store.number && store.classYear));
-  add(5, !!(store.fortyTime || store.vertical || store.wingspan));
-  add(5, !!store.commitmentStatus);
-
-  return total > 0 ? Math.round((score / total) * 100) : 0;
-}
-
-function AnimatedPct({ target }: { target: number }) {
-  const [current, setCurrent] = useState(0);
-  const ref = useRef(0);
-
-  useEffect(() => {
-    const start = ref.current;
-    const diff = target - start;
-    if (diff === 0) return;
-    const steps = Math.max(Math.abs(diff), 1);
-    const duration = 800;
-    const stepTime = duration / steps;
-    let step = 0;
-
-    const interval = setInterval(() => {
-      step++;
-      const val = Math.round(start + (diff * step) / steps);
-      setCurrent(val);
-      ref.current = val;
-      if (step >= steps) clearInterval(interval);
-    }, stepTime);
-
-    return () => clearInterval(interval);
-  }, [target]);
-
-  return <>{current}</>;
-}
 
 export function ProfilePreview() {
   const navigate = useNavigate();
   const { role, athleteTier, completeOnboarding } = useUserStore();
   const store = useAthleteStore();
-  const { firstName, lastName, position, number, school, schoolAbbrev, teamColor, actionPhotoUrl } = store;
+  const { firstName, lastName, position, number, school, schoolAbbrev, teamColor, actionPhotoUrl, classYear } = store;
 
   const autoFill = useAutoFill();
   const [msgIndex, setMsgIndex] = useState(0);
@@ -98,7 +50,7 @@ export function ProfilePreview() {
     };
   }, [autoFill.status]);
 
-  const completionPct = computeCompletion(useAthleteStore.getState());
+  
 
   const handleComplete = () => {
     completeOnboarding();
@@ -135,7 +87,7 @@ export function ProfilePreview() {
             style={{ backgroundColor: tc }}
           >
             <span className="text-[9px] font-black uppercase tracking-[0.25em] text-on-surface/90">
-              {schoolAbbrev || school || "SCHOOL"}
+              {school || schoolAbbrev || "SCHOOL"}
             </span>
           </div>
 
@@ -154,30 +106,12 @@ export function ProfilePreview() {
               {displayName}
             </div>
             <div className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: tc }}>
-              {position || "POS"} {number ? `#${number}` : ""}
+              {position || "POS"} {number ? `#${number}` : ""}{classYear ? ` · ${classYear}` : ""}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Completion */}
-      <div className="text-center space-y-3">
-        <div className="text-5xl font-black text-on-surface">
-          <AnimatedPct target={completionPct} />%
-        </div>
-        <div className="flex gap-0.5 w-full">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-1 h-2 rounded-sm transition-all duration-500"
-              style={{
-                backgroundColor: i < Math.round(completionPct / 10) ? "#50C4CA" : "hsl(var(--surface-container-high))",
-              }}
-            />
-          ))}
-        </div>
-        <p className="text-on-surface-variant text-sm">Profile completion</p>
-      </div>
 
       {/* Auto-Fill States */}
       {autoFill.status === "idle" && (
