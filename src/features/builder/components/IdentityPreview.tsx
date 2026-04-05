@@ -142,7 +142,7 @@ export const IdentityPreview = () => {
                 <span
                   key={i}
                   className="material-symbols-outlined text-lg"
-                  style={i < starRating ? { color: "var(--team-color)" } : { color: "rgba(168, 171, 175, 0.3)" }}
+                  style={i < starRating ? { color: "#FFFFFF" } : { color: "rgba(255, 255, 255, 0.15)" }}
                 >
                   star
                 </span>
