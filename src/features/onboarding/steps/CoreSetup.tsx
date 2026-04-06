@@ -46,6 +46,9 @@ export function CoreSetup() {
     setQuery(value);
     setFocusIndex(-1);
     setOpen(value.length >= 1);
+    if (value === "") {
+      setAthlete({ school: "", schoolAbbrev: "", schoolLogoUrl: null, teamColor: "#50C4CA" });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
