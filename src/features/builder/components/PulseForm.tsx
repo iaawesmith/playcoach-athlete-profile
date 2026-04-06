@@ -80,6 +80,8 @@ const placeholderPosts: PulsePost[] = [
   },
 ];
 
+export { placeholderPosts };
+
 export const PulseForm = () => {
   const firstName = useAthleteStore((s) => s.firstName);
   const lastName = useAthleteStore((s) => s.lastName);
@@ -185,7 +187,7 @@ export const PulseForm = () => {
                 <PulseCard key={post.id} post={post} onPin={handlePin} onUnpin={handleUnpin} />
               ))
             ) : (
-              <div className="rounded-xl border border-white/5 bg-surface-container p-8 text-center">
+              <div className="rounded-xl border border-white/5 bg-surface-container p-8 flex flex-col items-center text-center">
                 <span className="material-symbols-outlined text-on-surface-variant/20 text-2xl mb-2">filter_list</span>
                 <p className="text-on-surface-variant/50 text-sm">No posts match this filter</p>
               </div>

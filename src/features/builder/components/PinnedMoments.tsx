@@ -9,7 +9,9 @@ export const PinnedMoments = ({ posts, onUnpin }: PinnedMomentsProps) => {
   if (posts.length === 0) {
     return (
       <div className="rounded-xl border border-white/5 bg-surface-container p-6 flex items-center gap-4">
-        <span className="material-symbols-outlined text-on-surface-variant/30 text-3xl">push_pin</span>
+        <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined text-on-surface-variant/30 text-xl">push_pin</span>
+        </div>
         <div>
           <p className="text-on-surface text-sm font-medium">No pinned moments yet</p>
           <p className="text-on-surface-variant/60 text-xs mt-0.5">
@@ -21,9 +23,11 @@ export const PinnedMoments = ({ posts, onUnpin }: PinnedMomentsProps) => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
       {posts.slice(0, 3).map((post) => (
-        <PulseCard key={post.id} post={post} onUnpin={onUnpin} compact />
+        <div key={post.id} className="min-w-[260px] max-w-[300px] flex-shrink-0">
+          <PulseCard post={post} onUnpin={onUnpin} compact />
+        </div>
       ))}
     </div>
   );
