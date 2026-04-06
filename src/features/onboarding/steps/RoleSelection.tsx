@@ -10,33 +10,10 @@ interface RoleCard {
 }
 
 const ROLES: RoleCard[] = [
-  {
-    role: "athlete",
-    label: "ATHLETE",
-    icon: "person",
-    description: "Build your identity",
-  },
-  {
-    role: "coach",
-    label: "COACH",
-    icon: "sports",
-    description: "Develop and track athletes",
-    comingSoon: true,
-  },
-  {
-    role: "trainer",
-    label: "TRAINER",
-    icon: "exercise",
-    description: "Train and measure performance",
-    comingSoon: true,
-  },
-  {
-    role: "agency",
-    label: "AGENCY",
-    icon: "business_center",
-    description: "Manage athletes and partnerships",
-    comingSoon: true,
-  },
+  { role: "athlete", label: "ATHLETE", icon: "person", description: "Build your identity" },
+  { role: "coach", label: "COACH", icon: "sports", description: "Develop and track athletes", comingSoon: true },
+  { role: "trainer", label: "TRAINER", icon: "exercise", description: "Train and measure performance", comingSoon: true },
+  { role: "agency", label: "AGENCY", icon: "business_center", description: "Manage athletes and partnerships", comingSoon: true },
 ];
 
 export function RoleSelection() {
@@ -47,60 +24,60 @@ export function RoleSelection() {
     if (selected.comingSoon) return;
     setRole(selected.role);
     setOnboardingStep(1);
-
-    if (selected.role === "athlete") {
-      navigate("/onboarding/tier");
-    } else if (selected.role === "coach" || selected.role === "trainer") {
-      navigate("/onboarding/sport");
-    } else {
-      navigate("/onboarding/agency-setup");
-    }
+    if (selected.role === "athlete") navigate("/onboarding/tier");
+    else if (selected.role === "coach" || selected.role === "trainer") navigate("/onboarding/sport");
+    else navigate("/onboarding/agency-setup");
   };
 
   return (
     <div className="space-y-8">
-      <h1 className="text-on-surface font-black text-3xl md:text-4xl uppercase tracking-tight text-center">
+      <h1 className="text-white font-black text-3xl md:text-4xl uppercase tracking-tight text-center">
         I Am A...
       </h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-7xl mx-auto">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-7xl mx-auto">
         {ROLES.map((r) => {
-          const isAthlete = r.role === "athlete";
           const isSelected = role === r.role;
+          const isActive = !r.comingSoon;
           return (
             <button
               key={r.role}
               onClick={() => handleSelect(r)}
               disabled={r.comingSoon}
-              className={`grid grid-rows-[64px_28px_40px_1fr] items-center justify-items-center w-full min-h-[280px] py-8 px-4 rounded-xl border transition-all duration-200 ${
-                r.comingSoon
-                  ? "opacity-50 cursor-not-allowed border-outline-variant/10 bg-surface-container-high"
-                  : isSelected
-                    ? "border-[#50C4CA] bg-[rgba(80,196,202,0.08)] cursor-pointer active:scale-95"
-                    : isAthlete
-                      ? "border-[#50C4CA]/40 bg-[rgba(80,196,202,0.05)] cursor-pointer active:scale-95 hover:border-[#50C4CA]/60"
-                      : "border-outline-variant/10 bg-surface-container-high hover:border-outline-variant/30 cursor-pointer active:scale-95"
-              }`}
+              className="relative grid grid-rows-[64px_28px_40px_1fr] items-center justify-items-center w-full min-h-[280px] py-8 px-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
+              style={{
+                backgroundColor: "#2A2E33",
+                border: `1px solid ${isSelected ? "#4DC9C9" : "#3D434A"}`,
+                boxShadow: isSelected ? "0 0 15px rgba(77, 201, 201, 0.5)" : "none",
+                opacity: r.comingSoon ? 0.45 : 1,
+                cursor: r.comingSoon ? "not-allowed" : "pointer",
+              }}
             >
+              {r.comingSoon && (
+                <span
+                  className="absolute top-3 right-3 text-[9px] font-semibold uppercase tracking-widest rounded-full px-2.5 py-1"
+                  style={{ color: "#8A8F94", border: "1px solid #3D434A" }}
+                >
+                  Coming Soon
+                </span>
+              )}
               <span
                 className="material-symbols-outlined text-5xl"
-                style={{ color: isAthlete || isSelected ? "#50C4CA" : undefined }}
+                style={{ color: isActive ? "#4DC9C9" : "#8A8F94" }}
               >
                 {r.icon}
               </span>
               <span
                 className="font-black text-sm uppercase tracking-[0.2em]"
-                style={{ color: isAthlete ? "#50C4CA" : undefined }}
+                style={{ color: isActive ? "#4DC9C9" : "#8A8F94" }}
               >
                 {r.label}
               </span>
-              <span className="text-on-surface-variant text-sm font-normal text-center self-start">
+              <span className="text-sm font-normal text-center self-start" style={{ color: "#8A8F94" }}>
                 {r.description}
               </span>
               {r.comingSoon ? (
-                <span className="px-3 py-1 rounded bg-surface-container-highest text-on-surface-variant text-[9px] font-bold uppercase tracking-widest self-end justify-self-center">
-                  Coming Soon
-                </span>
+                <span className="invisible text-[9px] self-end justify-self-center">.</span>
               ) : (
                 <span className="invisible text-[9px] self-end justify-self-center">.</span>
               )}

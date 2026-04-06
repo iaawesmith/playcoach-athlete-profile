@@ -7,6 +7,15 @@ import { useSchoolSearch, type SchoolOption } from "@/hooks/useSchoolSearch";
 const POSITIONS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "FB"];
 const CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"];
 
+const cardStyle: React.CSSProperties = {
+  backgroundColor: "#2A2E33",
+  border: "1px solid #3D434A",
+};
+
+const labelClass = "text-[10px] font-semibold uppercase tracking-widest block mb-2";
+const labelColor: React.CSSProperties = { color: "#8A8F94" };
+const inputClass = "w-full bg-transparent text-white text-sm font-normal outline-none placeholder:text-white/30";
+
 export function CoreSetup() {
   const navigate = useNavigate();
   const { setOnboardingStep } = useUserStore();
@@ -30,12 +39,7 @@ export function CoreSetup() {
   const handleSelectSchool = (opt: SchoolOption) => {
     setQuery(opt.displayName);
     setOpen(false);
-    setAthlete({
-      school: opt.displayName,
-      schoolAbbrev: opt.abbrev,
-      teamColor: opt.primaryColor,
-      schoolLogoUrl: opt.logoUrl,
-    });
+    setAthlete({ school: opt.displayName, schoolAbbrev: opt.abbrev, teamColor: opt.primaryColor, schoolLogoUrl: opt.logoUrl });
   };
 
   const handleInputChange = (value: string) => {
@@ -46,36 +50,23 @@ export function CoreSetup() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!open) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setFocusIndex((i) => Math.min(i + 1, filtered.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setFocusIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" && focusIndex >= 0 && filtered[focusIndex]) {
-      e.preventDefault();
-      handleSelectSchool(filtered[focusIndex]);
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
+    if (e.key === "ArrowDown") { e.preventDefault(); setFocusIndex((i) => Math.min(i + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setFocusIndex((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && focusIndex >= 0 && filtered[focusIndex]) { e.preventDefault(); handleSelectSchool(filtered[focusIndex]); }
+    else if (e.key === "Escape") { setOpen(false); }
   };
 
   const canContinue = school && position && classYear && firstName && lastName;
-
-  const handleContinue = () => {
-    setOnboardingStep(4);
-    navigate("/onboarding/preview");
-  };
-
-  const tc = teamColor || "#50C4CA";
+  const handleContinue = () => { setOnboardingStep(4); navigate("/onboarding/preview"); };
+  const tc = teamColor || "#4DC9C9";
 
   return (
     <div className="space-y-8">
       <div className="text-center space-y-2">
-        <h1 className="text-on-surface font-black text-3xl md:text-4xl uppercase tracking-tight">
+        <h1 className="text-white font-black text-3xl md:text-4xl uppercase tracking-tight">
           Build Your Foundation
         </h1>
-        <p className="text-on-surface-variant text-sm font-normal">
+        <p className="text-sm font-normal" style={{ color: "#8A8F94" }}>
           This powers your card and profile
         </p>
       </div>
@@ -83,66 +74,49 @@ export function CoreSetup() {
       <div className="space-y-4">
         {/* First Name + Last Name */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10 input-card-focus transition-colors duration-200">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-2">
-              First Name
-            </label>
-            <input
-              className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
-              value={firstName}
-              onChange={(e) => setAthlete({ firstName: e.target.value })}
-              placeholder="First"
-            />
+          <div className="rounded-xl p-4" style={cardStyle}>
+            <label className={labelClass} style={labelColor}>First Name</label>
+            <input className={inputClass} value={firstName} onChange={(e) => setAthlete({ firstName: e.target.value })} placeholder="First" />
           </div>
-          <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10 input-card-focus transition-colors duration-200">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-2">
-              Last Name
-            </label>
-            <input
-              className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
-              value={lastName}
-              onChange={(e) => setAthlete({ lastName: e.target.value })}
-              placeholder="Last"
-            />
+          <div className="rounded-xl p-4" style={cardStyle}>
+            <label className={labelClass} style={labelColor}>Last Name</label>
+            <input className={inputClass} value={lastName} onChange={(e) => setAthlete({ lastName: e.target.value })} placeholder="Last" />
           </div>
         </div>
 
         {/* School search */}
         <div ref={wrapperRef} className="relative">
-          <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10 input-card-focus transition-colors duration-200">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-2">
-              School
-            </label>
+          <div className="rounded-xl p-4" style={cardStyle}>
+            <label className={labelClass} style={labelColor}>School</label>
             <div className="flex items-center">
               <input
-                className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
+                className={inputClass}
                 value={query}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onFocus={() => { if (query.length >= 1) setOpen(true); }}
                 onKeyDown={handleKeyDown}
                 placeholder="Search schools..."
               />
-              <span className="material-symbols-outlined text-on-surface-variant text-base ml-1 shrink-0">search</span>
+              <span className="material-symbols-outlined text-base ml-1 shrink-0" style={{ color: "#8A8F94" }}>search</span>
             </div>
           </div>
           {open && filtered.length > 0 && (
-            <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[200px] overflow-y-auto rounded-xl bg-surface-container-high shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[200px] overflow-y-auto rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)]" style={{ backgroundColor: "#2A2E33", border: "1px solid #3D434A" }}>
               {filtered.map((opt, i) => (
                 <li
                   key={opt.name}
                   onMouseDown={() => handleSelectSchool(opt)}
                   onMouseEnter={() => setFocusIndex(i)}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100 ${
-                    i === focusIndex ? "bg-surface-container-highest" : "hover:bg-surface-container-highest/50"
-                  }`}
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100"
+                  style={{ backgroundColor: i === focusIndex ? "#363B40" : undefined }}
                 >
                   {opt.logoUrl ? (
                     <img src={opt.logoUrl} alt="" className="w-5 h-5 object-contain shrink-0" />
                   ) : (
                     <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: opt.primaryColor }} />
                   )}
-                  <span className="text-on-surface text-sm font-normal truncate">{opt.displayName}</span>
-                  <span className="text-on-surface-variant text-[10px] uppercase tracking-widest ml-auto shrink-0">{opt.abbrev}</span>
+                  <span className="text-white text-sm font-normal truncate">{opt.displayName}</span>
+                  <span className="text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: "#8A8F94" }}>{opt.abbrev}</span>
                 </li>
               ))}
             </ul>
@@ -150,21 +124,19 @@ export function CoreSetup() {
         </div>
 
         {/* Position pills */}
-        <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10">
-          <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-3">
-            Position
-          </label>
+        <div className="rounded-xl p-4" style={cardStyle}>
+          <label className={labelClass} style={labelColor}>Position</label>
           <div className="flex flex-wrap gap-2">
             {POSITIONS.map((pos) => (
               <button
                 key={pos}
                 onClick={() => setAthlete({ position: pos })}
-                className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 ${
+                className="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] transition-all duration-200 active:scale-95"
+                style={
                   position === pos
-                    ? "text-white font-bold"
-                    : "bg-surface-container border border-outline-variant/10 text-on-surface-variant hover:text-on-surface"
-                }`}
-                style={position === pos ? { backgroundColor: tc } : undefined}
+                    ? { backgroundColor: tc, color: "#fff", boxShadow: `0 0 10px ${tc}40` }
+                    : { backgroundColor: "#1E2227", border: "1px solid #3D434A", color: "#8A8F94" }
+                }
               >
                 {pos}
               </button>
@@ -173,21 +145,19 @@ export function CoreSetup() {
         </div>
 
         {/* Class */}
-        <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10">
-          <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-3">
-          Class
-        </label>
+        <div className="rounded-xl p-4" style={cardStyle}>
+          <label className={labelClass} style={labelColor}>Class</label>
           <div className="flex flex-wrap gap-2">
             {CLASS_OPTIONS.map((yr) => (
               <button
                 key={yr}
                 onClick={() => setAthlete({ classYear: yr })}
-                className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 ${
+                className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] transition-all duration-200 active:scale-95"
+                style={
                   classYear === yr
-                    ? "text-white font-bold"
-                    : "bg-surface-container border border-outline-variant/10 text-on-surface-variant hover:text-on-surface"
-                }`}
-                style={classYear === yr ? { backgroundColor: tc } : undefined}
+                    ? { backgroundColor: tc, color: "#fff", boxShadow: `0 0 10px ${tc}40` }
+                    : { backgroundColor: "#1E2227", border: "1px solid #3D434A", color: "#8A8F94" }
+                }
               >
                 {yr}
               </button>
@@ -196,17 +166,9 @@ export function CoreSetup() {
         </div>
 
         {/* Jersey number */}
-        <div className="bg-surface-container-high rounded-xl p-4 border border-outline-variant/10 input-card-focus transition-colors duration-200">
-          <label className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant block mb-2">
-            Jersey Number
-          </label>
-          <input
-            className="w-full bg-transparent text-on-surface text-sm font-normal outline-none placeholder:text-on-surface/40"
-            value={number}
-            onChange={(e) => setAthlete({ number: e.target.value })}
-            placeholder="#"
-            maxLength={3}
-          />
+        <div className="rounded-xl p-4" style={cardStyle}>
+          <label className={labelClass} style={labelColor}>Jersey Number</label>
+          <input className={inputClass} value={number} onChange={(e) => setAthlete({ number: e.target.value })} placeholder="#" maxLength={3} />
         </div>
       </div>
 
@@ -215,7 +177,7 @@ export function CoreSetup() {
         onClick={handleContinue}
         disabled={!canContinue}
         className="w-full py-3 rounded-full font-black uppercase tracking-[0.2em] text-xs transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{ backgroundColor: "#50C4CA", color: "#0b0f12" }}
+        style={{ backgroundColor: "#4DC9C9", color: "#12161A", boxShadow: "0 0 20px rgba(77, 201, 201, 0.3)" }}
       >
         Build My Profile →
       </button>
