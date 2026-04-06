@@ -1,13 +1,19 @@
 
 
-## Add Skip Button to Onboarding Preview
+## Make onboarding selection cards shorter
 
-Add a "Skip" button visible during the `idle` state (before auto-populate is triggered) that lets users bypass the auto-fill step entirely and go straight to the builder.
+The Role Selection and Athlete Tier cards currently use `min-h-[280px]` and `py-8` with a grid template that has extra space. The Sport Selection cards use `p-6` with flex layout and are already more compact.
 
 ### Changes
 
-**`src/features/onboarding/steps/ProfilePreview.tsx`**
-- Add a text-style "Skip" button below the "Auto-Populate My Profile" button in the `idle` state
-- On click, calls `completeOnboarding()` and navigates to `/builder` (same logic as `handleComplete`)
-- Styled as a subtle text link: `text-on-surface-variant text-xs font-bold uppercase tracking-[0.2em]` with hover underline — not competing with the primary CTA
+**RoleSelection.tsx and AthleteTier.tsx:**
+- Reduce `min-h-[280px]` → `min-h-[180px]`
+- Reduce `py-8` → `py-5`
+- Tighten the grid row template from `grid-rows-[64px_28px_40px_1fr]` → `grid-rows-[48px_24px_32px_1fr]` (smaller icon area, tighter label/description rows)
+- Reduce icon size from `text-5xl` → `text-4xl`
+
+**SportSelection.tsx:**
+- Reduce `p-6` → `p-4` for tighter cards
+
+All three screens get more compact cards while keeping the same structure and content.
 
