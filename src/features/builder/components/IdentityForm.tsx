@@ -613,7 +613,7 @@ export const IdentityForm = () => {
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
               <input ref={profilePicInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
               <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => photoInputRef.current?.click()}
@@ -654,34 +654,10 @@ export const IdentityForm = () => {
                     </>
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => logoInputRef.current?.click()}
-                  className="bg-surface-container rounded-xl min-h-[100px] flex flex-col items-center justify-center gap-2 text-center transition-colors duration-200 overflow-hidden"
-                >
-                  {logoLoading ? (
-                    <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
-                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">search</span>
-                      <span className="text-on-surface-variant/60 text-[9px]">Finding Logo…</span>
-                    </div>
-                  ) : schoolLogoUrl ? (
-                    <div className="relative w-full h-full group/img flex items-center justify-center min-h-[100px]">
-                      <img src={schoolLogoUrl} alt="School logo" className="w-12 h-12 object-contain mx-auto my-auto" />
-                      <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
-                        <span className="material-symbols-outlined text-on-surface text-xl">swap_horiz</span>
-                        <span className="text-on-surface text-[9px] font-bold uppercase tracking-widest">School Logo</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">add_a_photo</span>
-                      <span className="text-on-surface-variant/60 text-[9px]">School Logo</span>
-                    </>
-                  )}
-                </button>
               </div>
 
-              <SchoolAutocomplete
+              <div className="grid grid-cols-[4fr_1fr] gap-3">
+                <SchoolAutocomplete
                   value={school}
                   onSelect={(opt) => {
                     setAthlete({
@@ -690,7 +666,6 @@ export const IdentityForm = () => {
                       teamColor: opt.primaryColor,
                       schoolLogoUrl: opt.logoUrl,
                     });
-                    // Fallback: if CFBD had no logo, try firecrawl
                     if (!opt.logoUrl) {
                       autoFetchSchoolLogo(opt.name);
                     }
@@ -703,6 +678,27 @@ export const IdentityForm = () => {
                     }
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="bg-surface-container rounded-xl flex items-center justify-center transition-colors duration-200 overflow-hidden aspect-square"
+                >
+                  {logoLoading ? (
+                    <div className="flex flex-col items-center justify-center gap-1 animate-pulse">
+                      <span className="material-symbols-outlined text-on-surface-variant text-2xl">search</span>
+                    </div>
+                  ) : schoolLogoUrl ? (
+                    <div className="relative w-full h-full group/img flex items-center justify-center">
+                      <img src={schoolLogoUrl} alt="School logo" className="w-10 h-10 object-contain" />
+                      <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
+                        <span className="material-symbols-outlined text-on-surface text-xl">swap_horiz</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="material-symbols-outlined text-on-surface-variant text-2xl">shield</span>
+                  )}
+                </button>
+              </div>
 
               {/* Advanced color customization toggle */}
               <button
