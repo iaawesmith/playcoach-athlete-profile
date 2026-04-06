@@ -35,7 +35,7 @@ export function RoleSelection() {
         I Am A...
       </h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-7xl mx-auto">
+      <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
         {ROLES.map((r) => {
           const isSelected = role === r.role;
           const isActive = !r.comingSoon;
