@@ -85,7 +85,7 @@ export function CoreSetup() {
         </div>
 
         {/* School + School Logo */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-[2fr_1fr] gap-3">
           <div ref={wrapperRef} className="relative">
             <div className="rounded-xl p-4" style={cardStyle}>
               <label className={labelClass} style={labelColor}>School</label>
