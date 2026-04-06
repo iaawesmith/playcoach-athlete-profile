@@ -681,7 +681,7 @@ export const IdentityForm = () => {
                 <button
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
-                  className="bg-surface-container rounded-xl flex items-center justify-center transition-colors duration-200 overflow-hidden aspect-square"
+                  className="bg-surface-container rounded-xl flex items-center justify-center transition-colors duration-200 overflow-hidden"
                 >
                   {logoLoading ? (
                     <div className="flex flex-col items-center justify-center gap-1 animate-pulse">
