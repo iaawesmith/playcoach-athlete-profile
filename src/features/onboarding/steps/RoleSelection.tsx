@@ -73,7 +73,7 @@ export function RoleSelection() {
               >
                 {r.label}
               </span>
-              <span className="text-sm font-normal text-center" style={{ color: "#8A8F94" }}>
+              <span className="text-sm font-normal text-center whitespace-pre-line" style={{ color: "#8A8F94" }}>
                 {r.description}
               </span>
             </button>
