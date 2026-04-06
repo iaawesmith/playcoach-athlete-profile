@@ -1,17 +1,12 @@
 
 
-## Add teamColor glow to Pulse phone preview
-
-**What:** Apply the same dynamic teamColor shadow to the phone frame in PulsePreview that the ProCard uses on the Identity screen.
+## Improve Pulse preview scrolling and stack pinned cards vertically
 
 **File: `src/features/builder/components/PulsePreview.tsx`**
 
-1. Read `teamColor` from the athlete store (already importing `useAthleteStore`).
+Two changes:
 
-2. On the phone frame div (line 95), replace the static `shadow-[0_20px_50px_rgba(0,0,0,0.5)]` class with an inline `style` that mirrors the ProCard's glow:
-   ```
-   boxShadow: `0 0 60px ${teamColor}55, 0 0 120px ${teamColor}22`
-   ```
+1. **Smoother scrolling** (line 131): Add `scroll-smooth` to the scrollable content div and ensure the custom thin scrollbar is visible with `scrollbar-thin` class.
 
-This produces the same ambient teamColor glow that surrounds the ProCard, dynamically updating when the athlete changes their school color.
+2. **Stack pinned cards vertically** (lines 154–158): Change the pinned container from horizontal scroll (`flex gap-2 overflow-x-auto`) to a vertical stack (`flex flex-col gap-2`). Remove `scrollbar-none`, `overflow-x-auto`, and `pb-1`. Also update `MiniPinnedCard` to remove the `min-w` / `max-w` constraints so cards stretch full width.
 
