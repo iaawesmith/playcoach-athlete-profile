@@ -82,6 +82,7 @@ const MiniPinnedCard = ({ post }: { post: PulsePost }) => (
 
 export const PulsePreview = ({ posts }: PulsePreviewProps) => {
   const firstName = useAthleteStore((s) => s.firstName);
+  const teamColor = useAthleteStore((s) => s.teamColor);
   const lastName = useAthleteStore((s) => s.lastName);
 
   const pinnedPosts = useMemo(() => posts.filter((p) => p.isPinned), [posts]);
