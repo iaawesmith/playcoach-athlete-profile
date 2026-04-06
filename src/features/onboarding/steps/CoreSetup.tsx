@@ -84,43 +84,58 @@ export function CoreSetup() {
           </div>
         </div>
 
-        {/* School search */}
-        <div ref={wrapperRef} className="relative">
-          <div className="rounded-xl p-4" style={cardStyle}>
-            <label className={labelClass} style={labelColor}>School</label>
-            <div className="flex items-center">
-              <input
-                className={inputClass}
-                value={query}
-                onChange={(e) => handleInputChange(e.target.value)}
-                onFocus={() => { if (query.length >= 1) setOpen(true); }}
-                onKeyDown={handleKeyDown}
-                placeholder="Search schools..."
-              />
-              <span className="material-symbols-outlined text-base ml-1 shrink-0" style={{ color: "#8A8F94" }}>search</span>
+        {/* School + School Logo */}
+        <div className="grid grid-cols-2 gap-3">
+          <div ref={wrapperRef} className="relative">
+            <div className="rounded-xl p-4" style={cardStyle}>
+              <label className={labelClass} style={labelColor}>School</label>
+              <div className="flex items-center">
+                <input
+                  className={inputClass}
+                  value={query}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onFocus={() => { if (query.length >= 1) setOpen(true); }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Search schools..."
+                />
+                <span className="material-symbols-outlined text-base ml-1 shrink-0" style={{ color: "#8A8F94" }}>search</span>
+              </div>
+            </div>
+            {open && filtered.length > 0 && (
+              <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[200px] overflow-y-auto rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)]" style={{ backgroundColor: "#2A2E33", border: "1px solid #3D434A" }}>
+                {filtered.map((opt, i) => (
+                  <li
+                    key={opt.name}
+                    onMouseDown={() => handleSelectSchool(opt)}
+                    onMouseEnter={() => setFocusIndex(i)}
+                    className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100"
+                    style={{ backgroundColor: i === focusIndex ? "#363B40" : undefined }}
+                  >
+                    {opt.logoUrl ? (
+                      <img src={opt.logoUrl} alt="" className="w-5 h-5 object-contain shrink-0" />
+                    ) : (
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: opt.primaryColor }} />
+                    )}
+                    <span className="text-white text-sm font-normal truncate">{opt.displayName}</span>
+                    <span className="text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: "#8A8F94" }}>{opt.abbrev}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="rounded-xl p-4 flex flex-col" style={cardStyle}>
+            <label className={labelClass} style={labelColor}>School Logo</label>
+            <div className="flex-1 flex items-center justify-center">
+              {schoolLogoUrl ? (
+                <img src={schoolLogoUrl} alt="School logo" className="w-10 h-10 object-contain" />
+              ) : (
+                <div className="flex flex-col items-center gap-1">
+                  <span className="material-symbols-outlined text-2xl" style={{ color: "#8A8F94" }}>shield</span>
+                  <span className="text-[10px]" style={{ color: "#8A8F94" }}>Auto-populated</span>
+                </div>
+              )}
             </div>
           </div>
-          {open && filtered.length > 0 && (
-            <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[200px] overflow-y-auto rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)]" style={{ backgroundColor: "#2A2E33", border: "1px solid #3D434A" }}>
-              {filtered.map((opt, i) => (
-                <li
-                  key={opt.name}
-                  onMouseDown={() => handleSelectSchool(opt)}
-                  onMouseEnter={() => setFocusIndex(i)}
-                  className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100"
-                  style={{ backgroundColor: i === focusIndex ? "#363B40" : undefined }}
-                >
-                  {opt.logoUrl ? (
-                    <img src={opt.logoUrl} alt="" className="w-5 h-5 object-contain shrink-0" />
-                  ) : (
-                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: opt.primaryColor }} />
-                  )}
-                  <span className="text-white text-sm font-normal truncate">{opt.displayName}</span>
-                  <span className="text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: "#8A8F94" }}>{opt.abbrev}</span>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
         {/* Position pills */}
