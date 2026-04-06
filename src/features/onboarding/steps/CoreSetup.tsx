@@ -123,14 +123,11 @@ export function CoreSetup() {
               </ul>
             )}
           </div>
-          <div className="rounded-xl p-4" style={cardStyle}>
-            <label className={labelClass} style={labelColor}>Logo</label>
+          <div className="rounded-xl p-4 flex items-center justify-center" style={cardStyle}>
             {schoolLogoUrl ? (
-              <div className="flex items-center h-[20px]">
-                <img src={schoolLogoUrl} alt="School logo" className="h-5 w-5 object-contain" />
-              </div>
+              <img src={schoolLogoUrl} alt="School logo" className="h-8 w-8 object-contain" />
             ) : (
-              <span className={`${inputClass} text-white/30`}>Autopopulates</span>
+              <span className="material-symbols-outlined text-2xl" style={{ color: "#8A8F94" }}>shield</span>
             )}
           </div>
         </div>
