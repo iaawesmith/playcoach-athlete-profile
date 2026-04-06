@@ -62,7 +62,7 @@ export function RoleSelection() {
                 </span>
               )}
               <span
-                className="material-symbols-outlined text-5xl"
+                className="material-symbols-outlined text-4xl"
                 style={{ color: isActive ? "#4DC9C9" : "#8A8F94" }}
               >
                 {r.icon}
