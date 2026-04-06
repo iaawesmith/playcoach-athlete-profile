@@ -130,7 +130,7 @@ export function CoreSetup() {
                 <img src={schoolLogoUrl} alt="School logo" className="h-5 w-5 object-contain" />
               </div>
             ) : (
-              <span className={`${inputClass} text-white/30`}>Choose your school to populate</span>
+              <span className={`${inputClass} text-white/30`}>Autopopulates</span>
             )}
           </div>
         </div>
