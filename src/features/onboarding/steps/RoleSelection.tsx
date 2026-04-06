@@ -44,7 +44,7 @@ export function RoleSelection() {
               key={r.role}
               onClick={() => handleSelect(r)}
               disabled={r.comingSoon}
-              className="relative grid grid-rows-[64px_28px_40px_1fr] items-center justify-items-center w-full min-h-[280px] py-8 px-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
+              className="relative grid grid-rows-[48px_24px_32px_1fr] items-center justify-items-center w-full min-h-[180px] py-5 px-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
               style={{
                 backgroundColor: "#2A2E33",
                 border: `1px solid ${isSelected ? "#4DC9C9" : "#3D434A"}`,
@@ -62,7 +62,7 @@ export function RoleSelection() {
                 </span>
               )}
               <span
-                className="material-symbols-outlined text-5xl"
+                className="material-symbols-outlined text-4xl"
                 style={{ color: isActive ? "#4DC9C9" : "#8A8F94" }}
               >
                 {r.icon}

@@ -41,7 +41,7 @@ export function SportSelection() {
               key={s.sport}
               onClick={() => handleSelect(s)}
               disabled={!s.active}
-              className="relative flex flex-col items-center gap-3 p-6 rounded-xl transition-all duration-200 active:scale-[0.97]"
+              className="relative flex flex-col items-center gap-3 p-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
               style={{
                 backgroundColor: "#2A2E33",
                 border: `1px solid ${isSelected ? "#4DC9C9" : "#3D434A"}`,
