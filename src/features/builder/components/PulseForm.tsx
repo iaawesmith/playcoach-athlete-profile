@@ -101,15 +101,13 @@ export const PulseForm = ({ posts, onPostsChange }: PulseFormProps) => {
   }, [posts, activeFilter]);
 
   const handlePin = (id: string) => {
-    setPosts((prev) => {
-      const pinned = prev.filter((p) => p.isPinned).length;
-      if (pinned >= 3) return prev;
-      return prev.map((p) => (p.id === id ? { ...p, isPinned: true } : p));
-    });
+    const pinned = posts.filter((p) => p.isPinned).length;
+    if (pinned >= 3) return;
+    onPostsChange(posts.map((p) => (p.id === id ? { ...p, isPinned: true } : p)));
   };
 
   const handleUnpin = (id: string) => {
-    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, isPinned: false } : p)));
+    onPostsChange(posts.map((p) => (p.id === id ? { ...p, isPinned: false } : p)));
   };
 
   const hasAnyPosts = posts.length > 0;
