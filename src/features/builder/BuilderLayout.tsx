@@ -3,6 +3,7 @@ import { SideNav } from "./components/SideNav";
 import { ProCard } from "./components/ProCard";
 import { IdentityForm } from "./components/IdentityForm";
 import { IdentityPreview } from "./components/IdentityPreview";
+import { PulseForm } from "./components/PulseForm";
 import { MobileNav } from "./components/MobileNav";
 import { useAthleteStore } from "@/store/athleteStore";
 
@@ -103,7 +104,7 @@ export const BuilderLayout = () => {
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-6 md:p-10">
-              <IdentityForm />
+              {activeSection === "pulse" ? <PulseForm /> : <IdentityForm />}
             </div>
           </div>
         </div>
