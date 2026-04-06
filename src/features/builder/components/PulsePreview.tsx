@@ -82,6 +82,7 @@ const MiniPinnedCard = ({ post }: { post: PulsePost }) => (
 
 export const PulsePreview = ({ posts }: PulsePreviewProps) => {
   const firstName = useAthleteStore((s) => s.firstName);
+  const teamColor = useAthleteStore((s) => s.teamColor);
   const lastName = useAthleteStore((s) => s.lastName);
 
   const pinnedPosts = useMemo(() => posts.filter((p) => p.isPinned), [posts]);
@@ -92,7 +93,7 @@ export const PulsePreview = ({ posts }: PulsePreviewProps) => {
   return (
     <div className="flex flex-col items-center justify-center h-full py-4 px-4">
       {/* Phone Frame */}
-      <div className="relative w-[380px] h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+      <div className="relative w-[380px] h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px]" style={{ boxShadow: `0 0 60px ${teamColor}55, 0 0 120px ${teamColor}22` }}>
         {/* Dynamic Island */}
         <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[100px] h-[28px] bg-black rounded-full z-20" />
 
