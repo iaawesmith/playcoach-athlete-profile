@@ -85,7 +85,7 @@ export function CoreSetup() {
         </div>
 
         {/* School + School Logo */}
-        <div className="grid grid-cols-[2fr_1fr] gap-3">
+        <div className="grid grid-cols-[3fr_1fr] gap-3">
           <div ref={wrapperRef} className="relative">
             <div className="rounded-xl p-4" style={cardStyle}>
               <label className={labelClass} style={labelColor}>School</label>
@@ -124,7 +124,7 @@ export function CoreSetup() {
             )}
           </div>
           <div className="rounded-xl p-4" style={cardStyle}>
-            <label className={labelClass} style={labelColor}>School Logo</label>
+            <label className={labelClass} style={labelColor}>Logo</label>
             {schoolLogoUrl ? (
               <div className="flex items-center h-[20px]">
                 <img src={schoolLogoUrl} alt="School logo" className="h-5 w-5 object-contain" />
