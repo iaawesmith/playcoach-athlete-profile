@@ -1,11 +1,15 @@
+import { useState, useCallback } from "react";
 import { TopNav } from "./components/TopNav";
 import { SideNav } from "./components/SideNav";
 import { ProCard } from "./components/ProCard";
 import { IdentityForm } from "./components/IdentityForm";
 import { IdentityPreview } from "./components/IdentityPreview";
 import { PulseForm } from "./components/PulseForm";
+import { PulsePreview } from "./components/PulsePreview";
 import { MobileNav } from "./components/MobileNav";
 import { useAthleteStore } from "@/store/athleteStore";
+import { placeholderPosts } from "./components/PulseForm";
+import type { PulsePost } from "./components/PulseCard";
 
 const sectionLabels: Record<string, string> = {
   identity: "Identity Live Preview",
@@ -27,6 +31,11 @@ export const BuilderLayout = () => {
   const activeSection = useAthleteStore((s) => s.activeSection);
   const hasBeenPublished = useAthleteStore((s) => s.hasBeenPublished);
   const hasUnpublishedChanges = useAthleteStore((s) => s.hasUnpublishedChanges);
+  const [pulsePosts, setPulsePosts] = useState<PulsePost[]>(placeholderPosts);
+
+  const handlePostsChange = useCallback((posts: PulsePost[]) => {
+    setPulsePosts(posts);
+  }, []);
 
   return (
     <div
@@ -72,6 +81,8 @@ export const BuilderLayout = () => {
                   <ProCard />
                   <IdentityPreview />
                 </>
+              ) : activeSection === "pulse" ? (
+                <PulsePreview posts={pulsePosts} />
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center rounded-xl bg-surface-container border border-white/5 min-h-[400px]">
                   <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">
@@ -104,7 +115,11 @@ export const BuilderLayout = () => {
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-6 md:p-10">
-              {activeSection === "pulse" ? <PulseForm /> : <IdentityForm />}
+              {activeSection === "pulse" ? (
+                <PulseForm posts={pulsePosts} onPostsChange={handlePostsChange} />
+              ) : (
+                <IdentityForm />
+              )}
             </div>
           </div>
         </div>
