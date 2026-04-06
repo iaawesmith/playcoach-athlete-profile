@@ -19,7 +19,7 @@ const inputClass = "w-full bg-transparent text-white text-sm font-normal outline
 export function CoreSetup() {
   const navigate = useNavigate();
   const { setOnboardingStep } = useUserStore();
-  const { firstName, lastName, school, position, classYear, number, teamColor, setAthlete } = useAthleteStore();
+  const { firstName, lastName, school, position, classYear, number, teamColor, schoolLogoUrl, setAthlete } = useAthleteStore();
 
   const [query, setQuery] = useState(school);
   const [open, setOpen] = useState(false);
