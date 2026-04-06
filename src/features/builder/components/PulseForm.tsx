@@ -82,11 +82,15 @@ const placeholderPosts: PulsePost[] = [
 
 export { placeholderPosts };
 
-export const PulseForm = () => {
+interface PulseFormProps {
+  posts: PulsePost[];
+  onPostsChange: (posts: PulsePost[]) => void;
+}
+
+export const PulseForm = ({ posts, onPostsChange }: PulseFormProps) => {
   const firstName = useAthleteStore((s) => s.firstName);
   const lastName = useAthleteStore((s) => s.lastName);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
-  const [posts, setPosts] = useState<PulsePost[]>(placeholderPosts);
 
   const pinnedPosts = useMemo(() => posts.filter((p) => p.isPinned), [posts]);
 
