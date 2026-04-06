@@ -70,9 +70,6 @@ export function AthleteTier() {
               >
                 {t.label}
               </span>
-              <span className="text-sm font-normal text-center" style={{ color: "#8A8F94" }}>
-                {t.description}
-              </span>
             </button>
           );
         })}
