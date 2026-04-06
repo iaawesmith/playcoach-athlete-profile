@@ -10,9 +10,9 @@ interface RoleCard {
 }
 
 const ROLES: RoleCard[] = [
-  { role: "athlete", label: "ATHLETE", icon: "person", description: "Build your identity" },
-  { role: "coach", label: "COACH", icon: "sports", description: "Develop and track athletes", comingSoon: true },
-  { role: "trainer", label: "TRAINER", icon: "exercise", description: "Train and measure performance", comingSoon: true },
+  { role: "athlete", label: "ATHLETE", icon: "person", description: "Build your identity, showcase your progress" },
+  { role: "coach", label: "COACH", icon: "sports", description: "Develop and measure performance of your team", comingSoon: true },
+  { role: "trainer", label: "TRAINER", icon: "exercise", description: "Measure performance of your clients", comingSoon: true },
   { role: "agency", label: "AGENCY", icon: "business_center", description: "Manage athletes and partnerships", comingSoon: true },
 ];
 
