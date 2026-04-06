@@ -80,11 +80,17 @@ const placeholderPosts: PulsePost[] = [
   },
 ];
 
-export const PulseForm = () => {
+export { placeholderPosts };
+
+interface PulseFormProps {
+  posts: PulsePost[];
+  onPostsChange: (posts: PulsePost[]) => void;
+}
+
+export const PulseForm = ({ posts, onPostsChange }: PulseFormProps) => {
   const firstName = useAthleteStore((s) => s.firstName);
   const lastName = useAthleteStore((s) => s.lastName);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
-  const [posts, setPosts] = useState<PulsePost[]>(placeholderPosts);
 
   const pinnedPosts = useMemo(() => posts.filter((p) => p.isPinned), [posts]);
 
@@ -95,15 +101,13 @@ export const PulseForm = () => {
   }, [posts, activeFilter]);
 
   const handlePin = (id: string) => {
-    setPosts((prev) => {
-      const pinned = prev.filter((p) => p.isPinned).length;
-      if (pinned >= 3) return prev;
-      return prev.map((p) => (p.id === id ? { ...p, isPinned: true } : p));
-    });
+    const pinned = posts.filter((p) => p.isPinned).length;
+    if (pinned >= 3) return;
+    onPostsChange(posts.map((p) => (p.id === id ? { ...p, isPinned: true } : p)));
   };
 
   const handleUnpin = (id: string) => {
-    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, isPinned: false } : p)));
+    onPostsChange(posts.map((p) => (p.id === id ? { ...p, isPinned: false } : p)));
   };
 
   const hasAnyPosts = posts.length > 0;
@@ -185,7 +189,7 @@ export const PulseForm = () => {
                 <PulseCard key={post.id} post={post} onPin={handlePin} onUnpin={handleUnpin} />
               ))
             ) : (
-              <div className="rounded-xl border border-white/5 bg-surface-container p-8 text-center">
+              <div className="rounded-xl border border-white/5 bg-surface-container p-8 flex flex-col items-center text-center">
                 <span className="material-symbols-outlined text-on-surface-variant/20 text-2xl mb-2">filter_list</span>
                 <p className="text-on-surface-variant/50 text-sm">No posts match this filter</p>
               </div>
