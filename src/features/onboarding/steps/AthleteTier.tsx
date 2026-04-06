@@ -12,7 +12,7 @@ interface TierCard {
 const TIERS: TierCard[] = [
   { tier: "college", label: "COLLEGE", icon: "school", description: "NCAA Division I, II, III", active: true },
   { tier: "high-school", label: "HIGH SCHOOL", icon: "domain", description: "Varsity & JV athletes", active: false },
-  { tier: "youth", label: "YOUTH", icon: "child_care", description: "Club & travel teams", active: false },
+  { tier: "youth", label: "YOUTH", icon: "child_care", description: "All ages & skill levels", active: false },
   { tier: "pro", label: "PRO", icon: "emoji_events", description: "Professional leagues", active: false },
 ];
 
