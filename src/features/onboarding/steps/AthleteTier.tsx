@@ -32,7 +32,7 @@ export function AthleteTier() {
         Select Your Level
       </h1>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-7xl mx-auto">
         {TIERS.map((t) => {
           const isSelected = athleteTier === t.tier;
           return (
@@ -40,7 +40,7 @@ export function AthleteTier() {
               key={t.tier}
               onClick={() => handleSelect(t)}
               disabled={!t.active}
-              className="relative flex flex-col items-center gap-3 p-8 rounded-xl transition-all duration-200 active:scale-[0.97]"
+              className="relative grid grid-rows-[64px_28px_1fr] items-center justify-items-center w-full min-h-[220px] py-8 px-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
               style={{
                 backgroundColor: "#2A2E33",
                 border: `1px solid ${isSelected ? "#4DC9C9" : "#3D434A"}`,
