@@ -10,9 +10,9 @@ interface RoleCard {
 }
 
 const ROLES: RoleCard[] = [
-  { role: "athlete", label: "ATHLETE", icon: "person", description: "Build your identity, showcase your progress" },
+  { role: "athlete", label: "ATHLETE", icon: "person", description: "Build your identity,\nshowcase your progress" },
   { role: "coach", label: "COACH", icon: "sports", description: "Develop and measure performance of your team", comingSoon: true },
-  { role: "trainer", label: "TRAINER", icon: "exercise", description: "Measure performance of your clients", comingSoon: true },
+  { role: "trainer", label: "TRAINER", icon: "exercise", description: "Measure performance of\nyour clients", comingSoon: true },
   { role: "agency", label: "AGENCY", icon: "business_center", description: "Manage athletes and partnerships", comingSoon: true },
 ];
 
@@ -73,7 +73,7 @@ export function RoleSelection() {
               >
                 {r.label}
               </span>
-              <span className="text-sm font-normal text-center" style={{ color: "#8A8F94" }}>
+              <span className="text-sm font-normal text-center whitespace-pre-line" style={{ color: "#8A8F94" }}>
                 {r.description}
               </span>
             </button>
