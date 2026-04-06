@@ -90,14 +90,14 @@ export const PulsePreview = ({ posts }: PulsePreviewProps) => {
   const hasAnyPosts = posts.length > 0;
 
   return (
-    <div className="flex flex-col items-center justify-center h-full py-6 px-4">
+    <div className="flex flex-col items-center justify-center h-full py-4 px-4">
       {/* Phone Frame */}
-      <div className="relative w-[280px] max-h-[520px] flex flex-col">
-        {/* Phone notch */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-background rounded-b-xl z-20" />
+      <div className="relative w-[320px] h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+        {/* Dynamic Island */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[100px] h-[28px] bg-black rounded-full z-20" />
 
         {/* Phone body */}
-        <div className="w-full bg-background rounded-[24px] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[520px]">
+        <div className="w-full h-full bg-background rounded-[37px] border border-white/10 overflow-hidden flex flex-col">
           {/* Status bar */}
           <div className="h-8 flex items-end justify-between px-5 pb-0.5 bg-background">
             <span className="text-[9px] font-semibold text-on-surface">9:41</span>
