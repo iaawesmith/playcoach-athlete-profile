@@ -68,7 +68,7 @@ const MiniPostCard = ({ post }: { post: PulsePost }) => {
 
 const MiniPinnedCard = ({ post }: { post: PulsePost }) => (
   <div
-    className="min-w-[140px] max-w-[160px] bg-surface-container-high rounded-lg border border-white/5 p-2.5 flex-shrink-0"
+    className="bg-surface-container-high rounded-lg border border-white/5 p-2.5"
   >
     <div className="flex items-center gap-1 mb-1.5">
       <span className="material-symbols-outlined" style={{ fontSize: "10px", color: "var(--team-color)" }}>push_pin</span>
@@ -128,7 +128,7 @@ export const PulsePreview = ({ posts }: PulsePreviewProps) => {
           </div>
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
+          <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-thin px-3 py-3 space-y-3 min-h-0">
             {!hasAnyPosts ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -151,7 +151,7 @@ export const PulsePreview = ({ posts }: PulsePreviewProps) => {
                         Pinned
                       </span>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    <div className="flex flex-col gap-2">
                       {pinnedPosts.map((post) => (
                         <MiniPinnedCard key={post.id} post={post} />
                       ))}
