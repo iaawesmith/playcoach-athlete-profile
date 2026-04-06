@@ -92,7 +92,7 @@ export const PulsePreview = ({ posts }: PulsePreviewProps) => {
   return (
     <div className="flex flex-col items-center justify-center h-full py-4 px-4">
       {/* Phone Frame */}
-      <div className="relative <div className="relative w-[380px] h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]"> h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+      <div className="relative w-[380px] h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]"> h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]"> h-[calc(100%-2rem)] max-h-[680px] flex flex-col bg-black rounded-[40px] p-[3px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
         {/* Dynamic Island */}
         <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[100px] h-[28px] bg-black rounded-full z-20" />
 
