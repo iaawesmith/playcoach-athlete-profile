@@ -1,8 +1,21 @@
 
 
-## Widen School field, narrow School Logo
+## Clear school logo when school input is deleted
 
-**Change:** In `src/features/onboarding/steps/CoreSetup.tsx`, line 88, change the grid from `grid-cols-2` to `grid-cols-[2fr_1fr]`. This gives the School search field roughly 2/3 of the width and the School Logo field 1/3.
+**Problem:** When the user clears the school search field, the logo remains because `handleInputChange` only updates the query text — it never clears the store values.
 
-One line change, no other modifications needed.
+**Fix:** In `src/features/onboarding/steps/CoreSetup.tsx`, update `handleInputChange` (line 45–49) to check if the input is empty and clear the school-related store fields:
+
+```typescript
+const handleInputChange = (value: string) => {
+  setQuery(value);
+  setFocusIndex(-1);
+  setOpen(value.length >= 1);
+  if (value === "") {
+    setAthlete({ school: "", schoolAbbrev: "", schoolLogoUrl: null, teamColor: "#50C4CA" });
+  }
+};
+```
+
+This resets `school`, `schoolAbbrev`, `schoolLogoUrl`, and `teamColor` back to the default PlayCoach Steel when the field is emptied, causing the shield placeholder icon to reappear.
 
