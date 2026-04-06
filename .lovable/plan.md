@@ -1,21 +1,13 @@
 
 
-## Clear school logo when school input is deleted
+## Update Role Card Descriptions
 
-**Problem:** When the user clears the school search field, the logo remains because `handleInputChange` only updates the query text — it never clears the store values.
+**File: `src/features/onboarding/steps/RoleSelection.tsx`**
 
-**Fix:** In `src/features/onboarding/steps/CoreSetup.tsx`, update `handleInputChange` (line 45–49) to check if the input is empty and clear the school-related store fields:
+Update the `description` field for three roles in the `ROLES` array:
 
-```typescript
-const handleInputChange = (value: string) => {
-  setQuery(value);
-  setFocusIndex(-1);
-  setOpen(value.length >= 1);
-  if (value === "") {
-    setAthlete({ school: "", schoolAbbrev: "", schoolLogoUrl: null, teamColor: "#50C4CA" });
-  }
-};
-```
-
-This resets `school`, `schoolAbbrev`, `schoolLogoUrl`, and `teamColor` back to the default PlayCoach Steel when the field is emptied, causing the shield placeholder icon to reappear.
+- **Athlete**: `"Build your identity"` → `"Build your identity, showcase your progress"`
+- **Coach**: `"Develop and track athletes"` → `"Develop and measure performance of your team"`
+- **Trainer**: `"Train and measure performance"` → `"Measure performance of your clients"`
+- **Agency**: no change
 
