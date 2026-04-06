@@ -5,14 +5,15 @@ interface TierCard {
   tier: "youth" | "high-school" | "college" | "pro";
   label: string;
   icon: string;
+  description: string;
   active: boolean;
 }
 
 const TIERS: TierCard[] = [
-  { tier: "college", label: "COLLEGE", icon: "school", active: true },
-  { tier: "high-school", label: "HIGH SCHOOL", icon: "domain", active: false },
-  { tier: "youth", label: "YOUTH", icon: "child_care", active: false },
-  { tier: "pro", label: "PRO", icon: "emoji_events", active: false },
+  { tier: "college", label: "COLLEGE", icon: "school", description: "NCAA Division I, II, III", active: true },
+  { tier: "high-school", label: "HIGH SCHOOL", icon: "domain", description: "Varsity & JV athletes", active: false },
+  { tier: "youth", label: "YOUTH", icon: "child_care", description: "Club & travel teams", active: false },
+  { tier: "pro", label: "PRO", icon: "emoji_events", description: "Professional leagues", active: false },
 ];
 
 export function AthleteTier() {
@@ -40,7 +41,7 @@ export function AthleteTier() {
               key={t.tier}
               onClick={() => handleSelect(t)}
               disabled={!t.active}
-              className="relative grid grid-rows-[64px_28px_1fr] items-center justify-items-center w-full min-h-[220px] py-8 px-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
+              className="relative grid grid-rows-[64px_28px_40px_1fr] items-center justify-items-center w-full min-h-[280px] py-8 px-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
               style={{
                 backgroundColor: "#2A2E33",
                 border: `1px solid ${isSelected ? "#4DC9C9" : "#3D434A"}`,
@@ -51,14 +52,14 @@ export function AthleteTier() {
             >
               {!t.active && (
                 <span
-                  className="absolute top-3 right-3 text-[9px] font-semibold uppercase tracking-widest rounded-full px-2 py-1"
+                  className="absolute top-3 right-3 text-[9px] font-semibold uppercase tracking-widest rounded-full px-2.5 py-1"
                   style={{ color: "#8A8F94", border: "1px solid #3D434A" }}
                 >
                   Coming Soon
                 </span>
               )}
               <span
-                className="material-symbols-outlined text-4xl"
+                className="material-symbols-outlined text-5xl"
                 style={{ color: t.active ? "#4DC9C9" : "#8A8F94" }}
               >
                 {t.icon}
@@ -69,6 +70,10 @@ export function AthleteTier() {
               >
                 {t.label}
               </span>
+              <span className="text-sm font-normal text-center self-start" style={{ color: "#8A8F94" }}>
+                {t.description}
+              </span>
+              <span className="invisible text-[9px] self-end justify-self-center">.</span>
             </button>
           );
         })}
