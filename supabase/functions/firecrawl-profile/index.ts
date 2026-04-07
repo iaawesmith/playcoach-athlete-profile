@@ -347,7 +347,7 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ success: true, data: sanitized }), { headers });
     }
 
-    /* ── ESPN action photo (HTML-based, primary source) ────────── */
+    /* ── ESPN action photo (HTML-based, Phase A) ─────────────── */
     if (mode === "espn-photo") {
       const espnId = String(body.espnId || "").trim();
       if (!espnId || !firstName || !lastName) {
@@ -367,12 +367,17 @@ Deno.serve(async (req: Request) => {
       const imgUrls = [...html.matchAll(/src="(https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)]
         .map(m => m[1]);
 
-      const headshotPath = "/i/headshots/";
-
       const actionPhoto = imgUrls.find(url => {
-        const isEspnCdn = url.includes("espncdn.com") || url.includes("espn.com");
-        const isHeadshot = url.includes(headshotPath);
-        return isEspnCdn && !isHeadshot;
+        const lower = url.toLowerCase();
+        const isEspnCdn = lower.includes("espncdn.com") || lower.includes("espn.com");
+        if (!isEspnCdn) return false;
+        if (lower.includes("/i/headshots/")) return false;
+        if (lower.includes("logos")) return false;
+        if (lower.includes("helmet")) return false;
+        // Prefer larger images — skip tiny thumbnails
+        const sizeMatch = url.match(/\/(\d+)\//);
+        if (sizeMatch && parseInt(sizeMatch[1]) < 100) return false;
+        return true;
       }) || null;
 
       console.log("[espn-photo] Found action photo:", actionPhoto);
