@@ -333,7 +333,21 @@ Deno.serve(async (req: Request) => {
       };
 
       const json = await firecrawlScrapeExtract(firecrawlKey, profileUrl, prompt, schema, 2000);
-      return new Response(JSON.stringify({ success: true, data: json }), { headers });
+
+      // Sanitize On3 numeric fields — 0 means "not found"
+      const safeNumber = (val: unknown): number | null =>
+        (val && val !== 0 && !isNaN(Number(val))) ? Number(val) : null;
+
+      const sanitized: Record<string, unknown> = {
+        on3Rating: safeNumber(json?.on3Rating),
+        on3NationalRank: safeNumber(json?.on3NationalRank),
+        on3PositionRank: safeNumber(json?.on3PositionRank),
+        on3StateRank: safeNumber(json?.on3StateRank),
+        nilValuation: json?.nilValuation || null,
+        actionPhotoUrl: json?.actionPhotoUrl || null,
+      };
+
+      return new Response(JSON.stringify({ success: true, data: sanitized }), { headers });
     }
 
     /* ── ESPN action photo ─────────────────────────────────────── */
