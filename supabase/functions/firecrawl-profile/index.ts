@@ -4,37 +4,102 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function firecrawlSearch(apiKey: string, query: string): Promise<string | null> {
-  const resp = await fetch("https://api.firecrawl.dev/v1/search", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query, limit: 3, scrapeOptions: { formats: ["markdown"] } }),
-  });
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  const results = data.data || [];
-  return results[0]?.url || null;
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+function nameMatchesUrl(url: string, firstName: string, lastName: string): boolean {
+  const slug = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
+  return url.toLowerCase().includes(slug);
 }
 
-async function firecrawlScrapeJson(
-  apiKey: string,
-  url: string,
-  prompt: string,
-  schema: Record<string, unknown>,
-): Promise<Record<string, unknown> | null> {
+function extractUrlFromMarkdown(markdown: string, domain: string, path: string, firstName: string, lastName: string): string | null {
+  // Match URLs in markdown that contain the domain and path
+  const urlRegex = /https?:\/\/[^\s)\]"']+/g;
+  const matches = markdown.match(urlRegex) || [];
+  for (const url of matches) {
+    if (url.toLowerCase().includes(domain) && url.toLowerCase().includes(path) && nameMatchesUrl(url, firstName, lastName)) {
+      // Clean trailing punctuation
+      return url.replace(/[.,;:!?)]+$/, "");
+    }
+  }
+  return null;
+}
+
+async function firecrawlScrapeMarkdown(apiKey: string, url: string): Promise<string | null> {
   const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       url,
-      formats: [{ type: "json", prompt, schema }],
+      formats: ["markdown"],
       onlyMainContent: true,
     }),
   });
   if (!resp.ok) return null;
   const data = await resp.json();
-  return data.data?.json || data.json || null;
+  return data.data?.markdown || data.markdown || null;
 }
+
+async function firecrawlScrapeExtract(
+  apiKey: string,
+  url: string,
+  prompt: string,
+  schema: Record<string, unknown>,
+  waitFor?: number,
+): Promise<Record<string, unknown> | null> {
+  const body: Record<string, unknown> = {
+    url,
+    formats: ["extract"],
+    onlyMainContent: true,
+    extract: { prompt, schema },
+  };
+  if (waitFor) body.waitFor = waitFor;
+
+  const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  return data.data?.extract || data.extract || null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  School domain guessing                                             */
+/* ------------------------------------------------------------------ */
+
+const schoolDomainMap: Record<string, string> = {
+  "alabama": "rolltide.com",
+  "auburn": "auburntigers.com",
+  "georgia": "georgiadogs.com",
+  "university of georgia": "georgiadogs.com",
+  "lsu": "lsusports.net",
+  "florida": "floridagators.com",
+  "ohio state": "ohiostatebuckeyes.com",
+  "michigan": "mgoblue.com",
+  "texas": "texassports.com",
+  "usc": "usctrojans.com",
+  "clemson": "clemsontigers.com",
+  "oregon": "goducks.com",
+  "penn state": "gopsusports.com",
+  "oklahoma": "soonersports.com",
+  "notre dame": "und.com",
+  "tennessee": "utsports.com",
+  "byu": "byucougars.com",
+  "colorado": "cubuffs.com",
+  "miami": "miamihurricanes.com",
+};
+
+function guessSchoolDomain(school: string): string | null {
+  const lower = school.toLowerCase().replace(/university of /g, "").replace(/ university/g, "").trim();
+  return schoolDomainMap[lower] || null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Handler                                                            */
+/* ------------------------------------------------------------------ */
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -48,13 +113,6 @@ Deno.serve(async (req: Request) => {
     const position = String(body.position || "").trim();
     const school = String(body.school || "").trim();
 
-    if (!firstName || !lastName) {
-      return new Response(
-        JSON.stringify({ success: false, error: "firstName and lastName are required" }),
-        { status: 400, headers },
-      );
-    }
-
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (!firecrawlKey) {
       return new Response(
@@ -63,58 +121,153 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const searchBase = `${firstName} ${lastName}${position ? " " + position : ""} ${school || ""} football`.trim();
-
+    /* ── 247Sports ─────────────────────────────────────────────── */
     if (mode === "247") {
-      const profileUrl = await firecrawlSearch(firecrawlKey, `${searchBase} profile site:247sports.com`);
+      if (!firstName || !lastName) {
+        return new Response(JSON.stringify({ success: false, error: "Name required" }), { status: 400, headers });
+      }
+
+      // Step 1: Google search for 247 profile
+      const searchUrl = `https://www.google.com/search?q=site:247sports.com/player/+${firstName}-${lastName}`;
+      const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
+      if (!markdown) {
+        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      }
+
+      // Step 2: Validate URL
+      const profileUrl = extractUrlFromMarkdown(markdown, "247sports.com", "/player/", firstName, lastName);
       if (!profileUrl) {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
 
-      const prompt = `Extract only these fields for ${firstName} ${lastName} who plays ${position} at ${school}. If the page shows a different player, return null for all fields. Fields: nationalRank (number next to Natl in rankings section), positionRank (number next to position abbreviation in rankings), stateRank (number next to state abbreviation in rankings), compositeRating (decimal like 0.9823 near the star rating). Do not extract from sidebars, related players, or class ranking tables.`;
-
+      // Step 3: Extract data
+      const prompt = `Extract recruiting data for ${firstName} ${lastName}. Fields needed: nationalRank, positionRank, stateRank, compositeRating (decimal like 0.9823), stars (1-5), height, weight, highSchool, hometown, actionPhotoUrl (full URL of the largest player action photo on the page — NOT a headshot, NOT a thumbnail). Return null for any field not found.`;
       const schema = {
         type: "object",
         properties: {
-          nationalRank: { type: ["number", "null"] },
-          positionRank: { type: ["number", "null"] },
-          stateRank: { type: ["number", "null"] },
-          compositeRating: { type: ["number", "null"] },
+          nationalRank: { type: "number" },
+          positionRank: { type: "number" },
+          stateRank: { type: "number" },
+          compositeRating: { type: "number" },
+          stars: { type: "number" },
+          height: { type: "string" },
+          weight: { type: "number" },
+          highSchool: { type: "string" },
+          hometown: { type: "string" },
+          actionPhotoUrl: { type: "string" },
         },
       };
 
-      const json = await firecrawlScrapeJson(firecrawlKey, profileUrl, prompt, schema);
+      const json = await firecrawlScrapeExtract(firecrawlKey, profileUrl, prompt, schema, 2000);
       return new Response(JSON.stringify({ success: true, data: json }), { headers });
     }
 
+    /* ── On3 ───────────────────────────────────────────────────── */
     if (mode === "on3") {
-      const profileUrl = await firecrawlSearch(firecrawlKey, `${searchBase} profile site:on3.com`);
+      if (!firstName || !lastName) {
+        return new Response(JSON.stringify({ success: false, error: "Name required" }), { status: 400, headers });
+      }
+
+      // Step 1: Google search for On3 profile (on3.com/rivals/)
+      const searchUrl = `https://www.google.com/search?q=site:on3.com/rivals/+${firstName}-${lastName}`;
+      const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
+      if (!markdown) {
+        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      }
+
+      // Step 2: Validate URL
+      const profileUrl = extractUrlFromMarkdown(markdown, "on3.com", "/rivals/", firstName, lastName);
       if (!profileUrl) {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
 
-      const prompt = `Extract only these fields for ${firstName} ${lastName} who plays ${position} at ${school}. If the page shows a different player, return null for all fields. Fields: on3Rating (On3 proprietary decimal rating), on3NationalRank, on3PositionRank, on3StateRank, fortyTime (decimal like 4.42 from measurables), vertical (inches), wingspan (inches), handSize (inches). Only extract from the primary player profile — not related cards or lists.`;
-
+      // Step 3: Extract data
+      const prompt = `Extract recruiting, NIL, and photo data for ${firstName} ${lastName}. Fields needed: on3Rating (On3 proprietary decimal rating), on3NationalRank, on3PositionRank, on3StateRank, nilValuation (dollar amount as string e.g. '$124,000'), actionPhotoUrl (full URL of the largest player action photo on the page). Return null for any field not found.`;
       const schema = {
         type: "object",
         properties: {
-          on3Rating: { type: ["number", "null"] },
-          on3NationalRank: { type: ["number", "null"] },
-          on3PositionRank: { type: ["number", "null"] },
-          on3StateRank: { type: ["number", "null"] },
-          fortyTime: { type: ["number", "null"] },
-          vertical: { type: ["number", "null"] },
-          wingspan: { type: ["number", "null"] },
-          handSize: { type: ["number", "null"] },
+          on3Rating: { type: "number" },
+          on3NationalRank: { type: "number" },
+          on3PositionRank: { type: "number" },
+          on3StateRank: { type: "number" },
+          nilValuation: { type: "string" },
+          actionPhotoUrl: { type: "string" },
         },
       };
 
-      const json = await firecrawlScrapeJson(firecrawlKey, profileUrl, prompt, schema);
+      const json = await firecrawlScrapeExtract(firecrawlKey, profileUrl, prompt, schema, 2000);
+      return new Response(JSON.stringify({ success: true, data: json }), { headers });
+    }
+
+    /* ── ESPN action photo ─────────────────────────────────────── */
+    if (mode === "espn-photo") {
+      const espnId = String(body.espnId || "").trim();
+      if (!espnId || !firstName || !lastName) {
+        return new Response(JSON.stringify({ success: false, error: "espnId and name required" }), { status: 400, headers });
+      }
+
+      const espnUrl = `https://www.espn.com/college-football/player/_/id/${espnId}/${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
+      const prompt = `Find the main action photo of the player on this ESPN page. Return the full image URL. EXCLUDE any URL containing '/headshots/' — that is the profile headshot, not the action photo. EXCLUDE logos, thumbnails, and team photos. Return null if no qualifying action photo found.`;
+      const schema = {
+        type: "object",
+        properties: { actionPhotoUrl: { type: "string" } },
+      };
+
+      const json = await firecrawlScrapeExtract(firecrawlKey, espnUrl, prompt, schema, 1500);
+      return new Response(JSON.stringify({ success: true, data: json }), { headers });
+    }
+
+    /* ── School roster photo ───────────────────────────────────── */
+    if (mode === "school-photo") {
+      if (!firstName || !lastName || !school) {
+        return new Response(JSON.stringify({ success: false, error: "Name and school required" }), { status: 400, headers });
+      }
+
+      const schoolDomain = guessSchoolDomain(school);
+      if (!schoolDomain) {
+        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      }
+
+      const searchUrl = `https://www.google.com/search?q=site:${schoolDomain}+football+roster+${firstName}+${lastName}`;
+      const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
+      if (!markdown) {
+        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      }
+
+      const rosterUrl = extractUrlFromMarkdown(markdown, schoolDomain, "", firstName, lastName);
+      if (!rosterUrl) {
+        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      }
+
+      const prompt = `Find the player photo for ${firstName} ${lastName} on this roster page. Return the largest available player photo URL. Exclude team photos and placeholder images.`;
+      const schema = {
+        type: "object",
+        properties: { actionPhotoUrl: { type: "string" } },
+      };
+
+      const json = await firecrawlScrapeExtract(firecrawlKey, rosterUrl, prompt, schema, 2000);
+      return new Response(JSON.stringify({ success: true, data: json }), { headers });
+    }
+
+    /* ── Google Image Search photo ─────────────────────────────── */
+    if (mode === "google-image-photo") {
+      if (!firstName || !lastName || !school) {
+        return new Response(JSON.stringify({ success: false, error: "Name and school required" }), { status: 400, headers });
+      }
+
+      const searchUrl = `https://www.google.com/search?q=${firstName}+${lastName}+${school}+football+action+game&tbm=isch`;
+      const prompt = `Find one high-quality in-game college football action photo of ${firstName} ${lastName} from ${school}. Return the direct image URL only. EXCLUDE: Hudl images, high school photos, headshots, studio portraits, practice photos, team group photos. EXCLUDE any URL containing: hudl.com, maxpreps.com. Prefer images from: espn.com, 247sports.com, on3.com, or the official school athletic website. Return null if no qualifying college game action photo found.`;
+      const schema = {
+        type: "object",
+        properties: { actionPhotoUrl: { type: "string" } },
+      };
+
+      const json = await firecrawlScrapeExtract(firecrawlKey, searchUrl, prompt, schema);
       return new Response(JSON.stringify({ success: true, data: json }), { headers });
     }
 
     return new Response(
-      JSON.stringify({ success: false, error: `Unknown mode: ${mode}. Use '247' or 'on3'.` }),
+      JSON.stringify({ success: false, error: `Unknown mode: ${mode}` }),
       { status: 400, headers },
     );
   } catch (error: unknown) {
