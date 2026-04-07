@@ -228,39 +228,61 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ success: false, error: "Name required" }), { status: 400, headers });
       }
 
-      // Step 1: Google search for 247 profile
-      const searchUrl = `https://www.google.com/search?q=site:247sports.com/player/+${firstName}-${lastName}`;
+      const hometown = String(body.hometown || "").trim();
+      const homeParts = hometown.split(", ");
+      const playerState = homeParts.length > 1 ? homeParts[homeParts.length - 1].trim() : "";
+
+      // Step 1: Google search for 247 profile with high-school path preferred
+      const searchUrl = `https://www.google.com/search?q=site:247sports.com/player/+${firstName}-${lastName}+high-school`;
       const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
       if (!markdown) {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
 
-      // Step 2: Validate URL
-      const profileUrl = extractUrlFromMarkdown(markdown, "247sports.com", "/player/", firstName, lastName);
+      // Step 2: Validate URL — prefer high-school path, fall back to main player URL
+      let profileUrl = extractUrlFromMarkdown(markdown, "247sports.com", "/player/", firstName, lastName);
       if (!profileUrl) {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
+      // Prefer high-school variant if available
+      const urlRegex = /https?:\/\/[^\s)\]"']+/g;
+      const allUrls = markdown.match(urlRegex) || [];
+      for (const u of allUrls) {
+        const lower = u.toLowerCase();
+        if (
+          lower.includes("247sports.com/player/") &&
+          nameMatchesUrl(u, firstName, lastName) &&
+          lower.includes("high-school")
+        ) {
+          profileUrl = u.replace(/[.,;:!?)]+$/, "");
+          break;
+        }
+      }
 
-      // Step 3: Extract data
-      const prompt = `Extract recruiting data for ${firstName} ${lastName}. Fields needed: nationalRank, positionRank, stateRank, compositeRating (decimal like 0.9823), stars (1-5), height, weight, highSchool, hometown, actionPhotoUrl (full URL of the largest player action photo on the page — NOT a headshot, NOT a thumbnail). Return null for any field not found.`;
-      const schema = {
-        type: "object",
-        properties: {
-          nationalRank: { type: "number" },
-          positionRank: { type: "number" },
-          stateRank: { type: "number" },
-          compositeRating: { type: "number" },
-          stars: { type: "number" },
-          height: { type: "string" },
-          weight: { type: "number" },
-          highSchool: { type: "string" },
-          hometown: { type: "string" },
-          actionPhotoUrl: { type: "string" },
-        },
-      };
+      // Step 3: Scrape HTML and parse deterministically
+      const html = await firecrawlScrapeHtml(firecrawlKey, profileUrl, 2000);
+      if (!html) {
+        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      }
 
-      const json = await firecrawlScrapeExtract(firecrawlKey, profileUrl, prompt, schema, 2000);
-      return new Response(JSON.stringify({ success: true, data: json }), { headers });
+      const parsed = parse247RecruitingData(html, position, playerState);
+
+      // Map to store field names
+      const data: Record<string, unknown> = {};
+      if (parsed.stars247 !== null) data.stars247 = parsed.stars247;
+      if (parsed.playerRating247 !== null) data.rating247 = parsed.playerRating247;
+      if (parsed.positionRank !== null) data.positionRank = parsed.positionRank;
+      if (parsed.stateRank !== null) data.stateRank = parsed.stateRank;
+      if (parsed.compositeStars247 !== null) data.compositeStars247 = parsed.compositeStars247;
+      if (parsed.compositeRating247 !== null) data.compositeRating247 = parsed.compositeRating247;
+      if (parsed.compositeNationalRank247 !== null) data.compositeNationalRank247 = parsed.compositeNationalRank247;
+      if (parsed.compositePositionRank247 !== null) data.compositePositionRank247 = parsed.compositePositionRank247;
+      if (parsed.compositeStateRank247 !== null) data.compositeStateRank247 = parsed.compositeStateRank247;
+
+      return new Response(
+        JSON.stringify({ success: true, data: Object.keys(data).length > 0 ? data : null }),
+        { headers },
+      );
     }
 
     /* ── On3 ───────────────────────────────────────────────────── */
