@@ -232,14 +232,35 @@ export function useAutoFill() {
     const teamsCheck = await cfbdApi.teams();
     if (teamsCheck.success && teamsCheck.data.length > 0) {
       const schoolLower = school.toLowerCase();
-      const match = teamsCheck.data.find((team) => {
+      // Score-based team matching to avoid ambiguous substring matches (e.g. "Buffalo" vs "Colorado Buffaloes")
+      let bestTeam: typeof teamsCheck.data[0] | null = null;
+      let bestTeamScore = 0;
+      for (const team of teamsCheck.data) {
         const teamSchool = team.school.toLowerCase();
-        if (teamSchool === schoolLower) return true;
-        if (team.alternateNames?.some((name) => name.toLowerCase() === schoolLower)) return true;
-        return teamSchool.includes(schoolLower) || schoolLower.includes(teamSchool);
-      });
-      if (match) schoolForCfbd = match.school;
-      else errors.push(`teams: no match for "${school}"`);
+        let teamScore = 0;
+        // Exact match (highest priority)
+        if (teamSchool === schoolLower) { teamScore = 100; }
+        // Alternate name exact match
+        else if (team.alternateNames?.some((name) => name.toLowerCase() === schoolLower)) { teamScore = 90; }
+        // School display name contains the CFBD team name exactly (e.g. "Colorado Buffaloes" contains "Colorado")
+        else if (schoolLower.startsWith(teamSchool + " ") || schoolLower === teamSchool) { teamScore = 80; }
+        // CFBD team name starts with input
+        else if (teamSchool.startsWith(schoolLower)) { teamScore = 70; }
+        // Partial contains — lowest priority, must be reasonably long match
+        else if (teamSchool.length >= 5 && schoolLower.includes(teamSchool)) { teamScore = 40; }
+        else if (schoolLower.length >= 5 && teamSchool.includes(schoolLower)) { teamScore = 40; }
+
+        if (teamScore > bestTeamScore) {
+          bestTeamScore = teamScore;
+          bestTeam = team;
+        }
+      }
+      if (bestTeam) {
+        schoolForCfbd = bestTeam.school;
+        console.log(`[CFBD] Team match: "${bestTeam.school}" (score: ${bestTeamScore}) for input "${school}"`);
+      } else {
+        errors.push(`teams: no match for "${school}"`);
+      }
     } else if (teamsCheck.success === false) {
       errors.push(`teams lookup ✗ (${teamsCheck.error})`);
     }
