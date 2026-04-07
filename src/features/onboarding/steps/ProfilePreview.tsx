@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserStore } from "@/store/userStore";
 import { useAthleteStore } from "@/store/athleteStore";
-import { useAutoFill, fieldLabels, imageLabels, formatDisplayValue } from "@/hooks/useAutoFill";
+import { useAutoFill, fieldLabels, formatDisplayValue } from "@/hooks/useAutoFill";
 import { ProCard } from "@/features/builder/components/ProCard";
 
 const STATUS_MESSAGES = [
@@ -26,14 +26,16 @@ export function ProfilePreview() {
   const [msgIndex, setMsgIndex] = useState(0);
   const [segmentCount, setSegmentCount] = useState(0);
 
+  const isSearching = autoFill.status === "resolving" || autoFill.status === "enriching";
+
   useEffect(() => {
-    if (autoFill.status !== "scraping") return;
+    if (!isSearching) return;
     setMsgIndex(0);
     setSegmentCount(0);
     const msgTimer = setInterval(() => setMsgIndex((i) => (i + 1) % STATUS_MESSAGES.length), 2500);
     const segTimer = setInterval(() => setSegmentCount((c) => Math.min(c + 1, 10)), 1500);
     return () => { clearInterval(msgTimer); clearInterval(segTimer); };
-  }, [autoFill.status]);
+  }, [isSearching]);
 
   const handleComplete = () => {
     completeOnboarding();
@@ -51,7 +53,6 @@ export function ProfilePreview() {
         Let's Auto-Populate Your Profile
       </h1>
 
-      {/* ProCard — unchanged */}
       <div className="flex justify-center">
         <div className="w-full max-w-sm">
           <ProCard />
@@ -81,7 +82,7 @@ export function ProfilePreview() {
         </div>
       )}
 
-      {autoFill.status === "scraping" && (
+      {isSearching && (
         <div className="space-y-4 py-2">
           <div className="flex gap-0.5 w-full">
             {Array.from({ length: 10 }).map((_, i) => (
@@ -94,6 +95,38 @@ export function ProfilePreview() {
           </div>
           <p key={msgIndex} className="text-white text-sm font-medium text-center animate-fade-in">{STATUS_MESSAGES[msgIndex]}</p>
           <p className="text-[11px] text-center" style={{ color: "#8A8F94" }}>Searching for {autoFill.fullName}...</p>
+        </div>
+      )}
+
+      {autoFill.status === "confirm" && autoFill.confirmCandidate && (
+        <div className="rounded-xl p-4 space-y-3" style={cardStyle}>
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-xl" style={{ color: tc }}>help</span>
+            <span className="text-white text-sm font-bold uppercase tracking-wide">Is this you?</span>
+          </div>
+          <p className="text-xs" style={{ color: "#8A8F94" }}>
+            We found <span className="text-white font-semibold">{autoFill.confirmCandidate.name}</span>
+            {autoFill.confirmCandidate.position && <> — {autoFill.confirmCandidate.position}</>}
+            {autoFill.confirmCandidate.school && <> at {autoFill.confirmCandidate.school}</>}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={autoFill.confirmIdentity}
+              className="flex-1 rounded-full h-10 font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150"
+              style={{ backgroundColor: tc, color: "#12161A" }}
+            >
+              Yes, That's Me
+            </button>
+            <button
+              type="button"
+              onClick={autoFill.rejectIdentity}
+              className="rounded-full h-10 px-5 font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150"
+              style={{ ...cardStyle, color: "#fff" }}
+            >
+              No
+            </button>
+          </div>
         </div>
       )}
 
@@ -133,65 +166,22 @@ export function ProfilePreview() {
 
               {autoFill.sources.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {autoFill.sources.map((src) => {
-                    const domain = (() => { try { return new URL(src).hostname.replace("www.", ""); } catch { return src; } })();
-                    return (
-                      <span key={src} className="text-[9px] font-semibold uppercase tracking-widest rounded px-2 py-0.5" style={{ color: "#8A8F94", backgroundColor: "#1E2227" }}>
-                        {domain}
-                      </span>
-                    );
-                  })}
+                  {autoFill.sources.map((src) => (
+                    <span key={src} className="text-[9px] font-semibold uppercase tracking-widest rounded px-2 py-0.5" style={{ color: "#8A8F94", backgroundColor: "#1E2227" }}>
+                      {src}
+                    </span>
+                  ))}
                 </div>
               )}
 
-              {/* Image previews */}
-              {autoFill.availableImages.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.4em] block" style={{ color: "#8A8F94" }}>Photos</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {autoFill.availableImages.map((imgKey) => {
-                      const url = autoFill.imageUrls![imgKey]!;
-                      const selected = autoFill.selectedImages.has(imgKey);
-                      return (
-                        <button
-                          key={imgKey}
-                          type="button"
-                          onClick={() => autoFill.toggleImage(imgKey)}
-                          className="relative rounded-lg overflow-hidden aspect-square group transition-all duration-200"
-                          style={{
-                            backgroundColor: "#1E2227",
-                            outline: selected ? `2px solid ${tc}` : "2px solid transparent",
-                            outlineOffset: "-2px",
-                          }}
-                        >
-                          <img src={url} alt={imageLabels[imgKey]} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0"; }} />
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#12161A] via-[#12161A]/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-white">{imageLabels[imgKey]}</span>
-                          </div>
-                          <div
-                            className="absolute top-1.5 right-1.5 w-4 h-4 rounded border flex items-center justify-center"
-                            style={{ borderColor: selected ? tc : "#3D434A", backgroundColor: selected ? tc : "rgba(0,0,0,0.5)" }}
-                          >
-                            {selected && <span className="material-symbols-outlined text-[12px]" style={{ color: "#12161A" }}>check</span>}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Text fields */}
-              {autoFill.availableFields.length > 0 && (
+              {/* Field list */}
+              {autoFill.enrichedFields.length > 0 && (
                 <div className="space-y-1">
-                  {autoFill.availableImages.length > 0 && (
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.4em] block mb-2" style={{ color: "#8A8F94" }}>Profile Data</span>
-                  )}
-                  {autoFill.availableFields.map((field) => (
+                  {autoFill.enrichedFields.map((entry) => (
                     <button
-                      key={field}
+                      key={entry.key}
                       type="button"
-                      onClick={() => autoFill.toggleField(field)}
+                      onClick={() => autoFill.toggleField(entry.key)}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left"
                       style={{ backgroundColor: "transparent" }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "#363B40"; }}
@@ -199,12 +189,15 @@ export function ProfilePreview() {
                     >
                       <span
                         className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
-                        style={{ borderColor: autoFill.selectedFields.has(field) ? tc : "#3D434A", backgroundColor: autoFill.selectedFields.has(field) ? tc : "transparent" }}
+                        style={{ borderColor: autoFill.selectedKeys.has(entry.key) ? tc : "#3D434A", backgroundColor: autoFill.selectedKeys.has(entry.key) ? tc : "transparent" }}
                       >
-                        {autoFill.selectedFields.has(field) && <span className="material-symbols-outlined text-[12px]" style={{ color: "#12161A" }}>check</span>}
+                        {autoFill.selectedKeys.has(entry.key) && <span className="material-symbols-outlined text-[12px]" style={{ color: "#12161A" }}>check</span>}
                       </span>
-                      <span className="text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0" style={{ color: "#8A8F94" }}>{fieldLabels[field] || field}</span>
-                      <span className="text-white text-sm font-normal truncate flex-1">{formatDisplayValue(field, autoFill.scrapedData?.[field])}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0" style={{ color: "#8A8F94" }}>{entry.label}</span>
+                      <span className="text-white text-sm font-normal truncate flex-1">{formatDisplayValue(entry.key, entry.value)}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5" style={{ color: "#8A8F94", backgroundColor: "#1E2227" }}>
+                        {entry.source}
+                      </span>
                     </button>
                   ))}
                 </div>

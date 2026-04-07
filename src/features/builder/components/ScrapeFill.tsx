@@ -1,12 +1,9 @@
 import {
   useAutoFill,
   fieldLabels,
-  imageLabels,
   formatDisplayValue,
   type AutoFillStatus,
 } from "@/hooks/useAutoFill";
-
-type ImageKey = "headshot" | "actionPhoto" | "schoolLogo";
 
 export const ScrapeFill = () => {
   const {
@@ -16,15 +13,13 @@ export const ScrapeFill = () => {
     scrape,
     apply,
     dismiss,
-    scrapedData,
-    imageUrls,
-    sources,
-    selectedFields,
-    selectedImages,
+    confirmIdentity,
+    rejectIdentity,
+    confirmCandidate,
+    enrichedFields,
+    selectedKeys,
     toggleField,
-    toggleImage,
-    availableFields,
-    availableImages,
+    sources,
     errorMessage,
     totalSelected,
     totalItems,
@@ -56,13 +51,13 @@ export const ScrapeFill = () => {
     );
   }
 
-  if (status === "scraping") {
+  if (status === "resolving" || status === "enriching") {
     return (
       <div className="w-full bg-surface-container rounded-xl p-6 space-y-3">
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-primary text-xl animate-spin">progress_activity</span>
           <span className="text-on-surface text-sm font-bold uppercase tracking-wide">
-            Searching the Web...
+            {status === "resolving" ? "Identifying Player..." : "Enriching Profile..."}
           </span>
         </div>
         <div className="space-y-2">
@@ -71,8 +66,44 @@ export const ScrapeFill = () => {
           ))}
         </div>
         <p className="text-on-surface-variant text-[11px]">
-          Searching recruiting sites, ESPN, and school rosters for {fullName}...
+          {status === "resolving"
+            ? `Looking up ${fullName} on CFBD...`
+            : `Pulling data from CFBD, 247Sports, On3 for ${fullName}...`}
         </p>
+      </div>
+    );
+  }
+
+  if (status === "confirm" && confirmCandidate) {
+    return (
+      <div className="w-full bg-surface-container rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-primary text-xl">help</span>
+          <span className="text-on-surface text-sm font-bold uppercase tracking-wide">
+            Is this you?
+          </span>
+        </div>
+        <p className="text-on-surface-variant text-xs">
+          We found <span className="text-on-surface font-semibold">{confirmCandidate.name}</span>
+          {confirmCandidate.position && <> — {confirmCandidate.position}</>}
+          {confirmCandidate.school && <> at {confirmCandidate.school}</>}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={confirmIdentity}
+            className="flex-1 kinetic-gradient text-[#00460a] rounded-full h-10 font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150"
+          >
+            Yes, That's Me
+          </button>
+          <button
+            type="button"
+            onClick={rejectIdentity}
+            className="glass-card border border-outline-variant/20 text-on-surface rounded-full h-10 px-5 font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150"
+          >
+            No
+          </button>
+        </div>
       </div>
     );
   }
@@ -140,111 +171,46 @@ export const ScrapeFill = () => {
 
       {sources.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {sources.map((src) => {
-            const domain = (() => {
-              try {
-                return new URL(src).hostname.replace("www.", "");
-              } catch {
-                return src;
-              }
-            })();
-            return (
-              <span
-                key={src}
-                className="text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant bg-surface-container-high rounded px-2 py-0.5"
-              >
-                {domain}
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Image previews */}
-      {availableImages.length > 0 && (
-        <div className="space-y-2">
-          <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] block">
-            Photos
-          </span>
-          <div className="grid grid-cols-3 gap-2">
-            {availableImages.map((imgKey) => {
-              const url = imageUrls?.[imgKey];
-              if (!url) return null;
-              const selected = selectedImages.has(imgKey);
-              return (
-                <div key={imgKey} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => toggleImage(imgKey)}
-                    className="relative rounded-lg overflow-hidden aspect-square bg-surface-container-lowest group transition-all duration-200 w-full"
-                    style={{
-                      outline: selected ? `2px solid var(--team-color, #00e639)` : "2px solid transparent",
-                      outlineOffset: "-2px",
-                    }}
-                  >
-                    <img
-                      src={url}
-                      alt={imageLabels[imgKey]}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.opacity = "0";
-                      }}
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface via-surface/80 to-transparent pt-6 pb-1.5 px-1.5 flex items-end">
-                      <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface">
-                        {imageLabels[imgKey]}
-                      </span>
-                    </div>
-                    <div
-                      className="absolute top-1.5 right-1.5 w-4 h-4 rounded border flex items-center justify-center"
-                      style={{
-                        borderColor: selected ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.6)",
-                        backgroundColor: selected ? "var(--team-color, #00e639)" : "rgba(0,0,0,0.5)",
-                      }}
-                    >
-                      {selected && (
-                        <span className="material-symbols-outlined text-[12px] text-surface">check</span>
-                      )}
-                    </div>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Text fields */}
-      {availableFields.length > 0 && (
-        <div className="space-y-1">
-          {availableImages.length > 0 && (
-            <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] block mb-2">
-              Profile Data
+          {sources.map((src) => (
+            <span
+              key={src}
+              className="text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant bg-surface-container-high rounded px-2 py-0.5"
+            >
+              {src}
             </span>
-          )}
-          {availableFields.map((field) => (
+          ))}
+        </div>
+      )}
+
+      {/* Field list */}
+      {enrichedFields.length > 0 && (
+        <div className="space-y-1">
+          {enrichedFields.map((entry) => (
             <button
-              key={field}
+              key={entry.key}
               type="button"
-              onClick={() => toggleField(field)}
+              onClick={() => toggleField(entry.key)}
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-high transition-colors duration-150 text-left"
             >
               <span
                 className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
                 style={{
-                  borderColor: selectedFields.has(field) ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.4)",
-                  backgroundColor: selectedFields.has(field) ? "var(--team-color, #00e639)" : "transparent",
+                  borderColor: selectedKeys.has(entry.key) ? "var(--team-color, #00e639)" : "rgba(68,72,76,0.4)",
+                  backgroundColor: selectedKeys.has(entry.key) ? "var(--team-color, #00e639)" : "transparent",
                 }}
               >
-                {selectedFields.has(field) && (
+                {selectedKeys.has(entry.key) && (
                   <span className="material-symbols-outlined text-[12px] text-surface">check</span>
                 )}
               </span>
               <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0">
-                {fieldLabels[field] || field}
+                {entry.label}
               </span>
               <span className="text-on-surface text-sm font-normal truncate flex-1">
-                {formatDisplayValue(field, scrapedData?.[field])}
+                {formatDisplayValue(entry.key, entry.value)}
+              </span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-on-surface-variant/50 bg-surface-container-highest/60 rounded px-1.5 py-0.5">
+                {entry.source}
               </span>
             </button>
           ))}
