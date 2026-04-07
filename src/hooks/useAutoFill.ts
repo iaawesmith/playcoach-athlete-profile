@@ -368,7 +368,7 @@ export function useAutoFill() {
 
   /* ── PHASE 2: Firecrawl (247 + On3) — results go to ScrapeFill modal ── */
 
-  const runFirecrawlPhase = useCallback(async (espnId: string | null) => {
+  const runFirecrawlPhase = useCallback(async (espnId: string | null, cfbdData: Record<string, unknown> = {}) => {
     if (!firstName || !lastName || !school) {
       setStatus("done");
       return;
