@@ -568,6 +568,7 @@ export function useAutoFill() {
 
   const scrape = useCallback(async () => {
     if (!canScrape) return;
+    console.log("[AutoFill] scrape started", { firstName, lastName, school, position, jersey });
     setStatus("resolving");
     setErrorMessage("");
     setEnrichedFields([]);
@@ -578,30 +579,56 @@ export function useAutoFill() {
 
     // Phase 1: CFBD — writes directly to store, no modal
     let espnId: string | null = null;
+    let cfbdWroteData = false;
     try {
+      console.log("[AutoFill] Starting CFBD phase...");
       const cfbdResult = await runCfbdPhase();
       espnId = cfbdResult.espnId;
+      console.log("[AutoFill] CFBD phase complete", { espnId, errors: cfbdResult.errors });
       if (cfbdResult.errors.length > 0) {
         diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
       }
+      // Check if CFBD wrote anything by looking at store state after write
+      const storeAfter = useAthleteStore.getState();
+      cfbdWroteData = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown || storeAfter.schoolLogoUrl || storeAfter.teamColor !== "#50C4CA");
+      console.log("[AutoFill] CFBD wrote data:", cfbdWroteData, {
+        height: storeAfter.height,
+        weight: storeAfter.weight,
+        hometown: storeAfter.hometown,
+        teamColor: storeAfter.teamColor,
+        schoolLogoUrl: storeAfter.schoolLogoUrl?.slice(0, 60),
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error("[AutoFill] CFBD phase crashed:", msg);
       diagParts.push(`CFBD phase crashed: ${msg}`);
     }
 
     // Phase 2: Firecrawl — results go to ScrapeFill modal
     try {
+      console.log("[AutoFill] Starting Firecrawl phase...");
       await runFirecrawlPhase(espnId);
+      console.log("[AutoFill] Firecrawl phase complete");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error("[AutoFill] Firecrawl phase crashed:", msg);
       diagParts.push(`Firecrawl phase crashed: ${msg}`);
     }
 
-    // If both phases produced nothing useful, surface diagnostics
-    if (status === "error" || (enrichedFields.length === 0 && diagParts.length > 0)) {
+    // If CFBD wrote data successfully but Firecrawl found nothing, that's still a success
+    if (cfbdWroteData) {
+      console.log("[AutoFill] CFBD populated data — not treating as error");
+      // Don't override the status set by runFirecrawlPhase
+      if (diagParts.length > 0) {
+        console.log("[AutoFill] Diagnostic notes:", diagParts.join(" | "));
+      }
+    } else if (diagParts.length > 0) {
+      // Only show error if CFBD also failed to write anything
+      console.warn("[AutoFill] No data from any source:", diagParts);
+      setStatus("error");
       setErrorMessage(diagParts.join(" | ") || "Auto-fill completed but found no data.");
     }
-  }, [canScrape, runCfbdPhase, runFirecrawlPhase]);
+  }, [canScrape, firstName, lastName, school, position, jersey, runCfbdPhase, runFirecrawlPhase]);
 
   /* ── Confirm identity (kept for backward compat) ────────── */
 
