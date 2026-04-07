@@ -1,5 +1,3 @@
-import { lookupSchoolLogo } from "../_shared/espnLogos.ts";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -24,21 +22,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Strategy 1: ESPN CDN static lookup — instant, free, reliable
-    const espnLogo = lookupSchoolLogo(school);
-    if (espnLogo) {
-      return new Response(
-        JSON.stringify({ success: true, logoUrl: espnLogo }),
-        { headers },
-      );
-    }
-
-    // Strategy 2: Firecrawl branding search fallback (for non-NCAA schools)
+    // Firecrawl branding search — fallback for non-CFBD schools
     const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: "No logo found and Firecrawl not configured" }),
-        { status: 404, headers },
+        JSON.stringify({ success: false, error: "Firecrawl not configured" }),
+        { status: 500, headers },
       );
     }
 

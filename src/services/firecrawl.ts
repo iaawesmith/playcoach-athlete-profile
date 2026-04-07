@@ -1,39 +1,51 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AthleteProfileData = {
-  height?: string;
-  weight?: string;
-  fortyTime?: string;
-  vertical?: string;
-  wingspan?: string;
-  handSize?: string;
-  hometown?: string;
-  highSchool?: string;
-  position?: string;
-  classYear?: string;
-  starRating?: number;
-  nationalRank?: number;
-  positionRank?: number;
-  number?: string;
-  bio?: string;
-  commitmentStatus?: string;
-  rating247?: string;
-  ratingOn3?: string;
-  ratingComposite?: string;
-  offersCount?: number;
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export type Extracted247Data = {
+  nationalRank: number | null;
+  positionRank: number | null;
+  stateRank: number | null;
+  compositeRating: number | null;
 };
 
-type ProfileResponse = {
-  success: boolean;
-  error?: string;
-  data?: AthleteProfileData;
-  imageUrls?: { actionPhoto?: string };
-  
-  sources?: string[];
-  resultsCount?: number;
+export type ExtractedOn3Data = {
+  on3Rating: number | null;
+  on3NationalRank: number | null;
+  on3PositionRank: number | null;
+  fortyTime: number | null;
+  vertical: number | null;
+  wingspan: number | null;
+  handSize: number | null;
 };
+
+type ExtractionResult<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+const invokeFirecrawl = async (
+  fnName: string,
+  body: Record<string, unknown>,
+): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> => {
+  const { data, error } = await supabase.functions.invoke(fnName, { body });
+  if (error) return { success: false, error: error.message };
+  return data as { success: boolean; data?: Record<string, unknown>; error?: string };
+};
+
+/* ------------------------------------------------------------------ */
+/*  API                                                                */
+/* ------------------------------------------------------------------ */
 
 export const firecrawlApi = {
+  /** Fetch school logo — Firecrawl fallback for non-CFBD schools */
   async fetchSchoolLogo(school: string): Promise<{ success: boolean; logoUrl?: string; error?: string }> {
     const { data, error } = await supabase.functions.invoke("firecrawl-school-logo", {
       body: { school },
@@ -42,15 +54,45 @@ export const firecrawlApi = {
     return data as { success: boolean; logoUrl?: string; error?: string };
   },
 
-  async fetchAthleteProfile(
-    name: string,
-    school?: string,
-    knownFields?: { position?: string; number?: string; classYear?: string },
-  ): Promise<ProfileResponse> {
+  /** Extract 247Sports profile data using targeted prompt */
+  async search247Profile(
+    firstName: string,
+    lastName: string,
+    position: string,
+    school: string,
+  ): Promise<ExtractionResult<Extracted247Data>> {
     const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
-      body: { name, school, knownFields },
+      body: {
+        mode: "247",
+        firstName,
+        lastName,
+        position,
+        school,
+      },
     });
     if (error) return { success: false, error: error.message };
-    return data as ProfileResponse;
+    const result = data as { success: boolean; data?: Extracted247Data; error?: string };
+    return result;
+  },
+
+  /** Extract On3 profile data using targeted prompt */
+  async searchOn3Profile(
+    firstName: string,
+    lastName: string,
+    position: string,
+    school: string,
+  ): Promise<ExtractionResult<ExtractedOn3Data>> {
+    const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
+      body: {
+        mode: "on3",
+        firstName,
+        lastName,
+        position,
+        school,
+      },
+    });
+    if (error) return { success: false, error: error.message };
+    const result = data as { success: boolean; data?: ExtractedOn3Data; error?: string };
+    return result;
   },
 };
