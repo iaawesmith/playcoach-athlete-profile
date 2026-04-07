@@ -679,13 +679,12 @@ export const IdentityForm = () => {
             <SectionHeader title="Upcoming Game" />
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <UniversitySearchCard label="Opponent" value={game.opponent} onChange={(v) => setGame("opponent", v)} placeholder="Search schools..." badge="CFBD" />
-                <DateInputCard label="Date" value={game.date} onChange={(v) => setGame("date", v)} badge="CFBD" />
+                <DisplayField label="Opponent" value={game.opponent} badge="CFBD" />
+                <DisplayField label="Date" value={game.date} badge="CFBD" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <TimeInputCard label="Kickoff Time" time={timeValue} period={timePeriod}
-                  onTimeChange={handleTimeChange} onPeriodChange={handlePeriodChange} badge="CFBD" />
-                <InputCard label="Venue / Location" value={game.location} onChange={(v) => setGame("location", v)} placeholder="—" badge="CFBD" />
+                <DisplayField label="Kickoff Time" value={game.time} badge="CFBD" />
+                <DisplayField label="Venue / Location" value={game.location} badge="CFBD" />
               </div>
             </div>
           </section>
