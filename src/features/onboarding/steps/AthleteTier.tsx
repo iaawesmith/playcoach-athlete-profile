@@ -41,11 +41,15 @@ export function AthleteTier() {
               key={t.tier}
               onClick={() => handleSelect(t)}
               disabled={!t.active}
-              className="relative flex flex-col items-center justify-center gap-2 w-full min-h-[180px] py-5 px-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
+              className={`relative flex flex-col items-center justify-center gap-2 w-full min-h-[180px] py-5 px-4 rounded-xl transition-all duration-200 active:scale-[0.97] border ${
+                isSelected
+                  ? "border-[#4DC9C9] shadow-[0_0_15px_rgba(77,201,201,0.5)]"
+                  : t.active
+                    ? "border-[#3D434A] hover:border-[#4DC9C9] hover:shadow-[0_0_15px_rgba(77,201,201,0.3)]"
+                    : "border-[#3D434A]"
+              }`}
               style={{
                 backgroundColor: "#2A2E33",
-                border: `1px solid ${isSelected ? "#4DC9C9" : "#3D434A"}`,
-                boxShadow: isSelected ? "0 0 15px rgba(77, 201, 201, 0.5)" : "none",
                 opacity: !t.active ? 0.45 : 1,
                 cursor: !t.active ? "not-allowed" : "pointer",
               }}

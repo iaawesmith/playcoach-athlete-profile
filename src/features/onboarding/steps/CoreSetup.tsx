@@ -7,10 +7,7 @@ import { useSchoolSearch, type SchoolOption } from "@/hooks/useSchoolSearch";
 const POSITIONS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "FB"];
 const CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"];
 
-const cardStyle: React.CSSProperties = {
-  backgroundColor: "#2A2E33",
-  border: "1px solid #3D434A",
-};
+const cardClass = "rounded-xl p-4 bg-[#2A2E33] border border-[#3D434A] focus-within:border-[#4DC9C9] transition-colors duration-200";
 
 const labelClass = "text-[10px] font-semibold uppercase tracking-widest block mb-2";
 const labelColor: React.CSSProperties = { color: "#8A8F94" };
