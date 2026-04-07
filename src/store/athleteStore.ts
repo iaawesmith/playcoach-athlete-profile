@@ -4,6 +4,17 @@ type ActiveSection = "identity" | "performance" | "develop" | "pulse" | "connect
 
 export type FieldSource = "manual" | "cfbd" | "247" | "on3" | "firecrawl";
 
+export type MissingField = {
+  field: string;
+  source: "CFBD" | "247" | "ON3" | "247C" | "FIRECRAWL";
+  reason:
+    | "Source not reached"
+    | "Player not matched"
+    | "Field not in response"
+    | "Parsing failed"
+    | "Not applicable";
+};
+
 interface UpcomingGame {
   opponent: string;
   date: string;
