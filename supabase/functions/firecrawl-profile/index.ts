@@ -335,15 +335,22 @@ Deno.serve(async (req: Request) => {
       const find247ActionPhoto = (): string | null => {
         const slug = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
         const imgMatches = [
-          ...html.matchAll(/src="(https?:\/\/[^"]*247sports[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi),
-        ].map(m => m[1]);
-        return imgMatches.find(url => {
-          const lower = url.toLowerCase();
-          if (lower.includes("headshot")) return false;
-          if (lower.includes("logo")) return false;
-          if (lower.includes("icon")) return false;
-          return lower.includes(slug) || lower.includes("player") || lower.includes("photo");
-        }) || null;
+          ...html.matchAll(
+            /src="(https?:\/\/[^"]*247sports[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi,
+          ),
+        ].map((m) => m[1]);
+        return (
+          imgMatches.find((url) => {
+            const lower = url.toLowerCase();
+            // Must contain the player's name slug to be the right person
+            if (!lower.includes(slug)) return false;
+            // Exclude headshots, logos, icons
+            if (lower.includes("headshot")) return false;
+            if (lower.includes("logo")) return false;
+            if (lower.includes("icon")) return false;
+            return true;
+          }) ?? null
+        );
       };
       const actionPhoto247 = find247ActionPhoto();
       console.log("[247] Action photo from HTML:", actionPhoto247);
