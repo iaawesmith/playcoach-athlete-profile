@@ -71,8 +71,11 @@ export type CfbdTeam = {
   school: string;
   abbreviation: string;
   mascot: string;
+  classification: string | null;
   color: string;
   alt_color: string;
+  alternateColor: string;
+  alternateNames: string[];
   logos: string[];
 };
 
@@ -128,8 +131,9 @@ export const cfbdApi = {
     }),
 
   /** Team info including colors and logos */
-  teams: (school: string) =>
-    callCfbd<CfbdTeam[]>("/teams", { school }),
+  /** Team info — pass school name to filter, or omit for all teams */
+  teams: (school?: string) =>
+    callCfbd<CfbdTeam[]>("/teams", school ? { school } : undefined),
 
   /** Transfer portal entries for a year, optionally filtered by team */
   playerPortal: (year: number, team?: string) =>
@@ -143,7 +147,7 @@ export const cfbdApi = {
     team: string,
     year: number,
   ): Promise<CfbdResult<CfbdUpcomingGame | null>> => {
-    const result = await callCfbd<CfbdGame[]>("/games", {
+    const result: CfbdResult<CfbdGame[]> = await callCfbd<CfbdGame[]>("/games", {
       team,
       year,
       season_type: "regular",
