@@ -109,6 +109,96 @@ function guessSchoolDomain(school: string): string | null {
 }
 
 /* ------------------------------------------------------------------ */
+/*  247Sports HTML Parser                                              */
+/* ------------------------------------------------------------------ */
+
+function parse247RecruitingData(
+  html: string,
+  playerPosition: string,
+  playerState: string,
+): {
+  stars247: number | null;
+  playerRating247: number | null;
+  positionRank: number | null;
+  stateRank: number | null;
+  compositeStars247: number | null;
+  compositeRating247: number | null;
+  compositeNationalRank247: number | null;
+  compositePositionRank247: number | null;
+  compositeStateRank247: number | null;
+} {
+  const pos = (playerPosition || "").toUpperCase();
+  const state = (playerState || "").toUpperCase();
+
+  function countYellowStars(segment: string): number | null {
+    const count = (segment.match(/icon-starsolid yellow/g) || []).length;
+    return count > 0 ? count : null;
+  }
+
+  function findRankInList(
+    src: string,
+    label: string,
+    isComposite: boolean,
+  ): number | null {
+    const liBlocks = src.match(/<li[\s\S]*?<\/li>/g) || [];
+    for (const li of liBlocks) {
+      const hasLabel = li.includes(`<b>${label}</b>`);
+      const hasCompositeUrl = li.includes("compositerecruitrankings");
+      const hasRankingUrl = li.includes("recruitrankings");
+      const urlTypeMatch = isComposite
+        ? hasCompositeUrl
+        : hasRankingUrl && !hasCompositeUrl;
+      if (hasLabel && urlTypeMatch) {
+        const strongMatch = li.match(/<strong>(\d+)<\/strong>/);
+        return strongMatch ? parseInt(strongMatch[1]) : null;
+      }
+    }
+    return null;
+  }
+
+  const before247Ranking = html.split('<div class="ranking">')[0] || html;
+  const stars247 = countYellowStars(before247Ranking);
+
+  const playerRatingMatch = before247Ranking.match(
+    /<div class="rank-block">\s*(\d{2,3})\s*<\/div>/,
+  );
+  const playerRating247 = playerRatingMatch ? parseInt(playerRatingMatch[1]) : null;
+
+  const positionRank = pos ? findRankInList(html, pos, false) : null;
+  const stateRank = state ? findRankInList(html, state, false) : null;
+
+  const rankingBlockMatch = html.match(
+    /<div class="ranking">([\s\S]*?)<\/div>\s*<\/div>/,
+  );
+  const compositeStars247 = rankingBlockMatch
+    ? countYellowStars(rankingBlockMatch[1])
+    : null;
+
+  const compositeRatingMatch = html.match(
+    /<div class="ranking">[\s\S]*?<div class="rank-block">\s*(0\.\d{3,6})\s*<\/div>/,
+  );
+  const compositeRating247 = compositeRatingMatch
+    ? parseFloat(compositeRatingMatch[1])
+    : null;
+
+  const compositeNationalRank247 = findRankInList(html, "Natl.", true);
+  const compositePositionRank247 = pos ? findRankInList(html, pos, true) : null;
+  const compositeStateRank247 = state ? findRankInList(html, state, true) : null;
+
+  return {
+    stars247,
+    playerRating247,
+    positionRank,
+    stateRank,
+    compositeStars247,
+    compositeRating247,
+    compositeNationalRank247,
+    compositePositionRank247,
+    compositeStateRank247,
+  };
+}
+
+
 /*  Handler                                                            */
 /* ------------------------------------------------------------------ */
 
