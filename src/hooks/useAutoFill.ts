@@ -548,6 +548,11 @@ export function useAutoFill() {
     const currentSources = store.getState().fieldSources;
     const autoSelected = new Set<string>();
     for (const entry of entries) {
+      // CFBD entries are already applied — auto-select for display
+      if (entry.key.startsWith("cfbd_")) {
+        autoSelected.add(entry.key);
+        continue;
+      }
       if (currentSources[entry.key] !== "manual") {
         autoSelected.add(entry.key);
       }
