@@ -583,6 +583,7 @@ export function useAutoFill() {
       setEnrichedFields([]);
       setSources([]);
       setConfirmCandidate(null);
+      setLocalMissingFields([]);
 
       const diagParts: string[] = [];
       let espnId: string | null = null;
@@ -696,6 +697,7 @@ export function useAutoFill() {
         if (!storeAfter.transferStars) missingFields.push({ field: "Transfer Stars", source: "CFBD", reason: "Field not in response" });
       }
 
+      setLocalMissingFields(missingFields);
       useAthleteStore.getState().setMissingFields(missingFields);
 
       if (diagParts.length > 0) {
@@ -822,5 +824,6 @@ export function useAutoFill() {
     errorMessage,
     totalSelected: selectedKeys.size,
     totalItems: enrichedFields.length,
+    missingFields: localMissingFields,
   };
 }
