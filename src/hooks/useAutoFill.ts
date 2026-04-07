@@ -103,11 +103,12 @@ export const fieldLabels: Record<string, string> = {
 
 export const formatDisplayValue = (key: string, val: unknown): string => {
   if (val === null || val === undefined) return "—";
-  if (key === "height") {
+  const normalizedKey = key.startsWith("cfbd_") ? key.slice(5) : key;
+  if (normalizedKey === "height") {
     const total = parseInt(String(val), 10);
     if (total > 11) return `${Math.floor(total / 12)}'${total % 12}"`;
   }
-  if (key === "upcomingGame" && typeof val === "object") {
+  if (normalizedKey === "upcomingGame" && typeof val === "object") {
     const g = val as Record<string, string>;
     return `${g.opponent || "TBD"} — ${g.date || ""}`;
   }
@@ -162,18 +163,18 @@ export function useAutoFill() {
 
   /* ── PHASE 1: CFBD Direct API — writes to store immediately ── */
 
-  const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[] }> => {
+  const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[]; cfbdData: Record<string, unknown> }> => {
     const errors: string[] = [];
 
     if (!firstName || !school) {
-      return { espnId: null, errors: [] };
+      return { espnId: null, errors: [], cfbdData: {} };
     }
 
     // Resolve display name → CFBD short name
     const cfbdTeam = await resolveTeamName(school);
     if (!cfbdTeam) {
       errors.push(`team ✗ (no CFBD match for "${school}")`);
-      return { espnId: null, errors };
+      return { espnId: null, errors, cfbdData: {} };
     }
     errors.push(`team ✓ (${cfbdTeam})`);
 
@@ -363,12 +364,12 @@ export function useAutoFill() {
       errors.push("store ✗ (no data extracted)");
     }
 
-    return { espnId, errors };
+    return { espnId, errors, cfbdData };
   }, [firstName, lastName, school, position, jersey, store, setAthleteFromSource]);
 
   /* ── PHASE 2: Firecrawl (247 + On3) — results go to ScrapeFill modal ── */
 
-  const runFirecrawlPhase = useCallback(async (espnId: string | null) => {
+  const runFirecrawlPhase = useCallback(async (espnId: string | null, cfbdData: Record<string, unknown> = {}) => {
     if (!firstName || !lastName || !school) {
       setStatus("done");
       return;
@@ -493,8 +494,23 @@ export function useAutoFill() {
       }
     }
 
-    // Build field entries for ScrapeFill review — CFBD data is NOT included here
+    // Build field entries for review — include CFBD data as read-only reference
     const entries: FieldEntry[] = [];
+
+    // Add CFBD-sourced fields first (already applied to store)
+    for (const [key, value] of Object.entries(cfbdData)) {
+      if (value === null || value === undefined || value === "") continue;
+      entries.push({
+        key: `cfbd_${key}`,
+        label: fieldLabels[key] || key,
+        value,
+        source: "cfbd",
+      });
+    }
+
+    if (Object.keys(cfbdData).length > 0 && !srcList.includes("CFBD")) {
+      srcList.push("CFBD");
+    }
 
     for (const [key, value] of Object.entries(data)) {
       if (value === null || value === undefined || value === "") continue;
@@ -533,6 +549,11 @@ export function useAutoFill() {
     const currentSources = store.getState().fieldSources;
     const autoSelected = new Set<string>();
     for (const entry of entries) {
+      // CFBD entries are already applied — auto-select for display
+      if (entry.key.startsWith("cfbd_")) {
+        autoSelected.add(entry.key);
+        continue;
+      }
       if (currentSources[entry.key] !== "manual") {
         autoSelected.add(entry.key);
       }
@@ -561,11 +582,14 @@ export function useAutoFill() {
       const diagParts: string[] = [];
       let espnId: string | null = null;
 
+      let cfbdDataResult: Record<string, unknown> = {};
+
       // CFBD phase — only if firstName and school are set
       if (firstName && school) {
         try {
           const cfbdResult = await runCfbdPhase();
           espnId = cfbdResult.espnId;
+          cfbdDataResult = cfbdResult.cfbdData;
           if (cfbdResult.errors.length > 0) {
             diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
           }
@@ -577,7 +601,7 @@ export function useAutoFill() {
 
       // Firecrawl — always runs regardless of CFBD outcome
       try {
-        await runFirecrawlPhase(espnId);
+        await runFirecrawlPhase(espnId, cfbdDataResult);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         diagParts.push(`Firecrawl crashed: ${msg}`);
@@ -645,6 +669,8 @@ export function useAutoFill() {
 
     for (const entry of enrichedFields) {
       if (!selectedKeys.has(entry.key)) continue;
+      // CFBD entries are already applied to store — skip
+      if (entry.key.startsWith("cfbd_")) continue;
 
       // Handle image uploads — proxy external URLs to storage
       if (

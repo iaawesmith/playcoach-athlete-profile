@@ -194,29 +194,33 @@ export function ProfilePreview() {
 
                   {fieldsExpanded && (
                     <div className="space-y-1 mt-2">
-                      {autoFill.enrichedFields.map((entry) => (
-                        <button
-                          key={entry.key}
-                          type="button"
-                          onClick={() => autoFill.toggleField(entry.key)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left"
-                          style={{ backgroundColor: "transparent" }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "#363B40"; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
-                        >
-                          <span
-                            className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
-                            style={{ borderColor: autoFill.selectedKeys.has(entry.key) ? tc : "#3D434A", backgroundColor: autoFill.selectedKeys.has(entry.key) ? tc : "transparent" }}
+                      {autoFill.enrichedFields.map((entry) => {
+                        const isCfbd = entry.key.startsWith("cfbd_");
+                        const isSelected = autoFill.selectedKeys.has(entry.key);
+                        return (
+                          <button
+                            key={entry.key}
+                            type="button"
+                            onClick={() => !isCfbd && autoFill.toggleField(entry.key)}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left"
+                            style={{ backgroundColor: "transparent", opacity: isCfbd ? 0.7 : 1, cursor: isCfbd ? "default" : "pointer" }}
+                            onMouseEnter={(e) => { if (!isCfbd) (e.currentTarget as HTMLElement).style.backgroundColor = "#363B40"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
                           >
-                            {autoFill.selectedKeys.has(entry.key) && <span className="material-symbols-outlined text-[12px]" style={{ color: "#12161A" }}>check</span>}
-                          </span>
-                          <span className="text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0" style={{ color: "#8A8F94" }}>{entry.label}</span>
-                          <span className="text-white text-sm font-normal truncate flex-1">{formatDisplayValue(entry.key, entry.value)}</span>
-                          <span className="text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5" style={{ color: "#8A8F94", backgroundColor: "#1E2227" }}>
-                            {entry.source}
-                          </span>
-                        </button>
-                      ))}
+                            <span
+                              className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
+                              style={{ borderColor: isSelected ? tc : "#3D434A", backgroundColor: isSelected ? tc : "transparent" }}
+                            >
+                              {isSelected && <span className="material-symbols-outlined text-[12px]" style={{ color: "#12161A" }}>check</span>}
+                            </span>
+                            <span className="text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0" style={{ color: "#8A8F94" }}>{entry.label}</span>
+                            <span className="text-white text-sm font-normal truncate flex-1">{formatDisplayValue(entry.key, entry.value)}</span>
+                            <span className="text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5" style={{ color: "#8A8F94", backgroundColor: "#1E2227" }}>
+                              {entry.source}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
