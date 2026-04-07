@@ -5,7 +5,7 @@ import {
   formatDisplayValue,
   type AutoFillStatus,
 } from "@/hooks/useAutoFill";
-import { useAthleteStore } from "@/store/athleteStore";
+
 
 export const ScrapeFill = () => {
   const {
