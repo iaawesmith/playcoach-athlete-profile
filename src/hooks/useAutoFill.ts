@@ -122,6 +122,15 @@ export const fieldLabels: Record<string, string> = {
   offersCount: "Offers",
   nilValuation: "NIL Valuation",
   upcomingGame: "Upcoming Game",
+  stars247: "247 Stars",
+  rating247: "247 Rating",
+  compositeStars247: "247 Composite Stars",
+  compositeRating247: "247 Composite Rating",
+  compositeNationalRank247: "247 Composite Natl. Rank",
+  compositePositionRank247: "247 Composite Position Rank",
+  compositeStateRank247: "247 Composite State Rank",
+  on3StateRank: "On3 State Rank",
+  recruitingClassYear: "Recruiting Class Year",
 };
 
 export const formatDisplayValue = (key: string, val: unknown): string => {
@@ -183,6 +192,303 @@ export function useAutoFill() {
   const fullName = `${firstName} ${lastName}`.trim();
   const canScrape = fullName.length >= 3;
 
+  /* ── PHASE 1: CFBD Direct API — writes to store immediately ── */
+
+  const runCfbdPhase = useCallback(async (): Promise<string | null> => {
+    if (!school || !firstName || !lastName) return null;
+
+    const yr = new Date().getFullYear();
+    let schoolForCfbd = school;
+    let espnId: string | null = null;
+
+    // Resolve canonical school name
+    const teamsCheck = await cfbdApi.teams(school);
+    if (teamsCheck.success && teamsCheck.data.length > 0) {
+      schoolForCfbd = teamsCheck.data[0].school;
+    }
+
+    // Fire all CFBD calls in parallel
+    const [rosterRes, recruitRes, teamsRes, portalRes, gameRes] = await Promise.all([
+      cfbdApi.roster(schoolForCfbd, yr),
+      cfbdApi.recruitingPlayers(`${firstName} ${lastName}`, schoolForCfbd),
+      cfbdApi.teams(schoolForCfbd),
+      cfbdApi.playerPortal(yr, schoolForCfbd),
+      cfbdApi.upcomingGames(schoolForCfbd, yr),
+    ]);
+
+    const cfbdData: Record<string, unknown> = {};
+    const target = { firstName, lastName, position, jersey, school };
+
+    // 1a: Roster — find best matching player
+    if (rosterRes.success && rosterRes.data) {
+      let bestCandidate: CfbdRosterPlayer | null = null;
+      let bestScore = 0;
+      for (const player of rosterRes.data) {
+        const s = scoreCandidate(player, target) + 35; // school match bonus
+        if (s > bestScore) {
+          bestScore = s;
+          bestCandidate = player;
+        }
+      }
+
+      if (bestCandidate) {
+        if (bestCandidate.height) cfbdData.height = String(bestCandidate.height);
+        if (bestCandidate.weight) cfbdData.weight = String(bestCandidate.weight);
+        if (bestCandidate.jersey != null) cfbdData.number = String(bestCandidate.jersey);
+        if (bestCandidate.position) cfbdData.position = bestCandidate.position;
+        if (bestCandidate.year) cfbdData.classYear = yearToClass[bestCandidate.year] || String(bestCandidate.year);
+        if (bestCandidate.home_city && bestCandidate.home_state) {
+          cfbdData.hometown = `${bestCandidate.home_city}, ${bestCandidate.home_state}`;
+        }
+        if (bestCandidate.headshot_url && !store.getState().profilePictureUrl) {
+          cfbdData.profilePictureUrl = bestCandidate.headshot_url;
+        }
+        if (bestCandidate.headshot_url) {
+          espnId = extractEspnId(bestCandidate.headshot_url);
+        }
+      }
+    }
+
+    // 1b: Recruiting
+    if (recruitRes.success && recruitRes.data) {
+      const recruit = recruitRes.data.find((r: CfbdRecruit) => r.athlete_id != null) ||
+        (recruitRes.data.length > 0 ? recruitRes.data[0] : null);
+      if (recruit) {
+        if (recruit.stars) cfbdData.starRating = recruit.stars;
+        if (recruit.rating) {
+          cfbdData.recruitingRating = recruit.rating;
+          cfbdData.ratingComposite = String(recruit.rating);
+        }
+        if (recruit.ranking) cfbdData.nationalRank = recruit.ranking;
+        if (recruit.school) cfbdData.highSchool = recruit.school;
+        cfbdData.commitmentStatus = recruit.committed_to ? "committed" : "uncommitted";
+        if ((recruit as Record<string, unknown>).year) {
+          cfbdData.recruitingClassYear = String((recruit as Record<string, unknown>).year);
+        }
+      }
+    }
+
+    // 1c: Teams
+    if (teamsRes.success && teamsRes.data.length > 0) {
+      const team: CfbdTeam = teamsRes.data[0];
+      if (team.logos?.[0]) cfbdData.schoolLogoUrl = team.logos[0];
+      if (team.color) cfbdData.teamColor = team.color.startsWith("#") ? team.color : `#${team.color}`;
+      if (team.alt_color) cfbdData.teamColorAlt = team.alt_color.startsWith("#") ? team.alt_color : `#${team.alt_color}`;
+      if (team.abbreviation) cfbdData.schoolAbbrev = team.abbreviation;
+    }
+
+    // 1d: Portal
+    if (portalRes.success && portalRes.data) {
+      const portalMatch = portalRes.data.find((p: CfbdPortalPlayer) =>
+        p.first_name.toLowerCase() === firstName.toLowerCase() &&
+        p.last_name.toLowerCase() === lastName.toLowerCase()
+      );
+      if (portalMatch) {
+        cfbdData.transferFrom = portalMatch.origin;
+        if (portalMatch.eligibility) cfbdData.eligibilityYears = parseInt(portalMatch.eligibility, 10) || 0;
+        if (portalMatch.stars) cfbdData.transferStars = portalMatch.stars;
+        if (!portalMatch.destination) cfbdData.commitmentStatus = "portal";
+      }
+    }
+
+    // 1e: Upcoming game
+    if (gameRes.success && gameRes.data) {
+      cfbdData.upcomingGame = {
+        opponent: gameRes.data.opponent,
+        date: gameRes.data.date,
+        time: gameRes.data.time,
+        network: "",
+        location: gameRes.data.location,
+      };
+    }
+
+    // Write ALL CFBD data directly to store — no modal, no confirmation
+    if (Object.keys(cfbdData).length > 0) {
+      setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
+    }
+
+    return espnId;
+  }, [firstName, lastName, school, position, jersey, setAthleteFromSource]);
+
+  /* ── PHASE 2: Firecrawl (247 + On3) — results go to ScrapeFill modal ── */
+
+  const runFirecrawlPhase = useCallback(async (espnId: string | null) => {
+    if (!firstName || !lastName || !school) {
+      setStatus("done");
+      return;
+    }
+
+    setStatus("enriching");
+
+    const data: EnrichedData = {};
+    const srcList: string[] = [];
+    const posTag = position || store.getState().position || "";
+    const schoolTag = school;
+    let actionPhotoFrom247: string | null = null;
+    let actionPhotoFromOn3: string | null = null;
+
+    try {
+      const [s247Res, sOn3Res] = await Promise.all([
+        firecrawlApi.search247Profile(firstName, lastName, posTag, schoolTag),
+        firecrawlApi.searchOn3Profile(firstName, lastName, posTag, schoolTag),
+      ]);
+
+      // 247Sports extraction
+      if (s247Res.success && s247Res.data) {
+        srcList.push("247Sports");
+        const d = s247Res.data;
+        if (d.stars != null) data.stars247 = d.stars;
+        if (d.playerRating != null) data.rating247 = d.playerRating;
+        if (d.positionRank != null) data.positionRank = d.positionRank;
+        if (d.stateRank != null) data.stateRank = d.stateRank;
+        if (d.compositeStars != null) data.compositeStars247 = d.compositeStars;
+        if (d.compositeRating != null) data.compositeRating247 = d.compositeRating;
+        if (d.compositeNationalRank != null) data.compositeNationalRank247 = d.compositeNationalRank;
+        if (d.compositePositionRank != null) data.compositePositionRank247 = d.compositePositionRank;
+        if (d.compositeStateRank != null) data.compositeStateRank247 = d.compositeStateRank;
+        if (d.height) data.height = d.height;
+        if (d.weight) data.weight = String(d.weight);
+        if (d.highSchool) data.highSchool = d.highSchool;
+        if (d.hometown) data.hometown = d.hometown;
+        if (d.actionPhotoUrl && isValidActionPhoto(d.actionPhotoUrl)) {
+          actionPhotoFrom247 = d.actionPhotoUrl;
+        }
+      }
+
+      // On3 extraction
+      if (sOn3Res.success && sOn3Res.data) {
+        srcList.push("On3");
+        const d = sOn3Res.data;
+        if (d.on3Rating != null) data.on3Rating = d.on3Rating;
+        if (d.on3NationalRank != null) data.on3NationalRank = d.on3NationalRank;
+        if (d.on3PositionRank != null) data.on3PositionRank = d.on3PositionRank;
+        if (d.on3StateRank != null) data.on3StateRank = d.on3StateRank;
+        if (d.nilValuation) data.nilValuation = d.nilValuation;
+        if (d.actionPhotoUrl && isValidActionPhoto(d.actionPhotoUrl)) {
+          actionPhotoFromOn3 = d.actionPhotoUrl;
+        }
+      }
+    } catch {
+      // Firecrawl is non-critical
+    }
+
+    // Action photo resolution — only if actionPhoto is currently empty
+    if (!store.getState().actionPhotoUrl) {
+      let resolvedActionPhoto: string | null = null;
+
+      if (actionPhotoFromOn3) {
+        resolvedActionPhoto = actionPhotoFromOn3;
+      } else if (actionPhotoFrom247) {
+        resolvedActionPhoto = actionPhotoFrom247;
+      }
+
+      // ESPN player page
+      if (!resolvedActionPhoto && espnId) {
+        try {
+          const espnRes = await firecrawlApi.scrapeEspnActionPhoto(espnId, firstName, lastName);
+          if (espnRes.success && espnRes.data?.actionPhotoUrl && isValidActionPhoto(espnRes.data.actionPhotoUrl)) {
+            resolvedActionPhoto = espnRes.data.actionPhotoUrl;
+          }
+        } catch {
+          // non-critical
+        }
+      }
+
+      // School athletic website
+      if (!resolvedActionPhoto && schoolTag) {
+        try {
+          const schoolRes = await firecrawlApi.scrapeSchoolRosterPhoto(firstName, lastName, schoolTag);
+          if (schoolRes.success && schoolRes.data?.actionPhotoUrl && isValidActionPhoto(schoolRes.data.actionPhotoUrl)) {
+            resolvedActionPhoto = schoolRes.data.actionPhotoUrl;
+          }
+        } catch {
+          // non-critical
+        }
+      }
+
+      // Google Image Search (last resort)
+      if (!resolvedActionPhoto && schoolTag) {
+        try {
+          const googleRes = await firecrawlApi.scrapeGoogleImagePhoto(firstName, lastName, schoolTag);
+          if (googleRes.success && googleRes.data?.actionPhotoUrl && isValidActionPhoto(googleRes.data.actionPhotoUrl)) {
+            resolvedActionPhoto = googleRes.data.actionPhotoUrl;
+          }
+        } catch {
+          // non-critical
+        }
+      }
+
+      if (resolvedActionPhoto) {
+        data.actionPhotoUrl = resolvedActionPhoto;
+      }
+    }
+
+    // School logo fallback (only if CFBD didn't provide one)
+    if (!store.getState().schoolLogoUrl) {
+      try {
+        const logoRes = await firecrawlApi.fetchSchoolLogo(schoolTag);
+        if (logoRes.success && logoRes.logoUrl) {
+          data.schoolLogoUrl = logoRes.logoUrl;
+        }
+      } catch {
+        // non-critical
+      }
+    }
+
+    // Build field entries for ScrapeFill review — CFBD data is NOT included here
+    const entries: FieldEntry[] = [];
+
+    for (const [key, value] of Object.entries(data)) {
+      if (value === null || value === undefined || value === "") continue;
+
+      let source: FieldSource = "firecrawl";
+      if (srcList.includes("247Sports") && [
+        "stars247", "rating247", "positionRank", "stateRank",
+        "compositeStars247", "compositeRating247",
+        "compositeNationalRank247", "compositePositionRank247", "compositeStateRank247",
+        "height", "weight", "highSchool", "hometown",
+      ].includes(key)) {
+        source = "247";
+      }
+      if (srcList.includes("On3") && [
+        "on3Rating", "on3NationalRank", "on3PositionRank", "on3StateRank", "nilValuation",
+      ].includes(key)) {
+        source = "on3";
+      }
+      if (key === "actionPhotoUrl") {
+        if (actionPhotoFromOn3 && data.actionPhotoUrl === actionPhotoFromOn3) source = "on3";
+        else if (actionPhotoFrom247 && data.actionPhotoUrl === actionPhotoFrom247) source = "247";
+        else source = "firecrawl";
+      }
+
+      entries.push({
+        key,
+        label: fieldLabels[key] || key,
+        value,
+        source,
+      });
+    }
+
+    setEnrichedFields(entries);
+    setSources(srcList);
+
+    // Auto-select all fields that aren't manually set
+    const currentSources = store.getState().fieldSources;
+    const autoSelected = new Set<string>();
+    for (const entry of entries) {
+      if (currentSources[entry.key] !== "manual") {
+        autoSelected.add(entry.key);
+      }
+    }
+    setSelectedKeys(autoSelected);
+
+    if (entries.length > 0) {
+      setStatus("results");
+    } else {
+      setStatus("done");
+    }
+  }, [firstName, lastName, school, position, setAthleteFromSource]);
+
   /* ── Main scrape entry ──────────────────────────────────────── */
 
   const scrape = useCallback(async () => {
@@ -193,319 +499,19 @@ export function useAutoFill() {
     setSources([]);
     setConfirmCandidate(null);
 
-    const target = { firstName, lastName, position, jersey, school };
+    try {
+      // Phase 1: CFBD — writes directly to store, no modal
+      const espnId = await runCfbdPhase();
 
-    // Step 1: Identity resolution via CFBD roster
-    let bestCandidate: CfbdRosterPlayer | null = null;
-    let bestScore = 0;
-    let schoolForCfbd = school;
-
-    if (school) {
-      const teamsResult = await cfbdApi.teams(school);
-      if (teamsResult.success && teamsResult.data.length > 0) {
-        schoolForCfbd = teamsResult.data[0].school;
-      }
-
-      const yr = new Date().getFullYear();
-      const rosterResult = await cfbdApi.roster(schoolForCfbd, yr);
-
-      if (rosterResult.success && rosterResult.data) {
-        for (const player of rosterResult.data) {
-          const s = scoreCandidate(player, target) + 35; // school match bonus
-          if (s > bestScore) {
-            bestScore = s;
-            bestCandidate = player;
-          }
-        }
-      }
+      // Phase 2: Firecrawl — results go to ScrapeFill modal
+      await runFirecrawlPhase(espnId);
+    } catch {
+      setStatus("error");
+      setErrorMessage("Auto-fill failed. Please try again.");
     }
+  }, [canScrape, runCfbdPhase, runFirecrawlPhase]);
 
-    // Build enrichment function
-    const runEnrichment = async () => {
-      setStatus("enriching");
-      const data: EnrichedData = {};
-      const srcList: string[] = [];
-      let espnId: string | null = null;
-
-      const yr = new Date().getFullYear();
-
-      // Phase 1: CFBD parallel calls
-      if (bestCandidate && bestScore > 75 && school) {
-        const [recruitRes, teamsRes, portalRes, gameRes] = await Promise.all([
-          cfbdApi.recruitingPlayers(`${firstName} ${lastName}`, schoolForCfbd),
-          cfbdApi.teams(schoolForCfbd),
-          cfbdApi.playerPortal(yr, schoolForCfbd),
-          cfbdApi.upcomingGames(schoolForCfbd, yr),
-        ]);
-
-        srcList.push("CFBD");
-
-        // 1a: Roster data
-        if (bestCandidate.height) data.height = String(bestCandidate.height);
-        if (bestCandidate.weight) data.weight = String(bestCandidate.weight);
-        if (bestCandidate.jersey != null) data.number = String(bestCandidate.jersey);
-        if (bestCandidate.position) data.position = bestCandidate.position;
-        if (bestCandidate.year) data.classYear = yearToClass[bestCandidate.year] || String(bestCandidate.year);
-        if (bestCandidate.home_city && bestCandidate.home_state) {
-          data.hometown = `${bestCandidate.home_city}, ${bestCandidate.home_state}`;
-        }
-
-        // Profile picture from headshot — only if empty
-        if (bestCandidate.headshot_url && !store.getState().profilePictureUrl) {
-          data.profilePictureUrl = bestCandidate.headshot_url;
-        }
-
-        // Extract ESPN ID for Phase 3
-        if (bestCandidate.headshot_url) {
-          espnId = extractEspnId(bestCandidate.headshot_url);
-        }
-
-        // 1b: Recruiting
-        if (recruitRes.success && recruitRes.data) {
-          const recruit = recruitRes.data.find((r: CfbdRecruit) => r.athlete_id != null) ||
-            (recruitRes.data.length > 0 ? recruitRes.data[0] : null);
-          if (recruit) {
-            if (recruit.stars) data.starRating = recruit.stars;
-            if (recruit.rating) {
-              data.recruitingRating = recruit.rating;
-              data.ratingComposite = String(recruit.rating);
-            }
-            if (recruit.ranking) data.nationalRank = recruit.ranking;
-            if (recruit.school) data.highSchool = recruit.school;
-            data.commitmentStatus = recruit.committed_to ? "committed" : "uncommitted";
-          }
-        }
-
-        // 1c: Teams
-        if (teamsRes.success && teamsRes.data.length > 0) {
-          const team: CfbdTeam = teamsRes.data[0];
-          if (team.logos?.[0]) data.schoolLogoUrl = team.logos[0];
-          if (team.color) data.teamColor = team.color.startsWith("#") ? team.color : `#${team.color}`;
-          if (team.alt_color) data.teamColorAlt = team.alt_color.startsWith("#") ? team.alt_color : `#${team.alt_color}`;
-          if (team.abbreviation) data.schoolAbbrev = team.abbreviation;
-        }
-
-        // 1d: Portal
-        if (portalRes.success && portalRes.data) {
-          const portalMatch = portalRes.data.find((p: CfbdPortalPlayer) =>
-            p.first_name.toLowerCase() === firstName.toLowerCase() &&
-            p.last_name.toLowerCase() === lastName.toLowerCase()
-          );
-          if (portalMatch) {
-            data.transferFrom = portalMatch.origin;
-            if (portalMatch.eligibility) data.eligibilityYears = parseInt(portalMatch.eligibility, 10) || 0;
-            if (portalMatch.stars) data.transferStars = portalMatch.stars;
-            if (!portalMatch.destination) data.commitmentStatus = "portal";
-          }
-        }
-
-        // 1e: Upcoming game
-        if (gameRes.success && gameRes.data) {
-          data.upcomingGame = {
-            opponent: gameRes.data.opponent,
-            date: gameRes.data.date,
-            time: gameRes.data.time,
-            network: "",
-            location: gameRes.data.location,
-          };
-        }
-      }
-
-      // Phase 2: Firecrawl 247Sports + On3
-      const posTag = position || String(data.position || "");
-      const schoolTag = school || "";
-      let actionPhotoFrom247: string | null = null;
-      let actionPhotoFromOn3: string | null = null;
-
-      if (schoolTag && firstName && lastName) {
-        try {
-          const [s247Res, sOn3Res] = await Promise.all([
-            firecrawlApi.search247Profile(firstName, lastName, posTag, schoolTag),
-            firecrawlApi.searchOn3Profile(firstName, lastName, posTag, schoolTag),
-          ]);
-
-          // 247Sports extraction
-          if (s247Res.success && s247Res.data) {
-            srcList.push("247Sports");
-            const d = s247Res.data;
-            if (d.nationalRank != null) data.nationalRank = d.nationalRank;
-            if (d.positionRank != null) data.positionRank = d.positionRank;
-            if (d.stateRank != null) data.stateRank = d.stateRank;
-            if (d.compositeRating != null) {
-              data.recruitingRating = d.compositeRating;
-              data.ratingComposite = String(d.compositeRating);
-            }
-            if (d.stars != null) data.starRating = d.stars;
-            if (d.height) data.height = d.height;
-            if (d.weight) data.weight = String(d.weight);
-            if (d.highSchool) data.highSchool = d.highSchool;
-            if (d.hometown) data.hometown = d.hometown;
-            if (d.actionPhotoUrl && isValidActionPhoto(d.actionPhotoUrl)) {
-              actionPhotoFrom247 = d.actionPhotoUrl;
-            }
-          }
-
-          // On3 extraction
-          if (sOn3Res.success && sOn3Res.data) {
-            srcList.push("On3");
-            const d = sOn3Res.data;
-            if (d.on3Rating != null) data.on3Rating = d.on3Rating;
-            if (d.on3NationalRank != null) data.on3NationalRank = d.on3NationalRank;
-            if (d.on3PositionRank != null) data.on3PositionRank = d.on3PositionRank;
-            if (d.on3StateRank != null) data.stateRank = d.on3StateRank;
-            if (d.nilValuation) data.nilValuation = d.nilValuation;
-            if (d.actionPhotoUrl && isValidActionPhoto(d.actionPhotoUrl)) {
-              actionPhotoFromOn3 = d.actionPhotoUrl;
-            }
-          }
-        } catch {
-          // Firecrawl is non-critical
-        }
-
-        // School logo fallback
-        if (!data.schoolLogoUrl) {
-          try {
-            const logoRes = await firecrawlApi.fetchSchoolLogo(schoolTag);
-            if (logoRes.success && logoRes.logoUrl) {
-              data.schoolLogoUrl = logoRes.logoUrl;
-            }
-          } catch {
-            // non-critical
-          }
-        }
-      }
-
-      // Phase 3: Action photo resolution — only if actionPhoto is currently empty
-      if (!store.getState().actionPhotoUrl) {
-        let resolvedActionPhoto: string | null = null;
-
-        // Check On3 and 247 first (already scraped, free)
-        if (actionPhotoFromOn3) {
-          resolvedActionPhoto = actionPhotoFromOn3;
-        } else if (actionPhotoFrom247) {
-          resolvedActionPhoto = actionPhotoFrom247;
-        }
-
-        // Phase 3A: ESPN player page
-        if (!resolvedActionPhoto && espnId) {
-          try {
-            const espnRes = await firecrawlApi.scrapeEspnActionPhoto(espnId, firstName, lastName);
-            if (espnRes.success && espnRes.data?.actionPhotoUrl && isValidActionPhoto(espnRes.data.actionPhotoUrl)) {
-              resolvedActionPhoto = espnRes.data.actionPhotoUrl;
-            }
-          } catch {
-            // non-critical
-          }
-        }
-
-        // Phase 3B: School athletic website
-        if (!resolvedActionPhoto && schoolTag) {
-          try {
-            const schoolRes = await firecrawlApi.scrapeSchoolRosterPhoto(firstName, lastName, schoolTag);
-            if (schoolRes.success && schoolRes.data?.actionPhotoUrl && isValidActionPhoto(schoolRes.data.actionPhotoUrl)) {
-              resolvedActionPhoto = schoolRes.data.actionPhotoUrl;
-            }
-          } catch {
-            // non-critical
-          }
-        }
-
-        // Phase 3C: Google Image Search (last resort)
-        if (!resolvedActionPhoto && schoolTag) {
-          try {
-            const googleRes = await firecrawlApi.scrapeGoogleImagePhoto(firstName, lastName, schoolTag);
-            if (googleRes.success && googleRes.data?.actionPhotoUrl && isValidActionPhoto(googleRes.data.actionPhotoUrl)) {
-              resolvedActionPhoto = googleRes.data.actionPhotoUrl;
-            }
-          } catch {
-            // non-critical
-          }
-        }
-
-        if (resolvedActionPhoto) {
-          data.actionPhotoUrl = resolvedActionPhoto;
-        }
-      }
-
-      // Immediate preview write — update ProCard-critical fields now
-      const previewFields: Record<string, unknown> = {};
-      if (data.height) previewFields.height = data.height;
-      if (data.weight) previewFields.weight = data.weight;
-      if (data.ratingComposite) previewFields.ratingComposite = data.ratingComposite;
-      if (data.actionPhotoUrl && !store.getState().actionPhotoUrl) previewFields.actionPhotoUrl = data.actionPhotoUrl;
-      if (Object.keys(previewFields).length > 0) {
-        setAthleteFromSource(previewFields as Partial<Record<string, unknown>>, "cfbd");
-      }
-
-      // Build field entries for review UI
-      const entries: FieldEntry[] = [];
-      const manualFields = new Set(["firstName", "lastName", "school"]);
-
-      for (const [key, value] of Object.entries(data)) {
-        if (manualFields.has(key)) continue;
-        if (value === null || value === undefined || value === "") continue;
-
-        let source: FieldSource = "cfbd";
-        if (srcList.includes("247Sports") && ["nationalRank", "positionRank", "stateRank", "compositeRating"].includes(key)) {
-          source = "247";
-        }
-        if (srcList.includes("On3") && ["on3Rating", "on3NationalRank", "on3PositionRank", "nilValuation"].includes(key)) {
-          source = "on3";
-        }
-        if (key === "actionPhotoUrl") {
-          if (actionPhotoFromOn3 && data.actionPhotoUrl === actionPhotoFromOn3) source = "on3";
-          else if (actionPhotoFrom247 && data.actionPhotoUrl === actionPhotoFrom247) source = "247";
-          else source = "firecrawl";
-        }
-
-        entries.push({
-          key,
-          label: fieldLabels[key] || key,
-          value,
-          source,
-        });
-      }
-
-      setEnrichedFields(entries);
-      setSources(srcList);
-
-      // Auto-select all fields that aren't manually set
-      const currentSources = store.getState().fieldSources;
-      const autoSelected = new Set<string>();
-      for (const entry of entries) {
-        if (currentSources[entry.key] !== "manual") {
-          autoSelected.add(entry.key);
-        }
-      }
-      setSelectedKeys(autoSelected);
-
-      if (entries.length > 0) {
-        setStatus("results");
-      } else {
-        setStatus("error");
-        setErrorMessage("No profile data found for this athlete.");
-      }
-    };
-
-    // Decision based on score
-    if (bestScore > 75) {
-      await runEnrichment();
-    } else if (bestScore >= 60 && bestCandidate) {
-      setConfirmCandidate({
-        name: `${bestCandidate.first_name} ${bestCandidate.last_name}`,
-        school: schoolForCfbd,
-        position: bestCandidate.position || "",
-      });
-      pendingEnrichRef.current = runEnrichment;
-      setStatus("confirm");
-    } else {
-      bestCandidate = null;
-      bestScore = 0;
-      await runEnrichment();
-    }
-  }, [canScrape, firstName, lastName, school, position, jersey, classYear, setAthleteFromSource]);
-
-  /* ── Confirm identity ──────────────────────────────────────── */
+  /* ── Confirm identity (kept for backward compat) ────────── */
 
   const confirmIdentity = useCallback(async () => {
     if (pendingEnrichRef.current) {
@@ -531,7 +537,7 @@ export function useAutoFill() {
     });
   }, []);
 
-  /* ── Apply selected fields ──────────────────────────────── */
+  /* ── Apply selected fields (Firecrawl results only) ──────── */
 
   const apply = useCallback(async () => {
     if (enrichedFields.length === 0) return;
