@@ -97,7 +97,7 @@ interface AthleteState {
   setActiveSection: (section: ActiveSection) => void;
 }
 
-type AthleteData = Omit<AthleteState, "setAthlete" | "setAthleteFromSource" | "getFieldSource" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "lastPublishedAt" | "hasUnpublishedChanges" | "activeSection" | "setActiveSection" | "fieldSources">;
+type AthleteData = Omit<AthleteState, "setAthlete" | "setAthleteFromSource" | "getFieldSource" | "setMissingFields" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "lastPublishedAt" | "hasUnpublishedChanges" | "activeSection" | "setActiveSection" | "fieldSources" | "missingFields">;
 
 /** Fields set during onboarding or by the user — never overwritten by pipelines */
 const MANUAL_FIELDS = new Set(["firstName", "lastName", "school", "position", "classYear", "number"]);
