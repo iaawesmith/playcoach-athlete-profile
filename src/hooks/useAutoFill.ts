@@ -257,7 +257,7 @@ export function useAutoFill() {
       }
       if (bestTeam) {
         schoolForCfbd = bestTeam.school;
-        console.log(`[CFBD] Team match: "${bestTeam.school}" (score: ${bestTeamScore}) for input "${school}"`);
+        // no log needed — errors array captures diagnostics
       } else {
         errors.push(`teams: no match for "${school}"`);
       }
@@ -305,7 +305,7 @@ export function useAutoFill() {
     let totalPlayers = 0;
     for (const rosterResult of rosterResults) {
       if (!rosterResult) continue;
-      console.log(`[CFBD] Roster ${rosterResult.year}: ${rosterResult.data.length} players`);
+      // roster year counted
       totalPlayers += rosterResult.data.length;
       for (const player of rosterResult.data) {
         const score = scoreCandidateRoster(player, target) + 35;
@@ -315,7 +315,7 @@ export function useAutoFill() {
         }
       }
     }
-    console.log(`[CFBD] Best roster match: score=${bestScore}, name=${bestCandidate?.firstName} ${bestCandidate?.lastName}, total players scanned=${totalPlayers}`);
+    // scoring complete
 
     if (bestCandidate && bestScore >= 70) {
       const h = bestCandidate.height;
@@ -332,7 +332,7 @@ export function useAutoFill() {
       if (pos) cfbdData.position = String(pos);
       if (rosterYear) cfbdData.classYear = yearToClass[Number(rosterYear)] || String(rosterYear);
       if (city && state) cfbdData.hometown = `${city}, ${state}`;
-      console.log("[CFBD] Roster data extracted:", cfbdData);
+      errors.push(`roster ✓ (matched ${String(bestCandidate.firstName)} ${String(bestCandidate.lastName)}, score ${bestScore})`);
     } else {
       errors.push(`roster: no exact match found across ${rosterYears.join(", ")} (best score: ${bestScore})`);
     }
@@ -401,18 +401,11 @@ export function useAutoFill() {
       };
     }
 
-    console.log("[CFBD] Final cfbdData keys:", Object.keys(cfbdData), "values:", JSON.stringify(cfbdData));
     if (Object.keys(cfbdData).length > 0) {
-      console.log("[CFBD] Writing to store via setAthleteFromSource with source='cfbd'");
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
-      console.log("[CFBD] Store write complete. Store state:", JSON.stringify({
-        height: useAthleteStore.getState().height,
-        weight: useAthleteStore.getState().weight,
-        hometown: useAthleteStore.getState().hometown,
-        teamColor: useAthleteStore.getState().teamColor,
-      }));
+      errors.push(`store ✓ (${Object.keys(cfbdData).join(", ")})`);
     } else {
-      console.warn("[CFBD] No data extracted — nothing to write");
+      errors.push("store ✗ (no data extracted)");
     }
 
     return { espnId, errors };
@@ -604,7 +597,6 @@ export function useAutoFill() {
 
   const scrape = useCallback(async () => {
     if (!canScrape) return;
-    console.log("[AutoFill] scrape started", { firstName, lastName, school, position, jersey });
     setStatus("resolving");
     setErrorMessage("");
     setEnrichedFields([]);
@@ -617,54 +609,40 @@ export function useAutoFill() {
     let espnId: string | null = null;
     let cfbdWroteData = false;
     try {
-      console.log("[AutoFill] Starting CFBD phase...");
       const cfbdResult = await runCfbdPhase();
       espnId = cfbdResult.espnId;
-      console.log("[AutoFill] CFBD phase complete", { espnId, errors: cfbdResult.errors });
       if (cfbdResult.errors.length > 0) {
-        diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
+        diagParts.push(`Phase 1 (CFBD): ${cfbdResult.errors.join(", ")}`);
       }
-      // Check if CFBD wrote anything by looking at store state after write
       const storeAfter = useAthleteStore.getState();
       cfbdWroteData = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown || storeAfter.schoolLogoUrl || storeAfter.teamColor !== "#50C4CA");
-      console.log("[AutoFill] CFBD wrote data:", cfbdWroteData, {
-        height: storeAfter.height,
-        weight: storeAfter.weight,
-        hometown: storeAfter.hometown,
-        teamColor: storeAfter.teamColor,
-        schoolLogoUrl: storeAfter.schoolLogoUrl?.slice(0, 60),
-      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("[AutoFill] CFBD phase crashed:", msg);
-      diagParts.push(`CFBD phase crashed: ${msg}`);
+      diagParts.push(`Phase 1 crashed: ${msg}`);
     }
 
     // Phase 2: Firecrawl — results go to ScrapeFill modal
     try {
-      console.log("[AutoFill] Starting Firecrawl phase...");
       await runFirecrawlPhase(espnId);
-      console.log("[AutoFill] Firecrawl phase complete");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("[AutoFill] Firecrawl phase crashed:", msg);
-      diagParts.push(`Firecrawl phase crashed: ${msg}`);
+      diagParts.push(`Phase 2 crashed: ${msg}`);
     }
 
-    // If CFBD wrote data successfully but Firecrawl found nothing, that's still a success
-    if (cfbdWroteData) {
-      console.log("[AutoFill] CFBD populated data — not treating as error");
-      // Don't override the status set by runFirecrawlPhase
-      if (diagParts.length > 0) {
-        console.log("[AutoFill] Diagnostic notes:", diagParts.join(" | "));
-      }
-    } else if (diagParts.length > 0) {
-      // Only show error if CFBD also failed to write anything
-      console.warn("[AutoFill] No data from any source:", diagParts);
-      setStatus("error");
-      setErrorMessage(diagParts.join(" | ") || "Auto-fill completed but found no data.");
+    // Surface diagnostics in the UI error message for debugging
+    if (diagParts.length > 0) {
+      setErrorMessage(diagParts.join(" | "));
     }
-  }, [canScrape, firstName, lastName, school, position, jersey, runCfbdPhase, runFirecrawlPhase]);
+
+    // Only show error status if nothing was written at all
+    if (!cfbdWroteData && diagParts.length > 0) {
+      const currentStatus = useAthleteStore.getState();
+      const firecrawlFoundData = currentStatus.height || currentStatus.weight || currentStatus.hometown;
+      if (!firecrawlFoundData) {
+        setStatus("error");
+      }
+    }
+  }, [canScrape, runCfbdPhase, runFirecrawlPhase]);
 
   /* ── Confirm identity (kept for backward compat) ────────── */
 
