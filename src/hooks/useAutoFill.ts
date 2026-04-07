@@ -313,26 +313,31 @@ export function useAutoFill() {
       }
     }
 
-    // 1c: Teams
-    const teamsRes = results[2] as { success: true; data: CfbdTeam[] } | null;
+    // 1c: Teams (API returns all teams — filter client-side)
+    const teamsRes = results[2] as { success: true; data: Record<string, unknown>[] } | null;
     if (teamsRes?.data && teamsRes.data.length > 0) {
-      const team = teamsRes.data[0];
-      if (team.logos?.[0]) cfbdData.schoolLogoUrl = team.logos[0];
-      if (team.color) cfbdData.teamColor = team.color.startsWith("#") ? team.color : `#${team.color}`;
-      if (team.alt_color) cfbdData.teamColorAlt = team.alt_color.startsWith("#") ? team.alt_color : `#${team.alt_color}`;
-      if (team.abbreviation) cfbdData.schoolAbbrev = team.abbreviation;
+      const schoolLower2 = schoolForCfbd.toLowerCase();
+      const team = teamsRes.data.find((t) => String(t.school ?? "").toLowerCase() === schoolLower2) || teamsRes.data[0];
+      const logos = team.logos as string[] | null;
+      if (logos?.[0]) cfbdData.schoolLogoUrl = logos[0];
+      const color = String(team.color ?? "");
+      if (color && color !== "#null") cfbdData.teamColor = color.startsWith("#") ? color : `#${color}`;
+      const altColor = String(team.alternateColor ?? team.alt_color ?? "");
+      if (altColor && altColor !== "#null") cfbdData.teamColorAlt = altColor.startsWith("#") ? altColor : `#${altColor}`;
+      if (team.abbreviation) cfbdData.schoolAbbrev = String(team.abbreviation);
     }
 
-    // 1d: Portal
-    const portalRes = results[3] as { success: true; data: CfbdPortalPlayer[] } | null;
+    // 1d: Portal (API returns camelCase: firstName, lastName, origin, destination, eligibility)
+    const portalRes = results[3] as { success: true; data: Record<string, unknown>[] } | null;
     if (portalRes?.data) {
       const portalMatch = portalRes.data.find((p) =>
-        p.first_name.toLowerCase() === firstName.toLowerCase() &&
-        p.last_name.toLowerCase() === lastName.toLowerCase()
+        String(p.firstName ?? "").toLowerCase() === firstName.toLowerCase() &&
+        String(p.lastName ?? "").toLowerCase() === lastName.toLowerCase()
       );
       if (portalMatch) {
-        cfbdData.transferFrom = portalMatch.origin;
-        if (portalMatch.eligibility) cfbdData.eligibilityYears = parseInt(portalMatch.eligibility, 10) || 0;
+        cfbdData.transferFrom = String(portalMatch.origin ?? "");
+        const elig = String(portalMatch.eligibility ?? "");
+        if (elig) cfbdData.eligibilityYears = parseInt(elig, 10) || 0;
         if (portalMatch.stars) cfbdData.transferStars = portalMatch.stars;
         if (!portalMatch.destination) cfbdData.commitmentStatus = "portal";
       }
