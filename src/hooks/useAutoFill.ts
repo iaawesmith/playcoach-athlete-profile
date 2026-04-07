@@ -668,6 +668,8 @@ export function useAutoFill() {
 
     for (const entry of enrichedFields) {
       if (!selectedKeys.has(entry.key)) continue;
+      // CFBD entries are already applied to store — skip
+      if (entry.key.startsWith("cfbd_")) continue;
 
       // Handle image uploads — proxy external URLs to storage
       if (
