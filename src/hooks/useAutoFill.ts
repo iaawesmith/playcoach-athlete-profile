@@ -103,11 +103,12 @@ export const fieldLabels: Record<string, string> = {
 
 export const formatDisplayValue = (key: string, val: unknown): string => {
   if (val === null || val === undefined) return "—";
-  if (key === "height") {
+  const normalizedKey = key.startsWith("cfbd_") ? key.slice(5) : key;
+  if (normalizedKey === "height") {
     const total = parseInt(String(val), 10);
     if (total > 11) return `${Math.floor(total / 12)}'${total % 12}"`;
   }
-  if (key === "upcomingGame" && typeof val === "object") {
+  if (normalizedKey === "upcomingGame" && typeof val === "object") {
     const g = val as Record<string, string>;
     return `${g.opponent || "TBD"} — ${g.date || ""}`;
   }
