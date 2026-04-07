@@ -633,37 +633,97 @@ export const IdentityForm = () => {
           {/* ── Recruiting Profile ── */}
           <section>
             <SectionHeader title="Recruiting Profile" />
-            <div className="space-y-4">
-              {/* Stars */}
-              <SelectCard label="Composite Stars" value={starRating ? String(starRating) : ""} badge="CFBD"
-                options={[
-                  { label: "—", value: "" },
-                  { label: "★", value: "1" }, { label: "★★", value: "2" },
-                  { label: "★★★", value: "3" }, { label: "★★★★", value: "4" }, { label: "★★★★★", value: "5" },
-                ]}
-                onChange={(v) => setAthlete({ starRating: v ? Number(v) : 0 })} />
 
-              {/* Ratings row */}
-              <div className="grid grid-cols-3 gap-4">
-                <DisplayField label="Composite Rating" value={recruitingRating} decimals={4} badge="CFBD" />
-                <DisplayField label="247Sports Rating" value={store.rating247} decimals={4} badge="247" />
-                <DisplayField label="On3 Rating" value={on3Rating} decimals={4} badge="ON3" />
-              </div>
-
-              {/* Rankings */}
-              <div className="grid grid-cols-3 gap-4">
-                <DisplayField label="National Rank" value={nationalRank} badge="CFBD" />
-                <DisplayField label={position ? `${position} Rank` : "Position Rank"} value={positionRank} badge="247" />
-                <DisplayField label="State Rank" value={stateRank} badge="247" />
-              </div>
-
-              {/* NIL + Commitment */}
-              <div className="grid grid-cols-2 gap-4">
-                <InputCard label="NIL Valuation" value={nilValuation ?? ""} onChange={(v) => setAthlete({ nilValuation: v || null })} placeholder="—" badge="ON3" />
-                <SelectCard label="Commitment Status" value={commitmentStatus} options={commitmentOptions}
-                  onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })} />
-              </div>
+            {/* Tab toggle */}
+            <div className="flex gap-2 mb-6">
+              {(["cfbd", "247", "on3"] as const).map((tab) => {
+                const labels: Record<RecruitingTab, string> = { cfbd: "CFBD", "247": "247", on3: "ON3" };
+                const isActive = recruitingTab === tab;
+                return (
+                  <button key={tab} type="button" onClick={() => setRecruitingTab(tab)}
+                    className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-colors duration-200 ${
+                      isActive ? "text-on-surface" : "bg-surface-container-highest text-on-surface-variant/50 hover:text-on-surface-variant"
+                    }`}
+                    style={isActive ? { backgroundColor: "#50C4CA" } : undefined}
+                  >
+                    {labels[tab]}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* CFBD Tab */}
+            {recruitingTab === "cfbd" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <DisplayField label="Composite Stars" value={starRating || null} badge="CFBD" />
+                  <DisplayField label="Composite Rating" value={recruitingRating} decimals={4} badge="CFBD" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <DisplayField label="National Rank" value={nationalRank} badge="CFBD" />
+                </div>
+              </div>
+            )}
+
+            {/* 247 Tab */}
+            {recruitingTab === "247" && (() => {
+              const posLabel = position || "POSITION";
+              const stateAbbr = getStateAbbrev(hometown);
+              const stateLabel = stateAbbr ? `STATE RANK (${stateAbbr})` : "STATE RANK";
+              const compPosLabel = position ? `COMPOSITE ${position}` : "COMPOSITE POSITION";
+              const compStateLabel = stateAbbr ? `COMPOSITE STATE (${stateAbbr})` : "COMPOSITE STATE";
+              return (
+                <div className="space-y-4">
+                  {/* 247 proprietary */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <DisplayField label="Stars" value={store.stars247} badge="247" />
+                    <DisplayField label="Player Rating" value={store.rating247} decimals={4} badge="247" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <DisplayField label={`${posLabel} RANK`} value={positionRank} badge="247" />
+                    <DisplayField label={stateLabel} value={stateRank} badge="247" />
+                  </div>
+
+                  {/* 247 Composite divider */}
+                  <div className="flex items-center gap-3 my-2">
+                    <span className="flex-1 h-[1px] bg-outline-variant/20" />
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant/40">247 Composite</span>
+                    <span className="flex-1 h-[1px] bg-outline-variant/20" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <DisplayField label="Composite Stars" value={store.compositeStars247} badge="247C" />
+                    <DisplayField label="Composite Rating" value={store.compositeRating247} decimals={4} badge="247C" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <DisplayField label="Composite Natl." value={store.compositeNationalRank247} badge="247C" />
+                    <DisplayField label={compPosLabel} value={store.compositePositionRank247} badge="247C" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <DisplayField label={compStateLabel} value={store.compositeStateRank247} badge="247C" />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ON3 Tab */}
+            {recruitingTab === "on3" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <DisplayField label="On3 Rating" value={on3Rating} decimals={4} badge="ON3" />
+                  <DisplayField label="National Rank" value={store.on3NationalRank} badge="ON3" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <DisplayField label="Position Rank" value={store.on3PositionRank} badge="ON3" />
+                  <DisplayField label="State Rank" value={store.on3StateRank} badge="ON3" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <InputCard label="NIL Valuation" value={nilValuation ?? ""} onChange={(v) => setAthlete({ nilValuation: v || null })} placeholder="—" badge="ON3" />
+                  <SelectCard label="Commitment Status" value={commitmentStatus} options={commitmentOptions}
+                    onChange={(v) => setAthlete({ commitmentStatus: v as "" | "committed" | "uncommitted" | "portal" })} />
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── Eligibility & Transfer ── */}
