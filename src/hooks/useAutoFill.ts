@@ -521,15 +521,32 @@ export function useAutoFill() {
     setSources([]);
     setConfirmCandidate(null);
 
-    try {
-      // Phase 1: CFBD — writes directly to store, no modal
-      const espnId = await runCfbdPhase();
+    const diagParts: string[] = [];
 
-      // Phase 2: Firecrawl — results go to ScrapeFill modal
+    // Phase 1: CFBD — writes directly to store, no modal
+    let espnId: string | null = null;
+    try {
+      const cfbdResult = await runCfbdPhase();
+      espnId = cfbdResult.espnId;
+      if (cfbdResult.errors.length > 0) {
+        diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      diagParts.push(`CFBD phase crashed: ${msg}`);
+    }
+
+    // Phase 2: Firecrawl — results go to ScrapeFill modal
+    try {
       await runFirecrawlPhase(espnId);
-    } catch {
-      setStatus("error");
-      setErrorMessage("Auto-fill failed. Please try again.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      diagParts.push(`Firecrawl phase crashed: ${msg}`);
+    }
+
+    // If both phases produced nothing useful, surface diagnostics
+    if (status === "error" || (enrichedFields.length === 0 && diagParts.length > 0)) {
+      setErrorMessage(diagParts.join(" | ") || "Auto-fill completed but found no data.");
     }
   }, [canScrape, runCfbdPhase, runFirecrawlPhase]);
 
