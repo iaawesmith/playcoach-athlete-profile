@@ -321,7 +321,7 @@ const UniversitySearchCard = ({
   label, value, onChange, placeholder = "Search schools...", badge,
 }: {
   label: string; value: string; onChange: (name: string) => void; placeholder?: string;
-  badge?: "CFBD" | "247" | "ON3";
+  badge?: "CFBD" | "247" | "ON3" | "247C";
 }) => {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
