@@ -417,6 +417,7 @@ export const IdentityForm = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [logoLoading, setLogoLoading] = useState(false);
   const [showColorOverride, setShowColorOverride] = useState(false);
+  const [recruitingTab, setRecruitingTab] = useState<RecruitingTab>("cfbd");
 
   const autoFetchSchoolLogo = useCallback(async (schoolName: string) => {
     if (schoolLogoUrl) return;
