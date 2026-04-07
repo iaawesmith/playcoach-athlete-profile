@@ -702,8 +702,8 @@ export function useAutoFill() {
         setErrorMessage(diagParts.join(" | "));
       }
 
-      // If we have enriched fields or missing fields to show, ensure results view
-      if (enrichedFields.length > 0 || missingFields.length > 0) {
+      // If we have missing fields to show, ensure results view is visible
+      if (missingFields.length > 0) {
         setStatus("results");
       }
 
