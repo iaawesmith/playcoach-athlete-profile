@@ -103,17 +103,4 @@ export const firecrawlApi = {
     if (error) return { success: false, error: error.message };
     return data as ExtractionResult<ExtractedActionPhoto>;
   },
-
-  /** Extract action photo from Google Image Search (last resort) */
-  async scrapeGoogleImagePhoto(
-    firstName: string,
-    lastName: string,
-    school: string,
-  ): Promise<ExtractionResult<ExtractedActionPhoto>> {
-    const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
-      body: { mode: "google-image-photo", firstName, lastName, school },
-    });
-    if (error) return { success: false, error: error.message };
-    return data as ExtractionResult<ExtractedActionPhoto>;
-  },
 };
