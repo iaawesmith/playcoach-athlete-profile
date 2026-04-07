@@ -331,6 +331,7 @@ export function useAutoFill() {
   }, [firstName, lastName, school, position, jersey, setAthleteFromSource]);
 
   /* ── PHASE 2: Firecrawl (247 + On3) — results go to ScrapeFill modal ── */
+  /* Returns diagnostic strings for any failures */
 
   const runFirecrawlPhase = useCallback(async (espnId: string | null) => {
     if (!firstName || !lastName || !school) {
