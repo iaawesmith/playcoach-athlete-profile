@@ -201,113 +201,54 @@ export function useAutoFill() {
 
   const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[] }> => {
     const errors: string[] = [];
-    if (!school || !firstName || !lastName) return { espnId: null, errors: ["Missing name or school"] };
+
+    // CHANGE 5: skip if minimum data is missing
+    if (!firstName || !school) {
+      return { espnId: null, errors: [] };
+    }
 
     const currentYear = new Date().getFullYear();
     const rosterYears = [currentYear, currentYear - 1, currentYear - 2];
-    let schoolForCfbd = school;
-    const espnId: string | null = null;
     const fullNameLower = `${firstName} ${lastName}`.trim().toLowerCase();
     const target = { firstName, lastName, position, jersey, school };
     const normalize = (value: unknown) => String(value ?? "").trim().toLowerCase();
+    let espnId: string | null = null;
 
-    const readData = <T,>(
-      result: PromiseSettledResult<{ success: true; data: T } | { success: false; error: string }>,
+    // CHANGE 1 & 3: only roster, recruiting, portal, games — no teams()
+    const settled = await Promise.allSettled([
+      ...rosterYears.map((year) => cfbdApi.roster(school, year)),
+      cfbdApi.recruitingPlayers(`${firstName} ${lastName}`),
+      cfbdApi.playerPortal(currentYear, school),
+      cfbdApi.upcomingGames(school, currentYear),
+    ]);
+
+    // Helper to extract data from settled results
+    const readSettled = <T,>(
+      index: number,
       label: string,
     ): T | null => {
+      const result = settled[index];
       if (result.status === "rejected") {
         errors.push(`${label} ✗ (${String(result.reason)})`);
         return null;
       }
-
-      const value = result.value;
+      const value = result.value as { success: true; data: T } | { success: false; error: string };
       if (value.success === false) {
         errors.push(`${label} ✗ (${value.error})`);
         return null;
       }
-
       return value.data;
     };
 
-    const teamsCheck = await cfbdApi.teams();
-    if (teamsCheck.success && teamsCheck.data.length > 0) {
-      const schoolLower = school.toLowerCase();
-      // Score-based team matching to avoid ambiguous substring matches (e.g. "Buffalo" vs "Colorado Buffaloes")
-      let bestTeam: typeof teamsCheck.data[0] | null = null;
-      let bestTeamScore = 0;
-      for (const team of teamsCheck.data) {
-        const teamSchool = team.school.toLowerCase();
-        let teamScore = 0;
-        // Exact match (highest priority)
-        if (teamSchool === schoolLower) { teamScore = 100; }
-        // Alternate name exact match
-        else if (team.alternateNames?.some((name) => name.toLowerCase() === schoolLower)) { teamScore = 90; }
-        // School display name contains the CFBD team name exactly (e.g. "Colorado Buffaloes" contains "Colorado")
-        else if (schoolLower.startsWith(teamSchool + " ") || schoolLower === teamSchool) { teamScore = 80; }
-        // CFBD team name starts with input
-        else if (teamSchool.startsWith(schoolLower)) { teamScore = 70; }
-        // Partial contains — lowest priority, must be reasonably long match
-        else if (teamSchool.length >= 5 && schoolLower.includes(teamSchool)) { teamScore = 40; }
-        else if (schoolLower.length >= 5 && teamSchool.includes(schoolLower)) { teamScore = 40; }
-
-        if (teamScore > bestTeamScore) {
-          bestTeamScore = teamScore;
-          bestTeam = team;
-        }
-      }
-      if (bestTeam) {
-        schoolForCfbd = bestTeam.school;
-        // no log needed — errors array captures diagnostics
-      } else {
-        errors.push(`teams: no match for "${school}"`);
-      }
-    } else if (teamsCheck.success === false) {
-      errors.push(`teams lookup ✗ (${teamsCheck.error})`);
-    }
-
-    const settled = await Promise.allSettled([
-      ...rosterYears.map((year) => cfbdApi.roster(schoolForCfbd, year)),
-      cfbdApi.recruitingPlayers(`${firstName} ${lastName}`, schoolForCfbd),
-      cfbdApi.teams(schoolForCfbd),
-      cfbdApi.playerPortal(currentYear, schoolForCfbd),
-      cfbdApi.upcomingGames(schoolForCfbd, currentYear),
-    ]);
-
-    const rosterResults = rosterYears.map((year, index) => {
-      const data = readData<Record<string, unknown>[]>(
-        settled[index] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
-        `roster ${year}`,
-      );
-      return data ? { year, data } : null;
-    });
-
-    const recruitingData = readData<Record<string, unknown>[]>(
-      settled[rosterYears.length] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
-      "recruiting",
-    );
-    const teamsData = readData<Record<string, unknown>[]>(
-      settled[rosterYears.length + 1] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
-      "teams",
-    );
-    const portalData = readData<Record<string, unknown>[]>(
-      settled[rosterYears.length + 2] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
-      "portal",
-    );
-    const gameData = readData<{ opponent: string; date: string; time: string; location: string } | null>(
-      settled[rosterYears.length + 3] as PromiseSettledResult<{ success: true; data: { opponent: string; date: string; time: string; location: string } | null } | { success: false; error: string }>,
-      "games",
-    );
-
     const cfbdData: Record<string, unknown> = {};
 
+    // ── Roster: height, weight, hometown, headshot, ESPN ID ──
     let bestCandidate: Record<string, unknown> | null = null;
     let bestScore = 0;
-    let totalPlayers = 0;
-    for (const rosterResult of rosterResults) {
-      if (!rosterResult) continue;
-      // roster year counted
-      totalPlayers += rosterResult.data.length;
-      for (const player of rosterResult.data) {
+    for (let i = 0; i < rosterYears.length; i++) {
+      const roster = readSettled<Record<string, unknown>[]>(i, `roster ${rosterYears[i]}`);
+      if (!roster) continue;
+      for (const player of roster) {
         const score = scoreCandidateRoster(player, target) + 35;
         if (score > bestScore) {
           bestScore = score;
@@ -315,28 +256,36 @@ export function useAutoFill() {
         }
       }
     }
-    // scoring complete
 
     if (bestCandidate && bestScore >= 70) {
       const h = bestCandidate.height;
       const w = bestCandidate.weight;
-      const j = bestCandidate.jersey ?? bestCandidate.jerseyNumber;
-      const pos = bestCandidate.position;
-      const rosterYear = bestCandidate.year;
       const city = bestCandidate.homeCity ?? bestCandidate.home_city;
       const state = bestCandidate.homeState ?? bestCandidate.home_state;
 
       if (h) cfbdData.height = String(h);
       if (w) cfbdData.weight = String(w);
-      if (j != null) cfbdData.number = String(j);
-      if (pos) cfbdData.position = String(pos);
-      if (rosterYear) cfbdData.classYear = yearToClass[Number(rosterYear)] || String(rosterYear);
       if (city && state) cfbdData.hometown = `${city}, ${state}`;
-      errors.push(`roster ✓ (matched ${String(bestCandidate.firstName)} ${String(bestCandidate.lastName)}, score ${bestScore})`);
+
+      // Headshot — only if photo is currently empty
+      const headshot = String(bestCandidate.headshot_url ?? bestCandidate.headshotUrl ?? "");
+      if (headshot && !store.getState().profilePictureUrl) {
+        cfbdData.profilePictureUrl = headshot;
+      }
+
+      // Extract ESPN ID for action photo phase
+      if (headshot) {
+        espnId = extractEspnId(headshot);
+      }
+
+      errors.push(`roster ✓ (${String(bestCandidate.firstName)} ${String(bestCandidate.lastName)}, score ${bestScore})`);
     } else {
-      errors.push(`roster: no exact match found across ${rosterYears.join(", ")} (best score: ${bestScore})`);
+      errors.push(`roster ✗ (best score ${bestScore}, need 70)`);
     }
 
+    // ── Recruiting: starRating, recruitingRating, nationalRank, highSchool, commitmentStatus ──
+    const recruitingIdx = rosterYears.length;
+    const recruitingData = readSettled<Record<string, unknown>[]>(recruitingIdx, "recruiting");
     if (recruitingData && recruitingData.length > 0) {
       const recruit = recruitingData.find((entry) => normalize(entry.name) === fullNameLower) ?? null;
       if (recruit) {
@@ -350,33 +299,15 @@ export function useAutoFill() {
         const committed = recruit.committedTo ?? recruit.committed_to;
         cfbdData.commitmentStatus = committed ? "committed" : "uncommitted";
         if (recruit.year) cfbdData.recruitingClassYear = String(recruit.year);
+        errors.push("recruiting ✓");
       } else {
-        errors.push(`recruiting: no exact match for ${firstName} ${lastName}`);
+        errors.push(`recruiting ✗ (no name match)`);
       }
     }
 
-    if (teamsData && teamsData.length > 0) {
-      const schoolLower = schoolForCfbd.toLowerCase();
-      const team = teamsData.find((entry) => {
-        const teamSchool = normalize(entry.school);
-        if (teamSchool === schoolLower) return true;
-        const altNames = Array.isArray(entry.alternateNames) ? entry.alternateNames.map((name) => normalize(name)) : [];
-        if (altNames.includes(schoolLower)) return true;
-        return teamSchool.includes(schoolLower) || schoolLower.includes(teamSchool);
-      }) ?? teamsData[0];
-
-      const logos = Array.isArray(team.logos) ? team.logos.filter((logo): logo is string => typeof logo === "string") : [];
-      if (logos[0]) cfbdData.schoolLogoUrl = logos[0];
-
-      const color = String(team.color ?? "");
-      if (color && color !== "#null") cfbdData.teamColor = color.startsWith("#") ? color : `#${color}`;
-
-      const altColor = String(team.alternateColor ?? team.alt_color ?? "");
-      if (altColor && altColor !== "#null") cfbdData.teamColorAlt = altColor.startsWith("#") ? altColor : `#${altColor}`;
-
-      if (team.abbreviation) cfbdData.schoolAbbrev = String(team.abbreviation);
-    }
-
+    // ── Portal: transferFrom, eligibilityYears, transferStars, transferRating ──
+    const portalIdx = rosterYears.length + 1;
+    const portalData = readSettled<Record<string, unknown>[]>(portalIdx, "portal");
     if (portalData) {
       const portalMatch = portalData.find((entry) =>
         normalize(entry.firstName) === firstName.toLowerCase() &&
@@ -387,10 +318,15 @@ export function useAutoFill() {
         const eligibility = String(portalMatch.eligibility ?? "");
         if (eligibility) cfbdData.eligibilityYears = parseInt(eligibility, 10) || 0;
         if (portalMatch.stars) cfbdData.transferStars = portalMatch.stars;
+        if (portalMatch.rating) cfbdData.transferRating = portalMatch.rating;
         if (!portalMatch.destination) cfbdData.commitmentStatus = "portal";
+        errors.push("portal ✓");
       }
     }
 
+    // ── Games: upcomingGame ──
+    const gamesIdx = rosterYears.length + 2;
+    const gameData = readSettled<{ opponent: string; date: string; time: string; location: string } | null>(gamesIdx, "games");
     if (gameData) {
       cfbdData.upcomingGame = {
         opponent: gameData.opponent,
@@ -399,8 +335,10 @@ export function useAutoFill() {
         network: "",
         location: gameData.location,
       };
+      errors.push("games ✓");
     }
 
+    // CHANGE 2: write directly to store — never appears in ScrapeFill
     if (Object.keys(cfbdData).length > 0) {
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
       errors.push(`store ✓ (${Object.keys(cfbdData).join(", ")})`);
@@ -409,10 +347,9 @@ export function useAutoFill() {
     }
 
     return { espnId, errors };
-  }, [firstName, lastName, school, position, jersey, setAthleteFromSource]);
+  }, [firstName, lastName, school, position, jersey, store, setAthleteFromSource]);
 
   /* ── PHASE 2: Firecrawl (247 + On3) — results go to ScrapeFill modal ── */
-  /* Returns diagnostic strings for any failures */
 
   const runFirecrawlPhase = useCallback(async (espnId: string | null) => {
     if (!firstName || !lastName || !school) {
@@ -435,7 +372,6 @@ export function useAutoFill() {
         firecrawlApi.searchOn3Profile(firstName, lastName, posTag, schoolTag),
       ]);
 
-      // 247Sports extraction
       if (s247Res.success && s247Res.data) {
         srcList.push("247Sports");
         const d = s247Res.data as Record<string, unknown>;
@@ -459,7 +395,6 @@ export function useAutoFill() {
         }
       }
 
-      // On3 extraction
       if (sOn3Res.success && sOn3Res.data) {
         srcList.push("On3");
         const d = sOn3Res.data;
@@ -486,7 +421,6 @@ export function useAutoFill() {
         resolvedActionPhoto = actionPhotoFrom247;
       }
 
-      // ESPN player page
       if (!resolvedActionPhoto && espnId) {
         try {
           const espnRes = await firecrawlApi.scrapeEspnActionPhoto(espnId, firstName, lastName);
@@ -498,7 +432,6 @@ export function useAutoFill() {
         }
       }
 
-      // School athletic website
       if (!resolvedActionPhoto && schoolTag) {
         try {
           const schoolRes = await firecrawlApi.scrapeSchoolRosterPhoto(firstName, lastName, schoolTag);
@@ -510,7 +443,6 @@ export function useAutoFill() {
         }
       }
 
-      // Google Image Search (last resort)
       if (!resolvedActionPhoto && schoolTag) {
         try {
           const googleRes = await firecrawlApi.scrapeGoogleImagePhoto(firstName, lastName, schoolTag);
@@ -527,7 +459,7 @@ export function useAutoFill() {
       }
     }
 
-    // School logo fallback (only if CFBD didn't provide one)
+    // School logo fallback (only if not already set from onboarding)
     if (!store.getState().schoolLogoUrl) {
       try {
         const logoRes = await firecrawlApi.fetchSchoolLogo(schoolTag);
@@ -576,7 +508,6 @@ export function useAutoFill() {
     setEnrichedFields(entries);
     setSources(srcList);
 
-    // Auto-select all fields that aren't manually set
     const currentSources = store.getState().fieldSources;
     const autoSelected = new Set<string>();
     for (const entry of entries) {
@@ -591,7 +522,7 @@ export function useAutoFill() {
     } else {
       setStatus("done");
     }
-  }, [firstName, lastName, school, position, setAthleteFromSource]);
+  }, [firstName, lastName, school, position, store, setAthleteFromSource]);
 
   /* ── Main scrape entry ──────────────────────────────────────── */
 
@@ -604,45 +535,41 @@ export function useAutoFill() {
     setConfirmCandidate(null);
 
     const diagParts: string[] = [];
-
-    // Phase 1: CFBD — writes directly to store, no modal
     let espnId: string | null = null;
-    let cfbdWroteData = false;
-    try {
-      const cfbdResult = await runCfbdPhase();
-      espnId = cfbdResult.espnId;
-      if (cfbdResult.errors.length > 0) {
-        diagParts.push(`Phase 1 (CFBD): ${cfbdResult.errors.join(", ")}`);
+
+    // CHANGE 4 & 5: CFBD phase wrapped in try/catch, never blocks Firecrawl
+    if (firstName && school) {
+      try {
+        const cfbdResult = await runCfbdPhase();
+        espnId = cfbdResult.espnId;
+        if (cfbdResult.errors.length > 0) {
+          diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        diagParts.push(`CFBD crashed: ${msg}`);
       }
-      const storeAfter = useAthleteStore.getState();
-      cfbdWroteData = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown || storeAfter.schoolLogoUrl || storeAfter.teamColor !== "#50C4CA");
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      diagParts.push(`Phase 1 crashed: ${msg}`);
     }
 
-    // Phase 2: Firecrawl — results go to ScrapeFill modal
+    // Phase 2: Firecrawl — always runs regardless of CFBD outcome
     try {
       await runFirecrawlPhase(espnId);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      diagParts.push(`Phase 2 crashed: ${msg}`);
+      diagParts.push(`Firecrawl crashed: ${msg}`);
     }
 
-    // Surface diagnostics in the UI error message for debugging
     if (diagParts.length > 0) {
       setErrorMessage(diagParts.join(" | "));
     }
 
-    // Only show error status if nothing was written at all
-    if (!cfbdWroteData && diagParts.length > 0) {
-      const currentStatus = useAthleteStore.getState();
-      const firecrawlFoundData = currentStatus.height || currentStatus.weight || currentStatus.hometown;
-      if (!firecrawlFoundData) {
-        setStatus("error");
-      }
+    // Only show error status if absolutely nothing was written
+    const storeAfter = useAthleteStore.getState();
+    const anyDataWritten = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown);
+    if (!anyDataWritten && diagParts.length > 0) {
+      setStatus("error");
     }
-  }, [canScrape, runCfbdPhase, runFirecrawlPhase]);
+  }, [canScrape, firstName, school, runCfbdPhase, runFirecrawlPhase]);
 
   /* ── Confirm identity (kept for backward compat) ────────── */
 
