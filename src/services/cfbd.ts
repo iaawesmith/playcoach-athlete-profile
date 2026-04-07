@@ -23,6 +23,27 @@ const callCfbd = async <T = unknown>(
 };
 
 /* ------------------------------------------------------------------ */
+/*  School name normalizer                                             */
+/* ------------------------------------------------------------------ */
+
+export function normalizeCfbdSchool(school: string): string {
+  const mascots = [
+    'Crimson Tide','Buckeyes','Wolverines','Cougars','Bulldogs',
+    'Tigers','Wildcats','Longhorns','Sooners','Volunteers','Gators',
+    'Seminoles','Hurricanes','Ducks','Utes','Cowboys','Horned Frogs',
+    'Mountaineers','Cornhuskers','Hawkeyes','Badgers','Spartans',
+    'Fighting Irish','Cardinals','Bears','Rams','Aggies','Rebels',
+    'Aztecs','Falcons','Eagles','Owls','Trojans','Lions','Bison',
+    'Raiders','Rockets','Buffaloes','Red Raiders','Mustangs','Blazers',
+  ];
+  let normalized = school;
+  for (const mascot of mascots) {
+    normalized = normalized.replace(new RegExp(mascot, 'gi'), '');
+  }
+  return normalized.replace(/\s+/g, ' ').trim();
+}
+
+/* ------------------------------------------------------------------ */
 /*  Response types                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -56,6 +77,8 @@ export type CfbdPlayerSearchResult = {
 
 export type CfbdRecruit = {
   athlete_id: number;
+  name: string;
+  year: number;
   stars: number;
   rating: number;
   ranking: number;
@@ -160,17 +183,18 @@ export const resolveTeamName = async (input: string): Promise<string | null> => 
 export const cfbdApi = {
   /** Full roster for a team + year */
   roster: (team: string, year: number) =>
-    callCfbd<CfbdRosterPlayer[]>("/roster", { team, year }),
+    callCfbd<CfbdRosterPlayer[]>("/roster", { team: normalizeCfbdSchool(team), year }),
 
   /** Search players by name for identity resolution */
   playerSearch: (searchTerm: string) =>
     callCfbd<CfbdPlayerSearchResult[]>("/player/search", { searchTerm }),
 
-  /** Recruiting data — pass team to get all recruits for that school */
-  recruitingPlayers: (team: string) =>
-    callCfbd<CfbdRecruit[]>("/recruiting/players", { team }),
+  /** Recruiting data — pass name and school */
+  recruitingPlayers: (school: string) =>
+    callCfbd<CfbdRecruit[]>("/recruiting/players", {
+      team: normalizeCfbdSchool(school),
+    }),
 
-  /** Team info including colors and logos */
   /** Team info — pass school name to filter, or omit for all teams */
   teams: (school?: string) =>
     callCfbd<CfbdTeam[]>("/teams", school ? { school } : undefined),
@@ -179,7 +203,7 @@ export const cfbdApi = {
   playerPortal: (year: number, team?: string) =>
     callCfbd<CfbdPortalPlayer[]>("/player/portal", {
       year,
-      ...(team ? { team } : {}),
+      ...(team ? { team: normalizeCfbdSchool(team) } : {}),
     }),
 
   /** Next upcoming game for a team — filters client-side for future games */
@@ -187,8 +211,9 @@ export const cfbdApi = {
     team: string,
     year: number,
   ): Promise<CfbdResult<CfbdUpcomingGame | null>> => {
+    const normalizedTeam = normalizeCfbdSchool(team);
     const result: CfbdResult<CfbdGame[]> = await callCfbd<CfbdGame[]>("/games", {
-      team,
+      team: normalizedTeam,
       year,
       season_type: "regular",
     });
@@ -208,7 +233,7 @@ export const cfbdApi = {
     if (future.length === 0) return { success: true, data: null };
 
     const g = future[0];
-    const isHome = g.home_team.toLowerCase() === team.toLowerCase();
+    const isHome = g.home_team.toLowerCase() === normalizedTeam.toLowerCase();
     const opponent = isHome ? g.away_team : g.home_team;
     const startDate = new Date(g.start_date);
 
