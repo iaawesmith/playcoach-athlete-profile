@@ -194,8 +194,9 @@ export function useAutoFill() {
 
   /* ── PHASE 1: CFBD Direct API — writes to store immediately ── */
 
-  const runCfbdPhase = useCallback(async (): Promise<string | null> => {
-    if (!school || !firstName || !lastName) return null;
+  const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[] }> => {
+    const errors: string[] = [];
+    if (!school || !firstName || !lastName) return { espnId: null, errors: ["Missing name or school"] };
 
     const yr = new Date().getFullYear();
     let schoolForCfbd = school;
@@ -207,14 +208,30 @@ export function useAutoFill() {
       schoolForCfbd = teamsCheck.data[0].school;
     }
 
-    // Fire all CFBD calls in parallel
-    const [rosterRes, recruitRes, teamsRes, portalRes, gameRes] = await Promise.all([
+    // Fire all CFBD calls in parallel with allSettled
+    const callNames = ["roster", "recruiting", "teams", "portal", "games"] as const;
+    const settled = await Promise.allSettled([
       cfbdApi.roster(schoolForCfbd, yr),
       cfbdApi.recruitingPlayers(`${firstName} ${lastName}`, schoolForCfbd),
       cfbdApi.teams(schoolForCfbd),
       cfbdApi.playerPortal(yr, schoolForCfbd),
       cfbdApi.upcomingGames(schoolForCfbd, yr),
     ]);
+
+    const results = settled.map((r, i) => {
+      if (r.status === "rejected") {
+        errors.push(`${callNames[i]} ✗ (${r.reason})`);
+        return null;
+      }
+      const val = r.value;
+      if (!val.success) {
+        errors.push(`${callNames[i]} ✗ (${(val as { error?: string }).error || "unknown"})`);
+        return null;
+      }
+      return val;
+    });
+
+    const [rosterRes, recruitRes, teamsRes, portalRes, gameRes] = results;
 
     const cfbdData: Record<string, unknown> = {};
     const target = { firstName, lastName, position, jersey, school };
