@@ -202,10 +202,24 @@ export function useAutoFill() {
     let schoolForCfbd = school;
     let espnId: string | null = null;
 
-    // Resolve canonical school name
-    const teamsCheck = await cfbdApi.teams(school);
+    // Resolve canonical school name — CFBD /teams returns ALL teams,
+    // so we must filter client-side for a match.
+    const teamsCheck = await cfbdApi.teams();
     if (teamsCheck.success && teamsCheck.data.length > 0) {
-      schoolForCfbd = teamsCheck.data[0].school;
+      const schoolLower = school.toLowerCase();
+      const match = teamsCheck.data.find((t) => {
+        if (t.school.toLowerCase() === schoolLower) return true;
+        // Check alternate names (e.g. "BYU" for "BYU Cougars")
+        if (t.alternateNames?.some((n) => n.toLowerCase() === schoolLower)) return true;
+        // Partial match: school name contains or is contained by input
+        if (t.school.toLowerCase().includes(schoolLower) || schoolLower.includes(t.school.toLowerCase())) return true;
+        return false;
+      });
+      if (match) {
+        schoolForCfbd = match.school;
+      } else {
+        errors.push(`teams: no match for "${school}"`);
+      }
     }
 
     // Fire all CFBD calls in parallel with allSettled
