@@ -152,6 +152,7 @@ export function useAutoFill() {
 
   const [status, setStatus] = useState<AutoFillStatus>("idle");
   const [enrichedFields, setEnrichedFields] = useState<FieldEntry[]>([]);
+  const [localMissingFields, setLocalMissingFields] = useState<MissingField[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState("");
   const [sources, setSources] = useState<string[]>([]);
@@ -583,6 +584,7 @@ export function useAutoFill() {
       setEnrichedFields([]);
       setSources([]);
       setConfirmCandidate(null);
+      setLocalMissingFields([]);
 
       const diagParts: string[] = [];
       let espnId: string | null = null;
@@ -696,6 +698,7 @@ export function useAutoFill() {
         if (!storeAfter.transferStars) missingFields.push({ field: "Transfer Stars", source: "CFBD", reason: "Field not in response" });
       }
 
+      setLocalMissingFields(missingFields);
       useAthleteStore.getState().setMissingFields(missingFields);
 
       if (diagParts.length > 0) {
@@ -822,5 +825,6 @@ export function useAutoFill() {
     errorMessage,
     totalSelected: selectedKeys.size,
     totalItems: enrichedFields.length,
+    missingFields: localMissingFields,
   };
 }
