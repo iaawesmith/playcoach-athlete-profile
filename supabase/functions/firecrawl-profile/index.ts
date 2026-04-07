@@ -13,21 +13,19 @@ function nameMatchesUrl(url: string, firstName: string, lastName: string): boole
   return url.toLowerCase().includes(slug);
 }
 
-function extractUrlFromMarkdown(markdown: string, domain: string, path: string, firstName: string, lastName: string): string | null {
-  const urlRegex = /https?:\/\/[^\s)\]"']+/g;
-  const matches = markdown.match(urlRegex) || [];
-  for (const url of matches) {
-    try {
-      const parsed = new URL(url);
-      if (!parsed.hostname.includes(domain)) continue;
-    } catch {
-      continue;
-    }
-    if (url.toLowerCase().includes(path) && nameMatchesUrl(url, firstName, lastName)) {
-      return url.replace(/[.,;:!?)]+$/, "");
-    }
+async function firecrawlSearch(apiKey: string, query: string, limit = 5): Promise<{ url: string; title?: string }[]> {
+  const resp = await fetch("https://api.firecrawl.dev/v1/search", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ query, limit, scrapeOptions: { formats: [] } }),
+  });
+  if (!resp.ok) {
+    console.log("[search] Firecrawl search failed:", resp.status);
+    return [];
   }
-  return null;
+  const data = await resp.json();
+  const results = data.data || data.results || [];
+  return results.map((r: Record<string, unknown>) => ({ url: String(r.url || ""), title: String(r.title || "") }));
 }
 
 async function firecrawlScrapeMarkdown(apiKey: string, url: string): Promise<string | null> {
@@ -79,6 +77,52 @@ async function firecrawlScrapeExtract(
   if (!resp.ok) return null;
   const data = await resp.json();
   return data.data?.extract || data.extract || null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  URL candidate scoring                                              */
+/* ------------------------------------------------------------------ */
+
+/** Score a 247Sports candidate URL. Higher = better. Returns -1 if invalid. */
+function score247Url(url: string, firstName: string, lastName: string): number {
+  const lower = url.toLowerCase();
+  if (!lower.includes("247sports.com")) return -1;
+  // Must match /player/{slug}-{id}/ pattern
+  if (!/\/player\/[a-z0-9-]+-\d+/.test(lower)) return -1;
+  if (!nameMatchesUrl(url, firstName, lastName)) return -1;
+
+  let score = 1;
+  // Prefer high-school URLs (recruiting profiles)
+  if (/\/high-school-\d+/.test(lower)) score += 10;
+  return score;
+}
+
+/** Score an On3 candidate URL. Higher = better. Returns -1 if invalid. */
+function scoreOn3Url(url: string, firstName: string, lastName: string): number {
+  const lower = url.toLowerCase();
+  if (!lower.includes("on3.com")) return -1;
+  // Must match /rivals/{slug}-{id}/ pattern
+  if (!/\/rivals\/[a-z0-9-]+-\d+/.test(lower)) return -1;
+  if (!nameMatchesUrl(url, firstName, lastName)) return -1;
+  return 1;
+}
+
+function pickBestUrl(
+  results: { url: string }[],
+  scoreFn: (url: string, first: string, last: string) => number,
+  firstName: string,
+  lastName: string,
+): string | null {
+  let best: string | null = null;
+  let bestScore = -1;
+  for (const r of results) {
+    const s = scoreFn(r.url, firstName, lastName);
+    if (s > bestScore) {
+      bestScore = s;
+      best = r.url;
+    }
+  }
+  return best;
 }
 
 /* ------------------------------------------------------------------ */
@@ -160,18 +204,6 @@ function parse247RecruitingData(
     return null;
   }
 
-  // Split into named sections. The HTML structure is:
-  // <section class="rankings-section">
-  //   <h3 class="title">247Sports</h3>          ← proprietary
-  //   <div class="ranking"><div class="stars-block">...</div><div class="rank-block">84</div></div>
-  //   <ul class="ranks-list">...</ul>
-  // </section>
-  // <section class="rankings-section">
-  //   <h3 class="title">247Sports Composite®</h3>
-  //   <div class="ranking"><div class="stars-block">...</div><div class="rank-block">0.8392</div></div>
-  //   <ul class="ranks-list">...</ul>
-  // </section>
-
   const rawSections = html.split('<section class="rankings-section">');
   let proprietarySection = "";
   let compositeSection = "";
@@ -190,7 +222,6 @@ function parse247RecruitingData(
   console.log("[247] proprietarySection length:", proprietarySection.length);
   console.log("[247] compositeSection length:", compositeSection.length);
 
-  // --- Proprietary 247Sports ---
   const stars247 = proprietarySection
     ? countYellowStars(proprietarySection)
     : null;
@@ -211,7 +242,6 @@ function parse247RecruitingData(
       ? findRankInList(proprietarySection, state, false)
       : null;
 
-  // --- Composite 247Sports ---
   const compositeStars247 = compositeSection
     ? countYellowStars(compositeSection)
     : null;
@@ -285,69 +315,37 @@ Deno.serve(async (req: Request) => {
       const homeParts = hometown.split(", ");
       const playerState = homeParts.length > 1 ? homeParts[homeParts.length - 1].trim() : "";
 
-      const searchUrl = `https://www.google.com/search?q=site:247sports.com/player/+${firstName}-${lastName}+high-school`;
-      console.log("[247] Google search URL:", searchUrl);
+      // Use Firecrawl Search API instead of scraping Google
+      const searchQuery = `site:247sports.com/player/ ${firstName} ${lastName} ${school || ""} high-school`;
+      console.log("[247] Firecrawl search query:", searchQuery);
 
-      const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
-      if (!markdown) {
-        console.log("[247] Google search returned no markdown");
-        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      const searchResults = await firecrawlSearch(firecrawlKey, searchQuery, 5);
+      console.log("[247] Search returned", searchResults.length, "results");
+
+      if (searchResults.length === 0) {
+        console.log("[247] No search results");
+        return new Response(JSON.stringify({ success: true, data: null, outcome: "no_results" }), { headers });
       }
-      console.log("[247] Google search returned markdown, length:", markdown.length);
 
-      let profileUrl = extractUrlFromMarkdown(markdown, "247sports.com", "/player/", firstName, lastName);
+      // Score and pick best URL
+      const profileUrl = pickBestUrl(searchResults, score247Url, firstName, lastName);
       if (!profileUrl) {
-        console.log("[247] No matching 247sports.com/player/ URL found in search results");
-        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+        console.log("[247] No matching /player/ URL in results. URLs found:", searchResults.map(r => r.url));
+        return new Response(JSON.stringify({ success: true, data: null, outcome: "no_match" }), { headers });
       }
-      console.log("[247] Initial profile URL:", profileUrl);
-
-      const urlRegex = /https?:\/\/[^\s)\]"']+/g;
-      const allUrls = markdown.match(urlRegex) || [];
-
-      // Pass 1: prefer high-school URLs (recruiting profiles)
-      let bestUrl: string | null = null;
-      for (const u of allUrls) {
-        try { new URL(u); } catch { continue; }
-        const lower = u.toLowerCase();
-        if (!lower.includes("247sports.com")) continue;
-        if (!lower.includes("/player/")) continue;
-        if (!nameMatchesUrl(u, firstName, lastName)) continue;
-        if (lower.includes("high-school")) {
-          bestUrl = u.replace(/[.,;:!?)]+$/, "");
-          break;
-        }
-      }
-
-      // Pass 2: fallback — any matching 247sports /player/ URL (covers transfers whose
-      // canonical URL no longer has /high-school/ suffix)
-      if (!bestUrl) {
-        for (const u of allUrls) {
-          try { new URL(u); } catch { continue; }
-          const lower = u.toLowerCase();
-          if (!lower.includes("247sports.com")) continue;
-          if (!lower.includes("/player/")) continue;
-          if (nameMatchesUrl(u, firstName, lastName)) {
-            bestUrl = u.replace(/[.,;:!?)]+$/, "");
-            break;
-          }
-        }
-      }
-
-      if (bestUrl) profileUrl = bestUrl;
-      console.log("[247] Final profile URL:", profileUrl);
+      console.log("[247] Best profile URL:", profileUrl);
 
       const html = await firecrawlScrapeHtml(firecrawlKey, profileUrl, 2000);
       if (!html) {
         console.log("[247] HTML scrape returned null");
-        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+        return new Response(JSON.stringify({ success: true, data: null, outcome: "scrape_failed" }), { headers });
       }
       console.log("[247] HTML scraped, length:", html.length);
 
       const parsed = parse247RecruitingData(html, position, playerState);
       console.log("[247] Parsed result:", JSON.stringify(parsed));
 
-      // Extract action photo from already-fetched 247 HTML (Phase B — no extra API call)
+      // Extract action photo from already-fetched 247 HTML
       const find247ActionPhoto = (): string | null => {
         const slug = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
         const imgMatches = [
@@ -358,9 +356,7 @@ Deno.serve(async (req: Request) => {
         return (
           imgMatches.find((url) => {
             const lower = url.toLowerCase();
-            // Must contain the player's name slug to be the right person
             if (!lower.includes(slug)) return false;
-            // Exclude headshots, logos, icons
             if (lower.includes("headshot")) return false;
             if (lower.includes("logo")) return false;
             if (lower.includes("icon")) return false;
@@ -383,28 +379,39 @@ Deno.serve(async (req: Request) => {
       if (parsed.compositeStateRank247 !== null) data.compositeStateRank247 = parsed.compositeStateRank247;
       if (actionPhoto247) data.actionPhotoUrl = actionPhoto247;
 
+      const outcome = Object.keys(data).length > 0 ? "success" : "parse_empty";
       return new Response(
-        JSON.stringify({ success: true, data: Object.keys(data).length > 0 ? data : null }),
+        JSON.stringify({ success: true, data: Object.keys(data).length > 0 ? data : null, outcome }),
         { headers },
       );
     }
 
-    /* ── On3 (no action photo — On3 only returns headshots) ───── */
+    /* ── On3 ───────────────────────────────────────────────────── */
     if (mode === "on3") {
+      console.log("[on3] Phase started", { firstName, lastName, position, school });
+
       if (!firstName || !lastName) {
         return new Response(JSON.stringify({ success: false, error: "Name required" }), { status: 400, headers });
       }
 
-      const searchUrl = `https://www.google.com/search?q=site:on3.com/rivals/+${firstName}-${lastName}`;
-      const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
-      if (!markdown) {
-        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+      // Use Firecrawl Search API instead of scraping Google
+      const searchQuery = `site:on3.com/rivals/ ${firstName} ${lastName} ${school || ""}`;
+      console.log("[on3] Firecrawl search query:", searchQuery);
+
+      const searchResults = await firecrawlSearch(firecrawlKey, searchQuery, 5);
+      console.log("[on3] Search returned", searchResults.length, "results");
+
+      if (searchResults.length === 0) {
+        console.log("[on3] No search results");
+        return new Response(JSON.stringify({ success: true, data: null, outcome: "no_results" }), { headers });
       }
 
-      const profileUrl = extractUrlFromMarkdown(markdown, "on3.com", "/rivals/", firstName, lastName);
+      const profileUrl = pickBestUrl(searchResults, scoreOn3Url, firstName, lastName);
       if (!profileUrl) {
-        return new Response(JSON.stringify({ success: true, data: null }), { headers });
+        console.log("[on3] No matching /rivals/ URL in results. URLs found:", searchResults.map(r => r.url));
+        return new Response(JSON.stringify({ success: true, data: null, outcome: "no_match" }), { headers });
       }
+      console.log("[on3] Best profile URL:", profileUrl);
 
       const prompt = `Extract recruiting and NIL data for ${firstName} ${lastName}. Fields needed: on3Rating (On3 proprietary decimal rating), on3NationalRank, on3PositionRank, on3StateRank, nilValuation (dollar amount as string e.g. '$124,000'). Do NOT extract any photo URLs. Return null for any field not found.`;
       const schema = {
@@ -431,10 +438,15 @@ Deno.serve(async (req: Request) => {
         nilValuation: json?.nilValuation || null,
       };
 
-      return new Response(JSON.stringify({ success: true, data: sanitized }), { headers });
+      const hasAny = Object.values(sanitized).some(v => v !== null);
+      return new Response(JSON.stringify({
+        success: true,
+        data: sanitized,
+        outcome: hasAny ? "success" : "parse_empty",
+      }), { headers });
     }
 
-    /* ── ESPN action photo (HTML-based, Phase A) ─────────────── */
+    /* ── ESPN action photo (HTML-based) ─────────────────────────── */
     if (mode === "espn-photo") {
       const espnId = String(body.espnId || "").trim();
       if (!espnId || !firstName || !lastName) {
@@ -451,7 +463,6 @@ Deno.serve(async (req: Request) => {
       }
       console.log("[espn-photo] HTML length:", html.length);
 
-      // Only accept ESPN photos that look like game/action shots.
       const isActionPhoto = (url: string): boolean => {
         const lower = url.toLowerCase();
         if (!lower.includes("espncdn.com")) return false;
@@ -498,7 +509,16 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
 
-      const rosterUrl = extractUrlFromMarkdown(markdown, schoolDomain, "", firstName, lastName);
+      const urlRegex = /https?:\/\/[^\s)\]"']+/g;
+      const matches = markdown.match(urlRegex) || [];
+      let rosterUrl: string | null = null;
+      for (const url of matches) {
+        try { new URL(url); } catch { continue; }
+        if (url.toLowerCase().includes(schoolDomain) && nameMatchesUrl(url, firstName, lastName)) {
+          rosterUrl = url.replace(/[.,;:!?)]+$/, "");
+          break;
+        }
+      }
       if (!rosterUrl) {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
@@ -512,8 +532,6 @@ Deno.serve(async (req: Request) => {
       const json = await firecrawlScrapeExtract(firecrawlKey, rosterUrl, prompt, schema, 2000);
       return new Response(JSON.stringify({ success: true, data: json }), { headers });
     }
-
-    /* Google Image Search removed — unreliable, returns wrong players */
 
     return new Response(
       JSON.stringify({ success: false, error: `Unknown mode: ${mode}` }),
