@@ -392,27 +392,27 @@ export function useAutoFill() {
         firecrawlApi.searchOn3Profile(firstName, lastName, posTag, schoolTag),
       ]);
 
+      // 247Sports — backend returns: stars247, rating247, positionRank, stateRank,
+      // compositeStars247, compositeRating247, compositeNationalRank247,
+      // compositePositionRank247, compositeStateRank247, actionPhotoUrl
       if (s247Res.success && s247Res.data) {
         srcList.push("247Sports");
         const d = s247Res.data as Record<string, unknown>;
-        if (d.stars != null) data.stars247 = d.stars;
-        if (d.playerRating247 != null) data.rating247 = d.playerRating247;
+        if (d.stars247 != null) data.stars247 = d.stars247;
+        if (d.rating247 != null) data.rating247 = d.rating247;
         if (d.positionRank != null) data.positionRank = d.positionRank;
         if (d.stateRank != null) data.stateRank = d.stateRank;
         if (d.compositeStars247 != null) data.compositeStars247 = d.compositeStars247;
-        if (d.compositeRating != null) data.compositeRating247 = d.compositeRating;
         if (d.compositeRating247 != null) data.compositeRating247 = d.compositeRating247;
         if (d.compositeNationalRank247 != null) data.compositeNationalRank247 = d.compositeNationalRank247;
         if (d.compositePositionRank247 != null) data.compositePositionRank247 = d.compositePositionRank247;
         if (d.compositeStateRank247 != null) data.compositeStateRank247 = d.compositeStateRank247;
-        if (d.nationalRank != null) data.compositeNationalRank247 = d.nationalRank;
-        if (d.height) data.height = d.height;
-        if (d.weight) data.weight = String(d.weight);
-        if (d.highSchool) data.highSchool = d.highSchool;
-        if (d.hometown) data.hometown = d.hometown;
         if (d.actionPhotoUrl && isValidActionPhoto(String(d.actionPhotoUrl))) {
           actionPhotoFrom247 = String(d.actionPhotoUrl);
         }
+      } else {
+        // 247 was attempted but returned no data — track for missing fields
+        srcList.push("247Sports");
       }
 
       if (sOn3Res.success && sOn3Res.data) {
@@ -426,6 +426,9 @@ export function useAutoFill() {
         if (d.actionPhotoUrl && isValidActionPhoto(d.actionPhotoUrl)) {
           actionPhotoFromOn3 = d.actionPhotoUrl;
         }
+      } else {
+        // On3 was attempted but returned no data — track for missing fields
+        srcList.push("On3");
       }
     } catch {
       // Firecrawl is non-critical
