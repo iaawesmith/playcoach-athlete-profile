@@ -661,33 +661,37 @@ export function useAutoFill() {
         if (!storeAfter.highSchool) missingFields.push({ field: "High School", source: "CFBD", reason: "Field not in response" });
       }
 
-      // 247Sports fields
-      const has247Data = storeAfter.stars247 != null || storeAfter.compositeRating247 != null;
+      // 247Sports fields — check both enriched data and store
+      const searched247 = diagParts.some(p => p.includes("247")) || true; // always attempted
+      const has247Data = data.stars247 != null || data.compositeRating247 != null ||
+        storeAfter.stars247 != null || storeAfter.compositeRating247 != null;
       if (!has247Data) {
+        const reason247: MissingField["reason"] = searched247 ? "Player not matched" : "Source not reached";
         ["Stars (247)", "Player Rating", `${pos} Rank`, "State Rank",
           "Composite Stars", "Composite Rating", "Composite Natl. Rank",
           `Composite ${pos} Rank`, "Composite State Rank",
-        ].forEach((f) => missingFields.push({ field: f, source: "247", reason: "Source not reached" }));
+        ].forEach((f) => missingFields.push({ field: f, source: "247", reason: reason247 }));
       } else {
-        if (storeAfter.stars247 == null) missingFields.push({ field: "Stars (247)", source: "247", reason: "Parsing failed" });
-        if (storeAfter.compositeStars247 == null) missingFields.push({ field: "Composite Stars", source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositeRating247 == null) missingFields.push({ field: "Composite Rating", source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositeNationalRank247 == null) missingFields.push({ field: "Composite Natl. Rank", source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositePositionRank247 == null) missingFields.push({ field: `Composite ${pos} Rank`, source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositeStateRank247 == null) missingFields.push({ field: "Composite State Rank", source: "247C", reason: "Parsing failed" });
+        if (storeAfter.stars247 == null && data.stars247 == null) missingFields.push({ field: "Stars (247)", source: "247", reason: "Parsing failed" });
+        if (storeAfter.compositeStars247 == null && data.compositeStars247 == null) missingFields.push({ field: "Composite Stars", source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositeRating247 == null && data.compositeRating247 == null) missingFields.push({ field: "Composite Rating", source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositeNationalRank247 == null && data.compositeNationalRank247 == null) missingFields.push({ field: "Composite Natl. Rank", source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositePositionRank247 == null && data.compositePositionRank247 == null) missingFields.push({ field: `Composite ${pos} Rank`, source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositeStateRank247 == null && data.compositeStateRank247 == null) missingFields.push({ field: "Composite State Rank", source: "247C", reason: "Parsing failed" });
       }
 
       // On3 fields
-      const hasOn3Data = storeAfter.on3Rating != null || storeAfter.on3NationalRank != null;
+      const hasOn3Data = data.on3Rating != null || data.on3NationalRank != null ||
+        storeAfter.on3Rating != null || storeAfter.on3NationalRank != null;
       if (!hasOn3Data) {
         ["On3 Rating", "On3 National Rank", "On3 Position Rank", "NIL Valuation"].forEach((f) =>
-          missingFields.push({ field: f, source: "ON3", reason: "Source not reached" }),
+          missingFields.push({ field: f, source: "ON3", reason: "Player not matched" }),
         );
       } else {
-        if (storeAfter.on3Rating == null) missingFields.push({ field: "On3 Rating", source: "ON3", reason: "Field not in response" });
-        if (storeAfter.on3NationalRank == null) missingFields.push({ field: "On3 National Rank", source: "ON3", reason: "Field not in response" });
-        if (storeAfter.on3PositionRank == null) missingFields.push({ field: "On3 Position Rank", source: "ON3", reason: "Field not in response" });
-        if (storeAfter.nilValuation == null) missingFields.push({ field: "NIL Valuation", source: "ON3", reason: "Field not in response" });
+        if (storeAfter.on3Rating == null && data.on3Rating == null) missingFields.push({ field: "On3 Rating", source: "ON3", reason: "Field not in response" });
+        if (storeAfter.on3NationalRank == null && data.on3NationalRank == null) missingFields.push({ field: "On3 National Rank", source: "ON3", reason: "Field not in response" });
+        if (storeAfter.on3PositionRank == null && data.on3PositionRank == null) missingFields.push({ field: "On3 Position Rank", source: "ON3", reason: "Field not in response" });
+        if (storeAfter.nilValuation == null && data.nilValuation == null) missingFields.push({ field: "NIL Valuation", source: "ON3", reason: "Field not in response" });
       }
 
       // Action photo
