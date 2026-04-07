@@ -49,9 +49,17 @@ interface AthleteState {
   on3Rating: number | null;
   on3NationalRank: number | null;
   on3PositionRank: number | null;
+  on3StateRank: number | null;
   offersCount: number | null;
   nilValuation: string | null;
   commitmentStatus: "" | "committed" | "uncommitted" | "portal";
+  stars247: number | null;
+  compositeStars247: number | null;
+  compositeRating247: number | null;
+  compositeNationalRank247: number | null;
+  compositePositionRank247: number | null;
+  compositeStateRank247: number | null;
+  recruitingClassYear: string | null;
   transferFrom: string | null;
   transferStars: number | null;
   transferRating: number | null;
@@ -116,9 +124,17 @@ const defaults: AthleteData = {
   on3Rating: null,
   on3NationalRank: null,
   on3PositionRank: null,
+  on3StateRank: null,
   offersCount: null,
   nilValuation: null,
   commitmentStatus: "",
+  stars247: null,
+  compositeStars247: null,
+  compositeRating247: null,
+  compositeNationalRank247: null,
+  compositePositionRank247: null,
+  compositeStateRank247: null,
+  recruitingClassYear: null,
   transferFrom: null,
   transferStars: null,
   transferRating: null,
