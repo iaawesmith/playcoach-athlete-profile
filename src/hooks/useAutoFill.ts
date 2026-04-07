@@ -292,6 +292,7 @@ export function useAutoFill() {
         if (recruit.rating) {
           cfbdData.recruitingRating = recruit.rating;
           cfbdData.ratingComposite = Number(recruit.rating).toFixed(4);
+          cfbdData.compositeRating247 = Number(recruit.rating);
         }
         if (recruit.ranking) cfbdData.nationalRank = recruit.ranking;
         if (recruit.school) cfbdData.highSchool = String(recruit.school);
@@ -480,6 +481,19 @@ export function useAutoFill() {
           : "firecrawl";
         setAthleteFromSource({ actionPhotoUrl: resolvedActionPhoto }, photoSource);
       }
+    }
+
+    // Write 247 rating data to store immediately so ProCard updates live
+    const immediateRatingFields: Record<string, unknown> = {};
+    if (data.compositeRating247 != null) immediateRatingFields.compositeRating247 = data.compositeRating247;
+    if (data.compositeStars247 != null) immediateRatingFields.compositeStars247 = data.compositeStars247;
+    if (data.nationalRank != null) immediateRatingFields.nationalRank = data.nationalRank;
+    if (data.positionRank != null) immediateRatingFields.positionRank = data.positionRank;
+    if (data.compositeNationalRank247 != null) immediateRatingFields.compositeNationalRank247 = data.compositeNationalRank247;
+    if (data.compositePositionRank247 != null) immediateRatingFields.compositePositionRank247 = data.compositePositionRank247;
+
+    if (Object.keys(immediateRatingFields).length > 0) {
+      setAthleteFromSource(immediateRatingFields as Partial<Record<string, unknown>>, "247");
     }
 
     // School logo fallback (only if not already set from onboarding)
