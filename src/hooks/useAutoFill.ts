@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { useAthleteStore, type FieldSource } from "@/store/athleteStore";
+import { useAthleteStore, type FieldSource, type MissingField } from "@/store/athleteStore";
 import { cfbdApi, resolveTeamName } from "@/services/cfbd";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
