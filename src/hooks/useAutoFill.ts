@@ -166,14 +166,14 @@ export function useAutoFill() {
     const errors: string[] = [];
 
     if (!firstName || !school) {
-      return { espnId: null, errors: [] };
+      return { espnId: null, errors: [], cfbdData: {} };
     }
 
     // Resolve display name → CFBD short name
     const cfbdTeam = await resolveTeamName(school);
     if (!cfbdTeam) {
       errors.push(`team ✗ (no CFBD match for "${school}")`);
-      return { espnId: null, errors };
+      return { espnId: null, errors, cfbdData: {} };
     }
     errors.push(`team ✓ (${cfbdTeam})`);
 
@@ -363,7 +363,7 @@ export function useAutoFill() {
       errors.push("store ✗ (no data extracted)");
     }
 
-    return { espnId, errors };
+    return { espnId, errors, cfbdData };
   }, [firstName, lastName, school, position, jersey, store, setAthleteFromSource]);
 
   /* ── PHASE 2: Firecrawl (247 + On3) — results go to ScrapeFill modal ── */
