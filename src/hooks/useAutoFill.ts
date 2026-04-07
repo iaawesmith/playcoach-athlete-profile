@@ -336,22 +336,24 @@ export function useAutoFill() {
       // 247Sports extraction
       if (s247Res.success && s247Res.data) {
         srcList.push("247Sports");
-        const d = s247Res.data;
+        const d = s247Res.data as Record<string, unknown>;
         if (d.stars != null) data.stars247 = d.stars;
-        if (d.playerRating != null) data.rating247 = d.playerRating;
+        if (d.playerRating247 != null) data.rating247 = d.playerRating247;
         if (d.positionRank != null) data.positionRank = d.positionRank;
         if (d.stateRank != null) data.stateRank = d.stateRank;
-        if (d.compositeStars != null) data.compositeStars247 = d.compositeStars;
+        if (d.compositeStars247 != null) data.compositeStars247 = d.compositeStars247;
         if (d.compositeRating != null) data.compositeRating247 = d.compositeRating;
-        if (d.compositeNationalRank != null) data.compositeNationalRank247 = d.compositeNationalRank;
-        if (d.compositePositionRank != null) data.compositePositionRank247 = d.compositePositionRank;
-        if (d.compositeStateRank != null) data.compositeStateRank247 = d.compositeStateRank;
+        if (d.compositeRating247 != null) data.compositeRating247 = d.compositeRating247;
+        if (d.compositeNationalRank247 != null) data.compositeNationalRank247 = d.compositeNationalRank247;
+        if (d.compositePositionRank247 != null) data.compositePositionRank247 = d.compositePositionRank247;
+        if (d.compositeStateRank247 != null) data.compositeStateRank247 = d.compositeStateRank247;
+        if (d.nationalRank != null) data.compositeNationalRank247 = d.nationalRank;
         if (d.height) data.height = d.height;
         if (d.weight) data.weight = String(d.weight);
         if (d.highSchool) data.highSchool = d.highSchool;
         if (d.hometown) data.hometown = d.hometown;
-        if (d.actionPhotoUrl && isValidActionPhoto(d.actionPhotoUrl)) {
-          actionPhotoFrom247 = d.actionPhotoUrl;
+        if (d.actionPhotoUrl && isValidActionPhoto(String(d.actionPhotoUrl))) {
+          actionPhotoFrom247 = String(d.actionPhotoUrl);
         }
       }
 
