@@ -263,9 +263,13 @@ Deno.serve(async (req: Request) => {
       const urlRegex = /https?:\/\/[^\s)\]"']+/g;
       const allUrls = markdown.match(urlRegex) || [];
       for (const u of allUrls) {
+        try {
+          const parsed = new URL(u);
+          if (!parsed.hostname.includes("247sports.com")) continue;
+        } catch { continue; }
         const lower = u.toLowerCase();
         if (
-          lower.includes("247sports.com/player/") &&
+          lower.includes("/player/") &&
           nameMatchesUrl(u, firstName, lastName) &&
           lower.includes("high-school")
         ) {
