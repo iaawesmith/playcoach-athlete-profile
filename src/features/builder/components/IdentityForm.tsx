@@ -563,10 +563,13 @@ export const IdentityForm = () => {
           {/* ── Position & Details ── */}
           <section>
             <SectionHeader title="Position & Details" />
-            <div className="grid grid-cols-3 gap-4">
-              <LockedField label="Position" value={position} />
-              <LockedField label="Jersey Number" value={number} placeholder="#" />
-              <LockedField label="Class Year" value={classYear} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 col-span-2">
+                <LockedField label="Position" value={position} />
+                <LockedField label="Jersey Number" value={number} placeholder="#" />
+              </div>
+              <LockedField label="Class" value={classYear} />
+              <InputCard label="Class Year" value={store.recruitingClassYear ?? ""} onChange={(v) => setAthlete({ recruitingClassYear: v || null })} placeholder="e.g. 2023" badge="CFBD" />
             </div>
           </section>
 
