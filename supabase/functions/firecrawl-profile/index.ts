@@ -416,7 +416,7 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ success: true, data: json }), { headers });
     }
 
-    /* ── Google Image Search photo (fallback) ──────────────────── */
+    /* ── Google Image Search photo (Phase C — last resort) ────── */
     if (mode === "google-image-photo") {
       if (!firstName || !lastName || !school) {
         return new Response(JSON.stringify({ success: false, error: "Name and school required" }), { status: 400, headers });
@@ -424,7 +424,8 @@ Deno.serve(async (req: Request) => {
 
       const normalizedSchool = school.replace(/\b(Crimson Tide|Buckeyes|Wolverines|Cougars|Bulldogs|Tigers|Wildcats|Longhorns|Sooners|Volunteers|Gators|Seminoles|Hurricanes|Ducks|Utes|Cowboys|Horned Frogs|Mountaineers|Cornhuskers|Hawkeyes|Cyclones|Jayhawks|Panthers|Cardinals|Buffaloes|Sun Devils|Bruins|Beavers|Trojans|Huskies|Razorbacks|Rebels|Aggies|Bears|Commodores|Gamecocks|Fighting Irish|Nittany Lions|Golden Gophers|Badgers|Boilermakers|Hoosiers|Illini|Spartans|Tar Heels|Wolfpack|Blue Devils|Yellow Jackets|Demon Deacons|Hokies|Cavaliers|Owls|Red Raiders|Mustangs)\b/gi, "").trim();
 
-      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}+${encodeURIComponent(normalizedSchool)}+football+action+-headshot+-portrait+-profile+-hudl&tbm=isch`;
+      // Wrap name in quotes for exact match
+      const searchUrl = `https://www.google.com/search?q=%22${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}%22+${encodeURIComponent(normalizedSchool)}+football+action&tbm=isch`;
       console.log("[google-image] Search URL:", searchUrl);
 
       const html = await firecrawlScrapeHtml(firecrawlKey, searchUrl, 3000);
@@ -442,19 +443,40 @@ Deno.serve(async (req: Request) => {
         "usatoday.com", "cbssports.com", "bleacherreport.com",
       ];
 
-      const actionPhoto = imgUrls.find(url => {
+      // Layer 1: format and content validation
+      const isValidActionPhoto = (url: string): boolean => {
         const lower = url.toLowerCase();
         if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) return false;
         if (lower.includes("headshot")) return false;
-        if (lower.includes("portrait")) return false;
+        if (lower.includes("/i/headshots/")) return false;
         if (lower.includes("hudl.com")) return false;
         if (lower.includes("maxpreps.com")) return false;
-        if (lower.includes("/i/headshots/")) return false;
-        if (lower.includes("profile")) return false;
-        return sportsDomains.some(d => lower.includes(d));
-      }) || null;
+        if (lower.includes("portrait")) return false;
+        return true;
+      };
 
-      console.log("[google-image] Found action photo:", actionPhoto);
+      // Layer 2: player name identity match
+      const imageUrlMatchesPlayer = (url: string): boolean => {
+        const slug = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
+        const lastNameLower = lastName.toLowerCase();
+        const urlLower = url.toLowerCase();
+
+        // Strong signal: full name slug in URL
+        if (urlLower.includes(slug)) return true;
+
+        // Acceptable: last name in URL from known sports domain
+        const fromSportsDomain = sportsDomains.some(d => urlLower.includes(d));
+        if (fromSportsDomain && urlLower.includes(lastNameLower)) return true;
+
+        return false;
+      };
+
+      // Apply both layers — better to return null than wrong player
+      const actionPhoto = imgUrls.find(url =>
+        isValidActionPhoto(url) && imageUrlMatchesPlayer(url)
+      ) || null;
+
+      console.log("[google-image] Candidates:", imgUrls.length, "| Matched:", actionPhoto);
       return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: actionPhoto } }), { headers });
     }
 
