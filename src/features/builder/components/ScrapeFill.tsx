@@ -25,9 +25,9 @@ export const ScrapeFill = () => {
     errorMessage,
     totalSelected,
     totalItems,
+    missingFields,
   } = useAutoFill();
 
-  const missingFields = useAthleteStore((s) => s.missingFields);
   const [showMissing, setShowMissing] = useState(false);
 
   if (status === "idle" || status === "done") {

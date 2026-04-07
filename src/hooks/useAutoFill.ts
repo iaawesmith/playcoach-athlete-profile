@@ -152,6 +152,7 @@ export function useAutoFill() {
 
   const [status, setStatus] = useState<AutoFillStatus>("idle");
   const [enrichedFields, setEnrichedFields] = useState<FieldEntry[]>([]);
+  const [localMissingFields, setLocalMissingFields] = useState<MissingField[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState("");
   const [sources, setSources] = useState<string[]>([]);
