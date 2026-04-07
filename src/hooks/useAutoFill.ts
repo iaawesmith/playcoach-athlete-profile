@@ -287,11 +287,16 @@ export function useAutoFill() {
       }
     }
 
-    // 1b: Recruiting
-    const recruitRes = results[1] as { success: true; data: CfbdRecruit[] } | null;
-    if (recruitRes?.data) {
-      const recruit = recruitRes.data.find((r) => r.athlete_id != null) ||
-        (recruitRes.data.length > 0 ? recruitRes.data[0] : null);
+    // 1b: Recruiting (API returns camelCase, `name` as single string, `committedTo`, `athleteId`)
+    const recruitRes = results[1] as { success: true; data: Record<string, unknown>[] } | null;
+    if (recruitRes?.data && recruitRes.data.length > 0) {
+      // Find best match — recruiting uses `name` (single string) not first/last
+      const targetFull = `${firstName} ${lastName}`.toLowerCase();
+      const recruit = recruitRes.data.find((r) => {
+        const n = String(r.name ?? "").toLowerCase();
+        return n === targetFull || n.includes(lastName.toLowerCase());
+      }) || recruitRes.data[0];
+
       if (recruit) {
         if (recruit.stars) cfbdData.starRating = recruit.stars;
         if (recruit.rating) {
@@ -299,10 +304,11 @@ export function useAutoFill() {
           cfbdData.ratingComposite = String(recruit.rating);
         }
         if (recruit.ranking) cfbdData.nationalRank = recruit.ranking;
-        if (recruit.school) cfbdData.highSchool = recruit.school;
-        cfbdData.commitmentStatus = recruit.committed_to ? "committed" : "uncommitted";
-        if ((recruit as Record<string, unknown>).year) {
-          cfbdData.recruitingClassYear = String((recruit as Record<string, unknown>).year);
+        if (recruit.school) cfbdData.highSchool = String(recruit.school);
+        const committed = recruit.committedTo ?? recruit.committed_to;
+        cfbdData.commitmentStatus = committed ? "committed" : "uncommitted";
+        if (recruit.year) {
+          cfbdData.recruitingClassYear = String(recruit.year);
         }
       }
     }
