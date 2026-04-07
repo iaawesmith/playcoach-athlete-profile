@@ -172,8 +172,10 @@ export const useAthleteStore = create<AthleteState>((set, get) => ({
       const newSources = { ...state.fieldSources };
 
       for (const [key, value] of Object.entries(data)) {
-        // Never overwrite manual fields from pipeline sources
-        if (MANUAL_FIELDS.has(key) && source !== "manual") continue;
+        const currentValue = state[key as keyof AthleteState];
+        const isCurrentValueEmpty = currentValue === "" || currentValue === null || currentValue === undefined;
+        // Allow pipeline data to fill blank identity fields, but never overwrite entered values
+        if (MANUAL_FIELDS.has(key) && source !== "manual" && !isCurrentValueEmpty) continue;
         // Never overwrite a field already tagged as manual
         if (state.fieldSources[key] === "manual" && source !== "manual") continue;
         // Skip null/undefined/empty values

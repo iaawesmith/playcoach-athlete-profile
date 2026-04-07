@@ -203,159 +203,175 @@ export function useAutoFill() {
     const errors: string[] = [];
     if (!school || !firstName || !lastName) return { espnId: null, errors: ["Missing name or school"] };
 
-    const yr = new Date().getFullYear();
+    const currentYear = new Date().getFullYear();
+    const rosterYears = [currentYear, currentYear - 1, currentYear - 2];
     let schoolForCfbd = school;
-    let espnId: string | null = null;
+    const espnId: string | null = null;
+    const fullNameLower = `${firstName} ${lastName}`.trim().toLowerCase();
+    const target = { firstName, lastName, position, jersey, school };
+    const normalize = (value: unknown) => String(value ?? "").trim().toLowerCase();
 
-    // Resolve canonical school name — CFBD /teams returns ALL teams,
-    // so we must filter client-side for a match.
+    const readData = <T,>(
+      result: PromiseSettledResult<{ success: true; data: T } | { success: false; error: string }>,
+      label: string,
+    ): T | null => {
+      if (result.status === "rejected") {
+        errors.push(`${label} ✗ (${String(result.reason)})`);
+        return null;
+      }
+      if (!result.value.success) {
+        errors.push(`${label} ✗ (${result.value.error})`);
+        return null;
+      }
+      return result.value.data;
+    };
+
     const teamsCheck = await cfbdApi.teams();
     if (teamsCheck.success && teamsCheck.data.length > 0) {
       const schoolLower = school.toLowerCase();
-      const match = teamsCheck.data.find((t) => {
-        if (t.school.toLowerCase() === schoolLower) return true;
-        // Check alternate names (e.g. "BYU" for "BYU Cougars")
-        if (t.alternateNames?.some((n) => n.toLowerCase() === schoolLower)) return true;
-        // Partial match: school name contains or is contained by input
-        if (t.school.toLowerCase().includes(schoolLower) || schoolLower.includes(t.school.toLowerCase())) return true;
-        return false;
+      const match = teamsCheck.data.find((team) => {
+        const teamSchool = team.school.toLowerCase();
+        if (teamSchool === schoolLower) return true;
+        if (team.alternateNames?.some((name) => name.toLowerCase() === schoolLower)) return true;
+        return teamSchool.includes(schoolLower) || schoolLower.includes(teamSchool);
       });
-      if (match) {
-        schoolForCfbd = match.school;
-      } else {
-        errors.push(`teams: no match for "${school}"`);
-      }
+      if (match) schoolForCfbd = match.school;
+      else errors.push(`teams: no match for "${school}"`);
+    } else if (!teamsCheck.success) {
+      errors.push(`teams lookup ✗ (${teamsCheck.error})`);
     }
 
-    // Fire all CFBD calls in parallel with allSettled
-    const callNames = ["roster", "recruiting", "teams", "portal", "games"] as const;
     const settled = await Promise.allSettled([
-      cfbdApi.roster(schoolForCfbd, yr),
+      ...rosterYears.map((year) => cfbdApi.roster(schoolForCfbd, year)),
       cfbdApi.recruitingPlayers(`${firstName} ${lastName}`, schoolForCfbd),
       cfbdApi.teams(schoolForCfbd),
-      cfbdApi.playerPortal(yr, schoolForCfbd),
-      cfbdApi.upcomingGames(schoolForCfbd, yr),
+      cfbdApi.playerPortal(currentYear, schoolForCfbd),
+      cfbdApi.upcomingGames(schoolForCfbd, currentYear),
     ]);
 
-    const results = settled.map((r, i) => {
-      if (r.status === "rejected") {
-        errors.push(`${callNames[i]} ✗ (${r.reason})`);
-        return null;
-      }
-      const val = r.value;
-      if (!val.success) {
-        errors.push(`${callNames[i]} ✗ (${(val as { error?: string }).error || "unknown"})`);
-        return null;
-      }
-      return val;
+    const rosterResults = rosterYears.map((year, index) => {
+      const data = readData<Record<string, unknown>[]>(
+        settled[index] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
+        `roster ${year}`,
+      );
+      return data ? { year, data } : null;
     });
 
-    const cfbdData: Record<string, unknown> = {};
-    const target = { firstName, lastName, position, jersey, school };
+    const recruitingData = readData<Record<string, unknown>[]>(
+      settled[rosterYears.length] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
+      "recruiting",
+    );
+    const teamsData = readData<Record<string, unknown>[]>(
+      settled[rosterYears.length + 1] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
+      "teams",
+    );
+    const portalData = readData<Record<string, unknown>[]>(
+      settled[rosterYears.length + 2] as PromiseSettledResult<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }>,
+      "portal",
+    );
+    const gameData = readData<{ opponent: string; date: string; time: string; location: string } | null>(
+      settled[rosterYears.length + 3] as PromiseSettledResult<{ success: true; data: { opponent: string; date: string; time: string; location: string } | null } | { success: false; error: string }>,
+      "games",
+    );
 
-    // 1a: Roster — find best matching player (API returns camelCase fields)
-    const rosterRes = results[0] as { success: true; data: Record<string, unknown>[] } | null;
-    if (rosterRes?.data) {
-      let bestCandidate: Record<string, unknown> | null = null;
-      let bestScore = 0;
-      for (const player of rosterRes.data) {
-        const s = scoreCandidateRoster(player, target) + 35;
-        if (s > bestScore) {
-          bestScore = s;
+    const cfbdData: Record<string, unknown> = {};
+
+    let bestCandidate: Record<string, unknown> | null = null;
+    let bestScore = 0;
+    for (const rosterResult of rosterResults) {
+      if (!rosterResult) continue;
+      for (const player of rosterResult.data) {
+        const score = scoreCandidateRoster(player, target) + 35;
+        if (score > bestScore) {
+          bestScore = score;
           bestCandidate = player;
         }
       }
-
-      if (bestCandidate) {
-        const h = bestCandidate.height;
-        const w = bestCandidate.weight;
-        const j = bestCandidate.jersey ?? bestCandidate.jerseyNumber;
-        const pos = bestCandidate.position;
-        const yr = bestCandidate.year;
-        const city = bestCandidate.homeCity ?? bestCandidate.home_city;
-        const state = bestCandidate.homeState ?? bestCandidate.home_state;
-
-        if (h) cfbdData.height = String(h);
-        if (w) cfbdData.weight = String(w);
-        if (j != null) cfbdData.number = String(j);
-        if (pos) cfbdData.position = String(pos);
-        if (yr) cfbdData.classYear = yearToClass[Number(yr)] || String(yr);
-        if (city && state) {
-          cfbdData.hometown = `${city}, ${state}`;
-        }
-        // No headshot field in current API — espnId stays null
-      }
     }
 
-    // 1b: Recruiting (API returns camelCase, `name` as single string, `committedTo`, `athleteId`)
-    const recruitRes = results[1] as { success: true; data: Record<string, unknown>[] } | null;
-    if (recruitRes?.data && recruitRes.data.length > 0) {
-      // Find best match — recruiting uses `name` (single string) not first/last
-      const targetFull = `${firstName} ${lastName}`.toLowerCase();
-      const recruit = recruitRes.data.find((r) => {
-        const n = String(r.name ?? "").toLowerCase();
-        return n === targetFull || n.includes(lastName.toLowerCase());
-      }) || recruitRes.data[0];
+    if (bestCandidate && bestScore >= 70) {
+      const h = bestCandidate.height;
+      const w = bestCandidate.weight;
+      const j = bestCandidate.jersey ?? bestCandidate.jerseyNumber;
+      const pos = bestCandidate.position;
+      const rosterYear = bestCandidate.year;
+      const city = bestCandidate.homeCity ?? bestCandidate.home_city;
+      const state = bestCandidate.homeState ?? bestCandidate.home_state;
 
+      if (h) cfbdData.height = String(h);
+      if (w) cfbdData.weight = String(w);
+      if (j != null) cfbdData.number = String(j);
+      if (pos) cfbdData.position = String(pos);
+      if (rosterYear) cfbdData.classYear = yearToClass[Number(rosterYear)] || String(rosterYear);
+      if (city && state) cfbdData.hometown = `${city}, ${state}`;
+    } else {
+      errors.push(`roster: no exact match found across ${rosterYears.join(", ")}`);
+    }
+
+    if (recruitingData && recruitingData.length > 0) {
+      const recruit = recruitingData.find((entry) => normalize(entry.name) === fullNameLower) ?? null;
       if (recruit) {
         if (recruit.stars) cfbdData.starRating = recruit.stars;
         if (recruit.rating) {
           cfbdData.recruitingRating = recruit.rating;
-          cfbdData.ratingComposite = String(recruit.rating);
+          cfbdData.ratingComposite = Number(recruit.rating).toFixed(4);
         }
         if (recruit.ranking) cfbdData.nationalRank = recruit.ranking;
         if (recruit.school) cfbdData.highSchool = String(recruit.school);
         const committed = recruit.committedTo ?? recruit.committed_to;
         cfbdData.commitmentStatus = committed ? "committed" : "uncommitted";
-        if (recruit.year) {
-          cfbdData.recruitingClassYear = String(recruit.year);
-        }
+        if (recruit.year) cfbdData.recruitingClassYear = String(recruit.year);
+      } else {
+        errors.push(`recruiting: no exact match for ${firstName} ${lastName}`);
       }
     }
 
-    // 1c: Teams (API returns all teams — filter client-side)
-    const teamsRes = results[2] as { success: true; data: Record<string, unknown>[] } | null;
-    if (teamsRes?.data && teamsRes.data.length > 0) {
-      const schoolLower2 = schoolForCfbd.toLowerCase();
-      const team = teamsRes.data.find((t) => String(t.school ?? "").toLowerCase() === schoolLower2) || teamsRes.data[0];
-      const logos = team.logos as string[] | null;
-      if (logos?.[0]) cfbdData.schoolLogoUrl = logos[0];
+    if (teamsData && teamsData.length > 0) {
+      const schoolLower = schoolForCfbd.toLowerCase();
+      const team = teamsData.find((entry) => {
+        const teamSchool = normalize(entry.school);
+        if (teamSchool === schoolLower) return true;
+        const altNames = Array.isArray(entry.alternateNames) ? entry.alternateNames.map((name) => normalize(name)) : [];
+        if (altNames.includes(schoolLower)) return true;
+        return teamSchool.includes(schoolLower) || schoolLower.includes(teamSchool);
+      }) ?? teamsData[0];
+
+      const logos = Array.isArray(team.logos) ? team.logos.filter((logo): logo is string => typeof logo === "string") : [];
+      if (logos[0]) cfbdData.schoolLogoUrl = logos[0];
+
       const color = String(team.color ?? "");
       if (color && color !== "#null") cfbdData.teamColor = color.startsWith("#") ? color : `#${color}`;
+
       const altColor = String(team.alternateColor ?? team.alt_color ?? "");
       if (altColor && altColor !== "#null") cfbdData.teamColorAlt = altColor.startsWith("#") ? altColor : `#${altColor}`;
+
       if (team.abbreviation) cfbdData.schoolAbbrev = String(team.abbreviation);
     }
 
-    // 1d: Portal (API returns camelCase: firstName, lastName, origin, destination, eligibility)
-    const portalRes = results[3] as { success: true; data: Record<string, unknown>[] } | null;
-    if (portalRes?.data) {
-      const portalMatch = portalRes.data.find((p) =>
-        String(p.firstName ?? "").toLowerCase() === firstName.toLowerCase() &&
-        String(p.lastName ?? "").toLowerCase() === lastName.toLowerCase()
+    if (portalData) {
+      const portalMatch = portalData.find((entry) =>
+        normalize(entry.firstName) === firstName.toLowerCase() &&
+        normalize(entry.lastName) === lastName.toLowerCase(),
       );
       if (portalMatch) {
-        cfbdData.transferFrom = String(portalMatch.origin ?? "");
-        const elig = String(portalMatch.eligibility ?? "");
-        if (elig) cfbdData.eligibilityYears = parseInt(elig, 10) || 0;
+        if (portalMatch.origin) cfbdData.transferFrom = String(portalMatch.origin);
+        const eligibility = String(portalMatch.eligibility ?? "");
+        if (eligibility) cfbdData.eligibilityYears = parseInt(eligibility, 10) || 0;
         if (portalMatch.stars) cfbdData.transferStars = portalMatch.stars;
         if (!portalMatch.destination) cfbdData.commitmentStatus = "portal";
       }
     }
 
-    // 1e: Upcoming game
-    const gameRes = results[4] as { success: true; data: { opponent: string; date: string; time: string; location: string } | null } | null;
-    if (gameRes?.data) {
+    if (gameData) {
       cfbdData.upcomingGame = {
-        opponent: gameRes.data.opponent,
-        date: gameRes.data.date,
-        time: gameRes.data.time,
+        opponent: gameData.opponent,
+        date: gameData.date,
+        time: gameData.time,
         network: "",
-        location: gameRes.data.location,
+        location: gameData.location,
       };
     }
 
-    // Write ALL CFBD data directly to store — no modal, no confirmation
     if (Object.keys(cfbdData).length > 0) {
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
     }
