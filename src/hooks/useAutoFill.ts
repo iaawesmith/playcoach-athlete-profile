@@ -50,18 +50,23 @@ function fuzzyNameScore(
   return 0;
 }
 
-function scoreCandidate(
-  candidate: { first_name: string; last_name: string; position?: string; jersey?: number },
-  target: { firstName: string; lastName: string; position: string; jersey: string; school?: string },
+function scoreCandidateRoster(
+  candidate: Record<string, unknown>,
+  target: { firstName: string; lastName: string; position: string; jersey: string },
 ): number {
-  let score = fuzzyNameScore(candidate.first_name, candidate.last_name, target.firstName, target.lastName);
+  // CFBD API returns camelCase: firstName, lastName, position, jersey
+  const cf = String(candidate.firstName ?? candidate.first_name ?? "");
+  const cl = String(candidate.lastName ?? candidate.last_name ?? "");
+  let score = fuzzyNameScore(cf, cl, target.firstName, target.lastName);
 
-  if (candidate.position && target.position && candidate.position.toUpperCase() === target.position.toUpperCase()) {
+  const pos = String(candidate.position ?? "");
+  if (pos && target.position && pos.toUpperCase() === target.position.toUpperCase()) {
     score += 15;
   }
 
-  if (candidate.jersey != null && target.jersey) {
-    if (String(candidate.jersey) === target.jersey) score += 10;
+  const jerseyVal = candidate.jersey ?? candidate.jerseyNumber;
+  if (jerseyVal != null && target.jersey) {
+    if (String(jerseyVal) === target.jersey) score += 10;
   }
 
   return score;
