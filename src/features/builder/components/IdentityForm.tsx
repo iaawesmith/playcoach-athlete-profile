@@ -30,11 +30,19 @@ const SectionHeader = ({ title }: { title: string }) => (
   </div>
 );
 
-const SourceBadge = ({ source }: { source: "CFBD" | "247" | "ON3" }) => (
+const SourceBadge = ({ source }: { source: "CFBD" | "247" | "ON3" | "247C" }) => (
   <span className="absolute top-2.5 right-3 text-[8px] font-bold uppercase tracking-widest text-on-surface-variant/40 select-none">
     {source}
   </span>
 );
+
+type RecruitingTab = "cfbd" | "247" | "on3";
+
+function getStateAbbrev(hometown: string): string {
+  if (!hometown) return "";
+  const parts = hometown.split(", ");
+  return parts.length > 1 ? parts[parts.length - 1].trim() : "";
+}
 
 const LockIcon = () => (
   <span className="absolute top-2.5 right-3 material-symbols-outlined text-on-surface-variant/30 text-sm select-none">
