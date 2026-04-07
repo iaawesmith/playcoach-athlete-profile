@@ -123,13 +123,9 @@ export const cfbdApi = {
   playerSearch: (searchTerm: string) =>
     callCfbd<CfbdPlayerSearchResult[]>("/player/search", { searchTerm }),
 
-  /** Recruiting data — search by name, optionally filter by school */
-  recruitingPlayers: (name: string, school?: string, year?: number) =>
-    callCfbd<CfbdRecruit[]>("/recruiting/players", {
-      search: name,
-      ...(school ? { team: school } : {}),
-      ...(year ? { year } : { year: new Date().getFullYear() }),
-    }),
+  /** Recruiting data — pass team to get all recruits for that school */
+  recruitingPlayers: (team: string) =>
+    callCfbd<CfbdRecruit[]>("/recruiting/players", { team }),
 
   /** Team info including colors and logos */
   /** Team info — pass school name to filter, or omit for all teams */
