@@ -1,34 +1,24 @@
 
 
-## Add hover effects to onboarding tiles + focus borders to setup fields
+## Instant ProCard Preview from Auto-Fill Data
 
-### Approach
+### Problem
 
-**Tiles (Role, Tier, Sport):** On active (non-coming-soon) tiles, add a CSS hover state that applies the teal accent — border color shifts to `#4DC9C9`, a subtle glow shadow (`0 0 15px rgba(77,201,201,0.3)`), and a slight scale-up. Since these use inline styles, the cleanest approach is adding a hover state class and using a combination of `group` or conditional className with Tailwind's `hover:` — but because border/shadow are inline, we'll add an `onMouseEnter`/`onMouseLeave` local state per tile, or better: use CSS custom properties with a hover class. Simplest: add `hover:border-[#4DC9C9] hover:shadow-[0_0_15px_rgba(77,201,201,0.3)]` via Tailwind classes and move the border/shadow out of inline styles for active tiles.
+The auto-fill pipeline collects data but only writes to the Zustand store after the user reviews and clicks "Apply Selected." The ProCard reads from the store, so it stays empty during the review step. Additionally, CFBD's recruiting `rating` is stored as `recruitingRating` but the ProCard reads `ratingComposite` — so even after apply, the rating never shows.
 
-**Setup fields (CoreSetup):** Add a `focus-within` border highlight to each input card. The card divs use inline `cardStyle` with `border: 1px solid #3D434A`. We'll add a CSS class or use Tailwind's `focus-within:border-[#4DC9C9]` on the wrapper divs, moving the border to className so Tailwind's pseudo-class works.
+### Changes
 
-### Files changed
+**File: `src/hooks/useAutoFill.ts`**
 
-**1. `src/features/onboarding/steps/RoleSelection.tsx`**
-- For active tiles: move border/boxShadow out of inline style into className using Tailwind hover utilities
-- Add `hover:border-[#4DC9C9] hover:shadow-[0_0_15px_rgba(77,201,201,0.3)]` to the button className (only for non-comingSoon tiles)
+1. **Immediate preview write** — After enrichment completes (right before building the field entries for review), call `setAthleteFromSource` with a subset of preview-critical fields: `height`, `weight`, `ratingComposite`, `actionPhotoUrl`. This makes the ProCard update instantly while the user is still reviewing the full field list. These writes still respect source protection (won't overwrite manual fields).
 
-**2. `src/features/onboarding/steps/AthleteTier.tsx`**
-- Same pattern as RoleSelection for active tiles
+2. **Map CFBD rating → ratingComposite** — In Phase 1b (recruiting extraction), when `recruit.rating` is found, write it to both `recruitingRating` (for the Identity form's "Composite Rating" display card) and `ratingComposite` (for the ProCard's "RATING" display). Currently only `recruitingRating` is set, so the ProCard never gets the value.
 
-**3. `src/features/onboarding/steps/SportSelection.tsx`**
-- Same pattern as RoleSelection for active tiles
+3. **Map 247 compositeRating → ratingComposite** — In Phase 2 (247Sports extraction), when `d.compositeRating` is found, also write to `ratingComposite` in addition to `recruitingRating`.
 
-**4. `src/features/onboarding/steps/CoreSetup.tsx`**
-- Change `cardStyle` border to className-based so we can use `focus-within:`
-- Add `focus-within:border-[#4DC9C9]` and `transition-colors` to each input wrapper div
-- Apply via a shared card class string like `rounded-xl p-4 bg-[#2A2E33] border border-[#3D434A] focus-within:border-[#4DC9C9] transition-colors duration-200`
+**No changes to:** `athleteStore.ts`, `ProCard.tsx`, `IdentityForm.tsx`, or any other files. The ProCard already reads `height`, `weight`, `ratingComposite`, and `actionPhotoUrl` correctly — it just needs the store to be populated.
 
 ### Technical detail
 
-For the tiles, the selected state still needs inline style for the glow intensity difference (selected = stronger glow). The hover state will be a lighter version that only appears on non-selected, active tiles. We'll structure it as:
-- Selected: inline `border-color: #4DC9C9` + `boxShadow: 0 0 15px ...0.5`  
-- Hover (not selected, active): Tailwind `hover:border-[#4DC9C9] hover:shadow-[0_0_15px_rgba(77,201,201,0.3)]`
-- Inactive: inline `opacity: 0.45`, no hover effect
+The immediate preview write will use a dedicated `setAthleteFromSource` call with the appropriate source tag (e.g. `cfbd`). When the user later clicks "Apply Selected," the full batch write happens as before — but since the preview fields are already set with the same source, it's a no-op for those keys. If the user deselects a field during review, we won't "undo" the preview (acceptable tradeoff for instant feedback).
 
