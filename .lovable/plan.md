@@ -1,28 +1,22 @@
 
 
-## Plan: Populate ProCard RATING with 247 Composite Rating
+## Plan: Simplify Onboarding CoreSetup
 
-### What's happening now
-- The ProCard shows `ratingComposite` for the RATING field
-- `ratingComposite` only gets populated from CFBD recruiting data (line 294 in useAutoFill.ts)
-- `compositeRating247` gets populated from 247Sports scraping but is stored in a separate field and never shown on the card
+### What changes
+Remove **Position**, **Class**, and **Jersey Number** fields from `src/features/onboarding/steps/CoreSetup.tsx`. The onboarding form will collect only **First Name**, **Last Name**, and **School**. These three removed fields are already populated by the CFBD roster lookup during auto-fill.
 
-### Fix — ProCard.tsx only
+### Changes — CoreSetup.tsx only
 
-Update the RATING value in the `physicals` array to prefer `compositeRating247` over `ratingComposite`:
+1. **Remove the Position pills card** (lines ~119–138) — the entire `POSITIONS` pill selector
+2. **Remove the Class pills card** (lines ~141–159) — the entire `CLASS_OPTIONS` pill selector
+3. **Remove the Jersey Number card** (lines ~162–165)
+4. **Remove unused constants** at top: `POSITIONS` and `CLASS_OPTIONS` arrays
+5. **Update `canContinue`** from `school && position && classYear && firstName && lastName` → `school && firstName && lastName`
+6. **Remove `position`, `classYear`, `number`** from the destructured store values (they're no longer used in this component)
 
-```typescript
-// Add compositeRating247 to the destructured store values
-const { ..., compositeRating247 } = useAthleteStore();
-
-// In physicals array, prefer 247 composite rating
-{ label: "RATING", value: compositeRating247 
-    ? compositeRating247.toFixed(4) 
-    : ratingComposite || "—" }
-```
-
-This keeps the field label as "RATING" on the card. Priority: `compositeRating247` (from 247Sports) → `ratingComposite` (from CFBD) → "—" (empty).
+### Result
+The form becomes three fields only: First Name, Last Name, School (with logo preview). Much faster onboarding — position, class, and jersey are auto-filled from CFBD after "Build My Profile."
 
 ### Files modified
-- `src/features/builder/components/ProCard.tsx` — one change only
+- `src/features/onboarding/steps/CoreSetup.tsx`
 
