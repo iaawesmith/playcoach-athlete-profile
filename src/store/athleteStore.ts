@@ -2,6 +2,8 @@ import { create } from "zustand";
 
 type ActiveSection = "identity" | "performance" | "develop" | "pulse" | "connect";
 
+export type FieldSource = "manual" | "cfbd" | "247" | "on3" | "firecrawl";
+
 interface UpcomingGame {
   opponent: string;
   date: string;
@@ -59,14 +61,23 @@ interface AthleteState {
   lastPublishedAt: number | null;
   hasUnpublishedChanges: boolean;
   activeSection: ActiveSection;
+
+  /** Tracks the source of each field value */
+  fieldSources: Record<string, FieldSource>;
+
   setAthlete: (data: Partial<AthleteData>) => void;
+  setAthleteFromSource: (data: Partial<AthleteData>, source: FieldSource) => void;
+  getFieldSource: (field: string) => FieldSource | undefined;
   publishProfile: () => void;
   markDirty: () => void;
   resetToDefaults: () => void;
   setActiveSection: (section: ActiveSection) => void;
 }
 
-type AthleteData = Omit<AthleteState, "setAthlete" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "lastPublishedAt" | "hasUnpublishedChanges" | "activeSection" | "setActiveSection">;
+type AthleteData = Omit<AthleteState, "setAthlete" | "setAthleteFromSource" | "getFieldSource" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "lastPublishedAt" | "hasUnpublishedChanges" | "activeSection" | "setActiveSection" | "fieldSources">;
+
+/** Fields set during onboarding or by the user — never overwritten by pipelines */
+const MANUAL_FIELDS = new Set(["firstName", "lastName", "school", "position", "classYear", "number"]);
 
 const defaults: AthleteData = {
   firstName: "",
@@ -114,22 +125,63 @@ const defaults: AthleteData = {
   upcomingGame: null,
 };
 
-export const useAthleteStore = create<AthleteState>((set) => ({
+export const useAthleteStore = create<AthleteState>((set, get) => ({
   ...defaults,
   profileStatus: "draft",
   hasBeenPublished: false,
   lastPublishedAt: null,
   hasUnpublishedChanges: false,
   activeSection: "identity",
+  fieldSources: {},
+
   setAthlete: (data) =>
-    set((state) => ({
-      ...state,
-      ...data,
-      hasUnpublishedChanges: true,
-      profileStatus: state.profileStatus === "live" ? "draft" : state.profileStatus,
-    })),
+    set((state) => {
+      // Direct setAthlete always tags as manual
+      const newSources = { ...state.fieldSources };
+      for (const key of Object.keys(data)) {
+        newSources[key] = "manual";
+      }
+      return {
+        ...state,
+        ...data,
+        fieldSources: newSources,
+        hasUnpublishedChanges: true,
+        profileStatus: state.profileStatus === "live" ? "draft" : state.profileStatus,
+      };
+    }),
+
+  setAthleteFromSource: (data, source) =>
+    set((state) => {
+      const update: Record<string, unknown> = {};
+      const newSources = { ...state.fieldSources };
+
+      for (const [key, value] of Object.entries(data)) {
+        // Never overwrite manual fields from pipeline sources
+        if (MANUAL_FIELDS.has(key) && source !== "manual") continue;
+        // Never overwrite a field already tagged as manual
+        if (state.fieldSources[key] === "manual" && source !== "manual") continue;
+        // Skip null/undefined/empty values
+        if (value === null || value === undefined || value === "") continue;
+
+        update[key] = value;
+        newSources[key] = source;
+      }
+
+      if (Object.keys(update).length === 0) return state;
+
+      return {
+        ...state,
+        ...update,
+        fieldSources: newSources,
+        hasUnpublishedChanges: true,
+        profileStatus: state.profileStatus === "live" ? "draft" : state.profileStatus,
+      };
+    }),
+
+  getFieldSource: (field) => get().fieldSources[field],
+
   publishProfile: () => set({ profileStatus: "live", hasBeenPublished: true, lastPublishedAt: Date.now(), hasUnpublishedChanges: false }),
   markDirty: () => set({ profileStatus: "draft" }),
-  resetToDefaults: () => set({ ...defaults, profileStatus: "draft", lastPublishedAt: null, hasUnpublishedChanges: false }),
+  resetToDefaults: () => set({ ...defaults, fieldSources: {}, profileStatus: "draft", lastPublishedAt: null, hasUnpublishedChanges: false }),
   setActiveSection: (section) => set({ activeSection: section }),
 }));
