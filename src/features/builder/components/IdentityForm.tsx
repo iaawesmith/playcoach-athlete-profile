@@ -199,12 +199,13 @@ const TimeInputCard = ({
 /* ─── AI Video placeholder field ───────────────────────────── */
 
 const AiVideoField = ({ label }: { label: string }) => (
-  <div className="bg-surface-container rounded-xl p-4">
-    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">{label}</label>
-    <div className="flex items-center gap-2 text-on-surface-variant/40">
-      <span className="material-symbols-outlined text-base">videocam</span>
-      <span className="text-xs italic">Via AI Video</span>
+  <div className="bg-surface-container rounded-xl p-4 relative">
+    <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-container-highest/60">
+      <span className="material-symbols-outlined text-[10px] text-on-surface-variant/50">videocam</span>
+      <span className="text-[9px] font-semibold uppercase tracking-wider text-on-surface-variant/50">AI Video</span>
     </div>
+    <label className="text-[10px] font-semibold uppercase tracking-widest text-[#c0c3c7] block mb-2">{label}</label>
+    <span className="text-sm font-normal text-on-surface-variant/30">—</span>
   </div>
 );
 
