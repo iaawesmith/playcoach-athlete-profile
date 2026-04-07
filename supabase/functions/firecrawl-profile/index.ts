@@ -285,6 +285,23 @@ Deno.serve(async (req: Request) => {
       const parsed = parse247RecruitingData(html, position, playerState);
       console.log("[247] Parsed result:", JSON.stringify(parsed));
 
+      // Extract action photo from already-fetched 247 HTML (Phase B — no extra API call)
+      const find247ActionPhoto = (): string | null => {
+        const slug = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
+        const imgMatches = [
+          ...html.matchAll(/src="(https?:\/\/[^"]*247sports[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi),
+        ].map(m => m[1]);
+        return imgMatches.find(url => {
+          const lower = url.toLowerCase();
+          if (lower.includes("headshot")) return false;
+          if (lower.includes("logo")) return false;
+          if (lower.includes("icon")) return false;
+          return lower.includes(slug) || lower.includes("player") || lower.includes("photo");
+        }) || null;
+      };
+      const actionPhoto247 = find247ActionPhoto();
+      console.log("[247] Action photo from HTML:", actionPhoto247);
+
       const data: Record<string, unknown> = {};
       if (parsed.stars247 !== null) data.stars247 = parsed.stars247;
       if (parsed.playerRating247 !== null) data.rating247 = parsed.playerRating247;
@@ -295,6 +312,7 @@ Deno.serve(async (req: Request) => {
       if (parsed.compositeNationalRank247 !== null) data.compositeNationalRank247 = parsed.compositeNationalRank247;
       if (parsed.compositePositionRank247 !== null) data.compositePositionRank247 = parsed.compositePositionRank247;
       if (parsed.compositeStateRank247 !== null) data.compositeStateRank247 = parsed.compositeStateRank247;
+      if (actionPhoto247) data.actionPhotoUrl = actionPhoto247;
 
       return new Response(
         JSON.stringify({ success: true, data: Object.keys(data).length > 0 ? data : null }),
@@ -364,20 +382,17 @@ Deno.serve(async (req: Request) => {
       }
       console.log("[espn-photo] HTML length:", html.length);
 
-      const imgUrls = [...html.matchAll(/src="(https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)]
-        .map(m => m[1]);
+      // Target ESPN action/editorial images: combiner/ and photo/ paths only
+      const imgMatches = [
+        ...html.matchAll(/(?:src|content)="(https?:\/\/a\.espncdn\.com\/(?:combiner|photo)[^"]+)"/gi),
+      ].map(m => m[1]);
 
-      const actionPhoto = imgUrls.find(url => {
+      const actionPhoto = imgMatches.find(url => {
         const lower = url.toLowerCase();
-        const isEspnCdn = lower.includes("espncdn.com") || lower.includes("espn.com");
-        if (!isEspnCdn) return false;
         if (lower.includes("/i/headshots/")) return false;
-        if (lower.includes("logos")) return false;
         if (lower.includes("helmet")) return false;
-        // Prefer larger images — skip tiny thumbnails
-        const sizeMatch = url.match(/\/(\d+)\//);
-        if (sizeMatch && parseInt(sizeMatch[1]) < 100) return false;
-        return true;
+        if (lower.includes("logo")) return false;
+        return /\.(jpg|jpeg|png|webp)/i.test(url) || lower.includes("combiner");
       }) || null;
 
       console.log("[espn-photo] Found action photo:", actionPhoto);
@@ -416,69 +431,7 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ success: true, data: json }), { headers });
     }
 
-    /* ── Google Image Search photo (Phase C — last resort) ────── */
-    if (mode === "google-image-photo") {
-      if (!firstName || !lastName || !school) {
-        return new Response(JSON.stringify({ success: false, error: "Name and school required" }), { status: 400, headers });
-      }
-
-      const normalizedSchool = school.replace(/\b(Crimson Tide|Buckeyes|Wolverines|Cougars|Bulldogs|Tigers|Wildcats|Longhorns|Sooners|Volunteers|Gators|Seminoles|Hurricanes|Ducks|Utes|Cowboys|Horned Frogs|Mountaineers|Cornhuskers|Hawkeyes|Cyclones|Jayhawks|Panthers|Cardinals|Buffaloes|Sun Devils|Bruins|Beavers|Trojans|Huskies|Razorbacks|Rebels|Aggies|Bears|Commodores|Gamecocks|Fighting Irish|Nittany Lions|Golden Gophers|Badgers|Boilermakers|Hoosiers|Illini|Spartans|Tar Heels|Wolfpack|Blue Devils|Yellow Jackets|Demon Deacons|Hokies|Cavaliers|Owls|Red Raiders|Mustangs)\b/gi, "").trim();
-
-      // Wrap name in quotes for exact match
-      const searchUrl = `https://www.google.com/search?q=%22${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}%22+${encodeURIComponent(normalizedSchool)}+football+action&tbm=isch`;
-      console.log("[google-image] Search URL:", searchUrl);
-
-      const html = await firecrawlScrapeHtml(firecrawlKey, searchUrl, 3000);
-      if (!html) {
-        console.log("[google-image] No HTML returned");
-        return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: null } }), { headers });
-      }
-
-      const imgUrls = [...html.matchAll(/(?:src|data-src)="(https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)]
-        .map(m => m[1]);
-
-      const sportsDomains = [
-        "espncdn.com", "espn.com", "247sports.com",
-        "on3.com", "si.com", "rivals.com",
-        "usatoday.com", "cbssports.com", "bleacherreport.com",
-      ];
-
-      // Layer 1: format and content validation
-      const isValidActionPhoto = (url: string): boolean => {
-        const lower = url.toLowerCase();
-        if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) return false;
-        if (lower.includes("headshot")) return false;
-        if (lower.includes("/i/headshots/")) return false;
-        if (lower.includes("hudl.com")) return false;
-        if (lower.includes("maxpreps.com")) return false;
-        if (lower.includes("portrait")) return false;
-        return true;
-      };
-
-      // Layer 2: player name identity match
-      const imageUrlMatchesPlayer = (url: string): boolean => {
-        const slug = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
-        const lastNameLower = lastName.toLowerCase();
-        const urlLower = url.toLowerCase();
-
-        // Strong signal: full name slug in URL
-        if (urlLower.includes(slug)) return true;
-
-        // Acceptable: last name in URL from known sports domain
-        const fromSportsDomain = sportsDomains.some(d => urlLower.includes(d));
-        if (fromSportsDomain && urlLower.includes(lastNameLower)) return true;
-
-        return false;
-      };
-
-      // Apply both layers — better to return null than wrong player
-      const actionPhoto = imgUrls.find(url =>
-        isValidActionPhoto(url) && imageUrlMatchesPlayer(url)
-      ) || null;
-
-      console.log("[google-image] Candidates:", imgUrls.length, "| Matched:", actionPhoto);
-      return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: actionPhoto } }), { headers });
-    }
+    /* Google Image Search removed — unreliable, returns wrong players */
 
     return new Response(
       JSON.stringify({ success: false, error: `Unknown mode: ${mode}` }),
