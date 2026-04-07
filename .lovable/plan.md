@@ -1,53 +1,42 @@
 
-Problem confirmed: the team resolution is working, but the matching logic in `useAutoFill.ts` is reading the wrong CFBD field names. Live CFBD responses are camelCase (`firstName`, `lastName`, `homeCity`, `homeState`), while the current hook still looks for snake_case (`first_name`, `last_name`, `home_city`, `home_state`, `headshot_url`). That guarantees false “no name match” results even when the player exists.
 
-Plan
+## Plan: Live Action Photo on Preview + Collapsible Data Fields
 
-1. Fix roster matching in `src/hooks/useAutoFill.ts`
-- Replace roster name matching to read `firstName` / `lastName`, with snake_case only as fallback.
-- Keep the requested exact-match first, last-name fallback second behavior.
-- Update the success log to print the matched camelCase name fields.
+### Problem 1 — Action photo doesn't appear on ProCard until "Apply"
+The action photo URL is found during the Firecrawl phase but stored only in the `enrichedFields` array for review. The ProCard reads `actionPhotoUrl` from Zustand, which isn't updated until the user clicks "Apply Selected." So the card stays blank during the preview step.
 
-2. Fix roster field extraction in `src/hooks/useAutoFill.ts`
-- Read CFBD roster values from actual live response keys:
-  - `firstName`, `lastName`
-  - `homeCity`, `homeState`
-  - `jersey`, `position`, `year`, `height`, `weight`
-  - `id` as ESPN/player identifier fallback
-- Keep headshot/photo handling safe:
-  - use `headshot_url` only if present
-  - otherwise don’t fail the roster match just because headshot is missing
-- Stop tying ESPN ID extraction only to `headshot_url`; also use roster `id` when available so the ESPN action-photo phase can still run.
+### Problem 2 — All returned fields shown at once
+The field list can be 15–25 items long, making the results screen noisy. User wants a collapsed summary with an expand toggle.
 
-3. Fix recruiting matching in `src/hooks/useAutoFill.ts`
-- Keep `recruitingPlayers(team)` in `cfbd.ts`.
-- Match recruits using `name` first, then optional `firstName`/`lastName` fallback if present.
-- Add the same last-name fallback used for roster so nickname/format differences don’t kill the match.
+---
 
-4. Improve diagnostics in `src/hooks/useAutoFill.ts`
-- Make the CFBD error text more actionable, for example:
-  - `roster ✗ (response had 120 players, no match for "Chase Roberts")`
-  - `recruiting ✗ (response had 340 recruits, no match for "Chase Roberts")`
-- This keeps logging useful without adding `console.log` noise.
+### Fix 1 — Write actionPhotoUrl to store immediately (useAutoFill.ts)
 
-5. Clean up obsolete scoring code in `src/hooks/useAutoFill.ts`
-- Remove the unused identity-scoring helpers at the top of the file (`fuzzyNameScore`, `scoreCandidateRoster`) since the current flow is roster-list matching, not scored identity resolution.
-- This prevents future confusion and aligns the hook with the intended CFBD flow.
+At the end of the Firecrawl phase (around line 474), when `resolvedActionPhoto` is found, write it to the store immediately via `setAthleteFromSource` so the ProCard updates live:
 
-Expected outcome
-- BYU will still resolve correctly.
-- Roster matching should start finding players like Chase Roberts because it will compare against the actual returned keys.
-- Recruiting matching will work when the recruit is present in school recruit history.
-- If recruiting truly has no record, the diagnostics will clearly say it was a real miss rather than a broken parser.
-
-Technical note
-```text
-Current bug:
-useAutoFill expects:   first_name / last_name / home_city / home_state
-CFBD actually returns: firstName  / lastName  / homeCity  / homeState
+```typescript
+if (resolvedActionPhoto) {
+  data.actionPhotoUrl = resolvedActionPhoto;
+  // Write to store immediately so ProCard updates in real-time
+  setAthleteFromSource({ actionPhotoUrl: resolvedActionPhoto }, source);
+}
 ```
-That mismatch is the direct reason you’re seeing:
-```text
-team ✓ (BYU), roster ✗ (no name match), recruiting ✗ (no name match)
-```
-even though the API itself is returning valid BYU data.
+
+The field still appears in the enrichedFields list for deselection, but the ProCard shows the photo right away. If the user unchecks it and clicks Apply, the apply function should remove it from the store (or simply not re-write it — the current behavior already skips unchecked fields).
+
+Also do the same for `profilePictureUrl` from the CFBD roster headshot — it's already written to the store in the CFBD phase, so that's fine. No change needed there.
+
+### Fix 2 — Collapsible field list (ProfilePreview.tsx)
+
+Replace the flat field list with a collapsed summary + expander:
+
+- **Collapsed state (default)**: Show a summary line like "12 fields found from 247Sports, On3, CFBD" with source badges and a "Show Details" expand button.
+- **Expanded state**: Show the full checkbox field list as it exists today.
+- Use a local `useState<boolean>(false)` for the expand toggle.
+- The expand button: a row with "View all fields" text + a `expand_more` / `expand_less` Material Symbol icon.
+- Keep the "Apply Selected" and "Skip" buttons always visible outside the collapsible area.
+
+### Files modified
+1. `src/hooks/useAutoFill.ts` — write actionPhotoUrl to store immediately when resolved
+2. `src/features/onboarding/steps/ProfilePreview.tsx` — add collapsible wrapper around the field list
+
