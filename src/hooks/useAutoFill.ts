@@ -217,7 +217,7 @@ export function useAutoFill() {
     // CHANGE 1 & 3: only roster, recruiting, portal, games — no teams()
     const settled = await Promise.allSettled([
       ...rosterYears.map((year) => cfbdApi.roster(school, year)),
-      cfbdApi.recruitingPlayers(`${firstName} ${lastName}`, school),
+      cfbdApi.recruitingPlayers(school),
       cfbdApi.playerPortal(currentYear, school),
       cfbdApi.upcomingGames(school, currentYear),
     ]);
