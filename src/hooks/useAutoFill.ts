@@ -33,44 +33,7 @@ export type FieldEntry = {
 /*  Identity resolution scoring                                        */
 /* ------------------------------------------------------------------ */
 
-function fuzzyNameScore(
-  candidateFirst: string,
-  candidateLast: string,
-  targetFirst: string,
-  targetLast: string,
-): number {
-  const cf = candidateFirst.toLowerCase();
-  const cl = candidateLast.toLowerCase();
-  const tf = targetFirst.toLowerCase();
-  const tl = targetLast.toLowerCase();
-
-  if (cf === tf && cl === tl) return 40;
-  if (cl === tl && cf.startsWith(tf.slice(0, 3))) return 30;
-  if (cl === tl) return 20;
-  return 0;
-}
-
-function scoreCandidateRoster(
-  candidate: Record<string, unknown>,
-  target: { firstName: string; lastName: string; position: string; jersey: string },
-): number {
-  // CFBD API returns camelCase: firstName, lastName, position, jersey
-  const cf = String(candidate.firstName ?? candidate.first_name ?? "");
-  const cl = String(candidate.lastName ?? candidate.last_name ?? "");
-  let score = fuzzyNameScore(cf, cl, target.firstName, target.lastName);
-
-  const pos = String(candidate.position ?? "");
-  if (pos && target.position && pos.toUpperCase() === target.position.toUpperCase()) {
-    score += 15;
-  }
-
-  const jerseyVal = candidate.jersey ?? candidate.jerseyNumber;
-  if (jerseyVal != null && target.jersey) {
-    if (String(jerseyVal) === target.jersey) score += 10;
-  }
-
-  return score;
-}
+/* (scoring helpers removed — roster matching uses direct name comparison) */
 
 /* ------------------------------------------------------------------ */
 /*  Utilities                                                          */
@@ -248,20 +211,27 @@ export function useAutoFill() {
     const cfbdData: Record<string, unknown> = {};
 
     // ── Roster: find player by name, extract data ──
+    // CFBD returns camelCase: firstName, lastName, homeCity, homeState
     let matched: Record<string, unknown> | null = null;
+    let rosterTotal = 0;
     for (let i = 0; i < rosterYears.length; i++) {
       const roster = readSettled<Record<string, unknown>[]>(i, `roster ${rosterYears[i]}`);
       if (!roster) continue;
+      rosterTotal += roster.length;
 
-      // Exact first+last match
+      // Exact first+last match (camelCase primary, snake_case fallback)
       const exact = roster.find(
-        (p) => normalize(p.first_name) === firstLower && normalize(p.last_name) === lastLower,
+        (p) =>
+          normalize(p.firstName ?? p.first_name) === firstLower &&
+          normalize(p.lastName ?? p.last_name) === lastLower,
       );
       if (exact) { matched = exact; break; }
 
       // Last name fallback (handles nicknames)
       if (!matched) {
-        const lastOnly = roster.find((p) => normalize(p.last_name) === lastLower);
+        const lastOnly = roster.find(
+          (p) => normalize(p.lastName ?? p.last_name) === lastLower,
+        );
         if (lastOnly) matched = lastOnly;
       }
     }
@@ -269,11 +239,12 @@ export function useAutoFill() {
     if (matched) {
       const h = matched.height;
       const w = matched.weight;
-      const city = matched.home_city;
-      const state = matched.home_state;
+      const city = matched.homeCity ?? matched.home_city;
+      const state = matched.homeState ?? matched.home_state;
       const pos = matched.position;
       const jer = matched.jersey;
       const yr = matched.year;
+      const playerId = matched.id;
 
       if (h) cfbdData.height = String(h);
       if (w) cfbdData.weight = String(w);
@@ -282,28 +253,38 @@ export function useAutoFill() {
       if (jer) cfbdData.number = String(jer);
       if (yr && yearToClass[Number(yr)]) cfbdData.classYear = yearToClass[Number(yr)];
 
-      const headshot = String(matched.headshot_url ?? "");
+      const headshot = String(matched.headshot_url ?? matched.headshotUrl ?? "");
       if (headshot && !store.getState().profilePictureUrl) {
         cfbdData.profilePictureUrl = headshot;
       }
       if (headshot) {
         espnId = extractEspnId(headshot);
       }
+      // Use roster player id as ESPN fallback
+      if (!espnId && playerId) {
+        espnId = String(playerId);
+      }
 
-      errors.push(`roster ✓ (${String(matched.first_name)} ${String(matched.last_name)})`);
+      const mFirst = String(matched.firstName ?? matched.first_name ?? "");
+      const mLast = String(matched.lastName ?? matched.last_name ?? "");
+      errors.push(`roster ✓ (${mFirst} ${mLast})`);
     } else {
-      errors.push("roster ✗ (no name match)");
+      errors.push(`roster ✗ (${rosterTotal} players scanned, no match for "${firstName} ${lastName}")`);
     }
 
     // ── Recruiting ──
     const recruitingIdx = rosterYears.length;
     const recruitingData = readSettled<Record<string, unknown>[]>(recruitingIdx, "recruiting");
     if (recruitingData && recruitingData.length > 0) {
-      // Match by name — recruiting uses "name" field or first_name/last_name
+      // Match by name — CFBD recruiting uses camelCase or "name" field
       const recruit = recruitingData.find((entry) => {
         const n = normalize(entry.name);
         if (n === `${firstLower} ${lastLower}`) return true;
-        return normalize(entry.first_name) === firstLower && normalize(entry.last_name) === lastLower;
+        const eFirst = normalize(entry.firstName ?? entry.first_name);
+        const eLast = normalize(entry.lastName ?? entry.last_name);
+        if (eFirst === firstLower && eLast === lastLower) return true;
+        // Last name fallback
+        return eLast === lastLower;
       }) ?? null;
       if (recruit) {
         if (recruit.stars) cfbdData.starRating = recruit.stars;
@@ -318,7 +299,7 @@ export function useAutoFill() {
         if (recruit.year) cfbdData.recruitingClassYear = String(recruit.year);
         errors.push("recruiting ✓");
       } else {
-        errors.push("recruiting ✗ (no name match)");
+        errors.push(`recruiting ✗ (${recruitingData.length} recruits, no match for "${firstName} ${lastName}")`);
       }
     }
 
