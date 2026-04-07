@@ -307,7 +307,25 @@ export function useAutoFill() {
 
     // ── Portal: transferFrom, eligibilityYears, transferStars, transferRating ──
     const portalIdx = rosterYears.length + 1;
-    const portalData = readSettled<Record<string, unknown>[]>(portalIdx, "portal");
+    const portalResult = settled[portalIdx];
+    let portalData: Record<string, unknown>[] | null = null;
+    if (portalResult.status === "rejected") {
+      // Portal 404 = player not in portal — normal, not an error
+      const reason = String(portalResult.reason ?? "");
+      if (!reason.includes("404")) {
+        errors.push(`portal ✗ (${reason})`);
+      }
+    } else {
+      const value = portalResult.value as { success: true; data: Record<string, unknown>[] } | { success: false; error: string };
+      if (value.success === false) {
+        // 404 means not in portal — skip silently
+        if (!value.error.includes("404")) {
+          errors.push(`portal ✗ (${value.error})`);
+        }
+      } else {
+        portalData = value.data;
+      }
+    }
     if (portalData) {
       const portalMatch = portalData.find((entry) =>
         normalize(entry.firstName) === firstName.toLowerCase() &&
@@ -528,45 +546,52 @@ export function useAutoFill() {
 
   const scrape = useCallback(async () => {
     if (!canScrape) return;
-    setStatus("resolving");
-    setErrorMessage("");
-    setEnrichedFields([]);
-    setSources([]);
-    setConfirmCandidate(null);
 
-    const diagParts: string[] = [];
-    let espnId: string | null = null;
+    try {
+      setStatus("resolving");
+      setErrorMessage("");
+      setEnrichedFields([]);
+      setSources([]);
+      setConfirmCandidate(null);
 
-    // CHANGE 4 & 5: CFBD phase wrapped in try/catch, never blocks Firecrawl
-    if (firstName && school) {
-      try {
-        const cfbdResult = await runCfbdPhase();
-        espnId = cfbdResult.espnId;
-        if (cfbdResult.errors.length > 0) {
-          diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
+      const diagParts: string[] = [];
+      let espnId: string | null = null;
+
+      // CFBD phase — only if firstName and school are set
+      if (firstName && school) {
+        try {
+          const cfbdResult = await runCfbdPhase();
+          espnId = cfbdResult.espnId;
+          if (cfbdResult.errors.length > 0) {
+            diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
+          }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          diagParts.push(`CFBD crashed: ${msg}`);
         }
+      }
+
+      // Firecrawl — always runs regardless of CFBD outcome
+      try {
+        await runFirecrawlPhase(espnId);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        diagParts.push(`CFBD crashed: ${msg}`);
+        diagParts.push(`Firecrawl crashed: ${msg}`);
       }
-    }
 
-    // Phase 2: Firecrawl — always runs regardless of CFBD outcome
-    try {
-      await runFirecrawlPhase(espnId);
+      if (diagParts.length > 0) {
+        setErrorMessage(diagParts.join(" | "));
+      }
+
+      // Only show error status if absolutely nothing was written
+      const storeAfter = useAthleteStore.getState();
+      const anyDataWritten = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown);
+      if (!anyDataWritten && diagParts.length > 0) {
+        setStatus("error");
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      diagParts.push(`Firecrawl crashed: ${msg}`);
-    }
-
-    if (diagParts.length > 0) {
-      setErrorMessage(diagParts.join(" | "));
-    }
-
-    // Only show error status if absolutely nothing was written
-    const storeAfter = useAthleteStore.getState();
-    const anyDataWritten = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown);
-    if (!anyDataWritten && diagParts.length > 0) {
+      setErrorMessage(`Auto-fill failed: ${msg}`);
       setStatus("error");
     }
   }, [canScrape, firstName, school, runCfbdPhase, runFirecrawlPhase]);
