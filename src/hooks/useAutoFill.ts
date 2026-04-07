@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useAthleteStore, type FieldSource } from "@/store/athleteStore";
-import { cfbdApi } from "@/services/cfbd";
+import { cfbdApi, resolveTeamName } from "@/services/cfbd";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
 

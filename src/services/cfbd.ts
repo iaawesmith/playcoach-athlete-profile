@@ -111,6 +111,49 @@ export type CfbdUpcomingGame = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  Team name resolution cache                                         */
+/* ------------------------------------------------------------------ */
+
+const teamNameCache = new Map<string, string | null>();
+
+export const resolveTeamName = async (input: string): Promise<string | null> => {
+  const key = input.toLowerCase().trim();
+  if (teamNameCache.has(key)) return teamNameCache.get(key) ?? null;
+
+  const result = await cfbdApi.teams();
+  if (!result.success) {
+    teamNameCache.set(key, null);
+    return null;
+  }
+
+  const teams = result.data;
+  // 1. Exact match on school field
+  const exact = teams.find((t) => t.school.toLowerCase() === key);
+  if (exact) { teamNameCache.set(key, exact.school); return exact.school; }
+
+  // 2. school + mascot
+  const composite = teams.find(
+    (t) => `${t.school} ${t.mascot}`.toLowerCase() === key,
+  );
+  if (composite) { teamNameCache.set(key, composite.school); return composite.school; }
+
+  // 3. Input starts with school name (longest match first)
+  const startsWith = teams
+    .filter((t) => key.startsWith(t.school.toLowerCase()))
+    .sort((a, b) => b.school.length - a.school.length);
+  if (startsWith.length > 0) { teamNameCache.set(key, startsWith[0].school); return startsWith[0].school; }
+
+  // 4. Alternate names
+  const alt = teams.find(
+    (t) => t.alternateNames?.some((n) => n.toLowerCase() === key),
+  );
+  if (alt) { teamNameCache.set(key, alt.school); return alt.school; }
+
+  teamNameCache.set(key, null);
+  return null;
+};
+
+/* ------------------------------------------------------------------ */
 /*  API functions                                                      */
 /* ------------------------------------------------------------------ */
 
