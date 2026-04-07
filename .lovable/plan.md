@@ -1,23 +1,55 @@
 
+Yes, but only slightly.
 
-## Fix: Missing Fields Not Rendering in ScrapeFill
+What the example URLs confirm:
+- 247Sports canonical recruiting URLs do use the pattern `/player/{slug}-{id}/high-school-{id}/`
+- On3 recruiting URLs do use the pattern `/rivals/{slug}-{id}/`
 
-### Root Cause
-The `missingFields` array is computed at the end of `scrape()` in `useAutoFill.ts` and written to the Zustand store. The `ScrapeFill` component reads it from the store via `useAthleteStore((s) => s.missingFields)`. 
+What this changes in the earlier diagnosis:
+- It does not change the main issue: the current autofill is still failing primarily at URL discovery, because `supabase/functions/firecrawl-profile/index.ts` is scraping Google-result markdown instead of doing a reliable profile search.
+- It does refine the implementation: we should match these exact skeletons with ID-aware regexes instead of loose substring checks.
+- It also means On3’s `/rivals/` path is valid as-is, so the first fix is not “change the On3 path,” it is “make discovery reliable and score the right result.”
 
-The problem: `runFirecrawlPhase` sets `setStatus("results")` before `scrape()` computes and writes `missingFields`. The component re-renders with status="results" but `missingFields` is still `[]` in the store. The subsequent `setMissingFields(missingFields)` call triggers another store update, but `setStatus("results")` at line 707 is a no-op (same value), so React may batch away the re-render if Zustand's update doesn't trigger one independently.
+Updated implementation plan
 
-### Fix (two files, minimal changes)
+1. Fix profile discovery in `supabase/functions/firecrawl-profile/index.ts`
+- Replace Google-page scraping with a real Firecrawl search request.
+- Search for candidate URLs using athlete name plus school.
+- Rank candidates against the exact patterns your examples confirm:
+  - 247 preferred: `/player/{slug}-{id}/high-school-{id}/`
+  - 247 fallback: `/player/{slug}-{id}/`
+  - On3 preferred: `/rivals/{slug}-{id}/`
 
-**1. `src/hooks/useAutoFill.ts`**
-- Add `const [localMissingFields, setLocalMissingFields] = useState<MissingField[]>([])` alongside other local state
-- In `scrape()`, after computing `missingFields`, call BOTH `setLocalMissingFields(missingFields)` and `useAthleteStore.getState().setMissingFields(missingFields)` (keep store write for other consumers)
-- In `scrape()` initialization (line 583 area), add `setLocalMissingFields([])` to reset on new scrape
-- Return `missingFields: localMissingFields` from the hook
+2. Tighten URL matching using the example skeletons
+- Replace broad `includes("/player/")` and `includes("/rivals/")` logic with regex-based matching.
+- Keep slug matching, but also require the numeric ID suffix so we don’t accept unrelated pages that happen to contain the name.
 
-**2. `src/features/builder/components/ScrapeFill.tsx`**
-- Remove `const missingFields = useAthleteStore((s) => s.missingFields)` (line 30)
-- Destructure `missingFields` from `useAutoFill()` instead (add to the existing destructuring block)
+3. Keep the current 247 parser, but fix the frontend contract
+- The backend currently returns `stars247`, `rating247`, `compositeRating247`, etc.
+- `src/hooks/useAutoFill.ts` is still reading stale keys like `d.stars`, `d.playerRating247`, and `d.compositeRating`.
+- Update `src/services/firecrawl.ts` types and `useAutoFill.ts` field mapping so successful 247 results actually populate the UI/store.
 
-This ensures the component re-renders from the same React state batch as the status update, guaranteeing the missing fields panel appears alongside the "DATA FOUND" panel.
+4. Make attempt/failure states explicit
+- Return clearer outcomes from the edge function:
+  - search ran but no matching profile URL found
+  - profile page found but parse returned no usable fields
+  - success with data
+- Use that to make missing-field reasons accurate instead of defaulting everything to “Source not reached.”
 
+5. Keep the UI behavior, but make 247/On3 visibly attempted
+- If 247 or On3 were queried but returned no data, still surface them as attempted sources in the autofill results/missing-fields flow so it no longer looks like CFBD was the only provider searched.
+
+Technical details
+- Current 247 logic already prefers `high-school` URLs, which matches your example.
+- Current On3 logic already extracts `/rivals/`, which also matches your example.
+- So the example URLs do not require a new parser shape; they mainly tell us how to harden candidate selection and confirm that discovery—not the downstream parsing target—is the weak link.
+
+Files to update
+- `supabase/functions/firecrawl-profile/index.ts`
+- `src/services/firecrawl.ts`
+- `src/hooks/useAutoFill.ts`
+
+Expected outcome
+- 247 and On3 will actually resolve profiles more consistently.
+- Successful 247 data will stop being dropped by the frontend due to key mismatches.
+- The autofill modal will clearly show whether 247/On3 were searched, matched, parsed, or failed.
