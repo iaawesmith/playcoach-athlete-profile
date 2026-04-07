@@ -696,7 +696,7 @@ export const IdentityForm = () => {
                     <DisplayField label="Composite Rating" value={store.compositeRating247} decimals={4} badge="247C" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <DisplayField label="Composite Natl." value={store.compositeNationalRank247} badge="247C" />
+                    <DisplayField label="Composite Natl. Rank" value={store.compositeNationalRank247} badge="247C" />
                     <DisplayField label={compPosLabel} value={store.compositePositionRank247} badge="247C" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
