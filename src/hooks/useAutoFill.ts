@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useAthleteStore, type FieldSource } from "@/store/athleteStore";
-import { cfbdApi, type CfbdRosterPlayer, type CfbdRecruit, type CfbdTeam, type CfbdPortalPlayer } from "@/services/cfbd";
+import { cfbdApi } from "@/services/cfbd";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -50,18 +50,23 @@ function fuzzyNameScore(
   return 0;
 }
 
-function scoreCandidate(
-  candidate: { first_name: string; last_name: string; position?: string; jersey?: number },
-  target: { firstName: string; lastName: string; position: string; jersey: string; school?: string },
+function scoreCandidateRoster(
+  candidate: Record<string, unknown>,
+  target: { firstName: string; lastName: string; position: string; jersey: string },
 ): number {
-  let score = fuzzyNameScore(candidate.first_name, candidate.last_name, target.firstName, target.lastName);
+  // CFBD API returns camelCase: firstName, lastName, position, jersey
+  const cf = String(candidate.firstName ?? candidate.first_name ?? "");
+  const cl = String(candidate.lastName ?? candidate.last_name ?? "");
+  let score = fuzzyNameScore(cf, cl, target.firstName, target.lastName);
 
-  if (candidate.position && target.position && candidate.position.toUpperCase() === target.position.toUpperCase()) {
+  const pos = String(candidate.position ?? "");
+  if (pos && target.position && pos.toUpperCase() === target.position.toUpperCase()) {
     score += 15;
   }
 
-  if (candidate.jersey != null && target.jersey) {
-    if (String(candidate.jersey) === target.jersey) score += 10;
+  const jerseyVal = candidate.jersey ?? candidate.jerseyNumber;
+  if (jerseyVal != null && target.jersey) {
+    if (String(jerseyVal) === target.jersey) score += 10;
   }
 
   return score;
@@ -248,13 +253,13 @@ export function useAutoFill() {
     const cfbdData: Record<string, unknown> = {};
     const target = { firstName, lastName, position, jersey, school };
 
-    // 1a: Roster — find best matching player
-    const rosterRes = results[0] as { success: true; data: CfbdRosterPlayer[] } | null;
+    // 1a: Roster — find best matching player (API returns camelCase fields)
+    const rosterRes = results[0] as { success: true; data: Record<string, unknown>[] } | null;
     if (rosterRes?.data) {
-      let bestCandidate: CfbdRosterPlayer | null = null;
+      let bestCandidate: Record<string, unknown> | null = null;
       let bestScore = 0;
       for (const player of rosterRes.data) {
-        const s = scoreCandidate(player, target) + 35;
+        const s = scoreCandidateRoster(player, target) + 35;
         if (s > bestScore) {
           bestScore = s;
           bestCandidate = player;
@@ -262,28 +267,36 @@ export function useAutoFill() {
       }
 
       if (bestCandidate) {
-        if (bestCandidate.height) cfbdData.height = String(bestCandidate.height);
-        if (bestCandidate.weight) cfbdData.weight = String(bestCandidate.weight);
-        if (bestCandidate.jersey != null) cfbdData.number = String(bestCandidate.jersey);
-        if (bestCandidate.position) cfbdData.position = bestCandidate.position;
-        if (bestCandidate.year) cfbdData.classYear = yearToClass[bestCandidate.year] || String(bestCandidate.year);
-        if (bestCandidate.home_city && bestCandidate.home_state) {
-          cfbdData.hometown = `${bestCandidate.home_city}, ${bestCandidate.home_state}`;
+        const h = bestCandidate.height;
+        const w = bestCandidate.weight;
+        const j = bestCandidate.jersey ?? bestCandidate.jerseyNumber;
+        const pos = bestCandidate.position;
+        const yr = bestCandidate.year;
+        const city = bestCandidate.homeCity ?? bestCandidate.home_city;
+        const state = bestCandidate.homeState ?? bestCandidate.home_state;
+
+        if (h) cfbdData.height = String(h);
+        if (w) cfbdData.weight = String(w);
+        if (j != null) cfbdData.number = String(j);
+        if (pos) cfbdData.position = String(pos);
+        if (yr) cfbdData.classYear = yearToClass[Number(yr)] || String(yr);
+        if (city && state) {
+          cfbdData.hometown = `${city}, ${state}`;
         }
-        if (bestCandidate.headshot_url && !store.getState().profilePictureUrl) {
-          cfbdData.profilePictureUrl = bestCandidate.headshot_url;
-        }
-        if (bestCandidate.headshot_url) {
-          espnId = extractEspnId(bestCandidate.headshot_url);
-        }
+        // No headshot field in current API — espnId stays null
       }
     }
 
-    // 1b: Recruiting
-    const recruitRes = results[1] as { success: true; data: CfbdRecruit[] } | null;
-    if (recruitRes?.data) {
-      const recruit = recruitRes.data.find((r) => r.athlete_id != null) ||
-        (recruitRes.data.length > 0 ? recruitRes.data[0] : null);
+    // 1b: Recruiting (API returns camelCase, `name` as single string, `committedTo`, `athleteId`)
+    const recruitRes = results[1] as { success: true; data: Record<string, unknown>[] } | null;
+    if (recruitRes?.data && recruitRes.data.length > 0) {
+      // Find best match — recruiting uses `name` (single string) not first/last
+      const targetFull = `${firstName} ${lastName}`.toLowerCase();
+      const recruit = recruitRes.data.find((r) => {
+        const n = String(r.name ?? "").toLowerCase();
+        return n === targetFull || n.includes(lastName.toLowerCase());
+      }) || recruitRes.data[0];
+
       if (recruit) {
         if (recruit.stars) cfbdData.starRating = recruit.stars;
         if (recruit.rating) {
@@ -291,34 +304,40 @@ export function useAutoFill() {
           cfbdData.ratingComposite = String(recruit.rating);
         }
         if (recruit.ranking) cfbdData.nationalRank = recruit.ranking;
-        if (recruit.school) cfbdData.highSchool = recruit.school;
-        cfbdData.commitmentStatus = recruit.committed_to ? "committed" : "uncommitted";
-        if ((recruit as Record<string, unknown>).year) {
-          cfbdData.recruitingClassYear = String((recruit as Record<string, unknown>).year);
+        if (recruit.school) cfbdData.highSchool = String(recruit.school);
+        const committed = recruit.committedTo ?? recruit.committed_to;
+        cfbdData.commitmentStatus = committed ? "committed" : "uncommitted";
+        if (recruit.year) {
+          cfbdData.recruitingClassYear = String(recruit.year);
         }
       }
     }
 
-    // 1c: Teams
-    const teamsRes = results[2] as { success: true; data: CfbdTeam[] } | null;
+    // 1c: Teams (API returns all teams — filter client-side)
+    const teamsRes = results[2] as { success: true; data: Record<string, unknown>[] } | null;
     if (teamsRes?.data && teamsRes.data.length > 0) {
-      const team = teamsRes.data[0];
-      if (team.logos?.[0]) cfbdData.schoolLogoUrl = team.logos[0];
-      if (team.color) cfbdData.teamColor = team.color.startsWith("#") ? team.color : `#${team.color}`;
-      if (team.alt_color) cfbdData.teamColorAlt = team.alt_color.startsWith("#") ? team.alt_color : `#${team.alt_color}`;
-      if (team.abbreviation) cfbdData.schoolAbbrev = team.abbreviation;
+      const schoolLower2 = schoolForCfbd.toLowerCase();
+      const team = teamsRes.data.find((t) => String(t.school ?? "").toLowerCase() === schoolLower2) || teamsRes.data[0];
+      const logos = team.logos as string[] | null;
+      if (logos?.[0]) cfbdData.schoolLogoUrl = logos[0];
+      const color = String(team.color ?? "");
+      if (color && color !== "#null") cfbdData.teamColor = color.startsWith("#") ? color : `#${color}`;
+      const altColor = String(team.alternateColor ?? team.alt_color ?? "");
+      if (altColor && altColor !== "#null") cfbdData.teamColorAlt = altColor.startsWith("#") ? altColor : `#${altColor}`;
+      if (team.abbreviation) cfbdData.schoolAbbrev = String(team.abbreviation);
     }
 
-    // 1d: Portal
-    const portalRes = results[3] as { success: true; data: CfbdPortalPlayer[] } | null;
+    // 1d: Portal (API returns camelCase: firstName, lastName, origin, destination, eligibility)
+    const portalRes = results[3] as { success: true; data: Record<string, unknown>[] } | null;
     if (portalRes?.data) {
       const portalMatch = portalRes.data.find((p) =>
-        p.first_name.toLowerCase() === firstName.toLowerCase() &&
-        p.last_name.toLowerCase() === lastName.toLowerCase()
+        String(p.firstName ?? "").toLowerCase() === firstName.toLowerCase() &&
+        String(p.lastName ?? "").toLowerCase() === lastName.toLowerCase()
       );
       if (portalMatch) {
-        cfbdData.transferFrom = portalMatch.origin;
-        if (portalMatch.eligibility) cfbdData.eligibilityYears = parseInt(portalMatch.eligibility, 10) || 0;
+        cfbdData.transferFrom = String(portalMatch.origin ?? "");
+        const elig = String(portalMatch.eligibility ?? "");
+        if (elig) cfbdData.eligibilityYears = parseInt(elig, 10) || 0;
         if (portalMatch.stars) cfbdData.transferStars = portalMatch.stars;
         if (!portalMatch.destination) cfbdData.commitmentStatus = "portal";
       }
