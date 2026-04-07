@@ -304,21 +304,37 @@ Deno.serve(async (req: Request) => {
 
       const urlRegex = /https?:\/\/[^\s)\]"']+/g;
       const allUrls = markdown.match(urlRegex) || [];
+
+      // Pass 1: prefer high-school URLs (recruiting profiles)
+      let bestUrl: string | null = null;
       for (const u of allUrls) {
-        try {
-          const parsed = new URL(u);
-          if (!parsed.hostname.includes("247sports.com")) continue;
-        } catch { continue; }
+        try { new URL(u); } catch { continue; }
         const lower = u.toLowerCase();
-        if (
-          lower.includes("/player/") &&
-          nameMatchesUrl(u, firstName, lastName) &&
-          lower.includes("high-school")
-        ) {
-          profileUrl = u.replace(/[.,;:!?)]+$/, "");
+        if (!lower.includes("247sports.com")) continue;
+        if (!lower.includes("/player/")) continue;
+        if (!nameMatchesUrl(u, firstName, lastName)) continue;
+        if (lower.includes("high-school")) {
+          bestUrl = u.replace(/[.,;:!?)]+$/, "");
           break;
         }
       }
+
+      // Pass 2: fallback — any matching 247sports /player/ URL (covers transfers whose
+      // canonical URL no longer has /high-school/ suffix)
+      if (!bestUrl) {
+        for (const u of allUrls) {
+          try { new URL(u); } catch { continue; }
+          const lower = u.toLowerCase();
+          if (!lower.includes("247sports.com")) continue;
+          if (!lower.includes("/player/")) continue;
+          if (nameMatchesUrl(u, firstName, lastName)) {
+            bestUrl = u.replace(/[.,;:!?)]+$/, "");
+            break;
+          }
+        }
+      }
+
+      if (bestUrl) profileUrl = bestUrl;
       console.log("[247] Final profile URL:", profileUrl);
 
       const html = await firecrawlScrapeHtml(firecrawlKey, profileUrl, 2000);
