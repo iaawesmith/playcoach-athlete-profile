@@ -162,7 +162,7 @@ export function useAutoFill() {
 
   /* ── PHASE 1: CFBD Direct API — writes to store immediately ── */
 
-  const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[] }> => {
+  const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[]; cfbdData: Record<string, unknown> }> => {
     const errors: string[] = [];
 
     if (!firstName || !school) {
