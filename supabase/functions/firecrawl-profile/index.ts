@@ -224,7 +224,10 @@ Deno.serve(async (req: Request) => {
 
     /* ── 247Sports ─────────────────────────────────────────────── */
     if (mode === "247") {
+      console.log("[247] Phase started", { firstName, lastName, position, school });
+
       if (!firstName || !lastName) {
+        console.log("[247] Exiting: name required");
         return new Response(JSON.stringify({ success: false, error: "Name required" }), { status: 400, headers });
       }
 
@@ -232,18 +235,25 @@ Deno.serve(async (req: Request) => {
       const homeParts = hometown.split(", ");
       const playerState = homeParts.length > 1 ? homeParts[homeParts.length - 1].trim() : "";
 
-      // Step 1: Google search for 247 profile with high-school path preferred
+      // Step 1: Google search for 247 profile — always attempted
       const searchUrl = `https://www.google.com/search?q=site:247sports.com/player/+${firstName}-${lastName}+high-school`;
+      console.log("[247] Google search URL:", searchUrl);
+
       const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
       if (!markdown) {
+        console.log("[247] Google search returned no markdown");
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
+      console.log("[247] Google search returned markdown, length:", markdown.length);
 
       // Step 2: Validate URL — prefer high-school path, fall back to main player URL
       let profileUrl = extractUrlFromMarkdown(markdown, "247sports.com", "/player/", firstName, lastName);
       if (!profileUrl) {
+        console.log("[247] No matching 247sports.com/player/ URL found in search results");
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
+      console.log("[247] Initial profile URL:", profileUrl);
+
       // Prefer high-school variant if available
       const urlRegex = /https?:\/\/[^\s)\]"']+/g;
       const allUrls = markdown.match(urlRegex) || [];
@@ -258,14 +268,18 @@ Deno.serve(async (req: Request) => {
           break;
         }
       }
+      console.log("[247] Final profile URL:", profileUrl);
 
       // Step 3: Scrape HTML and parse deterministically
       const html = await firecrawlScrapeHtml(firecrawlKey, profileUrl, 2000);
       if (!html) {
+        console.log("[247] HTML scrape returned null");
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
+      console.log("[247] HTML scraped, length:", html.length);
 
       const parsed = parse247RecruitingData(html, position, playerState);
+      console.log("[247] Parsed result:", JSON.stringify(parsed));
 
       // Map to store field names
       const data: Record<string, unknown> = {};
