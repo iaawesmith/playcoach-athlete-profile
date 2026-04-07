@@ -473,6 +473,8 @@ export function useAutoFill() {
 
       if (resolvedActionPhoto) {
         data.actionPhotoUrl = resolvedActionPhoto;
+        // Write to store immediately so ProCard updates in real-time
+        setAthleteFromSource({ actionPhotoUrl: resolvedActionPhoto }, source);
       }
     }
 
