@@ -631,7 +631,7 @@ export const IdentityForm = () => {
 
               {/* Ratings row */}
               <div className="grid grid-cols-3 gap-4">
-                <DisplayField label="CFBD Composite Rating" value={recruitingRating} decimals={4} badge="CFBD" />
+                <DisplayField label="Composite Rating" value={recruitingRating} decimals={4} badge="CFBD" />
                 <DisplayField label="247Sports Rating" value={store.rating247} decimals={4} badge="247" />
                 <DisplayField label="On3 Rating" value={on3Rating} decimals={4} badge="ON3" />
               </div>
