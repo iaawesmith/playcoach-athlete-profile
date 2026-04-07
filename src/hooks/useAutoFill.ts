@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useAthleteStore, type FieldSource } from "@/store/athleteStore";
-import { cfbdApi } from "@/services/cfbd";
+import { cfbdApi, resolveTeamName } from "@/services/cfbd";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -202,27 +202,32 @@ export function useAutoFill() {
   const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[] }> => {
     const errors: string[] = [];
 
-    // CHANGE 5: skip if minimum data is missing
     if (!firstName || !school) {
       return { espnId: null, errors: [] };
     }
 
+    // Resolve display name → CFBD short name
+    const cfbdTeam = await resolveTeamName(school);
+    if (!cfbdTeam) {
+      errors.push(`team ✗ (no CFBD match for "${school}")`);
+      return { espnId: null, errors };
+    }
+    errors.push(`team ✓ (${cfbdTeam})`);
+
     const currentYear = new Date().getFullYear();
     const rosterYears = [currentYear, currentYear - 1, currentYear - 2];
-    const fullNameLower = `${firstName} ${lastName}`.trim().toLowerCase();
-    const target = { firstName, lastName, position, jersey, school };
     const normalize = (value: unknown) => String(value ?? "").trim().toLowerCase();
+    const firstLower = firstName.toLowerCase().trim();
+    const lastLower = lastName.toLowerCase().trim();
     let espnId: string | null = null;
 
-    // CHANGE 1 & 3: only roster, recruiting, portal, games — no teams()
     const settled = await Promise.allSettled([
-      ...rosterYears.map((year) => cfbdApi.roster(school, year)),
-      cfbdApi.recruitingPlayers(school),
-      cfbdApi.playerPortal(currentYear, school),
-      cfbdApi.upcomingGames(school, currentYear),
+      ...rosterYears.map((year) => cfbdApi.roster(cfbdTeam, year)),
+      cfbdApi.recruitingPlayers(cfbdTeam),
+      cfbdApi.playerPortal(currentYear, cfbdTeam),
+      cfbdApi.upcomingGames(cfbdTeam, currentYear),
     ]);
 
-    // Helper to extract data from settled results
     const readSettled = <T,>(
       index: number,
       label: string,
@@ -242,52 +247,64 @@ export function useAutoFill() {
 
     const cfbdData: Record<string, unknown> = {};
 
-    // ── Roster: height, weight, hometown, headshot, ESPN ID ──
-    let bestCandidate: Record<string, unknown> | null = null;
-    let bestScore = 0;
+    // ── Roster: find player by name, extract data ──
+    let matched: Record<string, unknown> | null = null;
     for (let i = 0; i < rosterYears.length; i++) {
       const roster = readSettled<Record<string, unknown>[]>(i, `roster ${rosterYears[i]}`);
       if (!roster) continue;
-      for (const player of roster) {
-        const score = scoreCandidateRoster(player, target) + 35;
-        if (score > bestScore) {
-          bestScore = score;
-          bestCandidate = player;
-        }
+
+      // Exact first+last match
+      const exact = roster.find(
+        (p) => normalize(p.first_name) === firstLower && normalize(p.last_name) === lastLower,
+      );
+      if (exact) { matched = exact; break; }
+
+      // Last name fallback (handles nicknames)
+      if (!matched) {
+        const lastOnly = roster.find((p) => normalize(p.last_name) === lastLower);
+        if (lastOnly) matched = lastOnly;
       }
     }
 
-    if (bestCandidate && bestScore >= 70) {
-      const h = bestCandidate.height;
-      const w = bestCandidate.weight;
-      const city = bestCandidate.homeCity ?? bestCandidate.home_city;
-      const state = bestCandidate.homeState ?? bestCandidate.home_state;
+    if (matched) {
+      const h = matched.height;
+      const w = matched.weight;
+      const city = matched.home_city;
+      const state = matched.home_state;
+      const pos = matched.position;
+      const jer = matched.jersey;
+      const yr = matched.year;
 
       if (h) cfbdData.height = String(h);
       if (w) cfbdData.weight = String(w);
       if (city && state) cfbdData.hometown = `${city}, ${state}`;
+      if (pos) cfbdData.position = String(pos);
+      if (jer) cfbdData.number = String(jer);
+      if (yr && yearToClass[Number(yr)]) cfbdData.classYear = yearToClass[Number(yr)];
 
-      // Headshot — only if photo is currently empty
-      const headshot = String(bestCandidate.headshot_url ?? bestCandidate.headshotUrl ?? "");
+      const headshot = String(matched.headshot_url ?? "");
       if (headshot && !store.getState().profilePictureUrl) {
         cfbdData.profilePictureUrl = headshot;
       }
-
-      // Extract ESPN ID for action photo phase
       if (headshot) {
         espnId = extractEspnId(headshot);
       }
 
-      errors.push(`roster ✓ (${String(bestCandidate.firstName)} ${String(bestCandidate.lastName)}, score ${bestScore})`);
+      errors.push(`roster ✓ (${String(matched.first_name)} ${String(matched.last_name)})`);
     } else {
-      errors.push(`roster ✗ (best score ${bestScore}, need 70)`);
+      errors.push("roster ✗ (no name match)");
     }
 
-    // ── Recruiting: starRating, recruitingRating, nationalRank, highSchool, commitmentStatus ──
+    // ── Recruiting ──
     const recruitingIdx = rosterYears.length;
     const recruitingData = readSettled<Record<string, unknown>[]>(recruitingIdx, "recruiting");
     if (recruitingData && recruitingData.length > 0) {
-      const recruit = recruitingData.find((entry) => normalize(entry.name) === fullNameLower) ?? null;
+      // Match by name — recruiting uses "name" field or first_name/last_name
+      const recruit = recruitingData.find((entry) => {
+        const n = normalize(entry.name);
+        if (n === `${firstLower} ${lastLower}`) return true;
+        return normalize(entry.first_name) === firstLower && normalize(entry.last_name) === lastLower;
+      }) ?? null;
       if (recruit) {
         if (recruit.stars) cfbdData.starRating = recruit.stars;
         if (recruit.rating) {
@@ -301,16 +318,15 @@ export function useAutoFill() {
         if (recruit.year) cfbdData.recruitingClassYear = String(recruit.year);
         errors.push("recruiting ✓");
       } else {
-        errors.push(`recruiting ✗ (no name match)`);
+        errors.push("recruiting ✗ (no name match)");
       }
     }
 
-    // ── Portal: transferFrom, eligibilityYears, transferStars, transferRating ──
+    // ── Portal ──
     const portalIdx = rosterYears.length + 1;
     const portalResult = settled[portalIdx];
     let portalData: Record<string, unknown>[] | null = null;
     if (portalResult.status === "rejected") {
-      // Portal 404 = player not in portal — normal, not an error
       const reason = String(portalResult.reason ?? "");
       if (!reason.includes("404")) {
         errors.push(`portal ✗ (${reason})`);
@@ -318,7 +334,6 @@ export function useAutoFill() {
     } else {
       const value = portalResult.value as { success: true; data: Record<string, unknown>[] } | { success: false; error: string };
       if (value.success === false) {
-        // 404 means not in portal — skip silently
         if (!value.error.includes("404")) {
           errors.push(`portal ✗ (${value.error})`);
         }
@@ -328,8 +343,8 @@ export function useAutoFill() {
     }
     if (portalData) {
       const portalMatch = portalData.find((entry) =>
-        normalize(entry.firstName) === firstName.toLowerCase() &&
-        normalize(entry.lastName) === lastName.toLowerCase(),
+        normalize(entry.firstName) === firstLower &&
+        normalize(entry.lastName) === lastLower,
       );
       if (portalMatch) {
         if (portalMatch.origin) cfbdData.transferFrom = String(portalMatch.origin);
@@ -342,9 +357,13 @@ export function useAutoFill() {
       }
     }
 
-    // ── Games: upcomingGame ──
+    // ── Games (with fallback to previous year) ──
     const gamesIdx = rosterYears.length + 2;
-    const gameData = readSettled<{ opponent: string; date: string; time: string; location: string } | null>(gamesIdx, "games");
+    let gameData = readSettled<{ opponent: string; date: string; time: string; location: string } | null>(gamesIdx, "games");
+    if (!gameData) {
+      const fallback = await cfbdApi.upcomingGames(cfbdTeam, currentYear - 1);
+      if (fallback.success) gameData = fallback.data;
+    }
     if (gameData) {
       cfbdData.upcomingGame = {
         opponent: gameData.opponent,
@@ -356,7 +375,6 @@ export function useAutoFill() {
       errors.push("games ✓");
     }
 
-    // CHANGE 2: write directly to store — never appears in ScrapeFill
     if (Object.keys(cfbdData).length > 0) {
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
       errors.push(`store ✓ (${Object.keys(cfbdData).join(", ")})`);
