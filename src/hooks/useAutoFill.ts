@@ -702,9 +702,14 @@ export function useAutoFill() {
         setErrorMessage(diagParts.join(" | "));
       }
 
-      // Only show error status if absolutely nothing was written
+      // If we have enriched fields or missing fields to show, ensure results view
+      if (enrichedFields.length > 0 || missingFields.length > 0) {
+        setStatus("results");
+      }
+
+      // Only show error status if absolutely nothing was written and no missing fields to display
       const anyDataWritten = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown);
-      if (!anyDataWritten && diagParts.length > 0) {
+      if (!anyDataWritten && diagParts.length > 0 && missingFields.length === 0) {
         setStatus("error");
       }
     } catch (e: unknown) {
