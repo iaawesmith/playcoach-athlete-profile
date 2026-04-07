@@ -84,16 +84,20 @@ interface AthleteState {
   /** Tracks the source of each field value */
   fieldSources: Record<string, FieldSource>;
 
+  /** Tracks fields that couldn't be populated during auto-fill */
+  missingFields: MissingField[];
+
   setAthlete: (data: Partial<AthleteData>) => void;
   setAthleteFromSource: (data: Partial<AthleteData>, source: FieldSource) => void;
   getFieldSource: (field: string) => FieldSource | undefined;
+  setMissingFields: (fields: MissingField[]) => void;
   publishProfile: () => void;
   markDirty: () => void;
   resetToDefaults: () => void;
   setActiveSection: (section: ActiveSection) => void;
 }
 
-type AthleteData = Omit<AthleteState, "setAthlete" | "setAthleteFromSource" | "getFieldSource" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "lastPublishedAt" | "hasUnpublishedChanges" | "activeSection" | "setActiveSection" | "fieldSources">;
+type AthleteData = Omit<AthleteState, "setAthlete" | "setAthleteFromSource" | "getFieldSource" | "setMissingFields" | "publishProfile" | "markDirty" | "resetToDefaults" | "profileStatus" | "hasBeenPublished" | "lastPublishedAt" | "hasUnpublishedChanges" | "activeSection" | "setActiveSection" | "fieldSources" | "missingFields">;
 
 /** Fields set during onboarding or by the user — never overwritten by pipelines */
 const MANUAL_FIELDS = new Set(["firstName", "lastName", "school", "position", "classYear", "number"]);
@@ -160,6 +164,7 @@ export const useAthleteStore = create<AthleteState>((set, get) => ({
   hasUnpublishedChanges: false,
   activeSection: "identity",
   fieldSources: {},
+  missingFields: [],
 
   setAthlete: (data) =>
     set((state) => {
@@ -208,9 +213,10 @@ export const useAthleteStore = create<AthleteState>((set, get) => ({
     }),
 
   getFieldSource: (field) => get().fieldSources[field],
+  setMissingFields: (fields) => set({ missingFields: fields }),
 
   publishProfile: () => set({ profileStatus: "live", hasBeenPublished: true, lastPublishedAt: Date.now(), hasUnpublishedChanges: false }),
   markDirty: () => set({ profileStatus: "draft" }),
-  resetToDefaults: () => set({ ...defaults, fieldSources: {}, profileStatus: "draft", lastPublishedAt: null, hasUnpublishedChanges: false }),
+  resetToDefaults: () => set({ ...defaults, fieldSources: {}, missingFields: [], profileStatus: "draft", lastPublishedAt: null, hasUnpublishedChanges: false }),
   setActiveSection: (section) => set({ activeSection: section }),
 }));

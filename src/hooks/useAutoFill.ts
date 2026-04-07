@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { useAthleteStore, type FieldSource } from "@/store/athleteStore";
+import { useAthleteStore, type FieldSource, type MissingField } from "@/store/athleteStore";
 import { cfbdApi, resolveTeamName } from "@/services/cfbd";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
@@ -588,6 +588,10 @@ export function useAutoFill() {
       let espnId: string | null = null;
 
       let cfbdDataResult: Record<string, unknown> = {};
+      let cfbdRosterFound = false;
+      let cfbdRecruitFound = false;
+      let cfbdRosterReached = true;
+      let cfbdRecruitReached = true;
 
       // CFBD phase — only if firstName and school are set
       if (firstName && school) {
@@ -595,12 +599,18 @@ export function useAutoFill() {
           const cfbdResult = await runCfbdPhase();
           espnId = cfbdResult.espnId;
           cfbdDataResult = cfbdResult.cfbdData;
+          cfbdRosterFound = !!cfbdDataResult.height || !!cfbdDataResult.position;
+          cfbdRecruitFound = !!cfbdDataResult.starRating || !!cfbdDataResult.recruitingRating;
           if (cfbdResult.errors.length > 0) {
             diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
+            cfbdRosterReached = !cfbdResult.errors.some((e) => e.includes("roster") && e.includes("✗"));
+            cfbdRecruitReached = !cfbdResult.errors.some((e) => e.includes("recruiting") && e.includes("✗"));
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
           diagParts.push(`CFBD crashed: ${msg}`);
+          cfbdRosterReached = false;
+          cfbdRecruitReached = false;
         }
       }
 
@@ -612,12 +622,87 @@ export function useAutoFill() {
         diagParts.push(`Firecrawl crashed: ${msg}`);
       }
 
+      // ── Missing field tracking ──
+      const missingFields: MissingField[] = [];
+      const storeAfter = useAthleteStore.getState();
+      const pos = storeAfter.position || position || "";
+
+      // CFBD roster fields
+      const cfbdRosterFields = ["Height", "Weight", "Position", "Number", "Class"];
+      if (!cfbdRosterReached) {
+        cfbdRosterFields.forEach((f) => missingFields.push({ field: f, source: "CFBD", reason: "Source not reached" }));
+      } else if (!cfbdRosterFound) {
+        cfbdRosterFields.forEach((f) => missingFields.push({ field: f, source: "CFBD", reason: "Player not matched" }));
+      } else {
+        if (!storeAfter.height) missingFields.push({ field: "Height", source: "CFBD", reason: "Field not in response" });
+        if (!storeAfter.weight) missingFields.push({ field: "Weight", source: "CFBD", reason: "Field not in response" });
+        if (!storeAfter.position) missingFields.push({ field: "Position", source: "CFBD", reason: "Field not in response" });
+        if (!storeAfter.number) missingFields.push({ field: "Number", source: "CFBD", reason: "Field not in response" });
+        if (!storeAfter.classYear) missingFields.push({ field: "Class", source: "CFBD", reason: "Field not in response" });
+      }
+
+      // CFBD recruiting fields
+      if (!cfbdRecruitReached) {
+        ["Stars (CFBD)", "Recruiting Rating", "High School"].forEach((f) =>
+          missingFields.push({ field: f, source: "CFBD", reason: "Source not reached" }),
+        );
+      } else if (!cfbdRecruitFound) {
+        ["Stars (CFBD)", "Recruiting Rating", "High School"].forEach((f) =>
+          missingFields.push({ field: f, source: "CFBD", reason: "Player not matched" }),
+        );
+      } else {
+        if (!storeAfter.starRating) missingFields.push({ field: "Stars (CFBD)", source: "CFBD", reason: "Field not in response" });
+        if (!storeAfter.recruitingRating) missingFields.push({ field: "Recruiting Rating", source: "CFBD", reason: "Field not in response" });
+        if (!storeAfter.highSchool) missingFields.push({ field: "High School", source: "CFBD", reason: "Field not in response" });
+      }
+
+      // 247Sports fields
+      const has247Data = storeAfter.stars247 != null || storeAfter.compositeRating247 != null;
+      if (!has247Data) {
+        ["Stars (247)", "Player Rating", `${pos} Rank`, "State Rank",
+          "Composite Stars", "Composite Rating", "Composite Natl. Rank",
+          `Composite ${pos} Rank`, "Composite State Rank",
+        ].forEach((f) => missingFields.push({ field: f, source: "247", reason: "Source not reached" }));
+      } else {
+        if (storeAfter.stars247 == null) missingFields.push({ field: "Stars (247)", source: "247", reason: "Parsing failed" });
+        if (storeAfter.compositeStars247 == null) missingFields.push({ field: "Composite Stars", source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositeRating247 == null) missingFields.push({ field: "Composite Rating", source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositeNationalRank247 == null) missingFields.push({ field: "Composite Natl. Rank", source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositePositionRank247 == null) missingFields.push({ field: `Composite ${pos} Rank`, source: "247C", reason: "Parsing failed" });
+        if (storeAfter.compositeStateRank247 == null) missingFields.push({ field: "Composite State Rank", source: "247C", reason: "Parsing failed" });
+      }
+
+      // On3 fields
+      const hasOn3Data = storeAfter.on3Rating != null || storeAfter.on3NationalRank != null;
+      if (!hasOn3Data) {
+        ["On3 Rating", "On3 National Rank", "On3 Position Rank", "NIL Valuation"].forEach((f) =>
+          missingFields.push({ field: f, source: "ON3", reason: "Source not reached" }),
+        );
+      } else {
+        if (storeAfter.on3Rating == null) missingFields.push({ field: "On3 Rating", source: "ON3", reason: "Field not in response" });
+        if (storeAfter.on3NationalRank == null) missingFields.push({ field: "On3 National Rank", source: "ON3", reason: "Field not in response" });
+        if (storeAfter.on3PositionRank == null) missingFields.push({ field: "On3 Position Rank", source: "ON3", reason: "Field not in response" });
+        if (storeAfter.nilValuation == null) missingFields.push({ field: "NIL Valuation", source: "ON3", reason: "Field not in response" });
+      }
+
+      // Action photo
+      if (!storeAfter.actionPhotoUrl) {
+        missingFields.push({ field: "Action Photo", source: "FIRECRAWL", reason: "Source not reached" });
+      }
+
+      // Transfer fields
+      if (storeAfter.commitmentStatus === "portal") {
+        if (!storeAfter.transferFrom) missingFields.push({ field: "Transfer From", source: "CFBD", reason: "Field not in response" });
+        if (!storeAfter.transferStars) missingFields.push({ field: "Transfer Stars", source: "CFBD", reason: "Field not in response" });
+      }
+
+      useAthleteStore.getState().setMissingFields(missingFields);
+
       if (diagParts.length > 0) {
         setErrorMessage(diagParts.join(" | "));
       }
 
       // Only show error status if absolutely nothing was written
-      const storeAfter = useAthleteStore.getState();
       const anyDataWritten = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown);
       if (!anyDataWritten && diagParts.length > 0) {
         setStatus("error");
@@ -627,7 +712,7 @@ export function useAutoFill() {
       setErrorMessage(`Auto-fill failed: ${msg}`);
       setStatus("error");
     }
-  }, [canScrape, firstName, school, runCfbdPhase, runFirecrawlPhase]);
+  }, [canScrape, firstName, school, position, runCfbdPhase, runFirecrawlPhase]);
 
   /* ── Confirm identity (kept for backward compat) ────────── */
 
