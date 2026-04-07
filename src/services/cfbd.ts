@@ -153,7 +153,9 @@ export const cfbdApi = {
       season_type: "regular",
     });
 
-    if (!result.success) return { success: false, error: result.error };
+    if (!result.success) {
+      return { success: false as const, error: (result as { success: false; error: string }).error };
+    }
 
     const now = new Date();
     const future = (result.data ?? [])
