@@ -380,8 +380,18 @@ export function useAutoFill() {
       };
     }
 
+    console.log("[CFBD] Final cfbdData keys:", Object.keys(cfbdData), "values:", JSON.stringify(cfbdData));
     if (Object.keys(cfbdData).length > 0) {
+      console.log("[CFBD] Writing to store via setAthleteFromSource with source='cfbd'");
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
+      console.log("[CFBD] Store write complete. Store state:", JSON.stringify({
+        height: useAthleteStore.getState().height,
+        weight: useAthleteStore.getState().weight,
+        hometown: useAthleteStore.getState().hometown,
+        teamColor: useAthleteStore.getState().teamColor,
+      }));
+    } else {
+      console.warn("[CFBD] No data extracted — nothing to write");
     }
 
     return { espnId, errors };
