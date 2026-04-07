@@ -4,8 +4,6 @@ import { useUserStore } from "@/store/userStore";
 import { useAthleteStore } from "@/store/athleteStore";
 import { useSchoolSearch, type SchoolOption } from "@/hooks/useSchoolSearch";
 
-const POSITIONS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P", "FB"];
-const CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"];
 
 const cardClass = "rounded-xl p-4 bg-[#2A2E33] border border-[#3D434A] focus-within:border-[#4DC9C9] transition-colors duration-200";
 
@@ -16,7 +14,7 @@ const inputClass = "w-full bg-transparent text-white text-sm font-normal outline
 export function CoreSetup() {
   const navigate = useNavigate();
   const { setOnboardingStep } = useUserStore();
-  const { firstName, lastName, school, position, classYear, number, teamColor, schoolLogoUrl, setAthlete } = useAthleteStore();
+  const { firstName, lastName, school, teamColor, schoolLogoUrl, setAthlete } = useAthleteStore();
 
   const [query, setQuery] = useState(school);
   const [open, setOpen] = useState(false);
@@ -56,7 +54,7 @@ export function CoreSetup() {
     else if (e.key === "Escape") { setOpen(false); }
   };
 
-  const canContinue = school && position && classYear && firstName && lastName;
+  const canContinue = school && firstName && lastName;
   const handleContinue = () => { setOnboardingStep(4); navigate("/onboarding/preview"); };
   const tc = teamColor || "#4DC9C9";
 
@@ -132,53 +130,6 @@ export function CoreSetup() {
           </div>
         </div>
 
-        {/* Position pills */}
-        <div className={cardClass}>
-          <label className={labelClass} style={labelColor}>Position</label>
-          <div className="flex flex-wrap gap-2">
-            {POSITIONS.map((pos) => (
-              <button
-                key={pos}
-                onClick={() => setAthlete({ position: pos })}
-                className="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] transition-all duration-200 active:scale-95"
-                style={
-                  position === pos
-                    ? { backgroundColor: tc, color: "#fff", boxShadow: `0 0 10px ${tc}40` }
-                    : { backgroundColor: "#1E2227", border: "1px solid #3D434A", color: "#8A8F94" }
-                }
-              >
-                {pos}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Class */}
-        <div className={cardClass}>
-          <label className={labelClass} style={labelColor}>Class</label>
-          <div className="flex flex-wrap gap-2">
-            {CLASS_OPTIONS.map((yr) => (
-              <button
-                key={yr}
-                onClick={() => setAthlete({ classYear: yr })}
-                className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] transition-all duration-200 active:scale-95"
-                style={
-                  classYear === yr
-                    ? { backgroundColor: tc, color: "#fff", boxShadow: `0 0 10px ${tc}40` }
-                    : { backgroundColor: "#1E2227", border: "1px solid #3D434A", color: "#8A8F94" }
-                }
-              >
-                {yr}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Jersey number */}
-        <div className={cardClass}>
-          <label className={labelClass} style={labelColor}>Jersey Number</label>
-          <input className={inputClass} value={number} onChange={(e) => setAthlete({ number: e.target.value })} placeholder="#" maxLength={3} />
-        </div>
       </div>
 
       {/* Continue */}
