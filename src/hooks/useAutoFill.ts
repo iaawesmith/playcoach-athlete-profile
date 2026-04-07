@@ -462,16 +462,7 @@ export function useAutoFill() {
         }
       }
 
-      if (!resolvedActionPhoto && schoolTag) {
-        try {
-          const googleRes = await firecrawlApi.scrapeGoogleImagePhoto(firstName, lastName, schoolTag);
-          if (googleRes.success && googleRes.data?.actionPhotoUrl && isValidActionPhoto(googleRes.data.actionPhotoUrl)) {
-            resolvedActionPhoto = googleRes.data.actionPhotoUrl;
-          }
-        } catch {
-          // non-critical
-        }
-      }
+      /* Google Image Search removed — unreliable, returns wrong players */
 
       if (resolvedActionPhoto) {
         data.actionPhotoUrl = resolvedActionPhoto;
