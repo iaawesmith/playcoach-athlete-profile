@@ -74,11 +74,11 @@ export function CoreSetup() {
       <div className="space-y-4">
         {/* First Name + Last Name */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl p-4" style={cardStyle}>
+          <div className={cardClass}>
             <label className={labelClass} style={labelColor}>First Name</label>
             <input className={inputClass} value={firstName} onChange={(e) => setAthlete({ firstName: e.target.value })} placeholder="First" />
           </div>
-          <div className="rounded-xl p-4" style={cardStyle}>
+          <div className={cardClass}>
             <label className={labelClass} style={labelColor}>Last Name</label>
             <input className={inputClass} value={lastName} onChange={(e) => setAthlete({ lastName: e.target.value })} placeholder="Last" />
           </div>
@@ -87,7 +87,7 @@ export function CoreSetup() {
         {/* School + School Logo */}
         <div className="grid grid-cols-[4fr_1fr] gap-3">
           <div ref={wrapperRef} className="relative">
-            <div className="rounded-xl p-4" style={cardStyle}>
+            <div className={cardClass}>
               <label className={labelClass} style={labelColor}>School</label>
               <div className="flex items-center">
                 <input
@@ -123,7 +123,7 @@ export function CoreSetup() {
               </ul>
             )}
           </div>
-          <div className="rounded-xl p-4 flex items-center justify-center" style={cardStyle}>
+          <div className={`${cardClass} flex items-center justify-center`}>
             {schoolLogoUrl ? (
               <img src={schoolLogoUrl} alt="School logo" className="h-8 w-8 object-contain" />
             ) : (
@@ -133,7 +133,7 @@ export function CoreSetup() {
         </div>
 
         {/* Position pills */}
-        <div className="rounded-xl p-4" style={cardStyle}>
+        <div className={cardClass}>
           <label className={labelClass} style={labelColor}>Position</label>
           <div className="flex flex-wrap gap-2">
             {POSITIONS.map((pos) => (
@@ -154,7 +154,7 @@ export function CoreSetup() {
         </div>
 
         {/* Class */}
-        <div className="rounded-xl p-4" style={cardStyle}>
+        <div className={cardClass}>
           <label className={labelClass} style={labelColor}>Class</label>
           <div className="flex flex-wrap gap-2">
             {CLASS_OPTIONS.map((yr) => (
@@ -175,7 +175,7 @@ export function CoreSetup() {
         </div>
 
         {/* Jersey number */}
-        <div className="rounded-xl p-4" style={cardStyle}>
+        <div className={cardClass}>
           <label className={labelClass} style={labelColor}>Jersey Number</label>
           <input className={inputClass} value={number} onChange={(e) => setAthlete({ number: e.target.value })} placeholder="#" maxLength={3} />
         </div>
