@@ -1,56 +1,53 @@
 
+Problem confirmed: the team resolution is working, but the matching logic in `useAutoFill.ts` is reading the wrong CFBD field names. Live CFBD responses are camelCase (`firstName`, `lastName`, `homeCity`, `homeState`), while the current hook still looks for snake_case (`first_name`, `last_name`, `home_city`, `home_state`, `headshot_url`). That guarantees false “no name match” results even when the player exists.
 
-## Fix: CFBD Team Name Resolution
+Plan
 
-### Root Cause
+1. Fix roster matching in `src/hooks/useAutoFill.ts`
+- Replace roster name matching to read `firstName` / `lastName`, with snake_case only as fallback.
+- Keep the requested exact-match first, last-name fallback second behavior.
+- Update the success log to print the matched camelCase name fields.
 
-The CFBD API uses short school names (e.g. `"BYU"`, `"Colorado"`, `"Alabama"`), but the athlete store contains display names with mascots (e.g. `"BYU Cougars"`, `"Colorado Buffaloes"`).
+2. Fix roster field extraction in `src/hooks/useAutoFill.ts`
+- Read CFBD roster values from actual live response keys:
+  - `firstName`, `lastName`
+  - `homeCity`, `homeState`
+  - `jersey`, `position`, `year`, `height`, `weight`
+  - `id` as ESPN/player identifier fallback
+- Keep headshot/photo handling safe:
+  - use `headshot_url` only if present
+  - otherwise don’t fail the roster match just because headshot is missing
+- Stop tying ESPN ID extraction only to `headshot_url`; also use roster `id` when available so the ESPN action-photo phase can still run.
 
-**Proof from live testing:**
-- `roster("BYU", 2025)` → returns full roster (100+ players)
-- `roster("BYU Cougars", 2025)` → returns `[]`
+3. Fix recruiting matching in `src/hooks/useAutoFill.ts`
+- Keep `recruitingPlayers(team)` in `cfbd.ts`.
+- Match recruits using `name` first, then optional `firstName`/`lastName` fallback if present.
+- Add the same last-name fallback used for roster so nickname/format differences don’t kill the match.
 
-This means every CFBD call (roster, recruiting, portal, games) is sending the wrong team name and getting empty results.
+4. Improve diagnostics in `src/hooks/useAutoFill.ts`
+- Make the CFBD error text more actionable, for example:
+  - `roster ✗ (response had 120 players, no match for "Chase Roberts")`
+  - `recruiting ✗ (response had 340 recruits, no match for "Chase Roberts")`
+- This keeps logging useful without adding `console.log` noise.
 
-### Fix — Two files, two changes
+5. Clean up obsolete scoring code in `src/hooks/useAutoFill.ts`
+- Remove the unused identity-scoring helpers at the top of the file (`fuzzyNameScore`, `scoreCandidateRoster`) since the current flow is roster-list matching, not scored identity resolution.
+- This prevents future confusion and aligns the hook with the intended CFBD flow.
 
-**1. `src/services/cfbd.ts` — Add a `resolveTeamName` function**
+Expected outcome
+- BYU will still resolve correctly.
+- Roster matching should start finding players like Chase Roberts because it will compare against the actual returned keys.
+- Recruiting matching will work when the recruit is present in school recruit history.
+- If recruiting truly has no record, the diagnostics will clearly say it was a real miss rather than a broken parser.
 
-Add a new exported function that calls `/teams` to fetch the full team list, then finds the best match for the user's school string. Cache the result so it only fetches once per session.
-
+Technical note
 ```text
-resolveTeamName("BYU Cougars")
-  → fetches /teams (all teams)
-  → finds { school: "BYU", mascot: "Cougars" }
-  → returns "BYU"
+Current bug:
+useAutoFill expects:   first_name / last_name / home_city / home_state
+CFBD actually returns: firstName  / lastName  / homeCity  / homeState
 ```
-
-Matching logic (in priority order):
-1. Exact match on `school` field (case-insensitive)
-2. `school + " " + mascot` equals input (e.g. "BYU" + "Cougars" = "BYU Cougars")
-3. Input starts with school name (e.g. "Colorado Buffaloes" starts with "Colorado")
-4. Alternate names match
-
-Cache with a module-level `Map<string, string>` so repeat calls don't re-fetch.
-
-**2. `src/hooks/useAutoFill.ts` — Call `resolveTeamName` before CFBD calls**
-
-At the top of `runCfbdPhase`, before any API calls:
-
-```typescript
-const cfbdTeam = await resolveTeamName(school);
-if (!cfbdTeam) {
-  errors.push("team ✗ (no CFBD match for " + school + ")");
-  return { espnId: null, errors };
-}
+That mismatch is the direct reason you’re seeing:
+```text
+team ✓ (BYU), roster ✗ (no name match), recruiting ✗ (no name match)
 ```
-
-Then pass `cfbdTeam` (not `school`) to all four CFBD calls: `roster()`, `recruitingPlayers()`, `playerPortal()`, `upcomingGames()`.
-
-Also remove the old scoring gate logic (lines 246–284) and replace with simple name matching in the roster results, as was previously requested but the scoring gate (`bestScore >= 70`) is still present.
-
-### What this fixes
-- All CFBD calls will use the correct team name CFBD expects
-- Roster, recruiting, portal, and games data will actually return results
-- The error diagnostic will clearly show if team resolution failed vs. other issues
-
+even though the API itself is returning valid BYU data.
