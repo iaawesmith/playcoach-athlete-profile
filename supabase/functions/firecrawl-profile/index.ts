@@ -17,7 +17,6 @@ function extractUrlFromMarkdown(markdown: string, domain: string, path: string, 
   const urlRegex = /https?:\/\/[^\s)\]"']+/g;
   const matches = markdown.match(urlRegex) || [];
   for (const url of matches) {
-    // Must be a direct URL on the target domain, not a Google URL containing it in query params
     try {
       const parsed = new URL(url);
       if (!parsed.hostname.includes(domain)) continue;
@@ -240,7 +239,6 @@ Deno.serve(async (req: Request) => {
       const homeParts = hometown.split(", ");
       const playerState = homeParts.length > 1 ? homeParts[homeParts.length - 1].trim() : "";
 
-      // Step 1: Google search for 247 profile — always attempted
       const searchUrl = `https://www.google.com/search?q=site:247sports.com/player/+${firstName}-${lastName}+high-school`;
       console.log("[247] Google search URL:", searchUrl);
 
@@ -251,7 +249,6 @@ Deno.serve(async (req: Request) => {
       }
       console.log("[247] Google search returned markdown, length:", markdown.length);
 
-      // Step 2: Validate URL — prefer high-school path, fall back to main player URL
       let profileUrl = extractUrlFromMarkdown(markdown, "247sports.com", "/player/", firstName, lastName);
       if (!profileUrl) {
         console.log("[247] No matching 247sports.com/player/ URL found in search results");
@@ -259,7 +256,6 @@ Deno.serve(async (req: Request) => {
       }
       console.log("[247] Initial profile URL:", profileUrl);
 
-      // Prefer high-school variant if available
       const urlRegex = /https?:\/\/[^\s)\]"']+/g;
       const allUrls = markdown.match(urlRegex) || [];
       for (const u of allUrls) {
@@ -279,7 +275,6 @@ Deno.serve(async (req: Request) => {
       }
       console.log("[247] Final profile URL:", profileUrl);
 
-      // Step 3: Scrape HTML and parse deterministically
       const html = await firecrawlScrapeHtml(firecrawlKey, profileUrl, 2000);
       if (!html) {
         console.log("[247] HTML scrape returned null");
@@ -290,7 +285,6 @@ Deno.serve(async (req: Request) => {
       const parsed = parse247RecruitingData(html, position, playerState);
       console.log("[247] Parsed result:", JSON.stringify(parsed));
 
-      // Map to store field names
       const data: Record<string, unknown> = {};
       if (parsed.stars247 !== null) data.stars247 = parsed.stars247;
       if (parsed.playerRating247 !== null) data.rating247 = parsed.playerRating247;
@@ -308,27 +302,24 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    /* ── On3 ───────────────────────────────────────────────────── */
+    /* ── On3 (no action photo — On3 only returns headshots) ───── */
     if (mode === "on3") {
       if (!firstName || !lastName) {
         return new Response(JSON.stringify({ success: false, error: "Name required" }), { status: 400, headers });
       }
 
-      // Step 1: Google search for On3 profile (on3.com/rivals/)
       const searchUrl = `https://www.google.com/search?q=site:on3.com/rivals/+${firstName}-${lastName}`;
       const markdown = await firecrawlScrapeMarkdown(firecrawlKey, searchUrl);
       if (!markdown) {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
 
-      // Step 2: Validate URL
       const profileUrl = extractUrlFromMarkdown(markdown, "on3.com", "/rivals/", firstName, lastName);
       if (!profileUrl) {
         return new Response(JSON.stringify({ success: true, data: null }), { headers });
       }
 
-      // Step 3: Extract data
-      const prompt = `Extract recruiting, NIL, and photo data for ${firstName} ${lastName}. Fields needed: on3Rating (On3 proprietary decimal rating), on3NationalRank, on3PositionRank, on3StateRank, nilValuation (dollar amount as string e.g. '$124,000'), actionPhotoUrl (full URL of the largest player action photo on the page). Return null for any field not found.`;
+      const prompt = `Extract recruiting and NIL data for ${firstName} ${lastName}. Fields needed: on3Rating (On3 proprietary decimal rating), on3NationalRank, on3PositionRank, on3StateRank, nilValuation (dollar amount as string e.g. '$124,000'). Do NOT extract any photo URLs. Return null for any field not found.`;
       const schema = {
         type: "object",
         properties: {
@@ -337,13 +328,11 @@ Deno.serve(async (req: Request) => {
           on3PositionRank: { type: "number" },
           on3StateRank: { type: "number" },
           nilValuation: { type: "string" },
-          actionPhotoUrl: { type: "string" },
         },
       };
 
       const json = await firecrawlScrapeExtract(firecrawlKey, profileUrl, prompt, schema, 2000);
 
-      // Sanitize On3 numeric fields — 0 means "not found"
       const safeNumber = (val: unknown): number | null =>
         (val && val !== 0 && !isNaN(Number(val))) ? Number(val) : null;
 
@@ -353,13 +342,12 @@ Deno.serve(async (req: Request) => {
         on3PositionRank: safeNumber(json?.on3PositionRank),
         on3StateRank: safeNumber(json?.on3StateRank),
         nilValuation: json?.nilValuation || null,
-        actionPhotoUrl: json?.actionPhotoUrl || null,
       };
 
       return new Response(JSON.stringify({ success: true, data: sanitized }), { headers });
     }
 
-    /* ── ESPN action photo ─────────────────────────────────────── */
+    /* ── ESPN action photo (HTML-based, primary source) ────────── */
     if (mode === "espn-photo") {
       const espnId = String(body.espnId || "").trim();
       if (!espnId || !firstName || !lastName) {
@@ -367,14 +355,28 @@ Deno.serve(async (req: Request) => {
       }
 
       const espnUrl = `https://www.espn.com/college-football/player/_/id/${espnId}/${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
-      const prompt = `Find the main action photo of the player on this ESPN page. Return the full image URL. EXCLUDE any URL containing '/headshots/' — that is the profile headshot, not the action photo. EXCLUDE logos, thumbnails, and team photos. Return null if no qualifying action photo found.`;
-      const schema = {
-        type: "object",
-        properties: { actionPhotoUrl: { type: "string" } },
-      };
+      console.log("[espn-photo] Scraping:", espnUrl);
 
-      const json = await firecrawlScrapeExtract(firecrawlKey, espnUrl, prompt, schema, 1500);
-      return new Response(JSON.stringify({ success: true, data: json }), { headers });
+      const html = await firecrawlScrapeHtml(firecrawlKey, espnUrl, 2000);
+      if (!html) {
+        console.log("[espn-photo] No HTML returned");
+        return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: null } }), { headers });
+      }
+      console.log("[espn-photo] HTML length:", html.length);
+
+      const imgUrls = [...html.matchAll(/src="(https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)]
+        .map(m => m[1]);
+
+      const headshotPath = "/i/headshots/";
+
+      const actionPhoto = imgUrls.find(url => {
+        const isEspnCdn = url.includes("espncdn.com") || url.includes("espn.com");
+        const isHeadshot = url.includes(headshotPath);
+        return isEspnCdn && !isHeadshot;
+      }) || null;
+
+      console.log("[espn-photo] Found action photo:", actionPhoto);
+      return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: actionPhoto } }), { headers });
     }
 
     /* ── School roster photo ───────────────────────────────────── */
@@ -409,21 +411,46 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ success: true, data: json }), { headers });
     }
 
-    /* ── Google Image Search photo ─────────────────────────────── */
+    /* ── Google Image Search photo (fallback) ──────────────────── */
     if (mode === "google-image-photo") {
       if (!firstName || !lastName || !school) {
         return new Response(JSON.stringify({ success: false, error: "Name and school required" }), { status: 400, headers });
       }
 
-      const searchUrl = `https://www.google.com/search?q=${firstName}+${lastName}+${school}+football+action+game&tbm=isch`;
-      const prompt = `Find one high-quality in-game college football action photo of ${firstName} ${lastName} from ${school}. Return the direct image URL only. EXCLUDE: Hudl images, high school photos, headshots, studio portraits, practice photos, team group photos. EXCLUDE any URL containing: hudl.com, maxpreps.com. Prefer images from: espn.com, 247sports.com, on3.com, or the official school athletic website. Return null if no qualifying college game action photo found.`;
-      const schema = {
-        type: "object",
-        properties: { actionPhotoUrl: { type: "string" } },
-      };
+      const normalizedSchool = school.replace(/\b(Crimson Tide|Buckeyes|Wolverines|Cougars|Bulldogs|Tigers|Wildcats|Longhorns|Sooners|Volunteers|Gators|Seminoles|Hurricanes|Ducks|Utes|Cowboys|Horned Frogs|Mountaineers|Cornhuskers|Hawkeyes|Cyclones|Jayhawks|Panthers|Cardinals|Buffaloes|Sun Devils|Bruins|Beavers|Trojans|Huskies|Razorbacks|Rebels|Aggies|Bears|Commodores|Gamecocks|Fighting Irish|Nittany Lions|Golden Gophers|Badgers|Boilermakers|Hoosiers|Illini|Spartans|Tar Heels|Wolfpack|Blue Devils|Yellow Jackets|Demon Deacons|Hokies|Cavaliers|Owls|Red Raiders|Mustangs)\b/gi, "").trim();
 
-      const json = await firecrawlScrapeExtract(firecrawlKey, searchUrl, prompt, schema);
-      return new Response(JSON.stringify({ success: true, data: json }), { headers });
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}+${encodeURIComponent(normalizedSchool)}+football+action+-headshot+-portrait+-profile+-hudl&tbm=isch`;
+      console.log("[google-image] Search URL:", searchUrl);
+
+      const html = await firecrawlScrapeHtml(firecrawlKey, searchUrl, 3000);
+      if (!html) {
+        console.log("[google-image] No HTML returned");
+        return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: null } }), { headers });
+      }
+
+      const imgUrls = [...html.matchAll(/(?:src|data-src)="(https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)]
+        .map(m => m[1]);
+
+      const sportsDomains = [
+        "espncdn.com", "espn.com", "247sports.com",
+        "on3.com", "si.com", "rivals.com",
+        "usatoday.com", "cbssports.com", "bleacherreport.com",
+      ];
+
+      const actionPhoto = imgUrls.find(url => {
+        const lower = url.toLowerCase();
+        if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) return false;
+        if (lower.includes("headshot")) return false;
+        if (lower.includes("portrait")) return false;
+        if (lower.includes("hudl.com")) return false;
+        if (lower.includes("maxpreps.com")) return false;
+        if (lower.includes("/i/headshots/")) return false;
+        if (lower.includes("profile")) return false;
+        return sportsDomains.some(d => lower.includes(d));
+      }) || null;
+
+      console.log("[google-image] Found action photo:", actionPhoto);
+      return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: actionPhoto } }), { headers });
     }
 
     return new Response(
