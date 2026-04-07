@@ -41,6 +41,17 @@ async function firecrawlScrapeMarkdown(apiKey: string, url: string): Promise<str
   return data.data?.markdown || data.markdown || null;
 }
 
+async function firecrawlScrapeHtml(apiKey: string, url: string, waitFor?: number): Promise<string | null> {
+  const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ url, formats: ["html"], onlyMainContent: false, waitFor: waitFor || 0 }),
+  });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  return data.data?.html || data.html || null;
+}
+
 async function firecrawlScrapeExtract(
   apiKey: string,
   url: string,
