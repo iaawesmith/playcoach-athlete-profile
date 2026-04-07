@@ -69,7 +69,7 @@ const InputCard = ({
 }: {
   label: string; value: string; type?: string; onChange: (val: string) => void;
   suffix?: string; helperText?: string; placeholder?: string;
-  badge?: "CFBD" | "247" | "ON3";
+  badge?: "CFBD" | "247" | "ON3" | "247C";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
