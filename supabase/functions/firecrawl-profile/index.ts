@@ -160,34 +160,80 @@ function parse247RecruitingData(
     return null;
   }
 
-  const before247Ranking = html.split('<div class="ranking">')[0] || html;
-  const stars247 = countYellowStars(before247Ranking);
+  // Split into named sections. The HTML structure is:
+  // <section class="rankings-section">
+  //   <h3 class="title">247Sports</h3>          ← proprietary
+  //   <div class="ranking"><div class="stars-block">...</div><div class="rank-block">84</div></div>
+  //   <ul class="ranks-list">...</ul>
+  // </section>
+  // <section class="rankings-section">
+  //   <h3 class="title">247Sports Composite®</h3>
+  //   <div class="ranking"><div class="stars-block">...</div><div class="rank-block">0.8392</div></div>
+  //   <ul class="ranks-list">...</ul>
+  // </section>
 
-  const playerRatingMatch = before247Ranking.match(
-    /<div class="rank-block">\s*(\d{2,3})\s*<\/div>/,
-  );
-  const playerRating247 = playerRatingMatch ? parseInt(playerRatingMatch[1]) : null;
+  const rawSections = html.split('<section class="rankings-section">');
+  let proprietarySection = "";
+  let compositeSection = "";
 
-  const positionRank = pos ? findRankInList(html, pos, false) : null;
-  const stateRank = state ? findRankInList(html, state, false) : null;
+  for (const section of rawSections) {
+    const titleMatch = section.match(/<h3 class="title">([^<]+)<\/h3>/);
+    if (!titleMatch) continue;
+    const title = titleMatch[1].trim();
+    if (title === "247Sports") {
+      proprietarySection = section;
+    } else if (title.startsWith("247Sports Composite")) {
+      compositeSection = section;
+    }
+  }
 
-  const rankingBlockMatch = html.match(
-    /<div class="ranking">([\s\S]*?)<\/div>\s*<\/div>/,
-  );
-  const compositeStars247 = rankingBlockMatch
-    ? countYellowStars(rankingBlockMatch[1])
+  console.log("[247] proprietarySection length:", proprietarySection.length);
+  console.log("[247] compositeSection length:", compositeSection.length);
+
+  // --- Proprietary 247Sports ---
+  const stars247 = proprietarySection
+    ? countYellowStars(proprietarySection)
     : null;
 
-  const compositeRatingMatch = html.match(
-    /<div class="ranking">[\s\S]*?<div class="rank-block">\s*(0\.\d{3,6})\s*<\/div>/,
+  const playerRatingMatch = proprietarySection.match(
+    /<div class="rank-block">\s*(\d{2,3})\s*<\/div>/,
+  );
+  const playerRating247 = playerRatingMatch
+    ? parseInt(playerRatingMatch[1])
+    : null;
+
+  const positionRank =
+    pos && proprietarySection
+      ? findRankInList(proprietarySection, pos, false)
+      : null;
+  const stateRank =
+    state && proprietarySection
+      ? findRankInList(proprietarySection, state, false)
+      : null;
+
+  // --- Composite 247Sports ---
+  const compositeStars247 = compositeSection
+    ? countYellowStars(compositeSection)
+    : null;
+
+  const compositeRatingMatch = compositeSection.match(
+    /<div class="rank-block">\s*(0\.\d{3,6})\s*<\/div>/,
   );
   const compositeRating247 = compositeRatingMatch
     ? parseFloat(compositeRatingMatch[1])
     : null;
 
-  const compositeNationalRank247 = findRankInList(html, "Natl.", true);
-  const compositePositionRank247 = pos ? findRankInList(html, pos, true) : null;
-  const compositeStateRank247 = state ? findRankInList(html, state, true) : null;
+  const compositeNationalRank247 = compositeSection
+    ? findRankInList(compositeSection, "Natl.", true)
+    : null;
+  const compositePositionRank247 =
+    pos && compositeSection
+      ? findRankInList(compositeSection, pos, true)
+      : null;
+  const compositeStateRank247 =
+    state && compositeSection
+      ? findRankInList(compositeSection, state, true)
+      : null;
 
   return {
     stars247,
