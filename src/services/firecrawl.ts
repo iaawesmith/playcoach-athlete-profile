@@ -9,35 +9,31 @@ export type Extracted247Data = {
   positionRank: number | null;
   stateRank: number | null;
   compositeRating: number | null;
+  stars: number | null;
+  height: string | null;
+  weight: number | null;
+  highSchool: string | null;
+  hometown: string | null;
+  actionPhotoUrl: string | null;
 };
 
 export type ExtractedOn3Data = {
   on3Rating: number | null;
   on3NationalRank: number | null;
   on3PositionRank: number | null;
-  fortyTime: number | null;
-  vertical: number | null;
-  wingspan: number | null;
-  handSize: number | null;
+  on3StateRank: number | null;
+  nilValuation: string | null;
+  actionPhotoUrl: string | null;
+};
+
+export type ExtractedActionPhoto = {
+  actionPhotoUrl: string | null;
 };
 
 type ExtractionResult<T> = {
   success: boolean;
   data?: T;
   error?: string;
-};
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-const invokeFirecrawl = async (
-  fnName: string,
-  body: Record<string, unknown>,
-): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> => {
-  const { data, error } = await supabase.functions.invoke(fnName, { body });
-  if (error) return { success: false, error: error.message };
-  return data as { success: boolean; data?: Record<string, unknown>; error?: string };
 };
 
 /* ------------------------------------------------------------------ */
@@ -54,7 +50,7 @@ export const firecrawlApi = {
     return data as { success: boolean; logoUrl?: string; error?: string };
   },
 
-  /** Extract 247Sports profile data using targeted prompt */
+  /** Extract 247Sports profile data */
   async search247Profile(
     firstName: string,
     lastName: string,
@@ -62,20 +58,13 @@ export const firecrawlApi = {
     school: string,
   ): Promise<ExtractionResult<Extracted247Data>> {
     const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
-      body: {
-        mode: "247",
-        firstName,
-        lastName,
-        position,
-        school,
-      },
+      body: { mode: "247", firstName, lastName, position, school },
     });
     if (error) return { success: false, error: error.message };
-    const result = data as { success: boolean; data?: Extracted247Data; error?: string };
-    return result;
+    return data as ExtractionResult<Extracted247Data>;
   },
 
-  /** Extract On3 profile data using targeted prompt */
+  /** Extract On3 profile data */
   async searchOn3Profile(
     firstName: string,
     lastName: string,
@@ -83,16 +72,48 @@ export const firecrawlApi = {
     school: string,
   ): Promise<ExtractionResult<ExtractedOn3Data>> {
     const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
-      body: {
-        mode: "on3",
-        firstName,
-        lastName,
-        position,
-        school,
-      },
+      body: { mode: "on3", firstName, lastName, position, school },
     });
     if (error) return { success: false, error: error.message };
-    const result = data as { success: boolean; data?: ExtractedOn3Data; error?: string };
-    return result;
+    return data as ExtractionResult<ExtractedOn3Data>;
+  },
+
+  /** Extract action photo from ESPN player page */
+  async scrapeEspnActionPhoto(
+    espnId: string,
+    firstName: string,
+    lastName: string,
+  ): Promise<ExtractionResult<ExtractedActionPhoto>> {
+    const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
+      body: { mode: "espn-photo", espnId, firstName, lastName },
+    });
+    if (error) return { success: false, error: error.message };
+    return data as ExtractionResult<ExtractedActionPhoto>;
+  },
+
+  /** Extract action photo from school athletic website */
+  async scrapeSchoolRosterPhoto(
+    firstName: string,
+    lastName: string,
+    school: string,
+  ): Promise<ExtractionResult<ExtractedActionPhoto>> {
+    const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
+      body: { mode: "school-photo", firstName, lastName, school },
+    });
+    if (error) return { success: false, error: error.message };
+    return data as ExtractionResult<ExtractedActionPhoto>;
+  },
+
+  /** Extract action photo from Google Image Search (last resort) */
+  async scrapeGoogleImagePhoto(
+    firstName: string,
+    lastName: string,
+    school: string,
+  ): Promise<ExtractionResult<ExtractedActionPhoto>> {
+    const { data, error } = await supabase.functions.invoke("firecrawl-profile", {
+      body: { mode: "google-image-photo", firstName, lastName, school },
+    });
+    if (error) return { success: false, error: error.message };
+    return data as ExtractionResult<ExtractedActionPhoto>;
   },
 };
