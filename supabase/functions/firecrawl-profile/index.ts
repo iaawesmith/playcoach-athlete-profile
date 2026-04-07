@@ -451,18 +451,31 @@ Deno.serve(async (req: Request) => {
       }
       console.log("[espn-photo] HTML length:", html.length);
 
-      // Target ESPN action/editorial images: combiner/ and photo/ paths only
+      // Only accept ESPN photos that look like game/action shots.
+      const isActionPhoto = (url: string): boolean => {
+        const lower = url.toLowerCase();
+        if (!lower.includes("espncdn.com")) return false;
+        if (lower.includes("/headshots/")) return false;
+        if (lower.includes("headshot")) return false;
+        if (!lower.includes("/photo/") && !lower.includes("/combiner/")) return false;
+        if (lower.includes("/photo/")) {
+          const hasGameContext =
+            lower.includes("/action/") ||
+            lower.includes("_action") ||
+            lower.includes("game") ||
+            lower.includes("play") ||
+            lower.includes("field") ||
+            lower.includes("stadium");
+          return hasGameContext;
+        }
+        return true;
+      };
+
       const imgMatches = [
         ...html.matchAll(/(?:src|content)="(https?:\/\/a\.espncdn\.com\/(?:combiner|photo)[^"]+)"/gi),
       ].map(m => m[1]);
 
-      const actionPhoto = imgMatches.find(url => {
-        const lower = url.toLowerCase();
-        if (lower.includes("/i/headshots/")) return false;
-        if (lower.includes("helmet")) return false;
-        if (lower.includes("logo")) return false;
-        return /\.(jpg|jpeg|png|webp)/i.test(url) || lower.includes("combiner");
-      }) || null;
+      const actionPhoto = imgMatches.find(url => isActionPhoto(url)) || null;
 
       console.log("[espn-photo] Found action photo:", actionPhoto);
       return new Response(JSON.stringify({ success: true, data: { actionPhotoUrl: actionPhoto } }), { headers });
