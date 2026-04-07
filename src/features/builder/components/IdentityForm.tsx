@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAthleteStore } from "@/store/athleteStore";
-import type { FieldSource } from "@/store/athleteStore";
+
 import { useSchoolSearch, type SchoolOption } from "@/hooks/useSchoolSearch";
 import { firecrawlApi } from "@/services/firecrawl";
 import { supabase } from "@/integrations/supabase/client";
