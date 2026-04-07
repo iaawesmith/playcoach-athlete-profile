@@ -19,6 +19,7 @@ interface AthleteState {
   schoolAbbrev: string;
   classYear: string;
   teamColor: string;
+  teamColorAlt: string;
   bio: string;
   quote: string;
   hometown: string;
@@ -38,11 +39,20 @@ interface AthleteState {
   starRating: number;
   nationalRank: number | null;
   positionRank: number | null;
+  stateRank: number | null;
+  recruitingRating: number | null;
   rating247: string;
   ratingOn3: string;
   ratingComposite: string;
+  on3Rating: number | null;
+  on3NationalRank: number | null;
+  on3PositionRank: number | null;
   offersCount: number | null;
+  nilValuation: string | null;
   commitmentStatus: "" | "committed" | "uncommitted" | "portal";
+  transferFrom: string | null;
+  transferStars: number | null;
+  transferRating: number | null;
   upcomingGame: UpcomingGame | null;
   profileStatus: "draft" | "live";
   hasBeenPublished: boolean;
@@ -67,6 +77,7 @@ const defaults: AthleteData = {
   schoolAbbrev: "",
   classYear: "",
   teamColor: "#50C4CA",
+  teamColorAlt: "",
   bio: "",
   quote: "",
   hometown: "",
@@ -86,11 +97,20 @@ const defaults: AthleteData = {
   starRating: 0,
   nationalRank: null,
   positionRank: null,
+  stateRank: null,
+  recruitingRating: null,
   rating247: "",
   ratingOn3: "",
   ratingComposite: "",
+  on3Rating: null,
+  on3NationalRank: null,
+  on3PositionRank: null,
   offersCount: null,
+  nilValuation: null,
   commitmentStatus: "",
+  transferFrom: null,
+  transferStars: null,
+  transferRating: null,
   upcomingGame: null,
 };
 
