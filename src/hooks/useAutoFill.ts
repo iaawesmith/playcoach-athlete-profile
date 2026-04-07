@@ -493,8 +493,23 @@ export function useAutoFill() {
       }
     }
 
-    // Build field entries for ScrapeFill review — CFBD data is NOT included here
+    // Build field entries for review — include CFBD data as read-only reference
     const entries: FieldEntry[] = [];
+
+    // Add CFBD-sourced fields first (already applied to store)
+    for (const [key, value] of Object.entries(cfbdData)) {
+      if (value === null || value === undefined || value === "") continue;
+      entries.push({
+        key: `cfbd_${key}`,
+        label: fieldLabels[key] || key,
+        value,
+        source: "cfbd",
+      });
+    }
+
+    if (Object.keys(cfbdData).length > 0 && !srcList.includes("CFBD")) {
+      srcList.push("CFBD");
+    }
 
     for (const [key, value] of Object.entries(data)) {
       if (value === null || value === undefined || value === "") continue;
