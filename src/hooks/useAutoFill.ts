@@ -473,6 +473,11 @@ export function useAutoFill() {
 
       if (resolvedActionPhoto) {
         data.actionPhotoUrl = resolvedActionPhoto;
+        // Write to store immediately so ProCard updates in real-time
+        const photoSource: FieldSource = (actionPhotoFromOn3 && resolvedActionPhoto === actionPhotoFromOn3) ? "on3"
+          : (actionPhotoFrom247 && resolvedActionPhoto === actionPhotoFrom247) ? "247"
+          : "firecrawl";
+        setAthleteFromSource({ actionPhotoUrl: resolvedActionPhoto }, photoSource);
       }
     }
 
