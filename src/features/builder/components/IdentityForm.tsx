@@ -670,8 +670,8 @@ export const IdentityForm = () => {
               const posLabel = position || "POSITION";
               const stateAbbr = getStateAbbrev(hometown);
               const stateLabel = stateAbbr ? `STATE RANK (${stateAbbr})` : "STATE RANK";
-              const compPosLabel = position ? `COMPOSITE ${position}` : "COMPOSITE POSITION";
-              const compStateLabel = stateAbbr ? `COMPOSITE STATE (${stateAbbr})` : "COMPOSITE STATE";
+              const compPosLabel = position ? `COMPOSITE ${position} RANK` : "COMPOSITE POSITION RANK";
+              const compStateLabel = stateAbbr ? `COMPOSITE STATE RANK (${stateAbbr})` : "COMPOSITE STATE RANK";
               return (
                 <div className="space-y-4">
                   {/* 247 proprietary */}
