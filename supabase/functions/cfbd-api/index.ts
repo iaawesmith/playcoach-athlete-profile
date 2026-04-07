@@ -1,5 +1,3 @@
-
-
 const CFBD_BASE = "https://apinext.collegefootballdata.com";
 
 const corsH = {
@@ -31,7 +29,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Allowlist of safe endpoints
     const allowed = [
       "/roster",
       "/player/search",
@@ -39,6 +36,7 @@ Deno.serve(async (req) => {
       "/teams",
       "/games",
       "/stats/player/season",
+      "/player/portal",
     ];
     const clean = endpoint.split("?")[0];
     if (!allowed.includes(clean)) {
