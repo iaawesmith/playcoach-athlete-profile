@@ -219,11 +219,14 @@ export function useAutoFill() {
         errors.push(`${label} ✗ (${String(result.reason)})`);
         return null;
       }
-      if (!result.value.success) {
-        errors.push(`${label} ✗ (${result.value.error})`);
+
+      const value = result.value;
+      if (value.success === false) {
+        errors.push(`${label} ✗ (${value.error})`);
         return null;
       }
-      return result.value.data;
+
+      return value.data;
     };
 
     const teamsCheck = await cfbdApi.teams();
@@ -237,7 +240,7 @@ export function useAutoFill() {
       });
       if (match) schoolForCfbd = match.school;
       else errors.push(`teams: no match for "${school}"`);
-    } else if (!teamsCheck.success) {
+    } else if (teamsCheck.success === false) {
       errors.push(`teams lookup ✗ (${teamsCheck.error})`);
     }
 
