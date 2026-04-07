@@ -1,9 +1,11 @@
+import { useState } from "react";
 import {
   useAutoFill,
   fieldLabels,
   formatDisplayValue,
   type AutoFillStatus,
 } from "@/hooks/useAutoFill";
+import { useAthleteStore } from "@/store/athleteStore";
 
 export const ScrapeFill = () => {
   const {
@@ -24,6 +26,9 @@ export const ScrapeFill = () => {
     totalSelected,
     totalItems,
   } = useAutoFill();
+
+  const missingFields = useAthleteStore((s) => s.missingFields);
+  const [showMissing, setShowMissing] = useState(false);
 
   if (status === "idle" || status === "done") {
     return (
@@ -214,6 +219,57 @@ export const ScrapeFill = () => {
               </span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Missing fields */}
+      {missingFields.length > 0 && (
+        <div className="border-t border-white/5 pt-3">
+          <button
+            type="button"
+            onClick={() => setShowMissing((prev) => !prev)}
+            className="w-full flex items-center gap-2 px-1 py-1 text-left group"
+          >
+            <span className="material-symbols-outlined text-[#d53d18] text-base">warning</span>
+            <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest flex-1">
+              Data Not Found
+            </span>
+            <span className="text-on-surface-variant/60 text-[9px] font-semibold uppercase tracking-widest">
+              {missingFields.length} fields
+            </span>
+            <span
+              className="material-symbols-outlined text-on-surface-variant text-sm transition-transform duration-200"
+              style={{ transform: showMissing ? "rotate(180deg)" : "rotate(0deg)" }}
+            >
+              expand_more
+            </span>
+          </button>
+          {showMissing && (
+            <div className="mt-2 space-y-0.5">
+              {missingFields.map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-left"
+                >
+                  <span className="text-on-surface-variant/40 text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0">
+                    {item.field}
+                  </span>
+                  <span className="text-on-surface-variant/30 text-[10px] truncate flex-1">
+                    {item.reason}
+                  </span>
+                  <span
+                    className="text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5"
+                    style={{
+                      color: "rgba(168,171,175,0.4)",
+                      backgroundColor: "rgba(33,38,43,0.6)",
+                    }}
+                  >
+                    {item.source}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
