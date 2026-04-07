@@ -25,6 +25,7 @@ export function ProfilePreview() {
   const autoFill = useAutoFill();
   const [msgIndex, setMsgIndex] = useState(0);
   const [segmentCount, setSegmentCount] = useState(0);
+  const [fieldsExpanded, setFieldsExpanded] = useState(false);
 
   const isSearching = autoFill.status === "resolving" || autoFill.status === "enriching";
 
@@ -174,32 +175,50 @@ export function ProfilePreview() {
                 </div>
               )}
 
-              {/* Field list */}
+              {/* Collapsible field list */}
               {autoFill.enrichedFields.length > 0 && (
-                <div className="space-y-1">
-                  {autoFill.enrichedFields.map((entry) => (
-                    <button
-                      key={entry.key}
-                      type="button"
-                      onClick={() => autoFill.toggleField(entry.key)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left"
-                      style={{ backgroundColor: "transparent" }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "#363B40"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
-                    >
-                      <span
-                        className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
-                        style={{ borderColor: autoFill.selectedKeys.has(entry.key) ? tc : "#3D434A", backgroundColor: autoFill.selectedKeys.has(entry.key) ? tc : "transparent" }}
-                      >
-                        {autoFill.selectedKeys.has(entry.key) && <span className="material-symbols-outlined text-[12px]" style={{ color: "#12161A" }}>check</span>}
-                      </span>
-                      <span className="text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0" style={{ color: "#8A8F94" }}>{entry.label}</span>
-                      <span className="text-white text-sm font-normal truncate flex-1">{formatDisplayValue(entry.key, entry.value)}</span>
-                      <span className="text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5" style={{ color: "#8A8F94", backgroundColor: "#1E2227" }}>
-                        {entry.source}
-                      </span>
-                    </button>
-                  ))}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setFieldsExpanded((v) => !v)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors duration-150"
+                    style={{ backgroundColor: "#1E2227" }}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#8A8F94" }}>
+                      {fieldsExpanded ? "Hide Details" : "View All Fields"}
+                    </span>
+                    <span className="material-symbols-outlined text-base transition-transform duration-200" style={{ color: "#8A8F94", transform: fieldsExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
+                      expand_more
+                    </span>
+                  </button>
+
+                  {fieldsExpanded && (
+                    <div className="space-y-1 mt-2">
+                      {autoFill.enrichedFields.map((entry) => (
+                        <button
+                          key={entry.key}
+                          type="button"
+                          onClick={() => autoFill.toggleField(entry.key)}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left"
+                          style={{ backgroundColor: "transparent" }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "#363B40"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
+                        >
+                          <span
+                            className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors duration-150"
+                            style={{ borderColor: autoFill.selectedKeys.has(entry.key) ? tc : "#3D434A", backgroundColor: autoFill.selectedKeys.has(entry.key) ? tc : "transparent" }}
+                          >
+                            {autoFill.selectedKeys.has(entry.key) && <span className="material-symbols-outlined text-[12px]" style={{ color: "#12161A" }}>check</span>}
+                          </span>
+                          <span className="text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0" style={{ color: "#8A8F94" }}>{entry.label}</span>
+                          <span className="text-white text-sm font-normal truncate flex-1">{formatDisplayValue(entry.key, entry.value)}</span>
+                          <span className="text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5" style={{ color: "#8A8F94", backgroundColor: "#1E2227" }}>
+                            {entry.source}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
