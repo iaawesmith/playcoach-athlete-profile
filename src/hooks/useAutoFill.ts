@@ -253,13 +253,13 @@ export function useAutoFill() {
     const cfbdData: Record<string, unknown> = {};
     const target = { firstName, lastName, position, jersey, school };
 
-    // 1a: Roster — find best matching player
-    const rosterRes = results[0] as { success: true; data: CfbdRosterPlayer[] } | null;
+    // 1a: Roster — find best matching player (API returns camelCase fields)
+    const rosterRes = results[0] as { success: true; data: Record<string, unknown>[] } | null;
     if (rosterRes?.data) {
-      let bestCandidate: CfbdRosterPlayer | null = null;
+      let bestCandidate: Record<string, unknown> | null = null;
       let bestScore = 0;
       for (const player of rosterRes.data) {
-        const s = scoreCandidate(player, target) + 35;
+        const s = scoreCandidateRoster(player, target) + 35;
         if (s > bestScore) {
           bestScore = s;
           bestCandidate = player;
@@ -267,20 +267,23 @@ export function useAutoFill() {
       }
 
       if (bestCandidate) {
-        if (bestCandidate.height) cfbdData.height = String(bestCandidate.height);
-        if (bestCandidate.weight) cfbdData.weight = String(bestCandidate.weight);
-        if (bestCandidate.jersey != null) cfbdData.number = String(bestCandidate.jersey);
-        if (bestCandidate.position) cfbdData.position = bestCandidate.position;
-        if (bestCandidate.year) cfbdData.classYear = yearToClass[bestCandidate.year] || String(bestCandidate.year);
-        if (bestCandidate.home_city && bestCandidate.home_state) {
-          cfbdData.hometown = `${bestCandidate.home_city}, ${bestCandidate.home_state}`;
+        const h = bestCandidate.height;
+        const w = bestCandidate.weight;
+        const j = bestCandidate.jersey ?? bestCandidate.jerseyNumber;
+        const pos = bestCandidate.position;
+        const yr = bestCandidate.year;
+        const city = bestCandidate.homeCity ?? bestCandidate.home_city;
+        const state = bestCandidate.homeState ?? bestCandidate.home_state;
+
+        if (h) cfbdData.height = String(h);
+        if (w) cfbdData.weight = String(w);
+        if (j != null) cfbdData.number = String(j);
+        if (pos) cfbdData.position = String(pos);
+        if (yr) cfbdData.classYear = yearToClass[Number(yr)] || String(yr);
+        if (city && state) {
+          cfbdData.hometown = `${city}, ${state}`;
         }
-        if (bestCandidate.headshot_url && !store.getState().profilePictureUrl) {
-          cfbdData.profilePictureUrl = bestCandidate.headshot_url;
-        }
-        if (bestCandidate.headshot_url) {
-          espnId = extractEspnId(bestCandidate.headshot_url);
-        }
+        // No headshot field in current API — espnId stays null
       }
     }
 
