@@ -257,7 +257,7 @@ export function useAutoFill() {
       }
       if (bestTeam) {
         schoolForCfbd = bestTeam.school;
-        console.log(`[CFBD] Team match: "${bestTeam.school}" (score: ${bestTeamScore}) for input "${school}"`);
+        // no log needed — errors array captures diagnostics
       } else {
         errors.push(`teams: no match for "${school}"`);
       }
@@ -305,7 +305,7 @@ export function useAutoFill() {
     let totalPlayers = 0;
     for (const rosterResult of rosterResults) {
       if (!rosterResult) continue;
-      console.log(`[CFBD] Roster ${rosterResult.year}: ${rosterResult.data.length} players`);
+      // roster year counted
       totalPlayers += rosterResult.data.length;
       for (const player of rosterResult.data) {
         const score = scoreCandidateRoster(player, target) + 35;
@@ -315,7 +315,7 @@ export function useAutoFill() {
         }
       }
     }
-    console.log(`[CFBD] Best roster match: score=${bestScore}, name=${bestCandidate?.firstName} ${bestCandidate?.lastName}, total players scanned=${totalPlayers}`);
+    // scoring complete
 
     if (bestCandidate && bestScore >= 70) {
       const h = bestCandidate.height;
@@ -332,7 +332,7 @@ export function useAutoFill() {
       if (pos) cfbdData.position = String(pos);
       if (rosterYear) cfbdData.classYear = yearToClass[Number(rosterYear)] || String(rosterYear);
       if (city && state) cfbdData.hometown = `${city}, ${state}`;
-      console.log("[CFBD] Roster data extracted:", cfbdData);
+      errors.push(`roster ✓ (matched ${String(bestCandidate.firstName)} ${String(bestCandidate.lastName)}, score ${bestScore})`);
     } else {
       errors.push(`roster: no exact match found across ${rosterYears.join(", ")} (best score: ${bestScore})`);
     }
@@ -401,18 +401,11 @@ export function useAutoFill() {
       };
     }
 
-    console.log("[CFBD] Final cfbdData keys:", Object.keys(cfbdData), "values:", JSON.stringify(cfbdData));
     if (Object.keys(cfbdData).length > 0) {
-      console.log("[CFBD] Writing to store via setAthleteFromSource with source='cfbd'");
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
-      console.log("[CFBD] Store write complete. Store state:", JSON.stringify({
-        height: useAthleteStore.getState().height,
-        weight: useAthleteStore.getState().weight,
-        hometown: useAthleteStore.getState().hometown,
-        teamColor: useAthleteStore.getState().teamColor,
-      }));
+      errors.push(`store ✓ (${Object.keys(cfbdData).join(", ")})`);
     } else {
-      console.warn("[CFBD] No data extracted — nothing to write");
+      errors.push("store ✗ (no data extracted)");
     }
 
     return { espnId, errors };
