@@ -194,8 +194,9 @@ export function useAutoFill() {
 
   /* ── PHASE 1: CFBD Direct API — writes to store immediately ── */
 
-  const runCfbdPhase = useCallback(async (): Promise<string | null> => {
-    if (!school || !firstName || !lastName) return null;
+  const runCfbdPhase = useCallback(async (): Promise<{ espnId: string | null; errors: string[] }> => {
+    const errors: string[] = [];
+    if (!school || !firstName || !lastName) return { espnId: null, errors: ["Missing name or school"] };
 
     const yr = new Date().getFullYear();
     let schoolForCfbd = school;
@@ -207,8 +208,9 @@ export function useAutoFill() {
       schoolForCfbd = teamsCheck.data[0].school;
     }
 
-    // Fire all CFBD calls in parallel
-    const [rosterRes, recruitRes, teamsRes, portalRes, gameRes] = await Promise.all([
+    // Fire all CFBD calls in parallel with allSettled
+    const callNames = ["roster", "recruiting", "teams", "portal", "games"] as const;
+    const settled = await Promise.allSettled([
       cfbdApi.roster(schoolForCfbd, yr),
       cfbdApi.recruitingPlayers(`${firstName} ${lastName}`, schoolForCfbd),
       cfbdApi.teams(schoolForCfbd),
@@ -216,15 +218,29 @@ export function useAutoFill() {
       cfbdApi.upcomingGames(schoolForCfbd, yr),
     ]);
 
+    const results = settled.map((r, i) => {
+      if (r.status === "rejected") {
+        errors.push(`${callNames[i]} ✗ (${r.reason})`);
+        return null;
+      }
+      const val = r.value;
+      if (!val.success) {
+        errors.push(`${callNames[i]} ✗ (${(val as { error?: string }).error || "unknown"})`);
+        return null;
+      }
+      return val;
+    });
+
     const cfbdData: Record<string, unknown> = {};
     const target = { firstName, lastName, position, jersey, school };
 
     // 1a: Roster — find best matching player
-    if (rosterRes.success && rosterRes.data) {
+    const rosterRes = results[0] as { success: true; data: CfbdRosterPlayer[] } | null;
+    if (rosterRes?.data) {
       let bestCandidate: CfbdRosterPlayer | null = null;
       let bestScore = 0;
       for (const player of rosterRes.data) {
-        const s = scoreCandidate(player, target) + 35; // school match bonus
+        const s = scoreCandidate(player, target) + 35;
         if (s > bestScore) {
           bestScore = s;
           bestCandidate = player;
@@ -250,8 +266,9 @@ export function useAutoFill() {
     }
 
     // 1b: Recruiting
-    if (recruitRes.success && recruitRes.data) {
-      const recruit = recruitRes.data.find((r: CfbdRecruit) => r.athlete_id != null) ||
+    const recruitRes = results[1] as { success: true; data: CfbdRecruit[] } | null;
+    if (recruitRes?.data) {
+      const recruit = recruitRes.data.find((r) => r.athlete_id != null) ||
         (recruitRes.data.length > 0 ? recruitRes.data[0] : null);
       if (recruit) {
         if (recruit.stars) cfbdData.starRating = recruit.stars;
@@ -269,8 +286,9 @@ export function useAutoFill() {
     }
 
     // 1c: Teams
-    if (teamsRes.success && teamsRes.data.length > 0) {
-      const team: CfbdTeam = teamsRes.data[0];
+    const teamsRes = results[2] as { success: true; data: CfbdTeam[] } | null;
+    if (teamsRes?.data && teamsRes.data.length > 0) {
+      const team = teamsRes.data[0];
       if (team.logos?.[0]) cfbdData.schoolLogoUrl = team.logos[0];
       if (team.color) cfbdData.teamColor = team.color.startsWith("#") ? team.color : `#${team.color}`;
       if (team.alt_color) cfbdData.teamColorAlt = team.alt_color.startsWith("#") ? team.alt_color : `#${team.alt_color}`;
@@ -278,8 +296,9 @@ export function useAutoFill() {
     }
 
     // 1d: Portal
-    if (portalRes.success && portalRes.data) {
-      const portalMatch = portalRes.data.find((p: CfbdPortalPlayer) =>
+    const portalRes = results[3] as { success: true; data: CfbdPortalPlayer[] } | null;
+    if (portalRes?.data) {
+      const portalMatch = portalRes.data.find((p) =>
         p.first_name.toLowerCase() === firstName.toLowerCase() &&
         p.last_name.toLowerCase() === lastName.toLowerCase()
       );
@@ -292,7 +311,8 @@ export function useAutoFill() {
     }
 
     // 1e: Upcoming game
-    if (gameRes.success && gameRes.data) {
+    const gameRes = results[4] as { success: true; data: { opponent: string; date: string; time: string; location: string } | null } | null;
+    if (gameRes?.data) {
       cfbdData.upcomingGame = {
         opponent: gameRes.data.opponent,
         date: gameRes.data.date,
@@ -307,10 +327,11 @@ export function useAutoFill() {
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
     }
 
-    return espnId;
+    return { espnId, errors };
   }, [firstName, lastName, school, position, jersey, setAthleteFromSource]);
 
   /* ── PHASE 2: Firecrawl (247 + On3) — results go to ScrapeFill modal ── */
+  /* Returns diagnostic strings for any failures */
 
   const runFirecrawlPhase = useCallback(async (espnId: string | null) => {
     if (!firstName || !lastName || !school) {
@@ -501,15 +522,32 @@ export function useAutoFill() {
     setSources([]);
     setConfirmCandidate(null);
 
-    try {
-      // Phase 1: CFBD — writes directly to store, no modal
-      const espnId = await runCfbdPhase();
+    const diagParts: string[] = [];
 
-      // Phase 2: Firecrawl — results go to ScrapeFill modal
+    // Phase 1: CFBD — writes directly to store, no modal
+    let espnId: string | null = null;
+    try {
+      const cfbdResult = await runCfbdPhase();
+      espnId = cfbdResult.espnId;
+      if (cfbdResult.errors.length > 0) {
+        diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      diagParts.push(`CFBD phase crashed: ${msg}`);
+    }
+
+    // Phase 2: Firecrawl — results go to ScrapeFill modal
+    try {
       await runFirecrawlPhase(espnId);
-    } catch {
-      setStatus("error");
-      setErrorMessage("Auto-fill failed. Please try again.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      diagParts.push(`Firecrawl phase crashed: ${msg}`);
+    }
+
+    // If both phases produced nothing useful, surface diagnostics
+    if (status === "error" || (enrichedFields.length === 0 && diagParts.length > 0)) {
+      setErrorMessage(diagParts.join(" | ") || "Auto-fill completed but found no data.");
     }
   }, [canScrape, runCfbdPhase, runFirecrawlPhase]);
 

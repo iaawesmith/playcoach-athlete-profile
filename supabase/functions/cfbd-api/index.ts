@@ -21,6 +21,7 @@ Deno.serve(async (req) => {
 
   try {
     const { endpoint, params } = await req.json();
+    console.log("[cfbd-api] endpoint:", endpoint, "params:", JSON.stringify(params));
 
     if (!endpoint || typeof endpoint !== "string") {
       return new Response(
