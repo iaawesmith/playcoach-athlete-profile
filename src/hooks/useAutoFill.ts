@@ -281,8 +281,11 @@ export function useAutoFill() {
 
     let bestCandidate: Record<string, unknown> | null = null;
     let bestScore = 0;
+    let totalPlayers = 0;
     for (const rosterResult of rosterResults) {
       if (!rosterResult) continue;
+      console.log(`[CFBD] Roster ${rosterResult.year}: ${rosterResult.data.length} players`);
+      totalPlayers += rosterResult.data.length;
       for (const player of rosterResult.data) {
         const score = scoreCandidateRoster(player, target) + 35;
         if (score > bestScore) {
@@ -291,6 +294,7 @@ export function useAutoFill() {
         }
       }
     }
+    console.log(`[CFBD] Best roster match: score=${bestScore}, name=${bestCandidate?.firstName} ${bestCandidate?.lastName}, total players scanned=${totalPlayers}`);
 
     if (bestCandidate && bestScore >= 70) {
       const h = bestCandidate.height;
@@ -307,8 +311,9 @@ export function useAutoFill() {
       if (pos) cfbdData.position = String(pos);
       if (rosterYear) cfbdData.classYear = yearToClass[Number(rosterYear)] || String(rosterYear);
       if (city && state) cfbdData.hometown = `${city}, ${state}`;
+      console.log("[CFBD] Roster data extracted:", cfbdData);
     } else {
-      errors.push(`roster: no exact match found across ${rosterYears.join(", ")}`);
+      errors.push(`roster: no exact match found across ${rosterYears.join(", ")} (best score: ${bestScore})`);
     }
 
     if (recruitingData && recruitingData.length > 0) {
