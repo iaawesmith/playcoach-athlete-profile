@@ -266,7 +266,10 @@ export function useAutoFill() {
             (recruitRes.data.length > 0 ? recruitRes.data[0] : null);
           if (recruit) {
             if (recruit.stars) data.starRating = recruit.stars;
-            if (recruit.rating) data.recruitingRating = recruit.rating;
+            if (recruit.rating) {
+              data.recruitingRating = recruit.rating;
+              data.ratingComposite = String(recruit.rating);
+            }
             if (recruit.ranking) data.nationalRank = recruit.ranking;
             if (recruit.school) data.highSchool = recruit.school;
             data.commitmentStatus = recruit.committed_to ? "committed" : "uncommitted";
@@ -328,7 +331,10 @@ export function useAutoFill() {
             if (d.nationalRank != null) data.nationalRank = d.nationalRank;
             if (d.positionRank != null) data.positionRank = d.positionRank;
             if (d.stateRank != null) data.stateRank = d.stateRank;
-            if (d.compositeRating != null) data.recruitingRating = d.compositeRating;
+            if (d.compositeRating != null) {
+              data.recruitingRating = d.compositeRating;
+              data.ratingComposite = String(d.compositeRating);
+            }
             if (d.stars != null) data.starRating = d.stars;
             if (d.height) data.height = d.height;
             if (d.weight) data.weight = String(d.weight);
@@ -419,6 +425,16 @@ export function useAutoFill() {
         if (resolvedActionPhoto) {
           data.actionPhotoUrl = resolvedActionPhoto;
         }
+      }
+
+      // Immediate preview write — update ProCard-critical fields now
+      const previewFields: Record<string, unknown> = {};
+      if (data.height) previewFields.height = data.height;
+      if (data.weight) previewFields.weight = data.weight;
+      if (data.ratingComposite) previewFields.ratingComposite = data.ratingComposite;
+      if (data.actionPhotoUrl && !store.getState().actionPhotoUrl) previewFields.actionPhotoUrl = data.actionPhotoUrl;
+      if (Object.keys(previewFields).length > 0) {
+        setAthleteFromSource(previewFields as Partial<Record<string, unknown>>, "cfbd");
       }
 
       // Build field entries for review UI
