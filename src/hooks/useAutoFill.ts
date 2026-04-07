@@ -576,11 +576,14 @@ export function useAutoFill() {
       const diagParts: string[] = [];
       let espnId: string | null = null;
 
+      let cfbdDataResult: Record<string, unknown> = {};
+
       // CFBD phase — only if firstName and school are set
       if (firstName && school) {
         try {
           const cfbdResult = await runCfbdPhase();
           espnId = cfbdResult.espnId;
+          cfbdDataResult = cfbdResult.cfbdData;
           if (cfbdResult.errors.length > 0) {
             diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
           }
@@ -592,7 +595,7 @@ export function useAutoFill() {
 
       // Firecrawl — always runs regardless of CFBD outcome
       try {
-        await runFirecrawlPhase(espnId);
+        await runFirecrawlPhase(espnId, cfbdDataResult);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         diagParts.push(`Firecrawl crashed: ${msg}`);
