@@ -14,12 +14,17 @@ function nameMatchesUrl(url: string, firstName: string, lastName: string): boole
 }
 
 function extractUrlFromMarkdown(markdown: string, domain: string, path: string, firstName: string, lastName: string): string | null {
-  // Match URLs in markdown that contain the domain and path
   const urlRegex = /https?:\/\/[^\s)\]"']+/g;
   const matches = markdown.match(urlRegex) || [];
   for (const url of matches) {
-    if (url.toLowerCase().includes(domain) && url.toLowerCase().includes(path) && nameMatchesUrl(url, firstName, lastName)) {
-      // Clean trailing punctuation
+    // Must be a direct URL on the target domain, not a Google URL containing it in query params
+    try {
+      const parsed = new URL(url);
+      if (!parsed.hostname.includes(domain)) continue;
+    } catch {
+      continue;
+    }
+    if (url.toLowerCase().includes(path) && nameMatchesUrl(url, firstName, lastName)) {
       return url.replace(/[.,;:!?)]+$/, "");
     }
   }
