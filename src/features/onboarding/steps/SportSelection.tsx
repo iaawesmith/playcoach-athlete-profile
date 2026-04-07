@@ -41,11 +41,15 @@ export function SportSelection() {
               key={s.sport}
               onClick={() => handleSelect(s)}
               disabled={!s.active}
-              className="relative flex flex-col items-center gap-3 p-4 rounded-xl transition-all duration-200 active:scale-[0.97]"
+              className={`relative flex flex-col items-center gap-3 p-4 rounded-xl transition-all duration-200 active:scale-[0.97] border ${
+                isSelected
+                  ? "border-[#4DC9C9] shadow-[0_0_15px_rgba(77,201,201,0.5)]"
+                  : s.active
+                    ? "border-[#3D434A] hover:border-[#4DC9C9] hover:shadow-[0_0_15px_rgba(77,201,201,0.3)]"
+                    : "border-[#3D434A]"
+              }`}
               style={{
                 backgroundColor: "#2A2E33",
-                border: `1px solid ${isSelected ? "#4DC9C9" : "#3D434A"}`,
-                boxShadow: isSelected ? "0 0 15px rgba(77, 201, 201, 0.5)" : "none",
                 opacity: !s.active ? 0.45 : 1,
                 cursor: !s.active ? "not-allowed" : "pointer",
               }}
