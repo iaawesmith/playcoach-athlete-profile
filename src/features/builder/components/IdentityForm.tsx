@@ -98,7 +98,7 @@ const NumericInputCard = ({
   label, value, onChange, suffix, placeholder, badge,
 }: {
   label: string; value: string; onChange: (val: string) => void; suffix: string;
-  placeholder?: string; badge?: "CFBD" | "247" | "ON3";
+  placeholder?: string; badge?: "CFBD" | "247" | "ON3" | "247C";
 }) => {
   const isEmpty = !value;
   return (
@@ -119,7 +119,7 @@ const NumericInputCard = ({
   );
 };
 
-const HeightInputCard = ({ value, onChange, badge }: { value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" }) => {
+const HeightInputCard = ({ value, onChange, badge }: { value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C" }) => {
   const totalInches = parseInt(value, 10) || 0;
   const feet = Math.floor(totalInches / 12);
   const inches = totalInches % 12;
@@ -153,7 +153,7 @@ const SelectCard = ({
   label, value, options, onChange, badge,
 }: {
   label: string; value: string; options: { value: string; label: string }[];
-  onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3";
+  onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -170,7 +170,7 @@ const SelectCard = ({
 );
 
 const DateInputCard = ({ label, value, onChange, badge }: {
-  label: string; value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3";
+  label: string; value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -221,7 +221,7 @@ const AiVideoField = ({ label }: { label: string }) => (
 /* ─── Read-only display for rank/rating with dash empty state ─ */
 
 const DisplayField = ({ label, value, decimals, badge }: {
-  label: string; value: string | number | null; decimals?: number; badge?: "CFBD" | "247" | "ON3";
+  label: string; value: string | number | null; decimals?: number; badge?: "CFBD" | "247" | "ON3" | "247C";
 }) => {
   let display = "—";
   if (value !== null && value !== "" && value !== 0) {
