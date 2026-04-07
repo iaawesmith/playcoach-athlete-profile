@@ -232,14 +232,35 @@ export function useAutoFill() {
     const teamsCheck = await cfbdApi.teams();
     if (teamsCheck.success && teamsCheck.data.length > 0) {
       const schoolLower = school.toLowerCase();
-      const match = teamsCheck.data.find((team) => {
+      // Score-based team matching to avoid ambiguous substring matches (e.g. "Buffalo" vs "Colorado Buffaloes")
+      let bestTeam: typeof teamsCheck.data[0] | null = null;
+      let bestTeamScore = 0;
+      for (const team of teamsCheck.data) {
         const teamSchool = team.school.toLowerCase();
-        if (teamSchool === schoolLower) return true;
-        if (team.alternateNames?.some((name) => name.toLowerCase() === schoolLower)) return true;
-        return teamSchool.includes(schoolLower) || schoolLower.includes(teamSchool);
-      });
-      if (match) schoolForCfbd = match.school;
-      else errors.push(`teams: no match for "${school}"`);
+        let teamScore = 0;
+        // Exact match (highest priority)
+        if (teamSchool === schoolLower) { teamScore = 100; }
+        // Alternate name exact match
+        else if (team.alternateNames?.some((name) => name.toLowerCase() === schoolLower)) { teamScore = 90; }
+        // School display name contains the CFBD team name exactly (e.g. "Colorado Buffaloes" contains "Colorado")
+        else if (schoolLower.startsWith(teamSchool + " ") || schoolLower === teamSchool) { teamScore = 80; }
+        // CFBD team name starts with input
+        else if (teamSchool.startsWith(schoolLower)) { teamScore = 70; }
+        // Partial contains — lowest priority, must be reasonably long match
+        else if (teamSchool.length >= 5 && schoolLower.includes(teamSchool)) { teamScore = 40; }
+        else if (schoolLower.length >= 5 && teamSchool.includes(schoolLower)) { teamScore = 40; }
+
+        if (teamScore > bestTeamScore) {
+          bestTeamScore = teamScore;
+          bestTeam = team;
+        }
+      }
+      if (bestTeam) {
+        schoolForCfbd = bestTeam.school;
+        console.log(`[CFBD] Team match: "${bestTeam.school}" (score: ${bestTeamScore}) for input "${school}"`);
+      } else {
+        errors.push(`teams: no match for "${school}"`);
+      }
     } else if (teamsCheck.success === false) {
       errors.push(`teams lookup ✗ (${teamsCheck.error})`);
     }
@@ -281,8 +302,11 @@ export function useAutoFill() {
 
     let bestCandidate: Record<string, unknown> | null = null;
     let bestScore = 0;
+    let totalPlayers = 0;
     for (const rosterResult of rosterResults) {
       if (!rosterResult) continue;
+      console.log(`[CFBD] Roster ${rosterResult.year}: ${rosterResult.data.length} players`);
+      totalPlayers += rosterResult.data.length;
       for (const player of rosterResult.data) {
         const score = scoreCandidateRoster(player, target) + 35;
         if (score > bestScore) {
@@ -291,6 +315,7 @@ export function useAutoFill() {
         }
       }
     }
+    console.log(`[CFBD] Best roster match: score=${bestScore}, name=${bestCandidate?.firstName} ${bestCandidate?.lastName}, total players scanned=${totalPlayers}`);
 
     if (bestCandidate && bestScore >= 70) {
       const h = bestCandidate.height;
@@ -307,8 +332,9 @@ export function useAutoFill() {
       if (pos) cfbdData.position = String(pos);
       if (rosterYear) cfbdData.classYear = yearToClass[Number(rosterYear)] || String(rosterYear);
       if (city && state) cfbdData.hometown = `${city}, ${state}`;
+      console.log("[CFBD] Roster data extracted:", cfbdData);
     } else {
-      errors.push(`roster: no exact match found across ${rosterYears.join(", ")}`);
+      errors.push(`roster: no exact match found across ${rosterYears.join(", ")} (best score: ${bestScore})`);
     }
 
     if (recruitingData && recruitingData.length > 0) {
@@ -375,8 +401,18 @@ export function useAutoFill() {
       };
     }
 
+    console.log("[CFBD] Final cfbdData keys:", Object.keys(cfbdData), "values:", JSON.stringify(cfbdData));
     if (Object.keys(cfbdData).length > 0) {
+      console.log("[CFBD] Writing to store via setAthleteFromSource with source='cfbd'");
       setAthleteFromSource(cfbdData as Partial<Record<string, unknown>>, "cfbd");
+      console.log("[CFBD] Store write complete. Store state:", JSON.stringify({
+        height: useAthleteStore.getState().height,
+        weight: useAthleteStore.getState().weight,
+        hometown: useAthleteStore.getState().hometown,
+        teamColor: useAthleteStore.getState().teamColor,
+      }));
+    } else {
+      console.warn("[CFBD] No data extracted — nothing to write");
     }
 
     return { espnId, errors };
@@ -568,6 +604,7 @@ export function useAutoFill() {
 
   const scrape = useCallback(async () => {
     if (!canScrape) return;
+    console.log("[AutoFill] scrape started", { firstName, lastName, school, position, jersey });
     setStatus("resolving");
     setErrorMessage("");
     setEnrichedFields([]);
@@ -578,30 +615,56 @@ export function useAutoFill() {
 
     // Phase 1: CFBD — writes directly to store, no modal
     let espnId: string | null = null;
+    let cfbdWroteData = false;
     try {
+      console.log("[AutoFill] Starting CFBD phase...");
       const cfbdResult = await runCfbdPhase();
       espnId = cfbdResult.espnId;
+      console.log("[AutoFill] CFBD phase complete", { espnId, errors: cfbdResult.errors });
       if (cfbdResult.errors.length > 0) {
         diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
       }
+      // Check if CFBD wrote anything by looking at store state after write
+      const storeAfter = useAthleteStore.getState();
+      cfbdWroteData = !!(storeAfter.height || storeAfter.weight || storeAfter.hometown || storeAfter.schoolLogoUrl || storeAfter.teamColor !== "#50C4CA");
+      console.log("[AutoFill] CFBD wrote data:", cfbdWroteData, {
+        height: storeAfter.height,
+        weight: storeAfter.weight,
+        hometown: storeAfter.hometown,
+        teamColor: storeAfter.teamColor,
+        schoolLogoUrl: storeAfter.schoolLogoUrl?.slice(0, 60),
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error("[AutoFill] CFBD phase crashed:", msg);
       diagParts.push(`CFBD phase crashed: ${msg}`);
     }
 
     // Phase 2: Firecrawl — results go to ScrapeFill modal
     try {
+      console.log("[AutoFill] Starting Firecrawl phase...");
       await runFirecrawlPhase(espnId);
+      console.log("[AutoFill] Firecrawl phase complete");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error("[AutoFill] Firecrawl phase crashed:", msg);
       diagParts.push(`Firecrawl phase crashed: ${msg}`);
     }
 
-    // If both phases produced nothing useful, surface diagnostics
-    if (status === "error" || (enrichedFields.length === 0 && diagParts.length > 0)) {
+    // If CFBD wrote data successfully but Firecrawl found nothing, that's still a success
+    if (cfbdWroteData) {
+      console.log("[AutoFill] CFBD populated data — not treating as error");
+      // Don't override the status set by runFirecrawlPhase
+      if (diagParts.length > 0) {
+        console.log("[AutoFill] Diagnostic notes:", diagParts.join(" | "));
+      }
+    } else if (diagParts.length > 0) {
+      // Only show error if CFBD also failed to write anything
+      console.warn("[AutoFill] No data from any source:", diagParts);
+      setStatus("error");
       setErrorMessage(diagParts.join(" | ") || "Auto-fill completed but found no data.");
     }
-  }, [canScrape, runCfbdPhase, runFirecrawlPhase]);
+  }, [canScrape, firstName, lastName, school, position, jersey, runCfbdPhase, runFirecrawlPhase]);
 
   /* ── Confirm identity (kept for backward compat) ────────── */
 
