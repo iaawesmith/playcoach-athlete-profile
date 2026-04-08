@@ -285,6 +285,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <TestingPanel node={draft} />
         )}
 
+        </div>
+
         <HelpDrawer
           open={helpOpen}
           onClose={() => setHelpOpen(false)}
