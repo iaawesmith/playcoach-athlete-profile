@@ -88,17 +88,6 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 24 }}>science</span>
-          <h3 className="text-on-surface font-black uppercase tracking-[0.2em] text-sm">Test & Preview</h3>
-          <SectionTooltip tip="Upload a sample video or describe the athlete's performance to run AI analysis against this node's configuration." />
-        </div>
-        <p className="text-on-surface-variant text-xs leading-relaxed">
-          Upload a sample video or paste a video URL to instantly test how the AI would score and give feedback for this node.
-        </p>
-      </div>
 
       {/* Input Section */}
       <div className="bg-surface-container rounded-xl p-5 border border-white/5 space-y-4">
