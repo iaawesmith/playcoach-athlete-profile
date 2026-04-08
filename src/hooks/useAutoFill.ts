@@ -655,7 +655,7 @@ export function useAutoFill() {
 
       // CFBD recruiting fields
       if (!cfbdRecruitReached) {
-        ["Stars (CFBD)", "Recruiting Rating", "High School"].forEach((f) =>
+        ["Stars (CFBD)", "Recruiting Rating"].forEach((f) =>
           missingFields.push({ field: f, source: "CFBD", reason: "Source not reached" }),
         );
       } else if (!cfbdRecruitFound) {
