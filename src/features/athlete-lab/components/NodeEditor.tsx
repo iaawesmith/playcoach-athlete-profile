@@ -366,12 +366,12 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
           <div key={i} className="bg-surface-container rounded-xl p-4 group">
             {editIdx === i ? (
               <div className="space-y-3">
-                <div>
-                  <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Label</label>
+                 <div>
+                  <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Label</label>
                   <input className={inputClass} value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
                 </div>
                 <div>
-                  <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
+                  <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
                   <input className={inputClass} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
                 </div>
                 <div className="flex gap-2">
@@ -404,12 +404,12 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
       {adding ? (
         <div className="bg-surface-container-high rounded-xl p-4 space-y-3 border border-primary-container/20">
           <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Reference Video</p>
-          <div>
-            <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Descriptive Label</label>
+           <div>
+            <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Descriptive Label</label>
             <input className={inputClass} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
           </div>
           <div>
-            <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
+            <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
             <input className={inputClass} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
           </div>
           <div className="flex gap-2">
@@ -973,7 +973,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {metrics.map((m) => (
               <div key={m.name} className="p-3 rounded-xl bg-surface-container-high border border-white/5">
-                <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block truncate">{m.name || "Unnamed"}</label>
+                <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block truncate">{m.name || "Unnamed"}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
