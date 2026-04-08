@@ -438,8 +438,8 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
         <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Metric {i + 1}</span>
-            <button onClick={() => onChange(metrics.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+            <button onClick={() => { if (window.confirm(`Delete Metric ${i + 1}?`)) onChange(metrics.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete metric">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
            <div className="grid grid-cols-2 gap-3">
@@ -468,8 +468,8 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
         <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Error {i + 1}</span>
-            <button onClick={() => onChange(errors.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+            <button onClick={() => { if (window.confirm(`Delete Error ${i + 1}?`)) onChange(errors.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete error">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
           <input className={inputClass} value={err.error} onChange={(e) => { const n = [...errors]; n[i] = { ...err, error: e.target.value }; onChange(n); }} placeholder="Common error..." />
@@ -491,8 +491,8 @@ function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p:
         <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center justify-between">
             <input className={`${inputClass} w-48`} value={p.phase} onChange={(e) => { const n = [...phases]; n[i] = { ...p, phase: e.target.value }; onChange(n); }} placeholder="Phase name" />
-            <button onClick={() => onChange(phases.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+            <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
           <textarea className={`${inputClass} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...p, notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
@@ -513,8 +513,8 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
         <div key={i} className="flex gap-2 items-center">
           <span className="text-on-surface-variant text-xs font-mono w-6">{i + 1}.</span>
           <input className={`${inputClass} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="Checkpoint..." />
-          <button onClick={() => onChange(checkpoints.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+          <button onClick={() => { if (window.confirm(`Delete Checkpoint ${i + 1}?`)) onChange(checkpoints.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
           </button>
         </div>
       ))}
@@ -536,8 +536,8 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
               <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
               Badge {i + 1}
             </span>
-            <button onClick={() => onChange(badges.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+            <button onClick={() => { if (window.confirm(`Delete Badge ${i + 1}?`)) onChange(badges.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete badge">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
           <input className={inputClass} value={b.name} onChange={(e) => { const n = [...badges]; n[i] = { ...b, name: e.target.value }; onChange(n); }} placeholder="Badge name" />
@@ -706,8 +706,8 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
             )}
 
             {/* Delete */}
-            <button onClick={() => removePhase(idx)} className="text-on-surface-variant/30 hover:text-red-400 transition-colors ml-auto">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+            <button onClick={() => { if (window.confirm(`Delete ${phases[idx]?.name || 'this phase'}?`)) removePhase(idx); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all ml-auto" title="Delete phase">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
 
