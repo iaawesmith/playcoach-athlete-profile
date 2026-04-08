@@ -113,7 +113,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
       </div>
 
       {/* Tabs */}
-      <div className="px-6 pt-4 flex flex-wrap gap-1">
+      <div className="px-6 pt-4 flex gap-1 overflow-x-auto scrollbar-thin">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -146,8 +146,40 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
               <input className={inputClass} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
             </div>
             <div>
-              <label className={labelClass}>Icon / Visual Diagram URL</label>
-              <input className={inputClass} value={draft.icon_url || ""} onChange={(e) => update("icon_url", e.target.value || null)} placeholder="https://..." />
+              <div className="flex items-center gap-1 mb-2">
+                <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">Icon / Visual Diagram</label>
+                <SectionTooltip tip="Upload an icon or diagram, or paste a URL. This will appear next to the node name in the sidebar." />
+              </div>
+              <div className="flex gap-3">
+                <input className={`${inputClass} flex-1`} value={draft.icon_url || ""} onChange={(e) => update("icon_url", e.target.value || null)} placeholder="Paste image URL..." />
+                <label className="h-11 px-4 rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface-variant text-xs font-semibold uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors shrink-0">
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>upload</span>
+                  Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const { supabase } = await import("@/integrations/supabase/client");
+                      const ext = file.name.split(".").pop() || "png";
+                      const path = `node-icons/${draft.id}-${Date.now()}.${ext}`;
+                      const { error } = await supabase.storage.from("athlete-media").upload(path, file, { upsert: true });
+                      if (!error) {
+                        const { data: urlData } = supabase.storage.from("athlete-media").getPublicUrl(path);
+                        update("icon_url", urlData.publicUrl);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              {draft.icon_url && (
+                <div className="mt-3 p-3 rounded-xl bg-surface-container-high border border-white/5 inline-flex items-center gap-3">
+                  <img src={draft.icon_url} alt="Node icon" className="w-12 h-12 rounded-lg object-cover bg-surface-container-lowest" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <span className="text-on-surface-variant text-xs truncate max-w-[200px]">{draft.icon_url.split("/").pop()}</span>
+                </div>
+              )}
             </div>
           </div>
         )}
