@@ -284,21 +284,114 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 /* ── Sub-editors ── */
 
 function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChange: (v: EliteVideo[]) => void }) {
+  const [adding, setAdding] = React.useState(false);
+  const [newUrl, setNewUrl] = React.useState("");
+  const [newLabel, setNewLabel] = React.useState("");
+  const [editIdx, setEditIdx] = React.useState<number | null>(null);
+  const [editUrl, setEditUrl] = React.useState("");
+  const [editLabel, setEditLabel] = React.useState("");
+
   const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+
+  const handleAdd = () => {
+    if (!newUrl.trim()) return;
+    onChange([...videos, { url: newUrl.trim(), label: newLabel.trim() || newUrl.trim() }]);
+    setNewUrl("");
+    setNewLabel("");
+    setAdding(false);
+  };
+
+  const handleEditSave = (i: number) => {
+    if (!editUrl.trim()) return;
+    const n = [...videos];
+    n[i] = { url: editUrl.trim(), label: editLabel.trim() || editUrl.trim() };
+    onChange(n);
+    setEditIdx(null);
+  };
+
+  const startEdit = (i: number) => {
+    setEditIdx(i);
+    setEditUrl(videos[i].url);
+    setEditLabel(videos[i].label);
+  };
+
   return (
-    <div className="space-y-3">
-      {videos.map((v, i) => (
-        <div key={i} className="flex gap-2">
-          <input className={`${inputClass} flex-1`} value={v.url} onChange={(e) => { const n = [...videos]; n[i] = { ...v, url: e.target.value }; onChange(n); }} placeholder="Video URL" />
-          <input className={`${inputClass} w-48`} value={v.label} onChange={(e) => { const n = [...videos]; n[i] = { ...v, label: e.target.value }; onChange(n); }} placeholder="Label" />
-          <button onClick={() => onChange(videos.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400 px-2">
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-          </button>
+    <div className="space-y-4">
+      {/* Header */}
+      <p className="text-on-surface-variant text-xs">
+        Elite reference videos the AI uses as benchmarks. Add YouTube links, direct mp4 URLs, or any video reference.
+      </p>
+
+      {/* Video list */}
+      {videos.length === 0 && !adding && (
+        <div className="bg-surface-container rounded-xl p-8 text-center space-y-3">
+          <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 40 }}>video_library</span>
+          <p className="text-on-surface-variant text-sm">No reference videos added yet</p>
+          <p className="text-on-surface-variant/60 text-xs">Add elite examples for the AI to compare athlete footage against</p>
         </div>
-      ))}
-      <button onClick={() => onChange([...videos, { url: "", label: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
-        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Add Video
-      </button>
+      )}
+
+      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+        {videos.map((v, i) => (
+          <div key={i} className="bg-surface-container rounded-xl p-4 group">
+            {editIdx === i ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Label</label>
+                  <input className={inputClass} value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
+                </div>
+                <div>
+                  <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
+                  <input className={inputClass} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => handleEditSave(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
+                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontSize: 20 }}>play_circle</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-on-surface text-sm font-semibold truncate">{v.label || "Untitled Video"}</p>
+                  <p className="text-on-surface-variant/60 text-xs truncate mt-0.5">{v.url}</p>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high transition-colors">
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                  </button>
+                  <button onClick={() => onChange(videos.filter((_, j) => j !== i))} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-surface-container-high transition-colors">
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Add new video form */}
+      {adding ? (
+        <div className="bg-surface-container-high rounded-xl p-4 space-y-3 border border-primary-container/20">
+          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Reference Video</p>
+          <div>
+            <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Descriptive Label</label>
+            <input className={inputClass} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
+          </div>
+          <div>
+            <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
+            <input className={inputClass} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
+            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); }} className="px-4 py-2 rounded-lg bg-surface-container text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 hover:bg-surface-container transition-all">
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Video
+        </button>
+      )}
     </div>
   );
 }
