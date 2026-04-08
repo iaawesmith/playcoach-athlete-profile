@@ -282,7 +282,7 @@ Deno.serve(async (req: Request) => {
       const playerState = homeParts.length > 1 ? homeParts[homeParts.length - 1].trim() : "";
 
       // Use Firecrawl Search API instead of scraping Google
-      const searchQuery = `site:247sports.com/player/ ${firstName} ${lastName} ${school || ""} high-school`;
+      const searchQuery = `site:247sports.com/player/ ${firstName} ${lastName} ${school || ""}`;
       console.log("[247] Firecrawl search query:", searchQuery);
 
       const searchResults = await firecrawlSearch(firecrawlKey, searchQuery, 5);
@@ -346,15 +346,15 @@ Deno.serve(async (req: Request) => {
       console.log("[247] Action photo from HTML:", actionPhoto247);
 
       const data: Record<string, unknown> = {};
-      if (parsed.stars247 !== null) data.stars247 = parsed.stars247;
-      if (parsed.playerRating247 !== null) data.rating247 = parsed.playerRating247;
-      if (parsed.positionRank !== null) data.positionRank = parsed.positionRank;
-      if (parsed.stateRank !== null) data.stateRank = parsed.stateRank;
-      if (parsed.compositeStars247 !== null) data.compositeStars247 = parsed.compositeStars247;
-      if (parsed.compositeRating247 !== null) data.compositeRating247 = parsed.compositeRating247;
-      if (parsed.compositeNationalRank247 !== null) data.compositeNationalRank247 = parsed.compositeNationalRank247;
-      if (parsed.compositePositionRank247 !== null) data.compositePositionRank247 = parsed.compositePositionRank247;
-      if (parsed.compositeStateRank247 !== null) data.compositeStateRank247 = parsed.compositeStateRank247;
+      if (parsed.transferStars247 !== null) data.transferStars247 = parsed.transferStars247;
+      if (parsed.transferRating247 !== null) data.transferRating247 = parsed.transferRating247;
+      if (parsed.transferOvrRank247 !== null) data.transferOvrRank247 = parsed.transferOvrRank247;
+      if (parsed.transferPositionRank247 !== null) data.transferPositionRank247 = parsed.transferPositionRank247;
+      if (parsed.prospectStars247 !== null) data.prospectStars247 = parsed.prospectStars247;
+      if (parsed.prospectRating247 !== null) data.prospectRating247 = parsed.prospectRating247;
+      if (parsed.prospectNatlRank247 !== null) data.prospectNatlRank247 = parsed.prospectNatlRank247;
+      if (parsed.prospectPositionRank247 !== null) data.prospectPositionRank247 = parsed.prospectPositionRank247;
+      if (parsed.prospectStateRank247 !== null) data.prospectStateRank247 = parsed.prospectStateRank247;
       if (actionPhoto247) data.actionPhotoUrl = actionPhoto247;
 
       const outcome = Object.keys(data).length > 0 ? "success" : "parse_empty";
