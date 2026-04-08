@@ -141,6 +141,13 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
             {TABS.find((t) => t.key === tab)?.label}
           </h3>
           <SectionTooltip tip={TOOLTIPS[tab]} />
+          <button
+            onClick={() => setHelpOpen(true)}
+            title="Open admin guidance for this tab"
+            className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-primary-container hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>help</span>
+          </button>
         </div>
 
         {tab === "basics" && (
