@@ -115,15 +115,15 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
       </div>
 
       {/* Tabs */}
-      <div className="px-6 pt-4 flex gap-1 overflow-x-auto scrollbar-thin">
+      <div className="px-6 pt-4 flex gap-1 overflow-x-auto scrollbar-thin shrink-0">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all duration-200 ${
+            className={`px-3 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-[0.15em] flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 shrink-0 ${
               tab === t.key
-                ? "bg-surface-container-high text-on-surface"
-                : "text-on-surface-variant hover:bg-surface-container"
+                ? "bg-primary-container/15 text-primary-container border border-primary-container/30"
+                : "text-on-surface-variant hover:bg-surface-container border border-transparent"
             }`}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{t.icon}</span>
@@ -195,7 +195,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         )}
 
         {tab === "mechanics" && (
-          <textarea className={`${inputClass} min-h-[300px] resize-y`} value={draft.pro_mechanics} onChange={(e) => update("pro_mechanics", e.target.value)} placeholder="Detail the ideal technique..." />
+          <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} inputClass={inputClass} labelClass={labelClass} />
         )}
 
         {tab === "metrics" && (
@@ -215,11 +215,11 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         )}
 
         {tab === "reference" && (
-          <textarea className={`${inputClass} min-h-[150px] resize-y`} value={draft.reference_object} onChange={(e) => update("reference_object", e.target.value)} placeholder="Instructions for calibration reference objects..." />
+          <ReferenceEditor value={draft.reference_object} onChange={(v) => update("reference_object", v)} inputClass={inputClass} labelClass={labelClass} />
         )}
 
         {tab === "camera" && (
-          <textarea className={`${inputClass} min-h-[150px] resize-y`} value={draft.camera_guidelines} onChange={(e) => update("camera_guidelines", e.target.value)} placeholder="Recommended camera angles..." />
+          <CameraEditor value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} inputClass={inputClass} labelClass={labelClass} />
         )}
 
         {tab === "checkpoints" && (
