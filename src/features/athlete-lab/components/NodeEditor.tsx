@@ -3,7 +3,7 @@ import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo
 import { updateNode } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
-import { MoreInfoPanel } from "./MoreInfoPanel";
+import { HelpDrawer } from "./HelpDrawer";
 
 interface NodeEditorProps {
   node: TrainingNode;
