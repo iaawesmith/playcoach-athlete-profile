@@ -17,7 +17,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the core identity and visual representation of this training node." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add high-quality elite reference videos for AI benchmark comparison." },
   { key: "overview", label: "Overview", icon: "description", subtitle: "Provide high-level context about the skill and its importance in game situations." },
-  { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define detailed coaching cues for each phase of the skill." },
+  { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define the phases of this skill and write detailed coaching cues for each phase." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define the measurable components the AI will evaluate." },
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how metrics combine into the final 0-100 mastery score." },
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Document common mistakes and their corrections for targeted feedback." },
