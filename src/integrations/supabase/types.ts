@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_tab_guidance: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          tab_key: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          tab_key: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          tab_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       athlete_lab_nodes: {
         Row: {
           badges: Json
