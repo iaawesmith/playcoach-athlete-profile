@@ -309,7 +309,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   const [editUrl, setEditUrl] = useState("");
   const [editLabel, setEditLabel] = useState("");
 
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
 
   const handleAdd = () => {
     if (!newUrl.trim()) return;
@@ -415,7 +415,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 }
 
 function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void }) {
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
   const labelClass = "text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1";
 
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
@@ -452,7 +452,7 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
 }
 
 function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onChange: (e: CommonError[]) => void }) {
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
   return (
     <div className="space-y-3">
       {errors.map((err, i) => (
@@ -475,7 +475,7 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
 }
 
 function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p: PhaseNote[]) => void }) {
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
   return (
     <div className="space-y-3">
       {phases.map((p, i) => (
@@ -497,7 +497,7 @@ function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p:
 }
 
 function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; onChange: (c: string[]) => void }) {
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
   return (
     <div className="space-y-2">
       {checkpoints.map((c, i) => (
@@ -517,7 +517,7 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
 }
 
 function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Badge[]) => void }) {
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
   return (
     <div className="space-y-3">
       {badges.map((b, i) => (
@@ -690,7 +690,7 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={confirmRename}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setRenamingIdx(null); }}
-                className="bg-surface-container-lowest border border-primary-container/30 rounded-lg px-3 py-1 text-on-surface text-sm font-semibold uppercase tracking-widest focus:outline-none flex-1"
+                className="bg-surface-container-high border border-primary-container/30 rounded-lg px-3 py-1 text-on-surface text-sm font-semibold uppercase tracking-widest focus:outline-none flex-1"
               />
             ) : (
               <button onClick={() => startRename(idx)} className="flex items-center gap-1.5 group flex-1 text-left">
