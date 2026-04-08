@@ -92,9 +92,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     }
   };
 
-  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
+  const inputClass = "w-full border border-outline-variant/40 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors" + " bg-[#1F252B]";
   const labelClass = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
-  const sectionHeaderClass = "flex items-center gap-2 mb-2";
+  const sectionHeaderClass = "flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-primary-container/8 border-t border-primary-container/15";
 
   return (
     <div className="flex-1 h-full overflow-y-auto">
