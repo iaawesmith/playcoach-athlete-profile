@@ -182,6 +182,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
         </button>
       </div>
 
+      {/* Divider */}
+      <div className="border-t border-white/5" />
+
       {/* Error */}
       {error && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
@@ -189,6 +192,31 @@ export function TestingPanel({ node }: TestingPanelProps) {
           <div>
             <div className="text-red-400 text-sm font-semibold">Analysis Failed</div>
             <div className="text-red-400/80 text-xs mt-1">{error}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!result && !error && !loading && (
+        <div className="bg-surface-container rounded-xl p-8 border border-white/5 flex flex-col items-center text-center space-y-4">
+          <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 48 }}>analytics</span>
+          <p className="text-on-surface-variant text-sm max-w-md">
+            Run an analysis to see scoring, phase breakdown, metrics, and coach feedback here.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-lg mt-2">
+            {[
+              { icon: "speed", label: "Overall Score" },
+              { icon: "timeline", label: "Phase Breakdown" },
+              { icon: "thumb_up", label: "Strengths" },
+              { icon: "trending_up", label: "Improvements" },
+              { icon: "analytics", label: "Raw Metrics" },
+              { icon: "compare", label: "Elite Comparison" },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-2 bg-surface-container-high rounded-lg px-3 py-2 border border-white/5">
+                <span className="material-symbols-outlined text-primary-container/40" style={{ fontSize: 16 }}>{item.icon}</span>
+                <span className="text-on-surface-variant/60 text-[10px] uppercase tracking-widest font-medium">{item.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
