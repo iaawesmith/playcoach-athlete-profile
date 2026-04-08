@@ -9,7 +9,7 @@ interface NodeEditorProps {
   onUpdated: (node: TrainingNode) => void;
 }
 
-type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges";
+type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "basics", label: "Basics", icon: "edit" },
@@ -25,6 +25,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "checkpoints", label: "Checkpoints", icon: "flag" },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy" },
   { key: "badges", label: "Badges", icon: "military_tech" },
+  { key: "test", label: "Run Analysis", icon: "science" },
 ];
 
 const TOOLTIPS: Record<TabKey, string> = {
@@ -41,6 +42,7 @@ const TOOLTIPS: Record<TabKey, string> = {
   checkpoints: "Key moments the AI should analyze closely",
   prompt: "Tailor the tone and focus of the AI coach feedback for this node",
   badges: "Achievements athletes can earn for this skill",
+  test: "Upload a sample video or paste a URL to instantly test AI analysis against this node's configuration",
 };
 
 export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
@@ -232,10 +234,9 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} />
         )}
 
-        {/* Testing Panel always visible at bottom */}
-        <div className="pt-8 border-t border-white/5">
+        {tab === "test" && (
           <TestingPanel node={draft} />
-        </div>
+        )}
       </div>
     </div>
   );
