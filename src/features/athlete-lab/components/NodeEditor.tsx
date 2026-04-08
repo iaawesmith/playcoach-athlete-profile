@@ -253,8 +253,12 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           <TestingPanel node={draft} />
         )}
 
-        {/* Admin-only guidance panel for every tab */}
-        <MoreInfoPanel tabKey={tab} />
+        <HelpDrawer
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+          tabKey={tab}
+          tabLabel={TABS.find((t) => t.key === tab)?.label ?? tab}
+        />
       </div>
     </div>
   );
