@@ -92,7 +92,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     }
   };
 
-  const inputClass = "w-full border border-outline-variant/40 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors" + " bg-[#1F252B]";
+  const inputClass = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#141920]";
   const labelClass = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
   const sectionHeaderClass = "flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-primary-container/8 border-t border-primary-container/15";
 
