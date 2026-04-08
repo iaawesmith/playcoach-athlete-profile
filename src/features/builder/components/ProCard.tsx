@@ -4,7 +4,8 @@ export const ProCard = () => {
   const {
     firstName, lastName, position, classYear, school, number,
     height, weight, actionPhotoUrl, schoolLogoUrl, teamColor,
-    ratingComposite, transferRating247, prospectRating247, nationalRank, positionRank,
+    ratingComposite, transferRating247, prospectRating247,
+    transferOvrRank247, transferPositionRank247,
   } = useAthleteStore();
 
   const hasName = firstName || lastName;
@@ -112,16 +113,16 @@ export const ProCard = () => {
           </div>
 
           {/* Rank badges */}
-          {(nationalRank || positionRank) && (
+          {(transferOvrRank247 || transferPositionRank247) && (
             <div className="flex gap-3 mt-2">
-              {nationalRank && (
+              {transferOvrRank247 && (
                 <span className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-[3px] border border-white/15 text-on-surface-variant">
-                  Natl #{nationalRank}
+                  OVR #{transferOvrRank247}
                 </span>
               )}
-              {positionRank && (
+              {transferPositionRank247 && (
                 <span className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-[3px] border border-white/15 text-on-surface-variant">
-                  {position || "Pos"} #{positionRank}
+                  {position || "Pos"} #{transferPositionRank247}
                 </span>
               )}
             </div>
