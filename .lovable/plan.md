@@ -1,52 +1,25 @@
 
-## AthleteLab — AI Training Node Admin Portal
 
-### 1. Database Migration
-Create `athlete_lab_nodes` table with JSONB fields for complex nested data:
-- `id` UUID PK
-- `name` text (route/skill name)
-- `icon_url` text nullable
-- `overview` text
-- `pro_mechanics` text
-- `key_metrics` JSONB (array of {name, description, eliteTarget, unit, weight})
-- `scoring_rules` text
-- `common_errors` JSONB (array of {error, correction})
-- `phase_breakdown` JSONB (array of {phase, notes})
-- `reference_object` text
-- `camera_guidelines` text
-- `form_checkpoints` JSONB (array of strings)
-- `llm_prompt_template` text
-- `badges` JSONB (array of {name, condition})
-- `elite_videos` JSONB (array of {url, label})
-- `created_at`, `updated_at` timestamps
-- No RLS needed since this is admin-only and no auth yet (Session 1-2 per AGENTS.md)
+## Show Results Section in Run Analysis Tab
 
-Insert default "Slant Route" node with realistic sample data.
+### Problem
+The results section in the Run Analysis tab is completely hidden until an analysis is run. There's no visual indication of what output to expect, so the panel looks incomplete.
 
-### 2. New Route & Layout
-- Add `/athlete-lab` route in App.tsx
-- Create `src/features/athlete-lab/AthleteLab.tsx` — main layout with sidebar + editor
-- Sidebar: list of nodes + "Add New Node" button
-- Editor: tabbed sections for all 13 field groups
-- Testing panel at bottom
+### Solution
+Add an empty state placeholder in the results area that's always visible below the input section. After analysis runs, it gets replaced with the actual results. This makes the full testing capability immediately obvious.
 
-### 3. Components
-- `NodeSidebar.tsx` — node list + add button
-- `NodeEditor.tsx` — tabbed editor with all sections
-- `TestingPanel.tsx` — upload video, run analysis, show results
+### Changes
 
-### 4. AI Testing Panel
-- Uses Lovable AI via edge function to simulate analysis
-- Edge function `athlete-lab-analyze` accepts node config + video description
-- Returns mock score, phase breakdown, feedback, confidence scores
+**`src/features/athlete-lab/components/TestingPanel.tsx`**
 
-### 5. Files
-- `supabase/functions/athlete-lab-analyze/index.ts`
-- `src/features/athlete-lab/AthleteLab.tsx`
-- `src/features/athlete-lab/components/NodeSidebar.tsx`
-- `src/features/athlete-lab/components/NodeEditor.tsx`
-- `src/features/athlete-lab/components/TestingPanel.tsx`
-- `src/features/athlete-lab/components/SectionTooltip.tsx`
-- `src/features/athlete-lab/types.ts`
-- `src/features/athlete-lab/defaultNode.ts`
-- Update `src/App.tsx` with new route
+- Add a visual divider between input and output sections
+- When no analysis has been run yet (`result === null` and no error), show an empty state card with:
+  - Icon (e.g. `science` or `analytics`)
+  - Message: "Run an analysis to see scoring, phase breakdown, metrics, and coach feedback here"
+  - Subtle list previewing the output sections: Overall Score, Phase Breakdown, Strengths & Improvements, Raw Metrics, Elite Comparison, Coach Feedback
+- Keep the existing rich results display for when `result` is populated
+- Ensure the entire panel scrolls smoothly within the editor
+
+### Result
+The Run Analysis tab will always show both halves — input on top, output area on bottom — so the admin immediately understands the full capability of the testing panel.
+
