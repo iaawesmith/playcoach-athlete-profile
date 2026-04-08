@@ -49,9 +49,11 @@ export interface TrainingNode {
 export interface AnalysisResult {
   overallScore: number;
   phaseBreakdown: Array<{ phase: string; score: number; feedback: string }>;
-  metricScores: Array<{ name: string; score: number; value: string; target: string }>;
+  metricScores: Array<{ name: string; score: number; value: string; target: string; difference: string }>;
   strengths: string[];
   improvements: string[];
   coachFeedback: string;
   confidence: number;
+  eliteComparison: string;
+  warnings: string[];
 }
