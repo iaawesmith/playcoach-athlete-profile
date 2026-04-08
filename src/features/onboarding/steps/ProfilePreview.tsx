@@ -26,6 +26,7 @@ export function ProfilePreview() {
   const [msgIndex, setMsgIndex] = useState(0);
   const [segmentCount, setSegmentCount] = useState(0);
   const [fieldsExpanded, setFieldsExpanded] = useState(false);
+  const [showMissing, setShowMissing] = useState(false);
 
   const isSearching = autoFill.status === "resolving" || autoFill.status === "enriching";
 
@@ -221,6 +222,52 @@ export function ProfilePreview() {
                           </button>
                         );
                       })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Missing fields panel */}
+              {autoFill.missingFields.length > 0 && (
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowMissing((v) => !v)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors duration-150 text-left"
+                    style={{ backgroundColor: "#1E2227" }}
+                  >
+                    <span className="material-symbols-outlined text-base" style={{ color: "#d53d18" }}>warning</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest flex-1" style={{ color: "#8A8F94" }}>
+                      Data Not Found
+                    </span>
+                    <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "rgba(138,143,148,0.6)" }}>
+                      {autoFill.missingFields.length} fields
+                    </span>
+                    <span
+                      className="material-symbols-outlined text-base transition-transform duration-200"
+                      style={{ color: "#8A8F94", transform: showMissing ? "rotate(180deg)" : "rotate(0deg)" }}
+                    >
+                      expand_more
+                    </span>
+                  </button>
+                  {showMissing && (
+                    <div className="space-y-0.5 mt-2">
+                      {autoFill.missingFields.map((item, i) => (
+                        <div key={i} className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-left">
+                          <span className="text-[10px] font-semibold uppercase tracking-widest w-28 shrink-0" style={{ color: "rgba(138,143,148,0.4)" }}>
+                            {item.field}
+                          </span>
+                          <span className="text-[10px] truncate flex-1" style={{ color: "rgba(138,143,148,0.3)" }}>
+                            {item.reason}
+                          </span>
+                          <span
+                            className="text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5"
+                            style={{ color: "rgba(138,143,148,0.4)", backgroundColor: "rgba(30,34,39,0.6)" }}
+                          >
+                            {item.source}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

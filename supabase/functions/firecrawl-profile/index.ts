@@ -347,20 +347,28 @@ Deno.serve(async (req: Request) => {
 
       // Extract action photo from already-fetched 247 HTML
       const find247ActionPhoto = (): string | null => {
-        const slug = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
         const imgMatches = [
           ...html.matchAll(
-            /src="(https?:\/\/[^"]*247sports[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi,
+            /src="(https?:\/\/[^"]*(?:247sports|s3media\.247sports)[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/gi,
           ),
         ].map((m) => m[1]);
+        console.log("[247] Total image URLs found:", imgMatches.length);
         return (
           imgMatches.find((url) => {
             const lower = url.toLowerCase();
-            if (!lower.includes(slug)) return false;
+            // Skip non-player images
             if (lower.includes("headshot")) return false;
             if (lower.includes("logo")) return false;
             if (lower.includes("icon")) return false;
-            return true;
+            if (lower.includes("favicon")) return false;
+            if (lower.includes("sprite")) return false;
+            if (lower.includes("banner")) return false;
+            if (lower.includes("/nav/")) return false;
+            if (lower.includes("/site/")) return false;
+            // Prefer large player/action photos from 247 CDN
+            if (lower.includes("s3media.247sports.com/uploads/assets")) return true;
+            if (lower.includes("/player/")) return true;
+            return false;
           }) ?? null
         );
       };
@@ -468,22 +476,16 @@ Deno.serve(async (req: Request) => {
         if (!lower.includes("espncdn.com")) return false;
         if (lower.includes("/headshots/")) return false;
         if (lower.includes("headshot")) return false;
-        if (!lower.includes("/photo/") && !lower.includes("/combiner/")) return false;
-        if (lower.includes("/photo/")) {
-          const hasGameContext =
-            lower.includes("/action/") ||
-            lower.includes("_action") ||
-            lower.includes("game") ||
-            lower.includes("play") ||
-            lower.includes("field") ||
-            lower.includes("stadium");
-          return hasGameContext;
-        }
-        return true;
+        if (lower.includes("logo")) return false;
+        if (lower.includes("icon")) return false;
+        // Accept both /photo/ and /combiner/ paths without requiring game-context keywords
+        if (lower.includes("/photo/") || lower.includes("/combiner/")) return true;
+        return false;
       };
 
+      // Match any espncdn.com subdomain (a., a1., a2., media., etc.)
       const imgMatches = [
-        ...html.matchAll(/(?:src|content)="(https?:\/\/a\.espncdn\.com\/(?:combiner|photo)[^"]+)"/gi),
+        ...html.matchAll(/(?:src|content)="(https?:\/\/[a-z0-9]+\.espncdn\.com\/(?:combiner|photo)[^"]+)"/gi),
       ].map(m => m[1]);
 
       const actionPhoto = imgMatches.find(url => isActionPhoto(url)) || null;
