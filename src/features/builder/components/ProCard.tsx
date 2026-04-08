@@ -4,7 +4,8 @@ export const ProCard = () => {
   const {
     firstName, lastName, position, classYear, school, number,
     height, weight, actionPhotoUrl, schoolLogoUrl, teamColor,
-    ratingComposite, transferRating247, prospectRating247, nationalRank, positionRank,
+    ratingComposite, transferRating247, prospectRating247,
+    transferOvrRank247, transferPositionRank247,
   } = useAthleteStore();
 
   const hasName = firstName || lastName;
