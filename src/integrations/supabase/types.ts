@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      athlete_lab_nodes: {
+        Row: {
+          badges: Json
+          camera_guidelines: string
+          common_errors: Json
+          created_at: string
+          elite_videos: Json
+          form_checkpoints: Json
+          icon_url: string | null
+          id: string
+          key_metrics: Json
+          llm_prompt_template: string
+          name: string
+          overview: string
+          phase_breakdown: Json
+          pro_mechanics: string
+          reference_object: string
+          scoring_rules: string
+          updated_at: string
+        }
+        Insert: {
+          badges?: Json
+          camera_guidelines?: string
+          common_errors?: Json
+          created_at?: string
+          elite_videos?: Json
+          form_checkpoints?: Json
+          icon_url?: string | null
+          id?: string
+          key_metrics?: Json
+          llm_prompt_template?: string
+          name: string
+          overview?: string
+          phase_breakdown?: Json
+          pro_mechanics?: string
+          reference_object?: string
+          scoring_rules?: string
+          updated_at?: string
+        }
+        Update: {
+          badges?: Json
+          camera_guidelines?: string
+          common_errors?: Json
+          created_at?: string
+          elite_videos?: Json
+          form_checkpoints?: Json
+          icon_url?: string | null
+          id?: string
+          key_metrics?: Json
+          llm_prompt_template?: string
+          name?: string
+          overview?: string
+          phase_breakdown?: Json
+          pro_mechanics?: string
+          reference_object?: string
+          scoring_rules?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
