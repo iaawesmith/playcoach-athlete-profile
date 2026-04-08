@@ -22,7 +22,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how metrics combine into the final 0-100 mastery score." },
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Document common mistakes and their corrections for targeted feedback." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define the natural phases of this skill for granular analysis." },
-  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Specify reference objects for accurate scale and measurement." },
+  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Specify reference objects and calibration instructions for accurate AI measurements." },
   { key: "camera", label: "Camera", icon: "videocam", subtitle: "Provide guidelines for optimal video recording setup." },
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define key moments the AI should analyze closely." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Customize the tone, structure, and persona of the AI coach feedback." },
@@ -756,9 +756,6 @@ function ReferenceEditor({ value, onChange, inputClass, labelClass }: Structured
 
   return (
     <div className="space-y-4">
-      <p className="text-on-surface-variant text-xs leading-relaxed">
-        Define reference objects and calibration instructions for accurate AI measurements.
-      </p>
       {sections.map((s) => (
          <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
           <div className="flex items-center gap-2 mb-2">
