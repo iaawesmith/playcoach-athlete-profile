@@ -999,7 +999,6 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
           </div>
         </div>
       )}
-        </div>
-      </div>
+    </div>
   );
 }
