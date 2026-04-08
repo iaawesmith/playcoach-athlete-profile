@@ -295,7 +295,6 @@ export function useAutoFill() {
         if (recruit.rating) {
           cfbdData.recruitingRating = recruit.rating;
           cfbdData.ratingComposite = Number(recruit.rating).toFixed(4);
-          cfbdData.compositeRating247 = Number(recruit.rating);
         }
         if (recruit.ranking) cfbdData.nationalRank = recruit.ranking;
         if (recruit.school) cfbdData.highSchool = String(recruit.school);
