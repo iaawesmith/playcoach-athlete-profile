@@ -149,7 +149,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <button
             onClick={() => setHelpOpen(true)}
             title="Open admin guidance for this tab"
-            className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-primary-container hover:bg-surface-container-high transition-colors"
+            className="ml-auto w-7 h-7 rounded-full bg-primary-container flex items-center justify-center text-white hover:brightness-110 transition-all active:scale-95"
           >
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>help</span>
           </button>
