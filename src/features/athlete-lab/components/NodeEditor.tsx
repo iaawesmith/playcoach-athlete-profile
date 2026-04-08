@@ -8,6 +8,7 @@ import { HelpDrawer } from "./HelpDrawer";
 interface NodeEditorProps {
   node: TrainingNode;
   onUpdated: (node: TrainingNode) => void;
+  onIconChange?: (nodeId: string, iconUrl: string | null) => void;
 }
 
 type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "test";
@@ -46,7 +47,7 @@ const TOOLTIPS: Record<TabKey, string> = {
   test: "Upload a sample video or paste a URL to instantly test AI analysis against this node's configuration",
 };
 
-export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
+export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
   const [draft, setDraft] = useState<TrainingNode>(node);
   const [saving, setSaving] = useState(false);
@@ -163,13 +164,30 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
             <div>
               <div className="flex items-center gap-1 mb-2">
                 <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">Icon / Visual Diagram</label>
-                <SectionTooltip tip="Upload an icon or diagram, or paste a URL. This will appear next to the node name in the sidebar." />
+                <SectionTooltip tip="Upload an icon or diagram. This will appear next to the node name in the sidebar." />
               </div>
-              <div className="flex gap-3">
-                <input className={`${inputClass} flex-1`} value={draft.icon_url || ""} onChange={(e) => update("icon_url", e.target.value || null)} placeholder="Paste image URL..." />
-                <label className="h-11 px-4 rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface-variant text-xs font-semibold uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors shrink-0">
+              <div className="flex items-center gap-3">
+                {draft.icon_url ? (
+                  <div className="relative group">
+                    <img src={draft.icon_url} alt="Node icon" className="w-14 h-14 rounded-xl object-cover bg-surface-container-lowest border border-white/5" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <button
+                      onClick={() => {
+                        update("icon_url", null);
+                        onIconChange?.(draft.id, null);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 12 }}>close</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/10 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 24 }}>image</span>
+                  </div>
+                )}
+                <label className="h-11 px-5 rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface-variant text-xs font-semibold uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>upload</span>
-                  Upload
+                  {draft.icon_url ? "Replace" : "Upload"}
                   <input
                     type="file"
                     accept="image/*"
@@ -184,17 +202,12 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
                       if (!error) {
                         const { data: urlData } = supabase.storage.from("athlete-media").getPublicUrl(path);
                         update("icon_url", urlData.publicUrl);
+                        onIconChange?.(draft.id, urlData.publicUrl);
                       }
                     }}
                   />
                 </label>
               </div>
-              {draft.icon_url && (
-                <div className="mt-3 p-3 rounded-xl bg-surface-container-high border border-white/5 inline-flex items-center gap-3">
-                  <img src={draft.icon_url} alt="Node icon" className="w-12 h-12 rounded-lg object-cover bg-surface-container-lowest" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  <span className="text-on-surface-variant text-xs truncate max-w-[200px]">{draft.icon_url.split("/").pop()}</span>
-                </div>
-              )}
             </div>
           </div>
         )}
