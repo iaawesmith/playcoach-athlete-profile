@@ -676,7 +676,7 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
     <div className="space-y-4">
 
       {phases.map((phase, idx) => (
-        <div key={idx} className="p-4 rounded-xl bg-surface-container-high border border-white/5 space-y-2">
+        <div key={idx} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center gap-2">
             {/* Reorder buttons */}
             <div className="flex flex-col">
@@ -696,7 +696,7 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={confirmRename}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setRenamingIdx(null); }}
-                className="bg-surface-container-high border border-primary-container/30 rounded-lg px-3 py-1 text-on-surface text-sm font-semibold uppercase tracking-widest focus:outline-none flex-1"
+                className="border border-primary-container/30 rounded-lg px-3 py-1 text-on-surface text-sm font-semibold uppercase tracking-widest focus:outline-none flex-1 bg-[#141920]"
               />
             ) : (
               <button onClick={() => startRename(idx)} className="flex items-center gap-1.5 group flex-1 text-left">
