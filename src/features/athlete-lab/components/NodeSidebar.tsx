@@ -10,7 +10,7 @@ interface NodeSidebarProps {
 
 export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: NodeSidebarProps) {
   return (
-    <div className="w-72 min-w-[288px] h-full flex flex-col border-r border-outline-variant/25" style={{ backgroundColor: '#1C222B' }}>
+    <div className="w-72 min-w-[288px] h-full flex flex-col border-r-2 border-outline-variant/30" style={{ backgroundColor: '#1E2530' }}>
       <div className="p-4">
         <h2 className="text-on-surface font-black uppercase tracking-[0.2em] text-xs mb-4">Training Nodes</h2>
         <button
@@ -27,10 +27,10 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
             key={node.id}
             className={`group flex items-center gap-3 cursor-pointer transition-all duration-200 ${
               selectedId === node.id
-                ? "px-4 py-3.5 rounded-xl border-l-4 border-primary-container shadow-[inset_0_0_16px_rgba(0,230,57,0.08),0_0_16px_rgba(0,230,57,0.12)]"
+                ? "px-4 py-3.5 rounded-xl border-l-[5px] border-primary-container shadow-[inset_0_0_20px_rgba(0,230,57,0.1),0_0_20px_rgba(0,230,57,0.15)]"
                 : "px-3 py-3 rounded-xl hover:bg-surface-container"
             }`}
-            style={selectedId === node.id ? { backgroundColor: '#2A323F' } : undefined}
+            style={selectedId === node.id ? { backgroundColor: '#2E3848' } : undefined}
             onClick={() => onSelect(node.id)}
           >
             {node.icon_url ? (
