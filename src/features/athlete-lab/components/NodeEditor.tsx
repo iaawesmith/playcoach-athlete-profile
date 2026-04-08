@@ -3,7 +3,7 @@ import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo
 import { updateNode } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
-import { MoreInfoPanel } from "./MoreInfoPanel";
+import { HelpDrawer } from "./HelpDrawer";
 
 interface NodeEditorProps {
   node: TrainingNode;
@@ -51,6 +51,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
   const [draft, setDraft] = useState<TrainingNode>(node);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     setDraft(node);
@@ -140,6 +141,13 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
             {TABS.find((t) => t.key === tab)?.label}
           </h3>
           <SectionTooltip tip={TOOLTIPS[tab]} />
+          <button
+            onClick={() => setHelpOpen(true)}
+            title="Open admin guidance for this tab"
+            className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-primary-container hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>help</span>
+          </button>
         </div>
 
         {tab === "basics" && (
@@ -245,8 +253,12 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           <TestingPanel node={draft} />
         )}
 
-        {/* Admin-only guidance panel for every tab */}
-        <MoreInfoPanel tabKey={tab} />
+        <HelpDrawer
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+          tabKey={tab}
+          tabLabel={TABS.find((t) => t.key === tab)?.label ?? tab}
+        />
       </div>
     </div>
   );
