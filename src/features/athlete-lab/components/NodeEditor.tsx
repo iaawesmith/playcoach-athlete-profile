@@ -424,7 +424,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 }
 
 function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void }) {
-   const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
+   const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30" + " bg-[#141920]";
   const labelClass = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
 
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
@@ -435,7 +435,7 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
         Total Weight: {totalWeight}% {totalWeight !== 100 && "(should be 100%)"}
       </div>
       {metrics.map((m, i) => (
-        <div key={i} className="p-4 rounded-xl bg-surface-container-high border border-white/5 space-y-3">
+        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Metric {i + 1}</span>
             <button onClick={() => onChange(metrics.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
@@ -461,11 +461,11 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
 }
 
 function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onChange: (e: CommonError[]) => void }) {
-  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
+  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-3">
       {errors.map((err, i) => (
-        <div key={i} className="p-4 rounded-xl bg-surface-container-high border border-white/5 space-y-2">
+        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Error {i + 1}</span>
             <button onClick={() => onChange(errors.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
@@ -484,11 +484,11 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
 }
 
 function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p: PhaseNote[]) => void }) {
-  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
+  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-3">
       {phases.map((p, i) => (
-        <div key={i} className="p-4 rounded-xl bg-surface-container-high border border-white/5 space-y-2">
+        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center justify-between">
             <input className={`${inputClass} w-48`} value={p.phase} onChange={(e) => { const n = [...phases]; n[i] = { ...p, phase: e.target.value }; onChange(n); }} placeholder="Phase name" />
             <button onClick={() => onChange(phases.filter((_, j) => j !== i))} className="text-on-surface-variant hover:text-red-400">
@@ -506,7 +506,7 @@ function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p:
 }
 
 function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; onChange: (c: string[]) => void }) {
-  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
+  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-2">
       {checkpoints.map((c, i) => (
@@ -526,11 +526,11 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
 }
 
 function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Badge[]) => void }) {
-  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
+  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-3">
       {badges.map((b, i) => (
-        <div key={i} className="p-4 rounded-xl bg-surface-container-high border border-white/5 space-y-2">
+        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
