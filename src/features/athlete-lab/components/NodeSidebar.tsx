@@ -27,7 +27,7 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
             key={node.id}
             className={`group flex items-center gap-3 cursor-pointer transition-all duration-200 ${
               selectedId === node.id
-                ? "bg-surface-variant px-4 py-3.5 rounded-xl border-l-4 border-primary-container shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                ? "bg-surface-variant px-4 py-3.5 rounded-xl border-l-4 border-primary-container shadow-[0_0_12px_rgba(0,230,57,0.15),0_2px_8px_rgba(0,0,0,0.3)]"
                 : "px-3 py-3 rounded-xl hover:bg-surface-container"
             }`}
             onClick={() => onSelect(node.id)}
