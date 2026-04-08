@@ -47,6 +47,11 @@ const TOOLTIPS: Record<TabKey, string> = {
   test: "Upload a sample video or paste a URL to instantly test AI analysis against this node's configuration",
 };
 
+/* ── Shared style constants ── */
+const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
+const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
+const CARD_CLASS = "p-5 rounded-xl border border-outline-variant/20 space-y-3 bg-[#1A2029]";
+
 export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
   const [draft, setDraft] = useState<TrainingNode>(node);
@@ -92,14 +97,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     }
   };
 
-  const inputClass = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#141920]";
-  const labelClass = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
-  const sectionHeaderClass = "flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-primary-container/8 border-t border-primary-container/15";
-
   return (
-    <div className="flex-1 h-full overflow-y-auto">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-surface-container-high/90 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-outline-variant/15">
+    <div className="flex-1 h-full overflow-y-auto" style={{ backgroundColor: '#111720' }}>
+      {/* ── Node title bar ── */}
+      <div className="sticky top-0 z-10 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-outline-variant/20" style={{ backgroundColor: 'rgba(26,32,41,0.92)' }}>
         <div className="flex items-center gap-3">
           {draft.icon_url ? (
             <img src={draft.icon_url} alt="" className="w-6 h-6 rounded object-cover" />
@@ -132,8 +133,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="px-6 pt-4 pb-1 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 bg-surface/90">
+      {/* ── Tab row ── */}
+      <div className="px-6 pt-3 pb-2 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 border-b border-outline-variant/10" style={{ backgroundColor: '#131920' }}>
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -150,13 +151,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         ))}
       </div>
 
-      {/* Content */}
-      <div className="py-6 space-y-6">
-        {/* Active tab banner */}
+      {/* ── Content ── */}
+      <div className="space-y-0">
+        {/* Green banner header */}
         {(() => {
           const activeTab = TABS.find((t) => t.key === tab);
           return (
-            <div className="mx-0 px-6 py-4 bg-primary-container/10 border-b border-primary-container/20 flex items-start gap-3">
+            <div className="px-6 py-4 bg-primary-container/10 border-b border-primary-container/20 flex items-start gap-3">
               <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontSize: 20 }}>
                 {activeTab?.icon}
               </span>
@@ -181,23 +182,22 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             </div>
           );
         })()}
-        <div className="px-6 space-y-6">
+
+        {/* Tab content area */}
+        <div className="px-6 py-6 space-y-6">
 
         {tab === "basics" && (
           <div className="space-y-4">
              <div>
-              <label className={`${labelClass} block mb-2`}>Route / Skill Name</label>
-              <input className={inputClass} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
+              <label className={`${LABEL_CLASS} block mb-2`}>Route / Skill Name</label>
+              <input className={INPUT_CLASS} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
             </div>
             <div>
-              <div className={sectionHeaderClass}>
-                <label className={labelClass}>Icon / Visual Diagram</label>
-                <SectionTooltip tip="Upload an icon or diagram. This will appear next to the node name in the sidebar." />
-              </div>
+              <label className={`${LABEL_CLASS} block mb-2`}>Icon / Visual Diagram</label>
               <div className="flex items-center gap-3">
                 {draft.icon_url ? (
                   <div className="relative group">
-                    <img src={draft.icon_url} alt="Node icon" className="w-14 h-14 rounded-xl object-cover bg-surface-container-lowest border border-white/5" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <img src={draft.icon_url} alt="Node icon" className="w-14 h-14 rounded-xl object-cover border border-outline-variant/20" style={{ backgroundColor: '#0E1319' }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     <button
                       onClick={() => {
                         update("icon_url", null);
@@ -209,11 +209,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="w-14 h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/10 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-xl border border-outline-variant/20 flex items-center justify-center" style={{ backgroundColor: '#0E1319' }}>
                     <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 24 }}>image</span>
                   </div>
                 )}
-                <label className="h-11 px-5 rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface-variant text-xs font-semibold uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors">
+                <label className="h-11 px-5 rounded-xl border border-outline-variant/20 text-on-surface-variant text-xs font-semibold uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors" style={{ backgroundColor: '#1A2029' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>upload</span>
                   {draft.icon_url ? "Replace" : "Upload"}
                   <input
@@ -245,11 +245,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "overview" && (
-          <textarea className={`${inputClass} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="Describe the purpose of this skill..." />
+          <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="Describe the purpose of this skill..." />
         )}
 
         {tab === "mechanics" && (
-          <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} inputClass={inputClass} labelClass={labelClass} />
+          <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} />
         )}
 
         {tab === "metrics" && (
@@ -261,8 +261,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             scoringRules={draft.scoring_rules}
             onScoringRulesChange={(v) => update("scoring_rules", v)}
             metrics={draft.key_metrics}
-            inputClass={inputClass}
-            labelClass={labelClass}
           />
         )}
 
@@ -275,11 +273,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "reference" && (
-          <ReferenceEditor value={draft.reference_object} onChange={(v) => update("reference_object", v)} inputClass={inputClass} labelClass={labelClass} />
+          <ReferenceEditor value={draft.reference_object} onChange={(v) => update("reference_object", v)} />
         )}
 
         {tab === "camera" && (
-          <CameraEditor value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} inputClass={inputClass} labelClass={labelClass} />
+          <CameraEditor value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
         )}
 
         {tab === "checkpoints" && (
@@ -287,7 +285,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "prompt" && (
-          <textarea className={`${inputClass} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => update("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
+          <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => update("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
         )}
 
         {tab === "badges" && (
@@ -321,8 +319,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   const [editUrl, setEditUrl] = useState("");
   const [editLabel, setEditLabel] = useState("");
 
-  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
-
   const handleAdd = () => {
     if (!newUrl.trim()) return;
     onChange([...videos, { url: newUrl.trim(), label: newLabel.trim() || newUrl.trim() }]);
@@ -347,11 +343,8 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
   return (
     <div className="space-y-4">
-
-
-      {/* Video list */}
       {videos.length === 0 && !adding && (
-        <div className="bg-surface-container rounded-xl p-8 text-center space-y-3">
+        <div className={CARD_CLASS + " text-center"}>
           <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 40 }}>video_library</span>
           <p className="text-on-surface-variant text-sm">No reference videos added yet</p>
           <p className="text-on-surface-variant/60 text-xs">Add elite examples for the AI to compare athlete footage against</p>
@@ -360,20 +353,20 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
       <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
         {videos.map((v, i) => (
-          <div key={i} className="bg-surface-container rounded-xl p-4 group">
+          <div key={i} className={CARD_CLASS + " group"}>
             {editIdx === i ? (
               <div className="space-y-3">
                  <div>
-                  <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Label</label>
-                  <input className={inputClass} value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
+                  <label className={`${LABEL_CLASS} mb-1 block`}>Label</label>
+                  <input className={INPUT_CLASS} value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
                 </div>
                 <div>
-                  <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
-                  <input className={inputClass} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+                  <label className={`${LABEL_CLASS} mb-1 block`}>Video URL</label>
+                  <input className={INPUT_CLASS} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => handleEditSave(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
-                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors">Cancel</button>
+                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
                 </div>
               </div>
             ) : (
@@ -384,10 +377,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                   <p className="text-on-surface-variant/60 text-xs truncate mt-0.5">{v.url}</p>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high transition-colors">
+                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
                   </button>
-                  <button onClick={() => onChange(videos.filter((_, j) => j !== i))} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-surface-container-high transition-colors">
+                  <button onClick={() => onChange(videos.filter((_, j) => j !== i))} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
                   </button>
                 </div>
@@ -397,25 +390,24 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         ))}
       </div>
 
-      {/* Add new video form */}
       {adding ? (
-        <div className="bg-surface-container-high rounded-xl p-4 space-y-3 border border-primary-container/20">
+        <div className={CARD_CLASS + " border-primary-container/20"}>
           <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Reference Video</p>
            <div>
-            <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Descriptive Label</label>
-            <input className={inputClass} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
+            <label className={`${LABEL_CLASS} mb-1 block`}>Descriptive Label</label>
+            <input className={INPUT_CLASS} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
           </div>
           <div>
-            <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
-            <input className={inputClass} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+            <label className={`${LABEL_CLASS} mb-1 block`}>Video URL</label>
+            <input className={INPUT_CLASS} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
           </div>
           <div className="flex gap-2">
             <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); }} className="px-4 py-2 rounded-lg bg-surface-container text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors">Cancel</button>
+            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
           </div>
         </div>
       ) : (
-        <button onClick={() => setAdding(true)} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 hover:bg-surface-container transition-all">
+        <button onClick={() => setAdding(true)} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Video
         </button>
       )}
@@ -424,9 +416,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 }
 
 function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void }) {
-   const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30" + " bg-[#141920]";
-  const labelClass = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
-
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
 
   return (
@@ -435,7 +424,7 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
         Total Weight: {totalWeight}% {totalWeight !== 100 && "(should be 100%)"}
       </div>
       {metrics.map((m, i) => (
-        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
+        <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Metric {i + 1}</span>
             <button onClick={() => { if (window.confirm(`Delete Metric ${i + 1}?`)) onChange(metrics.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete metric">
@@ -443,13 +432,13 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
             </button>
           </div>
            <div className="grid grid-cols-2 gap-3">
-            <div><div className={`${labelClass} mb-1`}>Name</div><input className={inputClass} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} /></div>
-            <div><div className={`${labelClass} mb-1`}>Unit</div><input className={inputClass} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} /></div>
+            <div><div className={`${LABEL_CLASS} mb-1`}>Name</div><input className={INPUT_CLASS} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} /></div>
+            <div><div className={`${LABEL_CLASS} mb-1`}>Unit</div><input className={INPUT_CLASS} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} /></div>
           </div>
-          <div><div className={`${labelClass} mb-1`}>Description</div><textarea className={`${inputClass} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} /></div>
+          <div><div className={`${LABEL_CLASS} mb-1`}>Description</div><textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><div className={`${labelClass} mb-1`}>Elite Target</div><input className={inputClass} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} /></div>
-            <div><div className={`${labelClass} mb-1`}>Weight (%)</div><input type="number" className={inputClass} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} /></div>
+            <div><div className={`${LABEL_CLASS} mb-1`}>Elite Target</div><input className={INPUT_CLASS} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} /></div>
+            <div><div className={`${LABEL_CLASS} mb-1`}>Weight (%)</div><input type="number" className={INPUT_CLASS} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} /></div>
           </div>
         </div>
       ))}
@@ -461,19 +450,18 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
 }
 
 function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onChange: (e: CommonError[]) => void }) {
-  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-3">
       {errors.map((err, i) => (
-        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
+        <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Error {i + 1}</span>
             <button onClick={() => { if (window.confirm(`Delete Error ${i + 1}?`)) onChange(errors.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete error">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <input className={inputClass} value={err.error} onChange={(e) => { const n = [...errors]; n[i] = { ...err, error: e.target.value }; onChange(n); }} placeholder="Common error..." />
-          <textarea className={`${inputClass} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => { const n = [...errors]; n[i] = { ...err, correction: e.target.value }; onChange(n); }} placeholder="How to fix it..." />
+          <input className={INPUT_CLASS} value={err.error} onChange={(e) => { const n = [...errors]; n[i] = { ...err, error: e.target.value }; onChange(n); }} placeholder="Common error..." />
+          <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => { const n = [...errors]; n[i] = { ...err, correction: e.target.value }; onChange(n); }} placeholder="How to fix it..." />
         </div>
       ))}
       <button onClick={() => onChange([...errors, { error: "", correction: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -484,18 +472,17 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
 }
 
 function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p: PhaseNote[]) => void }) {
-  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-3">
       {phases.map((p, i) => (
-        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
+        <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
-            <input className={`${inputClass} w-48`} value={p.phase} onChange={(e) => { const n = [...phases]; n[i] = { ...p, phase: e.target.value }; onChange(n); }} placeholder="Phase name" />
+            <input className={`${INPUT_CLASS} w-48`} value={p.phase} onChange={(e) => { const n = [...phases]; n[i] = { ...p, phase: e.target.value }; onChange(n); }} placeholder="Phase name" />
             <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <textarea className={`${inputClass} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...p, notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
+          <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...p, notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
         </div>
       ))}
       <button onClick={() => onChange([...phases, { phase: "", notes: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -506,13 +493,12 @@ function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p:
 }
 
 function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; onChange: (c: string[]) => void }) {
-  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-2">
       {checkpoints.map((c, i) => (
         <div key={i} className="flex gap-2 items-center">
           <span className="text-on-surface-variant text-xs font-mono w-6">{i + 1}.</span>
-          <input className={`${inputClass} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="Checkpoint..." />
+          <input className={`${INPUT_CLASS} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="Checkpoint..." />
           <button onClick={() => { if (window.confirm(`Delete Checkpoint ${i + 1}?`)) onChange(checkpoints.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
           </button>
@@ -526,11 +512,10 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
 }
 
 function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Badge[]) => void }) {
-  const inputClass = "w-full rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors border border-outline-variant/30 bg-[#141920]";
   return (
     <div className="space-y-3">
       {badges.map((b, i) => (
-        <div key={i} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
+        <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
@@ -540,8 +525,8 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <input className={inputClass} value={b.name} onChange={(e) => { const n = [...badges]; n[i] = { ...b, name: e.target.value }; onChange(n); }} placeholder="Badge name" />
-          <input className={inputClass} value={b.condition} onChange={(e) => { const n = [...badges]; n[i] = { ...b, condition: e.target.value }; onChange(n); }} placeholder="Unlock condition" />
+          <input className={INPUT_CLASS} value={b.name} onChange={(e) => { const n = [...badges]; n[i] = { ...b, name: e.target.value }; onChange(n); }} placeholder="Badge name" />
+          <input className={INPUT_CLASS} value={b.condition} onChange={(e) => { const n = [...badges]; n[i] = { ...b, condition: e.target.value }; onChange(n); }} placeholder="Unlock condition" />
         </div>
       ))}
       <button onClick={() => onChange([...badges, { name: "", condition: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -556,8 +541,6 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
 interface StructuredEditorProps {
   value: string;
   onChange: (v: string) => void;
-  inputClass: string;
-  labelClass: string;
 }
 
 function parseStructuredField(raw: string, sections: string[]): Record<string, string> {
@@ -585,7 +568,7 @@ function serializeStructuredField(fields: Record<string, string>): string {
     .join("\n\n");
 }
 
-function MechanicsEditor({ value, onChange, inputClass, labelClass }: StructuredEditorProps) {
+function MechanicsEditor({ value, onChange }: StructuredEditorProps) {
   const defaultSections = ["Release Phase", "Stem Phase", "Break Phase", "Catch Phase", "General Tips"];
 
   const initFromValue = useCallback((): { name: string; notes: string }[] => {
@@ -597,7 +580,6 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
     if (hasStructured) {
       return defaultSections.map((s) => ({ name: s, notes: parsed[s] }));
     }
-    // Try to detect arbitrary sections from value
     const lines = value.split("\n");
     const detected: { name: string; notes: string }[] = [];
     let current: { name: string; notes: string } | null = null;
@@ -618,7 +600,6 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
   const [renamingIdx, setRenamingIdx] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  // Sync when node changes (value prop reference changes from parent useEffect)
   useEffect(() => {
     setPhases(initFromValue());
   }, [initFromValue]);
@@ -674,11 +655,9 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
 
   return (
     <div className="space-y-4">
-
       {phases.map((phase, idx) => (
-        <div key={idx} className="p-5 rounded-xl border border-outline-variant/20 space-y-3" style={{ backgroundColor: '#1E2530' }}>
+        <div key={idx} className={CARD_CLASS}>
           <div className="flex items-center gap-2">
-            {/* Reorder buttons */}
             <div className="flex flex-col">
               <button onClick={() => movePhase(idx, -1)} disabled={idx === 0} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
                 <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_up</span>
@@ -688,7 +667,6 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
               </button>
             </div>
 
-            {/* Phase name */}
             {renamingIdx === idx ? (
               <input
                 autoFocus
@@ -696,23 +674,22 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={confirmRename}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setRenamingIdx(null); }}
-                className="border border-primary-container/30 rounded-lg px-3 py-1 text-on-surface text-sm font-semibold uppercase tracking-widest focus:outline-none flex-1 bg-[#141920]"
+                className={`${INPUT_CLASS} flex-1 !py-1`}
               />
             ) : (
               <button onClick={() => startRename(idx)} className="flex items-center gap-1.5 group flex-1 text-left">
-                <span className={labelClass + " mb-0"}>{phase.name}</span>
+                <span className={LABEL_CLASS + " mb-0"}>{phase.name}</span>
                 <span className="material-symbols-outlined text-on-surface-variant/30 group-hover:text-primary-container transition-colors" style={{ fontSize: 12 }}>edit</span>
               </button>
             )}
 
-            {/* Delete */}
             <button onClick={() => { if (window.confirm(`Delete ${phases[idx]?.name || 'this phase'}?`)) removePhase(idx); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all ml-auto" title="Delete phase">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
 
           <textarea
-            className={`${inputClass} min-h-[80px] resize-y`}
+            className={`${INPUT_CLASS} min-h-[80px] resize-y`}
             value={phase.notes}
             onChange={(e) => updatePhase(idx, e.target.value)}
             placeholder={`Notes for ${phase.name.toLowerCase()}...`}
@@ -723,6 +700,7 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
       <button
         onClick={addPhase}
         className="w-full h-10 rounded-xl border border-dashed border-outline-variant/20 text-on-surface-variant text-xs font-semibold uppercase tracking-widest hover:border-primary-container/40 hover:text-primary-container transition-colors flex items-center justify-center gap-2"
+        style={{ backgroundColor: '#131920' }}
       >
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
         Add Phase
@@ -731,7 +709,7 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
   );
 }
 
-function ReferenceEditor({ value, onChange, inputClass, labelClass }: StructuredEditorProps) {
+function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
   const sections = ["Reference Object", "Calibration Instructions", "Scale Notes"];
   const parsed = parseStructuredField(value, sections);
   const hasStructured = sections.some((s) => parsed[s].trim());
@@ -757,13 +735,13 @@ function ReferenceEditor({ value, onChange, inputClass, labelClass }: Structured
   return (
     <div className="space-y-4">
       {sections.map((s) => (
-         <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
-          <div className="flex items-center gap-2 mb-2">
-            <label className={labelClass}>{s}</label>
+         <div key={s} className={CARD_CLASS}>
+          <div className="flex items-center gap-2 mb-1">
+            <label className={LABEL_CLASS}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
           <textarea
-            className={`${inputClass} min-h-[70px] resize-y`}
+            className={`${INPUT_CLASS} min-h-[70px] resize-y`}
             value={fields[s] || ""}
             onChange={(e) => handleChange(s, e.target.value)}
             placeholder={descriptions[s]}
@@ -774,7 +752,7 @@ function ReferenceEditor({ value, onChange, inputClass, labelClass }: Structured
   );
 }
 
-function CameraEditor({ value, onChange, inputClass, labelClass }: StructuredEditorProps) {
+function CameraEditor({ value, onChange }: StructuredEditorProps) {
   const sections = ["Primary Camera Angle", "Secondary Camera Angle", "Lighting & Environment"];
   const parsed = parseStructuredField(value, sections);
   const hasStructured = sections.some((s) => parsed[s].trim());
@@ -800,13 +778,13 @@ function CameraEditor({ value, onChange, inputClass, labelClass }: StructuredEdi
   return (
     <div className="space-y-4">
       {sections.map((s) => (
-         <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
-          <div className="flex items-center gap-2 mb-2">
-            <label className={labelClass}>{s}</label>
+         <div key={s} className={CARD_CLASS}>
+          <div className="flex items-center gap-2 mb-1">
+            <label className={LABEL_CLASS}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
           <textarea
-            className={`${inputClass} min-h-[70px] resize-y`}
+            className={`${INPUT_CLASS} min-h-[70px] resize-y`}
             value={fields[s] || ""}
             onChange={(e) => handleChange(s, e.target.value)}
             placeholder={descriptions[s]}
@@ -823,11 +801,9 @@ interface ScoringEditorProps {
   scoringRules: string;
   onScoringRulesChange: (v: string) => void;
   metrics: KeyMetric[];
-  inputClass: string;
-  labelClass: string;
 }
 
-function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass, labelClass }: ScoringEditorProps) {
+function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringEditorProps) {
   const [simValues, setSimValues] = useState<Record<string, number>>({});
 
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
@@ -848,14 +824,13 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
 
   return (
     <div className="space-y-6">
-      {/* Scoring Rules Text */}
       <div>
-        <label className={`${labelClass} block mb-2`}>Scoring Formula Description</label>
+        <label className={`${LABEL_CLASS} block mb-2`}>Scoring Formula Description</label>
         <p className="text-on-surface-variant text-xs mb-2 leading-relaxed">
           Describe how the overall Route Mastery Score is calculated from individual metrics. The AI uses this to explain scores to athletes.
         </p>
         <textarea
-          className={`${inputClass} min-h-[120px] resize-y`}
+          className={`${INPUT_CLASS} min-h-[120px] resize-y`}
           value={scoringRules}
           onChange={(e) => onScoringRulesChange(e.target.value)}
           placeholder="Describe the scoring formula..."
@@ -863,9 +838,9 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
       </div>
 
       {/* Weight Distribution Table */}
-      <div className="bg-surface-container rounded-xl p-5 border border-white/5">
+      <div className={CARD_CLASS}>
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] flex items-center gap-2">
+          <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>pie_chart</span>
             Current Weight Distribution
           </h4>
@@ -883,7 +858,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-on-surface-variant text-[9px] uppercase tracking-[0.3em] border-b border-white/5">
+                <tr className="text-on-surface-variant text-[9px] uppercase tracking-[0.3em] border-b border-outline-variant/15">
                   <th className="text-left py-2 pr-4 font-semibold">Metric</th>
                   <th className="text-right py-2 px-3 font-semibold">Weight</th>
                   <th className="text-right py-2 px-3 font-semibold">If Score = 90</th>
@@ -894,7 +869,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
                 {metrics.map((m) => {
                   const contribution = (90 * m.weight) / 100;
                   return (
-                    <tr key={m.name} className="border-b border-white/5 last:border-0">
+                    <tr key={m.name} className="border-b border-outline-variant/10 last:border-0">
                       <td className="py-2.5 pr-4 text-on-surface font-medium">{m.name || "Unnamed"}</td>
                       <td className="py-2.5 px-3 text-right text-on-surface">{m.weight}%</td>
                       <td className="py-2.5 px-3 text-right text-on-surface-variant">90</td>
@@ -902,7 +877,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
                     </tr>
                   );
                 })}
-                <tr className="border-t border-white/10">
+                <tr className="border-t border-outline-variant/20">
                   <td className="py-2.5 pr-4 text-on-surface font-black uppercase text-[10px] tracking-widest">Total</td>
                   <td className={`py-2.5 px-3 text-right font-black ${weightValid ? "text-primary-container" : "text-red-400"}`}>{totalWeight}%</td>
                   <td className="py-2.5 px-3 text-right text-on-surface-variant">—</td>
@@ -915,8 +890,8 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
       </div>
 
       {/* Global Scoring Rules */}
-      <div className="bg-surface-container rounded-xl p-5 border border-white/5 space-y-4">
-        <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] flex items-center gap-2">
+      <div className={CARD_CLASS + " space-y-4"}>
+        <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
           <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>tune</span>
           Global Scoring Rules (Optional)
         </h4>
@@ -924,21 +899,21 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
           Define bonus/penalty rules and confidence thresholds. These are included in the scoring formula description above.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-3 rounded-xl bg-surface-container-high border border-white/5">
-            <label className={`${labelClass} block mb-1`}>Bonus Rules</label>
+          <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
+            <label className={`${LABEL_CLASS} block mb-1`}>Bonus Rules</label>
             <p className="text-on-surface-variant text-[10px] mb-2">e.g. "+5 if all phases ≥ 80"</p>
             <textarea
-              className={`${inputClass} min-h-[60px] resize-y`}
+              className={`${INPUT_CLASS} min-h-[60px] resize-y`}
               placeholder="Describe any bonus point rules..."
               value=""
               readOnly
             />
           </div>
-          <div className="p-3 rounded-xl bg-surface-container-high border border-white/5">
-            <label className={`${labelClass} block mb-1`}>Confidence Thresholds</label>
+          <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
+            <label className={`${LABEL_CLASS} block mb-1`}>Confidence Thresholds</label>
             <p className="text-on-surface-variant text-[10px] mb-2">e.g. "Below 0.6 = low confidence warning"</p>
             <textarea
-              className={`${inputClass} min-h-[60px] resize-y`}
+              className={`${INPUT_CLASS} min-h-[60px] resize-y`}
               placeholder="Describe confidence thresholds..."
               value=""
               readOnly
@@ -949,8 +924,8 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
 
       {/* Scoring Preview Simulator */}
       {metrics.length > 0 && weightValid && (
-        <div className="bg-surface-container rounded-xl p-5 border border-white/5 space-y-4">
-          <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] flex items-center gap-2">
+        <div className={CARD_CLASS + " space-y-4"}>
+          <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>calculate</span>
             Scoring Preview Simulator
           </h4>
@@ -960,14 +935,14 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {metrics.map((m) => (
-              <div key={m.name} className="p-3 rounded-xl bg-surface-container-high border border-white/5">
-                <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block truncate">{m.name || "Unnamed"}</label>
+              <div key={m.name} className="p-3 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
+                <label className={`${LABEL_CLASS} mb-1 block truncate`}>{m.name || "Unnamed"}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     min={0}
                     max={100}
-                    className={`${inputClass} text-center font-bold`}
+                    className={`${INPUT_CLASS} text-center font-bold`}
                     value={simValues[m.name] ?? ""}
                     onChange={(e) => setSimValues((prev) => ({ ...prev, [m.name]: Number(e.target.value) || 0 }))}
                     placeholder="0"
@@ -978,7 +953,6 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
             ))}
           </div>
 
-          {/* Result */}
           <div className="flex items-center gap-5 pt-2">
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center font-black text-2xl shrink-0"
