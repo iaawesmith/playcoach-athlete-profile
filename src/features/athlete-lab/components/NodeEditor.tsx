@@ -42,6 +42,7 @@ const TOOLTIPS: Record<TabKey, string> = {
   checkpoints: "Key moments the AI should analyze closely",
   prompt: "Tailor the tone and focus of the AI coach feedback for this node",
   badges: "Achievements athletes can earn for this skill",
+  test: "Upload a sample video or paste a URL to instantly test AI analysis against this node's configuration",
 };
 
 export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
@@ -233,10 +234,9 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} />
         )}
 
-        {/* Testing Panel always visible at bottom */}
-        <div className="pt-8 border-t border-white/5">
+        {tab === "test" && (
           <TestingPanel node={draft} />
-        </div>
+        )}
       </div>
     </div>
   );
