@@ -677,9 +677,6 @@ function MechanicsEditor({ value, onChange, inputClass, labelClass }: Structured
 
   return (
     <div className="space-y-4">
-      <p className="text-on-surface-variant text-xs leading-relaxed">
-        Define the natural phases of this skill. Add, rename, reorder, or remove phases as needed for any drill type.
-      </p>
 
       {phases.map((phase, idx) => (
         <div key={idx} className="p-4 rounded-xl bg-surface-container-high border border-white/5 space-y-2">
