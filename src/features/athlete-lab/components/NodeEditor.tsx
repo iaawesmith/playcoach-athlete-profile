@@ -99,7 +99,11 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-surface/90 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-white/5">
         <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 24 }}>neurology</span>
+          {draft.icon_url ? (
+            <img src={draft.icon_url} alt="" className="w-6 h-6 rounded object-cover" />
+          ) : (
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 24 }}>neurology</span>
+          )}
           <h1 className="text-on-surface font-black uppercase tracking-tighter text-xl">{draft.name || "New Node"}</h1>
         </div>
         <button
