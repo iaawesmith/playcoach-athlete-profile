@@ -54,6 +54,10 @@ export function AthleteLab() {
     setNodes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
   };
 
+  const handleIconChange = (nodeId: string, iconUrl: string | null) => {
+    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, icon_url: iconUrl } : n)));
+  };
+
   const selectedNode = nodes.find((n) => n.id === selectedId);
 
   return (
@@ -85,7 +89,7 @@ export function AthleteLab() {
               </div>
             </div>
           ) : selectedNode ? (
-            <NodeEditor node={selectedNode} onUpdated={handleUpdated} />
+            <NodeEditor node={selectedNode} onUpdated={handleUpdated} onIconChange={handleIconChange} />
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
