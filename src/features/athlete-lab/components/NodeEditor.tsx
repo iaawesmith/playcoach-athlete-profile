@@ -9,7 +9,7 @@ interface NodeEditorProps {
   onUpdated: (node: TrainingNode) => void;
 }
 
-type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges";
+type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "basics", label: "Basics", icon: "edit" },
@@ -25,6 +25,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "checkpoints", label: "Checkpoints", icon: "flag" },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy" },
   { key: "badges", label: "Badges", icon: "military_tech" },
+  { key: "test", label: "Run Analysis", icon: "science" },
 ];
 
 const TOOLTIPS: Record<TabKey, string> = {
