@@ -284,12 +284,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 /* ── Sub-editors ── */
 
 function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChange: (v: EliteVideo[]) => void }) {
-  const [adding, setAdding] = React.useState(false);
-  const [newUrl, setNewUrl] = React.useState("");
-  const [newLabel, setNewLabel] = React.useState("");
-  const [editIdx, setEditIdx] = React.useState<number | null>(null);
-  const [editUrl, setEditUrl] = React.useState("");
-  const [editLabel, setEditLabel] = React.useState("");
+  const [adding, setAdding] = useState(false);
+  const [newUrl, setNewUrl] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editUrl, setEditUrl] = useState("");
+  const [editLabel, setEditLabel] = useState("");
 
   const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
 
