@@ -33,9 +33,11 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
             style={selectedId === node.id ? { borderLeftColor: "#00e639" } : undefined}
             onClick={() => onSelect(node.id)}
           >
-            <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 20 }}>
-              route
-            </span>
+            {node.icon_url ? (
+              <img src={node.icon_url} alt="" className="w-5 h-5 rounded object-cover" />
+            ) : (
+              <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 20 }}>route</span>
+            )}
             <span className="flex-1 text-on-surface text-sm font-medium truncate">{node.name}</span>
             <button
               onClick={(e) => {
