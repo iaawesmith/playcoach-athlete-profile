@@ -372,7 +372,11 @@ Deno.serve(async (req: Request) => {
           }) ?? null
         );
       };
-      const actionPhoto247 = find247ActionPhoto();
+      let actionPhoto247 = find247ActionPhoto();
+      // Upgrade 247 thumbnail URLs to high-res
+      if (actionPhoto247 && /width=\d+/i.test(actionPhoto247)) {
+        actionPhoto247 = actionPhoto247.replace(/width=\d+/gi, "width=800");
+      }
       console.log("[247] Action photo from HTML:", actionPhoto247);
 
       const data: Record<string, unknown> = {};
