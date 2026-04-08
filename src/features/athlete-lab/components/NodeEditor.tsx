@@ -203,7 +203,13 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         )}
 
         {tab === "scoring" && (
-          <textarea className={`${inputClass} min-h-[200px] resize-y`} value={draft.scoring_rules} onChange={(e) => update("scoring_rules", e.target.value)} placeholder="Describe the scoring formula..." />
+          <ScoringEditor
+            scoringRules={draft.scoring_rules}
+            onScoringRulesChange={(v) => update("scoring_rules", v)}
+            metrics={draft.key_metrics}
+            inputClass={inputClass}
+            labelClass={labelClass}
+          />
         )}
 
         {tab === "errors" && (
