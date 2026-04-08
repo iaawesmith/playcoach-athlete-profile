@@ -92,7 +92,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     }
   };
 
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors";
+  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/60 focus:ring-1 focus:ring-primary-container/20 transition-colors";
   const labelClass = "block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2";
 
   return (
@@ -150,20 +150,25 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
       </div>
 
       {/* Content */}
-      <div className="px-6 py-6 space-y-6">
-        <div className="flex items-center gap-1 mb-2">
-          <h3 className="text-on-surface font-extrabold uppercase text-sm tracking-wide">
+      <div className="py-6 space-y-6">
+        {/* Active tab banner */}
+        <div className="mx-0 px-6 py-3 bg-primary-container/10 border-b border-primary-container/20 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 18 }}>
+            {TABS.find((t) => t.key === tab)?.icon}
+          </span>
+          <h3 className="text-on-surface font-extrabold uppercase text-sm tracking-wide flex-1">
             {TABS.find((t) => t.key === tab)?.label}
           </h3>
           <SectionTooltip tip={TOOLTIPS[tab]} />
           <button
             onClick={() => setHelpOpen(true)}
             title="Open admin guidance for this tab"
-            className="ml-auto w-7 h-7 rounded-full bg-primary-container flex items-center justify-center text-white hover:brightness-110 transition-all active:scale-95"
+            className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-primary-foreground hover:brightness-110 transition-all active:scale-95"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>help</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0, 'wght' 700" }}>help</span>
           </button>
         </div>
+        <div className="px-6 space-y-6">
 
         {tab === "basics" && (
           <div className="space-y-4">
