@@ -4,7 +4,7 @@ export const ProCard = () => {
   const {
     firstName, lastName, position, classYear, school, number,
     height, weight, actionPhotoUrl, schoolLogoUrl, teamColor,
-    ratingComposite, compositeRating247, nationalRank, positionRank,
+    ratingComposite, transferRating247, prospectRating247, nationalRank, positionRank,
   } = useAthleteStore();
 
   const hasName = firstName || lastName;
@@ -19,7 +19,7 @@ export const ProCard = () => {
   const physicals = [
     { label: "HEIGHT", value: height ? formatHeight(height) : "0'0\"" },
     { label: "WEIGHT", value: weight ? weight.replace(/\s*lbs?/i, "") : "0" },
-    { label: "RATING", value: compositeRating247 ? compositeRating247.toFixed(4) : ratingComposite || "—" },
+    { label: "RATING", value: transferRating247 ? String(transferRating247) : prospectRating247 ? String(prospectRating247) : ratingComposite || "—" },
   ];
 
   return (

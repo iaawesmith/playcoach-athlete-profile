@@ -6,7 +6,7 @@ export type FieldSource = "manual" | "cfbd" | "247" | "on3" | "firecrawl";
 
 export type MissingField = {
   field: string;
-  source: "CFBD" | "247" | "ON3" | "247C" | "FIRECRAWL";
+  source: "CFBD" | "247" | "ON3" | "247T" | "247P" | "FIRECRAWL";
   reason:
     | "Source not reached"
     | "Player not matched"
@@ -54,7 +54,6 @@ interface AthleteState {
   positionRank: number | null;
   stateRank: number | null;
   recruitingRating: number | null;
-  rating247: string;
   ratingOn3: string;
   ratingComposite: string;
   on3Rating: number | null;
@@ -64,12 +63,15 @@ interface AthleteState {
   offersCount: number | null;
   nilValuation: string | null;
   commitmentStatus: "" | "committed" | "uncommitted" | "portal";
-  stars247: number | null;
-  compositeStars247: number | null;
-  compositeRating247: number | null;
-  compositeNationalRank247: number | null;
-  compositePositionRank247: number | null;
-  compositeStateRank247: number | null;
+  transferStars247: number | null;
+  transferRating247: number | null;
+  transferOvrRank247: number | null;
+  transferPositionRank247: number | null;
+  prospectStars247: number | null;
+  prospectRating247: number | null;
+  prospectNatlRank247: number | null;
+  prospectPositionRank247: number | null;
+  prospectStateRank247: number | null;
   recruitingClassYear: string | null;
   transferFrom: string | null;
   transferStars: number | null;
@@ -133,7 +135,6 @@ const defaults: AthleteData = {
   positionRank: null,
   stateRank: null,
   recruitingRating: null,
-  rating247: "",
   ratingOn3: "",
   ratingComposite: "",
   on3Rating: null,
@@ -143,12 +144,15 @@ const defaults: AthleteData = {
   offersCount: null,
   nilValuation: null,
   commitmentStatus: "",
-  stars247: null,
-  compositeStars247: null,
-  compositeRating247: null,
-  compositeNationalRank247: null,
-  compositePositionRank247: null,
-  compositeStateRank247: null,
+  transferStars247: null,
+  transferRating247: null,
+  transferOvrRank247: null,
+  transferPositionRank247: null,
+  prospectStars247: null,
+  prospectRating247: null,
+  prospectNatlRank247: null,
+  prospectPositionRank247: null,
+  prospectStateRank247: null,
   recruitingClassYear: null,
   transferFrom: null,
   transferStars: null,

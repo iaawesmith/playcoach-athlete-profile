@@ -92,8 +92,8 @@ function score247Url(url: string, firstName: string, lastName: string): number {
   if (!nameMatchesUrl(url, firstName, lastName)) return -1;
 
   let score = 1;
-  // Prefer high-school URLs (recruiting profiles)
-  if (/\/high-school-\d+/.test(lower)) score += 10;
+  // Prefer the college profile (no /high-school- suffix)
+  if (!/\/high-school-\d+/.test(lower)) score += 10;
   return score;
 }
 
@@ -165,15 +165,15 @@ function parse247RecruitingData(
   playerPosition: string,
   playerState: string,
 ): {
-  stars247: number | null;
-  playerRating247: number | null;
-  positionRank: number | null;
-  stateRank: number | null;
-  compositeStars247: number | null;
-  compositeRating247: number | null;
-  compositeNationalRank247: number | null;
-  compositePositionRank247: number | null;
-  compositeStateRank247: number | null;
+  transferStars247: number | null;
+  transferRating247: number | null;
+  transferOvrRank247: number | null;
+  transferPositionRank247: number | null;
+  prospectStars247: number | null;
+  prospectRating247: number | null;
+  prospectNatlRank247: number | null;
+  prospectPositionRank247: number | null;
+  prospectStateRank247: number | null;
 } {
   const pos = (playerPosition || "").toUpperCase();
   const state = (playerState || "").toUpperCase();
@@ -183,20 +183,10 @@ function parse247RecruitingData(
     return count > 0 ? count : null;
   }
 
-  function findRankInList(
-    src: string,
-    label: string,
-    isComposite: boolean,
-  ): number | null {
+  function findRankValue(src: string, label: string): number | null {
     const liBlocks = src.match(/<li[\s\S]*?<\/li>/g) || [];
     for (const li of liBlocks) {
-      const hasLabel = li.includes(`<b>${label}</b>`);
-      const hasCompositeUrl = li.includes("compositerecruitrankings");
-      const hasRankingUrl = li.includes("recruitrankings");
-      const urlTypeMatch = isComposite
-        ? hasCompositeUrl
-        : hasRankingUrl && !hasCompositeUrl;
-      if (hasLabel && urlTypeMatch) {
+      if (li.includes(`<b>${label}</b>`) || li.includes(`<b>${label} </b>`)) {
         const strongMatch = li.match(/<strong>(\d+)<\/strong>/);
         return strongMatch ? parseInt(strongMatch[1]) : null;
       }
@@ -204,77 +194,53 @@ function parse247RecruitingData(
     return null;
   }
 
+  function extractRating(section: string): number | null {
+    // Transfer sections use: <div class="rank-block"> 98 <span class="rank-year">
+    const ratingMatch = section.match(/<div class="rank-block">\s*(\d{2,3})\s*(?:<span|<\/div>)/);
+    return ratingMatch ? parseInt(ratingMatch[1]) : null;
+  }
+
   const rawSections = html.split('<section class="rankings-section">');
-  let proprietarySection = "";
-  let compositeSection = "";
+  let transferSection = "";
+  let prospectSection = "";
 
   for (const section of rawSections) {
     const titleMatch = section.match(/<h3 class="title">([^<]+)<\/h3>/);
     if (!titleMatch) continue;
     const title = titleMatch[1].trim();
-    if (title === "247Sports") {
-      proprietarySection = section;
-    } else if (title.startsWith("247Sports Composite")) {
-      compositeSection = section;
+    if (title === "247Sports Transfer Rankings") {
+      transferSection = section;
+    } else if (title === "247Sports") {
+      prospectSection = section;
     }
   }
 
-  console.log("[247] proprietarySection length:", proprietarySection.length);
-  console.log("[247] compositeSection length:", compositeSection.length);
+  console.log("[247] transferSection length:", transferSection.length);
+  console.log("[247] prospectSection length:", prospectSection.length);
 
-  const stars247 = proprietarySection
-    ? countYellowStars(proprietarySection)
-    : null;
+  // Transfer fields
+  const transferStars247 = transferSection ? countYellowStars(transferSection) : null;
+  const transferRating247 = transferSection ? extractRating(transferSection) : null;
+  const transferOvrRank247 = transferSection ? findRankValue(transferSection, "OVR") : null;
+  const transferPositionRank247 = pos && transferSection ? findRankValue(transferSection, pos) : null;
 
-  const playerRatingMatch = proprietarySection.match(
-    /<div class="rank-block">\s*(\d{2,3})\s*<\/div>/,
-  );
-  const playerRating247 = playerRatingMatch
-    ? parseInt(playerRatingMatch[1])
-    : null;
-
-  const positionRank =
-    pos && proprietarySection
-      ? findRankInList(proprietarySection, pos, false)
-      : null;
-  const stateRank =
-    state && proprietarySection
-      ? findRankInList(proprietarySection, state, false)
-      : null;
-
-  const compositeStars247 = compositeSection
-    ? countYellowStars(compositeSection)
-    : null;
-
-  const compositeRatingMatch = compositeSection.match(
-    /<div class="rank-block">\s*(0\.\d{3,6})\s*<\/div>/,
-  );
-  const compositeRating247 = compositeRatingMatch
-    ? parseFloat(compositeRatingMatch[1])
-    : null;
-
-  const compositeNationalRank247 = compositeSection
-    ? findRankInList(compositeSection, "Natl.", true)
-    : null;
-  const compositePositionRank247 =
-    pos && compositeSection
-      ? findRankInList(compositeSection, pos, true)
-      : null;
-  const compositeStateRank247 =
-    state && compositeSection
-      ? findRankInList(compositeSection, state, true)
-      : null;
+  // Prospect fields
+  const prospectStars247 = prospectSection ? countYellowStars(prospectSection) : null;
+  const prospectRating247 = prospectSection ? extractRating(prospectSection) : null;
+  const prospectNatlRank247 = prospectSection ? findRankValue(prospectSection, "Natl.") : null;
+  const prospectPositionRank247 = pos && prospectSection ? findRankValue(prospectSection, pos) : null;
+  const prospectStateRank247 = state && prospectSection ? findRankValue(prospectSection, state) : null;
 
   return {
-    stars247,
-    playerRating247,
-    positionRank,
-    stateRank,
-    compositeStars247,
-    compositeRating247,
-    compositeNationalRank247,
-    compositePositionRank247,
-    compositeStateRank247,
+    transferStars247,
+    transferRating247,
+    transferOvrRank247,
+    transferPositionRank247,
+    prospectStars247,
+    prospectRating247,
+    prospectNatlRank247,
+    prospectPositionRank247,
+    prospectStateRank247,
   };
 }
 
@@ -316,7 +282,7 @@ Deno.serve(async (req: Request) => {
       const playerState = homeParts.length > 1 ? homeParts[homeParts.length - 1].trim() : "";
 
       // Use Firecrawl Search API instead of scraping Google
-      const searchQuery = `site:247sports.com/player/ ${firstName} ${lastName} ${school || ""} high-school`;
+      const searchQuery = `site:247sports.com/player/ ${firstName} ${lastName} ${school || ""}`;
       console.log("[247] Firecrawl search query:", searchQuery);
 
       const searchResults = await firecrawlSearch(firecrawlKey, searchQuery, 5);
@@ -380,15 +346,15 @@ Deno.serve(async (req: Request) => {
       console.log("[247] Action photo from HTML:", actionPhoto247);
 
       const data: Record<string, unknown> = {};
-      if (parsed.stars247 !== null) data.stars247 = parsed.stars247;
-      if (parsed.playerRating247 !== null) data.rating247 = parsed.playerRating247;
-      if (parsed.positionRank !== null) data.positionRank = parsed.positionRank;
-      if (parsed.stateRank !== null) data.stateRank = parsed.stateRank;
-      if (parsed.compositeStars247 !== null) data.compositeStars247 = parsed.compositeStars247;
-      if (parsed.compositeRating247 !== null) data.compositeRating247 = parsed.compositeRating247;
-      if (parsed.compositeNationalRank247 !== null) data.compositeNationalRank247 = parsed.compositeNationalRank247;
-      if (parsed.compositePositionRank247 !== null) data.compositePositionRank247 = parsed.compositePositionRank247;
-      if (parsed.compositeStateRank247 !== null) data.compositeStateRank247 = parsed.compositeStateRank247;
+      if (parsed.transferStars247 !== null) data.transferStars247 = parsed.transferStars247;
+      if (parsed.transferRating247 !== null) data.transferRating247 = parsed.transferRating247;
+      if (parsed.transferOvrRank247 !== null) data.transferOvrRank247 = parsed.transferOvrRank247;
+      if (parsed.transferPositionRank247 !== null) data.transferPositionRank247 = parsed.transferPositionRank247;
+      if (parsed.prospectStars247 !== null) data.prospectStars247 = parsed.prospectStars247;
+      if (parsed.prospectRating247 !== null) data.prospectRating247 = parsed.prospectRating247;
+      if (parsed.prospectNatlRank247 !== null) data.prospectNatlRank247 = parsed.prospectNatlRank247;
+      if (parsed.prospectPositionRank247 !== null) data.prospectPositionRank247 = parsed.prospectPositionRank247;
+      if (parsed.prospectStateRank247 !== null) data.prospectStateRank247 = parsed.prospectStateRank247;
       if (actionPhoto247) data.actionPhotoUrl = actionPhoto247;
 
       const outcome = Object.keys(data).length > 0 ? "success" : "parse_empty";

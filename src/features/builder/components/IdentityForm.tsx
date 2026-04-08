@@ -30,7 +30,7 @@ const SectionHeader = ({ title }: { title: string }) => (
   </div>
 );
 
-const SourceBadge = ({ source }: { source: "CFBD" | "247" | "ON3" | "247C" }) => (
+const SourceBadge = ({ source }: { source: "CFBD" | "247" | "ON3" | "247T" | "247P" }) => (
   <span className="absolute top-2.5 right-3 text-[8px] font-bold uppercase tracking-widest text-on-surface-variant/40 select-none">
     {source}
   </span>
@@ -69,7 +69,7 @@ const InputCard = ({
 }: {
   label: string; value: string; type?: string; onChange: (val: string) => void;
   suffix?: string; helperText?: string; placeholder?: string;
-  badge?: "CFBD" | "247" | "ON3" | "247C";
+  badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -98,7 +98,7 @@ const NumericInputCard = ({
   label, value, onChange, suffix, placeholder, badge,
 }: {
   label: string; value: string; onChange: (val: string) => void; suffix: string;
-  placeholder?: string; badge?: "CFBD" | "247" | "ON3" | "247C";
+  placeholder?: string; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => {
   const isEmpty = !value;
   return (
@@ -119,7 +119,7 @@ const NumericInputCard = ({
   );
 };
 
-const HeightInputCard = ({ value, onChange, badge }: { value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C" }) => {
+const HeightInputCard = ({ value, onChange, badge }: { value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P" }) => {
   const totalInches = parseInt(value, 10) || 0;
   const feet = Math.floor(totalInches / 12);
   const inches = totalInches % 12;
@@ -153,7 +153,7 @@ const SelectCard = ({
   label, value, options, onChange, badge,
 }: {
   label: string; value: string; options: { value: string; label: string }[];
-  onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C";
+  onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -170,7 +170,7 @@ const SelectCard = ({
 );
 
 const DateInputCard = ({ label, value, onChange, badge }: {
-  label: string; value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C";
+  label: string; value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -221,7 +221,7 @@ const AiVideoField = ({ label }: { label: string }) => (
 /* ─── Read-only display for rank/rating with dash empty state ─ */
 
 const DisplayField = ({ label, value, decimals, badge }: {
-  label: string; value: string | number | null; decimals?: number; badge?: "CFBD" | "247" | "ON3" | "247C";
+  label: string; value: string | number | null; decimals?: number; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => {
   let display = "—";
   if (value !== null && value !== "" && value !== 0) {
@@ -321,7 +321,7 @@ const UniversitySearchCard = ({
   label, value, onChange, placeholder = "Search schools...", badge,
 }: {
   label: string; value: string; onChange: (name: string) => void; placeholder?: string;
-  badge?: "CFBD" | "247" | "ON3" | "247C";
+  badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
@@ -669,38 +669,40 @@ export const IdentityForm = () => {
             {recruitingTab === "247" && (() => {
               const posLabel = position || "POSITION";
               const stateAbbr = getStateAbbrev(hometown);
-              const stateLabel = stateAbbr ? `STATE RANK (${stateAbbr})` : "STATE RANK";
-              const compPosLabel = position ? `COMPOSITE ${position} RANK` : "COMPOSITE POSITION RANK";
-              const compStateLabel = stateAbbr ? `COMPOSITE STATE RANK (${stateAbbr})` : "COMPOSITE STATE RANK";
+              const stateLabel = stateAbbr ? `${stateAbbr} RANK` : "STATE RANK";
               return (
                 <div className="space-y-4">
-                  {/* 247 proprietary */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <DisplayField label="Stars" value={store.stars247} badge="247" />
-                    <DisplayField label="Player Rating" value={store.rating247} decimals={4} badge="247" />
+                  {/* As a Transfer */}
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="flex-1 h-[1px] bg-outline-variant/20" />
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant/40">As a Transfer</span>
+                    <span className="flex-1 h-[1px] bg-outline-variant/20" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <DisplayField label={`${posLabel} RANK`} value={positionRank} badge="247" />
-                    <DisplayField label={stateLabel} value={stateRank} badge="247" />
+                    <DisplayField label="Stars (Transfer)" value={store.transferStars247} badge="247T" />
+                    <DisplayField label="Rating (Transfer)" value={store.transferRating247} badge="247T" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <DisplayField label="OVR Rank" value={store.transferOvrRank247} badge="247T" />
+                    <DisplayField label={`${posLabel} RANK (Transfer)`} value={store.transferPositionRank247} badge="247T" />
                   </div>
 
-                  {/* 247 Composite divider */}
+                  {/* As a Prospect */}
                   <div className="flex items-center gap-3 my-2">
                     <span className="flex-1 h-[1px] bg-outline-variant/20" />
-                    <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant/40">247 Composite</span>
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant/40">As a Prospect</span>
                     <span className="flex-1 h-[1px] bg-outline-variant/20" />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
-                    <DisplayField label="Composite Stars" value={store.compositeStars247} badge="247C" />
-                    <DisplayField label="Composite Rating" value={store.compositeRating247} decimals={4} badge="247C" />
+                    <DisplayField label="Stars (Prospect)" value={store.prospectStars247} badge="247P" />
+                    <DisplayField label="Rating (Prospect)" value={store.prospectRating247} badge="247P" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <DisplayField label="Composite Natl. Rank" value={store.compositeNationalRank247} badge="247C" />
-                    <DisplayField label={compPosLabel} value={store.compositePositionRank247} badge="247C" />
+                    <DisplayField label="NATL. Rank" value={store.prospectNatlRank247} badge="247P" />
+                    <DisplayField label={`${posLabel} RANK (Prospect)`} value={store.prospectPositionRank247} badge="247P" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <DisplayField label={compStateLabel} value={store.compositeStateRank247} badge="247C" />
+                    <DisplayField label={stateLabel} value={store.prospectStateRank247} badge="247P" />
                   </div>
                 </div>
               );

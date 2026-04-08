@@ -90,13 +90,15 @@ export const fieldLabels: Record<string, string> = {
   offersCount: "Offers",
   nilValuation: "NIL Valuation",
   upcomingGame: "Upcoming Game",
-  stars247: "247 Stars",
-  rating247: "247 Rating",
-  compositeStars247: "247 Composite Stars",
-  compositeRating247: "247 Composite Rating",
-  compositeNationalRank247: "247 Composite Natl. Rank",
-  compositePositionRank247: "247 Composite Position Rank",
-  compositeStateRank247: "247 Composite State Rank",
+  transferStars247: "Stars (Transfer)",
+  transferRating247: "Rating (Transfer)",
+  transferOvrRank247: "OVR Rank",
+  transferPositionRank247: "Position Rank (Transfer)",
+  prospectStars247: "Stars (Prospect)",
+  prospectRating247: "Rating (Prospect)",
+  prospectNatlRank247: "NATL. Rank",
+  prospectPositionRank247: "Position Rank (Prospect)",
+  prospectStateRank247: "State Rank (Prospect)",
   on3StateRank: "On3 State Rank",
   recruitingClassYear: "Recruiting Class Year",
 };
@@ -293,7 +295,6 @@ export function useAutoFill() {
         if (recruit.rating) {
           cfbdData.recruitingRating = recruit.rating;
           cfbdData.ratingComposite = Number(recruit.rating).toFixed(4);
-          cfbdData.compositeRating247 = Number(recruit.rating);
         }
         if (recruit.ranking) cfbdData.nationalRank = recruit.ranking;
         if (recruit.school) cfbdData.highSchool = String(recruit.school);
@@ -392,22 +393,19 @@ export function useAutoFill() {
         firecrawlApi.searchOn3Profile(firstName, lastName, posTag, schoolTag),
       ]);
 
-      // 247Sports — backend returns: stars247, rating247, positionRank, stateRank,
-      // compositeStars247, compositeRating247, compositeNationalRank247,
-      // compositePositionRank247, compositeStateRank247, actionPhotoUrl
+      // 247Sports — backend returns new transfer/prospect fields
       if (s247Res.success && s247Res.data) {
         srcList.push("247Sports");
         const d = s247Res.data as Record<string, unknown>;
-        if (d.stars247 != null) data.stars247 = d.stars247;
-        if (d.playerRating247 != null) data.rating247 = d.playerRating247;
-        if (d.rating247 != null && d.playerRating247 == null) data.rating247 = d.rating247;
-        if (d.positionRank != null) data.positionRank = d.positionRank;
-        if (d.stateRank != null) data.stateRank = d.stateRank;
-        if (d.compositeStars247 != null) data.compositeStars247 = d.compositeStars247;
-        if (d.compositeRating247 != null) data.compositeRating247 = d.compositeRating247;
-        if (d.compositeNationalRank247 != null) data.compositeNationalRank247 = d.compositeNationalRank247;
-        if (d.compositePositionRank247 != null) data.compositePositionRank247 = d.compositePositionRank247;
-        if (d.compositeStateRank247 != null) data.compositeStateRank247 = d.compositeStateRank247;
+        if (d.transferStars247 != null) data.transferStars247 = d.transferStars247;
+        if (d.transferRating247 != null) data.transferRating247 = d.transferRating247;
+        if (d.transferOvrRank247 != null) data.transferOvrRank247 = d.transferOvrRank247;
+        if (d.transferPositionRank247 != null) data.transferPositionRank247 = d.transferPositionRank247;
+        if (d.prospectStars247 != null) data.prospectStars247 = d.prospectStars247;
+        if (d.prospectRating247 != null) data.prospectRating247 = d.prospectRating247;
+        if (d.prospectNatlRank247 != null) data.prospectNatlRank247 = d.prospectNatlRank247;
+        if (d.prospectPositionRank247 != null) data.prospectPositionRank247 = d.prospectPositionRank247;
+        if (d.prospectStateRank247 != null) data.prospectStateRank247 = d.prospectStateRank247;
         if (d.actionPhotoUrl && isValidActionPhoto(String(d.actionPhotoUrl))) {
           actionPhotoFrom247 = String(d.actionPhotoUrl);
         }
@@ -481,14 +479,15 @@ export function useAutoFill() {
 
     // Write 247 rating data to store immediately so ProCard updates live
     const immediateRatingFields: Record<string, unknown> = {};
-    if (data.stars247 != null) immediateRatingFields.stars247 = data.stars247;
-    if (data.rating247 != null) immediateRatingFields.rating247 = data.rating247;
-    if (data.compositeRating247 != null) immediateRatingFields.compositeRating247 = data.compositeRating247;
-    if (data.compositeStars247 != null) immediateRatingFields.compositeStars247 = data.compositeStars247;
-    if (data.nationalRank != null) immediateRatingFields.nationalRank = data.nationalRank;
-    if (data.positionRank != null) immediateRatingFields.positionRank = data.positionRank;
-    if (data.compositeNationalRank247 != null) immediateRatingFields.compositeNationalRank247 = data.compositeNationalRank247;
-    if (data.compositePositionRank247 != null) immediateRatingFields.compositePositionRank247 = data.compositePositionRank247;
+    if (data.transferStars247 != null) immediateRatingFields.transferStars247 = data.transferStars247;
+    if (data.transferRating247 != null) immediateRatingFields.transferRating247 = data.transferRating247;
+    if (data.transferOvrRank247 != null) immediateRatingFields.transferOvrRank247 = data.transferOvrRank247;
+    if (data.transferPositionRank247 != null) immediateRatingFields.transferPositionRank247 = data.transferPositionRank247;
+    if (data.prospectStars247 != null) immediateRatingFields.prospectStars247 = data.prospectStars247;
+    if (data.prospectRating247 != null) immediateRatingFields.prospectRating247 = data.prospectRating247;
+    if (data.prospectNatlRank247 != null) immediateRatingFields.prospectNatlRank247 = data.prospectNatlRank247;
+    if (data.prospectPositionRank247 != null) immediateRatingFields.prospectPositionRank247 = data.prospectPositionRank247;
+    if (data.prospectStateRank247 != null) immediateRatingFields.prospectStateRank247 = data.prospectStateRank247;
 
     if (Object.keys(immediateRatingFields).length > 0) {
       setAthleteFromSource(immediateRatingFields as Partial<Record<string, unknown>>, "247");
@@ -529,10 +528,8 @@ export function useAutoFill() {
 
       let source: FieldSource = "firecrawl";
       if (srcList.includes("247Sports") && [
-        "stars247", "rating247", "positionRank", "stateRank",
-        "compositeStars247", "compositeRating247",
-        "compositeNationalRank247", "compositePositionRank247", "compositeStateRank247",
-        "height", "weight", "highSchool", "hometown",
+        "transferStars247", "transferRating247", "transferOvrRank247", "transferPositionRank247",
+        "prospectStars247", "prospectRating247", "prospectNatlRank247", "prospectPositionRank247", "prospectStateRank247",
       ].includes(key)) {
         source = "247";
       }
@@ -670,21 +667,27 @@ export function useAutoFill() {
         if (!storeAfter.highSchool) missingFields.push({ field: "High School", source: "CFBD", reason: "Field not in response" });
       }
 
-      // 247Sports fields — check store for enriched values
-      const has247Data = storeAfter.stars247 != null || storeAfter.compositeRating247 != null;
+      // 247Sports fields — check store for enriched values (transfer + prospect)
+      const has247Transfer = storeAfter.transferStars247 != null || storeAfter.transferRating247 != null;
+      const has247Prospect = storeAfter.prospectStars247 != null || storeAfter.prospectRating247 != null;
+      const has247Data = has247Transfer || has247Prospect;
       if (!has247Data) {
-        // 247 is always attempted — if no data came back, player wasn't matched
-        ["Stars (247)", "Player Rating", `${pos} Rank`, "State Rank",
-          "Composite Stars", "Composite Rating", "Composite Natl. Rank",
-          `Composite ${pos} Rank`, "Composite State Rank",
-        ].forEach((f) => missingFields.push({ field: f, source: "247", reason: "Player not matched" }));
+        ["Stars (Transfer)", "Rating (Transfer)", "OVR Rank", `${pos} Rank (Transfer)`,
+          "Stars (Prospect)", "Rating (Prospect)", "NATL. Rank",
+          `${pos} Rank (Prospect)`, "State Rank (Prospect)",
+        ].forEach((f) => missingFields.push({ field: f, source: "247T", reason: "Player not matched" }));
       } else {
-        if (storeAfter.stars247 == null) missingFields.push({ field: "Stars (247)", source: "247", reason: "Parsing failed" });
-        if (storeAfter.compositeStars247 == null) missingFields.push({ field: "Composite Stars", source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositeRating247 == null) missingFields.push({ field: "Composite Rating", source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositeNationalRank247 == null) missingFields.push({ field: "Composite Natl. Rank", source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositePositionRank247 == null) missingFields.push({ field: `Composite ${pos} Rank`, source: "247C", reason: "Parsing failed" });
-        if (storeAfter.compositeStateRank247 == null) missingFields.push({ field: "Composite State Rank", source: "247C", reason: "Parsing failed" });
+        // Transfer fields
+        if (storeAfter.transferStars247 == null) missingFields.push({ field: "Stars (Transfer)", source: "247T", reason: "Parsing failed" });
+        if (storeAfter.transferRating247 == null) missingFields.push({ field: "Rating (Transfer)", source: "247T", reason: "Parsing failed" });
+        if (storeAfter.transferOvrRank247 == null) missingFields.push({ field: "OVR Rank", source: "247T", reason: "Parsing failed" });
+        if (storeAfter.transferPositionRank247 == null) missingFields.push({ field: `${pos} Rank (Transfer)`, source: "247T", reason: "Parsing failed" });
+        // Prospect fields
+        if (storeAfter.prospectStars247 == null) missingFields.push({ field: "Stars (Prospect)", source: "247P", reason: "Parsing failed" });
+        if (storeAfter.prospectRating247 == null) missingFields.push({ field: "Rating (Prospect)", source: "247P", reason: "Parsing failed" });
+        if (storeAfter.prospectNatlRank247 == null) missingFields.push({ field: "NATL. Rank", source: "247P", reason: "Parsing failed" });
+        if (storeAfter.prospectPositionRank247 == null) missingFields.push({ field: `${pos} Rank (Prospect)`, source: "247P", reason: "Parsing failed" });
+        if (storeAfter.prospectStateRank247 == null) missingFields.push({ field: "State Rank (Prospect)", source: "247P", reason: "Parsing failed" });
       }
 
       // On3 fields
