@@ -399,7 +399,8 @@ export function useAutoFill() {
         srcList.push("247Sports");
         const d = s247Res.data as Record<string, unknown>;
         if (d.stars247 != null) data.stars247 = d.stars247;
-        if (d.rating247 != null) data.rating247 = d.rating247;
+        if (d.playerRating247 != null) data.rating247 = d.playerRating247;
+        if (d.rating247 != null && d.playerRating247 == null) data.rating247 = d.rating247;
         if (d.positionRank != null) data.positionRank = d.positionRank;
         if (d.stateRank != null) data.stateRank = d.stateRank;
         if (d.compositeStars247 != null) data.compositeStars247 = d.compositeStars247;
@@ -480,6 +481,8 @@ export function useAutoFill() {
 
     // Write 247 rating data to store immediately so ProCard updates live
     const immediateRatingFields: Record<string, unknown> = {};
+    if (data.stars247 != null) immediateRatingFields.stars247 = data.stars247;
+    if (data.rating247 != null) immediateRatingFields.rating247 = data.rating247;
     if (data.compositeRating247 != null) immediateRatingFields.compositeRating247 = data.compositeRating247;
     if (data.compositeStars247 != null) immediateRatingFields.compositeStars247 = data.compositeStars247;
     if (data.nationalRank != null) immediateRatingFields.nationalRank = data.nationalRank;
@@ -608,8 +611,14 @@ export function useAutoFill() {
           cfbdRecruitFound = !!cfbdDataResult.starRating || !!cfbdDataResult.recruitingRating;
           if (cfbdResult.errors.length > 0) {
             diagParts.push(`CFBD: ${cfbdResult.errors.join(", ")}`);
-            cfbdRosterReached = !cfbdResult.errors.some((e) => e.includes("roster") && e.includes("✗"));
-            cfbdRecruitReached = !cfbdResult.errors.some((e) => e.includes("recruiting") && e.includes("✗"));
+            // "Source not reached" = the API call itself failed (network error, no CFBD team match)
+            // "Player not matched" = API returned data but player wasn't in results
+            // Check for team resolution failure or actual HTTP errors — not just "✗" in player-match messages
+            const hasTeamFailure = cfbdResult.errors.some((e) => e.includes("team ✗"));
+            const hasRosterApiFailure = cfbdResult.errors.some((e) => e.match(/roster \d+ ✗/) != null);
+            const hasRecruitApiFailure = cfbdResult.errors.some((e) => e.startsWith("recruiting ✗") && e.includes("(") && !e.includes("recruits"));
+            cfbdRosterReached = !hasTeamFailure && !hasRosterApiFailure;
+            cfbdRecruitReached = !hasTeamFailure && !hasRecruitApiFailure;
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
