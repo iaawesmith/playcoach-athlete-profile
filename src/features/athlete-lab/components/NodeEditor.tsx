@@ -92,7 +92,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     }
   };
 
-  const inputClass = "w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/60 focus:ring-1 focus:ring-primary-container/20 transition-colors";
+  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
   const labelClass = "block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2";
 
   return (
