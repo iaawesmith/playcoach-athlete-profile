@@ -1,86 +1,32 @@
 
 
-## Revamp 247Sports to Transfer + Prospect Sections
+## Extract High School from 247Sports Instead of CFBD
 
 ### What's Changing
+The CFBD recruiting endpoint often fails to match transfer players, so `highSchool` never populates. The 247 college profile page already contains the high school name in a structured `<li>` element. We'll extract it there and update the source badge from CFBD to 247.
 
-The current 247 parser targets the high-school recruiting slug (`/high-school-{id}/`). The user wants the **college profile** slug instead (`/player/{slug}-{id}/`), which contains two ranking sections:
-
-1. **"247Sports Transfer Rankings"** — current transfer portal ratings
-2. **"247Sports"** — original prospect (high school) ratings
-
-These should appear in the builder's 247 tab as two distinct sections with a toggle or divider, replacing the current flat list of proprietary + composite fields.
-
-### New Data Model
-
-**Store fields to add** (in `athleteStore.ts`):
-- `transferStars247: number | null` (badge: 247T)
-- `transferRating247: number | null` (badge: 247T)
-- `transferOvrRank247: number | null` (badge: 247T)
-- `transferPositionRank247: number | null` (badge: 247T)
-- `prospectStars247: number | null` (badge: 247P)
-- `prospectRating247: number | null` (badge: 247P)
-- `prospectNatlRank247: number | null` (badge: 247P)
-- `prospectPositionRank247: number | null` (badge: 247P)
-- `prospectStateRank247: number | null` (badge: 247P)
-
-**Existing fields to remove/repurpose**: `stars247`, `rating247`, `compositeStars247`, `compositeRating247`, `compositeNationalRank247`, `compositePositionRank247`, `compositeStateRank247` — replace with the new transfer/prospect fields above.
-
-### Changes by File
+### Changes
 
 **1. `supabase/functions/firecrawl-profile/index.ts`**
+- Add `highSchool: string | null` to the return type of `parse247RecruitingData`
+- Parse it from the full HTML (not a section — it's in the player bio area): look for `<li>` containing `<span>High School</span>`, then extract the text content of the second `<span>` (strip the `<a>` tag, take inner text)
+- Return `highSchool` alongside the existing transfer/prospect fields
+- Redeploy edge function
 
-- **Remove** `high-school` preference from `score247Url` — the college profile slug (`/player/{slug}-{id}/`) is what we want now
-- **Rewrite `parse247RecruitingData`** to extract from two sections:
-  - Transfer section: identified by `<h3 class="title">247Sports Transfer Rankings</h3>`
-    - Stars: count `icon-starsolid yellow` spans inside the section's `stars-block`
-    - Rating: numeric value in `rank-block` (e.g. 98)
-    - OVR Rank: `<b>OVR</b>` → following `<strong>N</strong>`
-    - Position Rank: `<b>{POS}</b>` (matched against CFBD position) → following `<strong>N</strong>`
-  - Prospect section: identified by `<h3 class="title">247Sports</h3>` (already parsed, just rename output keys)
-    - Stars: count `icon-starsolid yellow`
-    - Rating: numeric in `rank-block`
-    - Natl. Rank: `<b>Natl. </b>` → `<strong>N</strong>` (in non-composite `recruitrankings` URLs)
-    - Position Rank: `<b>{POS}</b>` → `<strong>N</strong>`
-    - State Rank: `<b>{ST}</b>` → `<strong>N</strong>` (state abbreviation from CFBD hometown)
-- Return new field names: `transferStars247`, `transferRating247`, `transferOvrRank247`, `transferPositionRank247`, `prospectStars247`, `prospectRating247`, `prospectNatlRank247`, `prospectPositionRank247`, `prospectStateRank247`
-- Remove search query `high-school` suffix — just search `site:247sports.com/player/ {name} {school}`
+**2. `src/hooks/useAutoFill.ts`**
+- In the 247 data mapping block (~line 397-408): add `if (d.highSchool) data.highSchool = d.highSchool;`
+- Add `highSchool` to `immediateRatingFields` block so it writes to the store immediately with source `"247"`
+- Remove `highSchool` from the CFBD missing-fields check (~line 661-667) — no longer tracked under CFBD
+- Add a 247 missing-field check: if `!storeAfter.highSchool`, push `{ field: "High School", source: "247", reason: "Field not in response" }`
 
-**2. `src/store/athleteStore.ts`**
+**3. `src/features/builder/components/IdentityForm.tsx`**
+- Change the `badge` prop on the High School `InputCard` from `"CFBD"` to `"247"`
 
-- Add 9 new fields (transfer + prospect) with `null` defaults
-- Remove old 7 composite/proprietary fields (`stars247`, `rating247`, `compositeStars247`, etc.)
-- Update `MissingField.source` type to include `"247T"` and `"247P"`
-- Update defaults object
-
-**3. `src/hooks/useAutoFill.ts`**
-
-- Update field mapping in `runFirecrawlPhase` to read new keys from backend
-- Update `fieldLabels` with new human-readable labels (e.g. "Stars (Transfer)", "OVR Rank", etc.)
-- Update `immediateRatingFields` to write new keys to store
-- Update missing-field tracking to check transfer vs prospect fields separately
-- Source badges: `"247T"` for transfer fields, `"247P"` for prospect fields
-
-**4. `src/features/builder/components/IdentityForm.tsx`**
-
-- Replace the 247 tab content with two sections separated by a divider:
-  - **"As a Transfer"** — `transferStars247`, `transferRating247`, `transferOvrRank247`, `transferPositionRank247` with badge `247T`
-  - **"As a Prospect"** — `prospectStars247`, `prospectRating247`, `prospectNatlRank247`, `prospectPositionRank247`, `prospectStateRank247` with badge `247P`
-- Position label dynamically derived from CFBD position
-- State abbreviation derived from CFBD hometown for state rank label
-- Remove old composite fields display
-
-**5. `src/services/firecrawl.ts`**
-
-- Update `Extracted247Data` type to match new field names
-
-**6. `src/features/builder/components/ProCard.tsx`**
-
-- Update rating display to use new field names (use `transferRating247` or `prospectRating247` as fallback)
+**4. `src/hooks/useAutoFill.ts` (field labels)**
+- No change needed — `highSchool: "High School"` label already exists
 
 ### Not Changing
-- On3 logic — untouched
-- CFBD logic — untouched
-- Action photo extraction — keep as-is (already works on the college profile page)
-- Discovery logic — the URL scoring will actually improve since we no longer prefer `high-school` URLs
+- CFBD still pulls `recruit.school` if available — but it will no longer be the primary source and 247 will overwrite it
+- Store schema — `highSchool` field already exists
+- Hometown — stays as CFBD
 
