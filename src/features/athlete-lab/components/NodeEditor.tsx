@@ -347,10 +347,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <p className="text-on-surface-variant text-xs">
-        Elite reference videos the AI uses as benchmarks. Add YouTube links, direct mp4 URLs, or any video reference.
-      </p>
+
 
       {/* Video list */}
       {videos.length === 0 && !adding && (
