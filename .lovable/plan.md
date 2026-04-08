@@ -1,46 +1,86 @@
 
 
-## Fix: CFBD Stars "Source not reached" + 247 "Player not matched" + Action Photo
+## Revamp 247Sports to Transfer + Prospect Sections
 
-### Root Causes Found
+### What's Changing
 
-**1. Stars (CFBD) — "Source not reached" is misleading but correct-ish**
+The current 247 parser targets the high-school recruiting slug (`/high-school-{id}/`). The user wants the **college profile** slug instead (`/player/{slug}-{id}/`), which contains two ranking sections:
 
-The CFBD recruiting endpoint (`/recruiting/players`) filters by `committedTo` school. Transfer players like Julian Sayin (committed to Alabama, transferred to Ohio State) won't appear in Ohio State's recruiting list. The endpoint succeeds (HTTP 200) but the player isn't in the results. The code at line 611 checks for `"recruiting" + "✗"` in error messages to determine `cfbdRecruitReached`. When recruiting returns data but the player isn't found, `cfbdRecruitReached` stays `true` and `cfbdRecruitFound` is `false` — but the error message includes `recruiting ✗`, which flips `cfbdRecruitReached` to `false`, causing "Source not reached" instead of the correct "Player not matched".
+1. **"247Sports Transfer Rankings"** — current transfer portal ratings
+2. **"247Sports"** — original prospect (high school) ratings
 
-**Fix**: Change the `cfbdRecruitReached` logic. The source WAS reached (HTTP 200 returned data) — the player just wasn't in it. The condition should distinguish between "endpoint failed" and "player not in results".
+These should appear in the builder's 247 tab as two distinct sections with a toggle or divider, replacing the current flat list of proprietary + composite fields.
 
-**2. 247 — "Player not matched" is wrong; data IS returned**
+### New Data Model
 
-The edge function returns: `{stars247: 5, playerRating247: 98, positionRank: 3, ...}`.
+**Store fields to add** (in `athleteStore.ts`):
+- `transferStars247: number | null` (badge: 247T)
+- `transferRating247: number | null` (badge: 247T)
+- `transferOvrRank247: number | null` (badge: 247T)
+- `transferPositionRank247: number | null` (badge: 247T)
+- `prospectStars247: number | null` (badge: 247P)
+- `prospectRating247: number | null` (badge: 247P)
+- `prospectNatlRank247: number | null` (badge: 247P)
+- `prospectPositionRank247: number | null` (badge: 247P)
+- `prospectStateRank247: number | null` (badge: 247P)
 
-Two bugs prevent this from reaching the store:
-- **Field name mismatch**: Backend returns `playerRating247` but frontend reads `d.rating247` (line 402). So `rating247` is always null.
-- **`stars247` never written to store**: The `immediateRatingFields` block (lines 482-488) writes `compositeRating247`, `compositeStars247`, etc. but skips `stars247` and `rating247`. They only go into the `data` object for field entries. So `storeAfter.stars247` is null when the missing-fields check runs at line 665, making `has247Data` false, which triggers "Player not matched".
+**Existing fields to remove/repurpose**: `stars247`, `rating247`, `compositeStars247`, `compositeRating247`, `compositeNationalRank247`, `compositePositionRank247`, `compositeStateRank247` — replace with the new transfer/prospect fields above.
 
-**Fix**: 
-- Read `d.playerRating247` (matching backend key) and write it as `rating247`
-- Add `stars247` and `rating247` to the `immediateRatingFields` block so they get written to the store
+### Changes by File
 
-**3. 247 Action Photo — returns 100px thumbnail**
+**1. `supabase/functions/firecrawl-profile/index.ts`**
 
-The edge function finds a 247 image but it's `?fit=crop&width=100` — a tiny thumbnail. Should strip or replace the width param to get a usable resolution.
+- **Remove** `high-school` preference from `score247Url` — the college profile slug (`/player/{slug}-{id}/`) is what we want now
+- **Rewrite `parse247RecruitingData`** to extract from two sections:
+  - Transfer section: identified by `<h3 class="title">247Sports Transfer Rankings</h3>`
+    - Stars: count `icon-starsolid yellow` spans inside the section's `stars-block`
+    - Rating: numeric value in `rank-block` (e.g. 98)
+    - OVR Rank: `<b>OVR</b>` → following `<strong>N</strong>`
+    - Position Rank: `<b>{POS}</b>` (matched against CFBD position) → following `<strong>N</strong>`
+  - Prospect section: identified by `<h3 class="title">247Sports</h3>` (already parsed, just rename output keys)
+    - Stars: count `icon-starsolid yellow`
+    - Rating: numeric in `rank-block`
+    - Natl. Rank: `<b>Natl. </b>` → `<strong>N</strong>` (in non-composite `recruitrankings` URLs)
+    - Position Rank: `<b>{POS}</b>` → `<strong>N</strong>`
+    - State Rank: `<b>{ST}</b>` → `<strong>N</strong>` (state abbreviation from CFBD hometown)
+- Return new field names: `transferStars247`, `transferRating247`, `transferOvrRank247`, `transferPositionRank247`, `prospectStars247`, `prospectRating247`, `prospectNatlRank247`, `prospectPositionRank247`, `prospectStateRank247`
+- Remove search query `high-school` suffix — just search `site:247sports.com/player/ {name} {school}`
 
-**Fix**: In the edge function, strip `width=100` or replace with `width=800` on 247 CDN URLs before returning.
+**2. `src/store/athleteStore.ts`**
 
-### Changes
+- Add 9 new fields (transfer + prospect) with `null` defaults
+- Remove old 7 composite/proprietary fields (`stars247`, `rating247`, `compositeStars247`, etc.)
+- Update `MissingField.source` type to include `"247T"` and `"247P"`
+- Update defaults object
 
-**File 1: `src/hooks/useAutoFill.ts`**
-- Line 402: Change `d.rating247` to `d.playerRating247` (match backend key)
-- Lines 482-488: Add `stars247` and `rating247` to `immediateRatingFields` so they get written to the store
-- Lines 607-612: Fix `cfbdRecruitReached` logic — track it based on whether the API call itself failed, not the presence of "✗" in error messages. If the endpoint returned data (even if the player wasn't matched), the source was reached.
+**3. `src/hooks/useAutoFill.ts`**
 
-**File 2: `supabase/functions/firecrawl-profile/index.ts`**
-- In the 247 action photo extraction, strip or replace `width=100` with a larger width (e.g., `width=800`) on `s3media.247sports.com` URLs before returning
+- Update field mapping in `runFirecrawlPhase` to read new keys from backend
+- Update `fieldLabels` with new human-readable labels (e.g. "Stars (Transfer)", "OVR Rank", etc.)
+- Update `immediateRatingFields` to write new keys to store
+- Update missing-field tracking to check transfer vs prospect fields separately
+- Source badges: `"247T"` for transfer fields, `"247P"` for prospect fields
 
-### Expected Outcome
-- CFBD recruiting for transfer players: "Player not matched" (accurate) instead of "Source not reached"
-- 247 Stars and Rating: appear in found data, not missing fields
-- 247 composite fields still show as "Parsing failed" if the page didn't have composite data (which is accurate — Julian Sayin's 247 page apparently lacks composite section)
-- 247 action photo returns at usable resolution
+**4. `src/features/builder/components/IdentityForm.tsx`**
+
+- Replace the 247 tab content with two sections separated by a divider:
+  - **"As a Transfer"** — `transferStars247`, `transferRating247`, `transferOvrRank247`, `transferPositionRank247` with badge `247T`
+  - **"As a Prospect"** — `prospectStars247`, `prospectRating247`, `prospectNatlRank247`, `prospectPositionRank247`, `prospectStateRank247` with badge `247P`
+- Position label dynamically derived from CFBD position
+- State abbreviation derived from CFBD hometown for state rank label
+- Remove old composite fields display
+
+**5. `src/services/firecrawl.ts`**
+
+- Update `Extracted247Data` type to match new field names
+
+**6. `src/features/builder/components/ProCard.tsx`**
+
+- Update rating display to use new field names (use `transferRating247` or `prospectRating247` as fallback)
+
+### Not Changing
+- On3 logic — untouched
+- CFBD logic — untouched
+- Action photo extraction — keep as-is (already works on the college profile page)
+- Discovery logic — the URL scoring will actually improve since we no longer prefer `high-school` URLs
 
