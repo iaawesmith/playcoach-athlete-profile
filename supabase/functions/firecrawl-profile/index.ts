@@ -174,6 +174,7 @@ function parse247RecruitingData(
   prospectNatlRank247: number | null;
   prospectPositionRank247: number | null;
   prospectStateRank247: number | null;
+  highSchool: string | null;
 } {
   const pos = (playerPosition || "").toUpperCase();
   const state = (playerState || "").toUpperCase();
@@ -231,6 +232,24 @@ function parse247RecruitingData(
   const prospectPositionRank247 = pos && prospectSection ? findRankValue(prospectSection, pos) : null;
   const prospectStateRank247 = state && prospectSection ? findRankValue(prospectSection, state) : null;
 
+  // High School — from player bio area, outside ranking sections
+  let highSchool: string | null = null;
+  const hsLiBlocks = html.match(/<li[\s\S]*?<\/li>/g) || [];
+  for (const li of hsLiBlocks) {
+    if (li.includes(">High School<") || li.includes(">High School </")) {
+      // Second <span> contains the value, possibly wrapped in an <a>
+      const spans = li.match(/<span[^>]*>([\s\S]*?)<\/span>/g) || [];
+      if (spans.length >= 2) {
+        const valueSpan = spans[1];
+        // Strip HTML tags, trim whitespace
+        const text = valueSpan.replace(/<[^>]+>/g, "").trim();
+        if (text) highSchool = text;
+      }
+      break;
+    }
+  }
+  console.log("[247] highSchool:", highSchool);
+
   return {
     transferStars247,
     transferRating247,
@@ -241,6 +260,7 @@ function parse247RecruitingData(
     prospectNatlRank247,
     prospectPositionRank247,
     prospectStateRank247,
+    highSchool,
   };
 }
 

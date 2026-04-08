@@ -14,6 +14,7 @@ export type Extracted247Data = {
   prospectNatlRank247: number | null;
   prospectPositionRank247: number | null;
   prospectStateRank247: number | null;
+  highSchool: string | null;
   actionPhotoUrl: string | null;
 };
 
