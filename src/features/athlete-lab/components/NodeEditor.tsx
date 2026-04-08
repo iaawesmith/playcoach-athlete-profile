@@ -203,7 +203,13 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         )}
 
         {tab === "scoring" && (
-          <textarea className={`${inputClass} min-h-[200px] resize-y`} value={draft.scoring_rules} onChange={(e) => update("scoring_rules", e.target.value)} placeholder="Describe the scoring formula..." />
+          <ScoringEditor
+            scoringRules={draft.scoring_rules}
+            onScoringRulesChange={(v) => update("scoring_rules", v)}
+            metrics={draft.key_metrics}
+            inputClass={inputClass}
+            labelClass={labelClass}
+          />
         )}
 
         {tab === "errors" && (
@@ -551,6 +557,193 @@ function CameraEditor({ value, onChange, inputClass, labelClass }: StructuredEdi
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ── Scoring Editor ── */
+
+interface ScoringEditorProps {
+  scoringRules: string;
+  onScoringRulesChange: (v: string) => void;
+  metrics: KeyMetric[];
+  inputClass: string;
+  labelClass: string;
+}
+
+function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass, labelClass }: ScoringEditorProps) {
+  const [simValues, setSimValues] = useState<Record<string, number>>({});
+
+  const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
+  const weightValid = totalWeight === 100;
+
+  const simulatedScore = metrics.length > 0 && weightValid
+    ? Math.round(metrics.reduce((sum, m) => {
+        const val = simValues[m.name] ?? 0;
+        return sum + (val * m.weight) / 100;
+      }, 0))
+    : null;
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "#00e639";
+    if (score >= 60) return "#f59e0b";
+    return "#ef4444";
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Scoring Rules Text */}
+      <div>
+        <label className={labelClass}>Scoring Formula Description</label>
+        <p className="text-on-surface-variant text-xs mb-2 leading-relaxed">
+          Describe how the overall Route Mastery Score is calculated from individual metrics. The AI uses this to explain scores to athletes.
+        </p>
+        <textarea
+          className={`${inputClass} min-h-[120px] resize-y`}
+          value={scoringRules}
+          onChange={(e) => onScoringRulesChange(e.target.value)}
+          placeholder="Describe the scoring formula..."
+        />
+      </div>
+
+      {/* Weight Distribution Table */}
+      <div className="bg-surface-container rounded-xl p-5 border border-white/5">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>pie_chart</span>
+            Current Weight Distribution
+          </h4>
+          <span className={`text-xs font-black px-3 py-1 rounded-full ${weightValid ? "bg-primary-container/15 text-primary-container" : "bg-red-500/15 text-red-400"}`}>
+            {totalWeight}% {!weightValid && "⚠"}
+          </span>
+        </div>
+
+        {metrics.length === 0 ? (
+          <div className="text-center py-6">
+            <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 32 }}>analytics</span>
+            <p className="text-on-surface-variant text-xs mt-2">No metrics defined yet. Add metrics in the Metrics tab.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-on-surface-variant text-[9px] uppercase tracking-[0.3em] border-b border-white/5">
+                  <th className="text-left py-2 pr-4 font-semibold">Metric</th>
+                  <th className="text-right py-2 px-3 font-semibold">Weight</th>
+                  <th className="text-right py-2 px-3 font-semibold">If Score = 90</th>
+                  <th className="text-right py-2 pl-3 font-semibold">Contribution</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.map((m) => {
+                  const contribution = (90 * m.weight) / 100;
+                  return (
+                    <tr key={m.name} className="border-b border-white/5 last:border-0">
+                      <td className="py-2.5 pr-4 text-on-surface font-medium">{m.name || "Unnamed"}</td>
+                      <td className="py-2.5 px-3 text-right text-on-surface">{m.weight}%</td>
+                      <td className="py-2.5 px-3 text-right text-on-surface-variant">90</td>
+                      <td className="py-2.5 pl-3 text-right font-bold text-primary-container">{contribution.toFixed(1)}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-t border-white/10">
+                  <td className="py-2.5 pr-4 text-on-surface font-black uppercase text-[10px] tracking-widest">Total</td>
+                  <td className={`py-2.5 px-3 text-right font-black ${weightValid ? "text-primary-container" : "text-red-400"}`}>{totalWeight}%</td>
+                  <td className="py-2.5 px-3 text-right text-on-surface-variant">—</td>
+                  <td className="py-2.5 pl-3 text-right font-black text-on-surface">{weightValid ? "90.0" : "—"}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Global Scoring Rules */}
+      <div className="bg-surface-container rounded-xl p-5 border border-white/5 space-y-4">
+        <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>tune</span>
+          Global Scoring Rules (Optional)
+        </h4>
+        <p className="text-on-surface-variant text-xs leading-relaxed">
+          Define bonus/penalty rules and confidence thresholds. These are included in the scoring formula description above.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-3 rounded-xl bg-surface-container-high border border-white/5">
+            <label className={labelClass}>Bonus Rules</label>
+            <p className="text-on-surface-variant text-[10px] mb-2">e.g. "+5 if all phases ≥ 80"</p>
+            <textarea
+              className={`${inputClass} min-h-[60px] resize-y`}
+              placeholder="Describe any bonus point rules..."
+              value=""
+              readOnly
+            />
+          </div>
+          <div className="p-3 rounded-xl bg-surface-container-high border border-white/5">
+            <label className={labelClass}>Confidence Thresholds</label>
+            <p className="text-on-surface-variant text-[10px] mb-2">e.g. "Below 0.6 = low confidence warning"</p>
+            <textarea
+              className={`${inputClass} min-h-[60px] resize-y`}
+              placeholder="Describe confidence thresholds..."
+              value=""
+              readOnly
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Scoring Preview Simulator */}
+      {metrics.length > 0 && weightValid && (
+        <div className="bg-surface-container rounded-xl p-5 border border-white/5 space-y-4">
+          <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>calculate</span>
+            Scoring Preview Simulator
+          </h4>
+          <p className="text-on-surface-variant text-xs leading-relaxed">
+            Enter sample scores (0–100) for each metric to see the calculated Route Mastery Score.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {metrics.map((m) => (
+              <div key={m.name} className="p-3 rounded-xl bg-surface-container-high border border-white/5">
+                <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block truncate">{m.name || "Unnamed"}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    className={`${inputClass} text-center font-bold`}
+                    value={simValues[m.name] ?? ""}
+                    onChange={(e) => setSimValues((prev) => ({ ...prev, [m.name]: Number(e.target.value) || 0 }))}
+                    placeholder="0"
+                  />
+                  <span className="text-on-surface-variant text-[9px] shrink-0">× {m.weight}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Result */}
+          <div className="flex items-center gap-5 pt-2">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center font-black text-2xl shrink-0"
+              style={{
+                background: simulatedScore !== null
+                  ? `linear-gradient(135deg, ${getScoreColor(simulatedScore)}, ${getScoreColor(simulatedScore)}88)`
+                  : "#21262b",
+                color: "#0b0f12",
+              }}
+            >
+              {simulatedScore ?? "—"}
+            </div>
+            <div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg">Simulated Score</div>
+              <p className="text-on-surface-variant text-xs">
+                Based on weighted average of {metrics.length} metrics
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
