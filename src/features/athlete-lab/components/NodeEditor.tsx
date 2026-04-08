@@ -391,3 +391,166 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
     </div>
   );
 }
+
+/* ── Structured Mechanics Editor ── */
+
+interface StructuredEditorProps {
+  value: string;
+  onChange: (v: string) => void;
+  inputClass: string;
+  labelClass: string;
+}
+
+function parseStructuredField(raw: string, sections: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  sections.forEach((s) => { result[s] = ""; });
+
+  let currentSection = "";
+  for (const line of raw.split("\n")) {
+    const matchedSection = sections.find((s) => line.trim().toLowerCase().startsWith(s.toLowerCase() + ":"));
+    if (matchedSection) {
+      currentSection = matchedSection;
+      const afterColon = line.substring(line.indexOf(":") + 1).trim();
+      result[currentSection] = afterColon;
+    } else if (currentSection) {
+      result[currentSection] = result[currentSection] ? result[currentSection] + "\n" + line : line;
+    }
+  }
+  return result;
+}
+
+function serializeStructuredField(fields: Record<string, string>): string {
+  return Object.entries(fields)
+    .filter(([, v]) => v.trim())
+    .map(([k, v]) => `${k}: ${v.trim()}`)
+    .join("\n\n");
+}
+
+function MechanicsEditor({ value, onChange, inputClass, labelClass }: StructuredEditorProps) {
+  const sections = ["Release Phase", "Stem Phase", "Break Phase", "Catch Phase", "General Tips"];
+  const parsed = parseStructuredField(value, sections);
+  const hasStructured = sections.some((s) => parsed[s].trim());
+  const [fields, setFields] = useState<Record<string, string>>(hasStructured ? parsed : (() => {
+    const init: Record<string, string> = {};
+    sections.forEach((s) => { init[s] = ""; });
+    if (value.trim() && !hasStructured) init["General Tips"] = value;
+    return init;
+  }));
+
+  const handleChange = (section: string, val: string) => {
+    const next = { ...fields, [section]: val };
+    setFields(next);
+    onChange(serializeStructuredField(next));
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-on-surface-variant text-xs leading-relaxed">
+        Break down the ideal technique into phase-specific notes for precise AI coaching.
+      </p>
+      {sections.map((s) => (
+        <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
+          <label className={labelClass}>{s}</label>
+          <textarea
+            className={`${inputClass} min-h-[80px] resize-y`}
+            value={fields[s] || ""}
+            onChange={(e) => handleChange(s, e.target.value)}
+            placeholder={`Notes for ${s.toLowerCase()}...`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReferenceEditor({ value, onChange, inputClass, labelClass }: StructuredEditorProps) {
+  const sections = ["Reference Object", "Calibration Instructions", "Scale Notes"];
+  const parsed = parseStructuredField(value, sections);
+  const hasStructured = sections.some((s) => parsed[s].trim());
+  const [fields, setFields] = useState<Record<string, string>>(hasStructured ? parsed : (() => {
+    const init: Record<string, string> = {};
+    sections.forEach((s) => { init[s] = ""; });
+    if (value.trim() && !hasStructured) init["Reference Object"] = value;
+    return init;
+  }));
+
+  const handleChange = (section: string, val: string) => {
+    const next = { ...fields, [section]: val };
+    setFields(next);
+    onChange(serializeStructuredField(next));
+  };
+
+  const descriptions: Record<string, string> = {
+    "Reference Object": "What real-world object should be in frame for scale (e.g. football, cone, yard line)",
+    "Calibration Instructions": "How the AI should use the reference object to calculate distances and angles",
+    "Scale Notes": "Additional notes on measurement accuracy or environment considerations",
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-on-surface-variant text-xs leading-relaxed">
+        Define reference objects and calibration instructions for accurate AI measurements.
+      </p>
+      {sections.map((s) => (
+        <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
+          <div className="flex items-center gap-1 mb-1">
+            <label className={labelClass}>{s}</label>
+            <SectionTooltip tip={descriptions[s]} />
+          </div>
+          <textarea
+            className={`${inputClass} min-h-[70px] resize-y`}
+            value={fields[s] || ""}
+            onChange={(e) => handleChange(s, e.target.value)}
+            placeholder={descriptions[s]}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CameraEditor({ value, onChange, inputClass, labelClass }: StructuredEditorProps) {
+  const sections = ["Primary Camera Angle", "Secondary Camera Angle", "Lighting & Environment"];
+  const parsed = parseStructuredField(value, sections);
+  const hasStructured = sections.some((s) => parsed[s].trim());
+  const [fields, setFields] = useState<Record<string, string>>(hasStructured ? parsed : (() => {
+    const init: Record<string, string> = {};
+    sections.forEach((s) => { init[s] = ""; });
+    if (value.trim() && !hasStructured) init["Primary Camera Angle"] = value;
+    return init;
+  }));
+
+  const handleChange = (section: string, val: string) => {
+    const next = { ...fields, [section]: val };
+    setFields(next);
+    onChange(serializeStructuredField(next));
+  };
+
+  const descriptions: Record<string, string> = {
+    "Primary Camera Angle": "Best camera position for primary analysis (e.g. sideline, 10 yards back, waist height)",
+    "Secondary Camera Angle": "Optional second angle for deeper analysis (e.g. end zone, elevated)",
+    "Lighting & Environment": "Tips for optimal video quality (e.g. avoid backlit, outdoor daylight preferred)",
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-on-surface-variant text-xs leading-relaxed">
+        Define optimal camera positions and environment guidelines for accurate video analysis.
+      </p>
+      {sections.map((s) => (
+        <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
+          <div className="flex items-center gap-1 mb-1">
+            <label className={labelClass}>{s}</label>
+            <SectionTooltip tip={descriptions[s]} />
+          </div>
+          <textarea
+            className={`${inputClass} min-h-[70px] resize-y`}
+            value={fields[s] || ""}
+            onChange={(e) => handleChange(s, e.target.value)}
+            placeholder={descriptions[s]}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
