@@ -244,6 +244,9 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         {tab === "test" && (
           <TestingPanel node={draft} />
         )}
+
+        {/* Admin-only guidance panel for every tab */}
+        <MoreInfoPanel tabKey={tab} />
       </div>
     </div>
   );
