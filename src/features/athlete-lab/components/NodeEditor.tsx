@@ -107,18 +107,28 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           )}
           <h1 className="text-on-surface font-black uppercase tracking-tighter text-xl">{draft.name || "New Node"}</h1>
         </div>
-        <button
-          onClick={save}
-          disabled={saving || !dirty}
-          className="h-10 px-6 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2"
-        >
-          {saving ? (
-            <span className="material-symbols-outlined animate-spin" style={{ fontSize: 14 }}>progress_activity</span>
-          ) : (
-            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>save</span>
-          )}
-          {saving ? "Saving..." : "Save Node"}
-        </button>
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border ${
+            dirty
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+              : "border-primary-container/30 bg-primary-container/10 text-primary-container"
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${dirty ? "bg-amber-400" : "bg-primary-container"}`} />
+            {dirty ? "Draft" : "Live"}
+          </div>
+          <button
+            onClick={save}
+            disabled={saving || !dirty}
+            className="h-10 px-6 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2"
+          >
+            {saving ? (
+              <span className="material-symbols-outlined animate-spin" style={{ fontSize: 14 }}>progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>save</span>
+            )}
+            {saving ? "Saving..." : "Save Node"}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
