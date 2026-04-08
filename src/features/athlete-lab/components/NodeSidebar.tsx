@@ -10,7 +10,7 @@ interface NodeSidebarProps {
 
 export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: NodeSidebarProps) {
   return (
-    <div className="w-72 min-w-[288px] h-full bg-surface-container flex flex-col border-r border-outline-variant/20">
+    <div className="w-72 min-w-[288px] h-full bg-surface-container-high flex flex-col border-r border-outline-variant/30">
       <div className="p-4">
         <h2 className="text-on-surface font-black uppercase tracking-[0.2em] text-xs mb-4">Training Nodes</h2>
         <button
