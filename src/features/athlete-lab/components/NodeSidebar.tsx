@@ -27,10 +27,10 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
             key={node.id}
             className={`group flex items-center gap-3 cursor-pointer transition-all duration-200 ${
               selectedId === node.id
-                ? "px-4 py-3.5 rounded-xl border-l-[5px] border-primary-container shadow-[inset_0_0_20px_rgba(0,230,57,0.1),0_0_20px_rgba(0,230,57,0.15)]"
-                : "px-3 py-3 rounded-xl hover:bg-surface-container"
+              ? "px-4 py-3.5 rounded-xl border-l-[5px] border-primary-container shadow-[inset_0_0_20px_rgba(0,230,57,0.08),0_0_16px_rgba(0,230,57,0.12)]"
+              : "px-3 py-3 rounded-xl hover:bg-surface-container"
             }`}
-            style={selectedId === node.id ? { backgroundColor: '#2E3848' } : undefined}
+            style={selectedId === node.id ? { backgroundColor: '#222B38' } : undefined}
             onClick={() => onSelect(node.id)}
           >
             {node.icon_url ? (
