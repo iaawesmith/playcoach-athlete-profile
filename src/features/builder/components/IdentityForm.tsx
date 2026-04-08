@@ -30,7 +30,7 @@ const SectionHeader = ({ title }: { title: string }) => (
   </div>
 );
 
-const SourceBadge = ({ source }: { source: "CFBD" | "247" | "ON3" | "247C" }) => (
+const SourceBadge = ({ source }: { source: "CFBD" | "247" | "ON3" | "247T" | "247P" }) => (
   <span className="absolute top-2.5 right-3 text-[8px] font-bold uppercase tracking-widest text-on-surface-variant/40 select-none">
     {source}
   </span>
@@ -69,7 +69,7 @@ const InputCard = ({
 }: {
   label: string; value: string; type?: string; onChange: (val: string) => void;
   suffix?: string; helperText?: string; placeholder?: string;
-  badge?: "CFBD" | "247" | "ON3" | "247C";
+  badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -98,7 +98,7 @@ const NumericInputCard = ({
   label, value, onChange, suffix, placeholder, badge,
 }: {
   label: string; value: string; onChange: (val: string) => void; suffix: string;
-  placeholder?: string; badge?: "CFBD" | "247" | "ON3" | "247C";
+  placeholder?: string; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => {
   const isEmpty = !value;
   return (
@@ -119,7 +119,7 @@ const NumericInputCard = ({
   );
 };
 
-const HeightInputCard = ({ value, onChange, badge }: { value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C" }) => {
+const HeightInputCard = ({ value, onChange, badge }: { value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P" }) => {
   const totalInches = parseInt(value, 10) || 0;
   const feet = Math.floor(totalInches / 12);
   const inches = totalInches % 12;
@@ -153,7 +153,7 @@ const SelectCard = ({
   label, value, options, onChange, badge,
 }: {
   label: string; value: string; options: { value: string; label: string }[];
-  onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C";
+  onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -170,7 +170,7 @@ const SelectCard = ({
 );
 
 const DateInputCard = ({ label, value, onChange, badge }: {
-  label: string; value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247C";
+  label: string; value: string; onChange: (val: string) => void; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => (
   <div className="bg-surface-container rounded-xl p-4 transition-colors duration-200 input-card-focus relative">
     {badge && <SourceBadge source={badge} />}
@@ -221,7 +221,7 @@ const AiVideoField = ({ label }: { label: string }) => (
 /* ─── Read-only display for rank/rating with dash empty state ─ */
 
 const DisplayField = ({ label, value, decimals, badge }: {
-  label: string; value: string | number | null; decimals?: number; badge?: "CFBD" | "247" | "ON3" | "247C";
+  label: string; value: string | number | null; decimals?: number; badge?: "CFBD" | "247" | "ON3" | "247T" | "247P";
 }) => {
   let display = "—";
   if (value !== null && value !== "" && value !== 0) {

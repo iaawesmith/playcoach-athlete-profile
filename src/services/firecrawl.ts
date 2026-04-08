@@ -5,15 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 /* ------------------------------------------------------------------ */
 
 export type Extracted247Data = {
-  nationalRank: number | null;
-  positionRank: number | null;
-  stateRank: number | null;
-  compositeRating: number | null;
-  stars: number | null;
-  height: string | null;
-  weight: number | null;
-  highSchool: string | null;
-  hometown: string | null;
+  transferStars247: number | null;
+  transferRating247: number | null;
+  transferOvrRank247: number | null;
+  transferPositionRank247: number | null;
+  prospectStars247: number | null;
+  prospectRating247: number | null;
+  prospectNatlRank247: number | null;
+  prospectPositionRank247: number | null;
+  prospectStateRank247: number | null;
   actionPhotoUrl: string | null;
 };
 
