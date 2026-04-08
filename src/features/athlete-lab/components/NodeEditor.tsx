@@ -132,8 +132,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         </div>
       </div>
 
+      {/* Divider between header and tabs */}
+      <div className="mx-6 mt-4 border-t border-outline-variant/20" />
+
       {/* Tabs */}
-      <div className="px-6 pt-4 flex gap-1 overflow-x-auto scrollbar-thin shrink-0">
+      <div className="px-6 pt-4 pb-1 flex gap-1 overflow-x-auto scrollbar-thin shrink-0">
         {TABS.map((t) => (
           <button
             key={t.key}
