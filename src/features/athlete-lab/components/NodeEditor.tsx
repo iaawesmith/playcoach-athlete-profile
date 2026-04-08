@@ -32,7 +32,7 @@ const TOOLTIPS: Record<TabKey, string> = {
   basics: "The official name of this drill or skill",
   videos: "High-quality videos of elite athletes performing this exact route/skill. These are the benchmarks the AI compares against.",
   overview: "Brief explanation of why this route/skill matters and what success looks like",
-  mechanics: "Write the exact mechanics and cues used by top pros for this movement",
+  mechanics: "Define the natural phases of this skill. You can add, rename, or remove phases as needed for any drill type (routes, QB drops, vertical jump, etc.).",
   metrics: "Define every metric the AI should calculate and how heavily it contributes to the overall score",
   scoring: "How the final Route Mastery Score is calculated",
   errors: "Help the AI identify and give constructive feedback on typical errors",
@@ -433,38 +433,150 @@ function serializeStructuredField(fields: Record<string, string>): string {
 }
 
 function MechanicsEditor({ value, onChange, inputClass, labelClass }: StructuredEditorProps) {
-  const sections = ["Release Phase", "Stem Phase", "Break Phase", "Catch Phase", "General Tips"];
-  const parsed = parseStructuredField(value, sections);
-  const hasStructured = sections.some((s) => parsed[s].trim());
-  const [fields, setFields] = useState<Record<string, string>>(hasStructured ? parsed : (() => {
-    const init: Record<string, string> = {};
-    sections.forEach((s) => { init[s] = ""; });
-    if (value.trim() && !hasStructured) init["General Tips"] = value;
-    return init;
-  }));
+  const defaultSections = ["Release Phase", "Stem Phase", "Break Phase", "Catch Phase", "General Tips"];
 
-  const handleChange = (section: string, val: string) => {
-    const next = { ...fields, [section]: val };
-    setFields(next);
-    onChange(serializeStructuredField(next));
+  const initFromValue = useCallback((): { name: string; notes: string }[] => {
+    if (!value.trim()) {
+      return defaultSections.map((s) => ({ name: s, notes: "" }));
+    }
+    const parsed = parseStructuredField(value, defaultSections);
+    const hasStructured = defaultSections.some((s) => parsed[s].trim());
+    if (hasStructured) {
+      return defaultSections.map((s) => ({ name: s, notes: parsed[s] }));
+    }
+    // Try to detect arbitrary sections from value
+    const lines = value.split("\n");
+    const detected: { name: string; notes: string }[] = [];
+    let current: { name: string; notes: string } | null = null;
+    for (const line of lines) {
+      const match = line.match(/^([^:]+):\s*(.*)/);
+      if (match && match[1].length < 60) {
+        if (current) detected.push(current);
+        current = { name: match[1].trim(), notes: match[2].trim() };
+      } else if (current) {
+        current.notes = current.notes ? current.notes + "\n" + line : line;
+      }
+    }
+    if (current) detected.push(current);
+    return detected.length > 0 ? detected : [{ name: "General Tips", notes: value }];
+  }, [value]);
+
+  const [phases, setPhases] = useState(initFromValue);
+  const [renamingIdx, setRenamingIdx] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  // Sync when node changes (value prop reference changes from parent useEffect)
+  useEffect(() => {
+    setPhases(initFromValue());
+  }, [initFromValue]);
+
+  const serialize = (list: { name: string; notes: string }[]) => {
+    return list
+      .filter((p) => p.notes.trim())
+      .map((p) => `${p.name}: ${p.notes.trim()}`)
+      .join("\n\n");
+  };
+
+  const updatePhase = (idx: number, notes: string) => {
+    const next = phases.map((p, i) => (i === idx ? { ...p, notes } : p));
+    setPhases(next);
+    onChange(serialize(next));
+  };
+
+  const addPhase = () => {
+    const next = [...phases, { name: `Phase ${phases.length + 1}`, notes: "" }];
+    setPhases(next);
+  };
+
+  const removePhase = (idx: number) => {
+    const next = phases.filter((_, i) => i !== idx);
+    setPhases(next);
+    onChange(serialize(next));
+  };
+
+  const startRename = (idx: number) => {
+    setRenamingIdx(idx);
+    setRenameValue(phases[idx].name);
+  };
+
+  const confirmRename = () => {
+    if (renamingIdx === null) return;
+    const trimmed = renameValue.trim();
+    if (trimmed) {
+      const next = phases.map((p, i) => (i === renamingIdx ? { ...p, name: trimmed } : p));
+      setPhases(next);
+      onChange(serialize(next));
+    }
+    setRenamingIdx(null);
+  };
+
+  const movePhase = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= phases.length) return;
+    const next = [...phases];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setPhases(next);
+    onChange(serialize(next));
   };
 
   return (
     <div className="space-y-4">
       <p className="text-on-surface-variant text-xs leading-relaxed">
-        Break down the ideal technique into phase-specific notes for precise AI coaching.
+        Define the natural phases of this skill. Add, rename, reorder, or remove phases as needed for any drill type.
       </p>
-      {sections.map((s) => (
-        <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
-          <label className={labelClass}>{s}</label>
+
+      {phases.map((phase, idx) => (
+        <div key={idx} className="p-4 rounded-xl bg-surface-container-high border border-white/5 space-y-2">
+          <div className="flex items-center gap-2">
+            {/* Reorder buttons */}
+            <div className="flex flex-col">
+              <button onClick={() => movePhase(idx, -1)} disabled={idx === 0} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
+                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_up</span>
+              </button>
+              <button onClick={() => movePhase(idx, 1)} disabled={idx === phases.length - 1} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
+                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_down</span>
+              </button>
+            </div>
+
+            {/* Phase name */}
+            {renamingIdx === idx ? (
+              <input
+                autoFocus
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={confirmRename}
+                onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setRenamingIdx(null); }}
+                className="bg-surface-container-lowest border border-primary-container/30 rounded-lg px-3 py-1 text-on-surface text-sm font-semibold uppercase tracking-widest focus:outline-none flex-1"
+              />
+            ) : (
+              <button onClick={() => startRename(idx)} className="flex items-center gap-1.5 group flex-1 text-left">
+                <span className={labelClass + " mb-0"}>{phase.name}</span>
+                <span className="material-symbols-outlined text-on-surface-variant/30 group-hover:text-primary-container transition-colors" style={{ fontSize: 12 }}>edit</span>
+              </button>
+            )}
+
+            {/* Delete */}
+            <button onClick={() => removePhase(idx)} className="text-on-surface-variant/30 hover:text-red-400 transition-colors ml-auto">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+            </button>
+          </div>
+
           <textarea
             className={`${inputClass} min-h-[80px] resize-y`}
-            value={fields[s] || ""}
-            onChange={(e) => handleChange(s, e.target.value)}
-            placeholder={`Notes for ${s.toLowerCase()}...`}
+            value={phase.notes}
+            onChange={(e) => updatePhase(idx, e.target.value)}
+            placeholder={`Notes for ${phase.name.toLowerCase()}...`}
           />
         </div>
       ))}
+
+      <button
+        onClick={addPhase}
+        className="w-full h-10 rounded-xl border border-dashed border-outline-variant/20 text-on-surface-variant text-xs font-semibold uppercase tracking-widest hover:border-primary-container/40 hover:text-primary-container transition-colors flex items-center justify-center gap-2"
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
+        Add Phase
+      </button>
     </div>
   );
 }
