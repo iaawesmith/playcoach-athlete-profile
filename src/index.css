@@ -102,3 +102,13 @@
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
+
+/* Admin rich text editor */
+.prose-admin h3 { font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: hsl(var(--on-surface)); }
+.prose-admin h4 { font-size: 0.875rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.25rem; color: hsl(var(--on-surface)); }
+.prose-admin p { margin-bottom: 0.5rem; color: hsl(var(--on-surface-variant)); }
+.prose-admin ul, .prose-admin ol { padding-left: 1.25rem; margin-bottom: 0.5rem; color: hsl(var(--on-surface-variant)); }
+.prose-admin ul { list-style-type: disc; }
+.prose-admin ol { list-style-type: decimal; }
+.prose-admin li { margin-bottom: 0.25rem; }
+.prose-admin strong { color: hsl(var(--on-surface)); font-weight: 700; }
