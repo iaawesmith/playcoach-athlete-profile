@@ -622,7 +622,7 @@ export const IdentityForm = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <InputCard label="Hometown" value={hometown} onChange={(v) => setAthlete({ hometown: v })} placeholder="—" badge="CFBD" />
-                <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} placeholder="—" badge="CFBD" />
+                <InputCard label="High School" value={highSchool} onChange={(v) => setAthlete({ highSchool: v })} placeholder="—" badge="247" />
               </div>
               <InputCard label="Athlete Bio" value={bio} type="textarea" onChange={(v) => setAthlete({ bio: v })}
                 helperText="Tell coaches and scouts your story in your own words" placeholder="Your bio..." />

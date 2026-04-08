@@ -406,6 +406,7 @@ export function useAutoFill() {
         if (d.prospectNatlRank247 != null) data.prospectNatlRank247 = d.prospectNatlRank247;
         if (d.prospectPositionRank247 != null) data.prospectPositionRank247 = d.prospectPositionRank247;
         if (d.prospectStateRank247 != null) data.prospectStateRank247 = d.prospectStateRank247;
+        if (d.highSchool) data.highSchool = String(d.highSchool);
         if (d.actionPhotoUrl && isValidActionPhoto(String(d.actionPhotoUrl))) {
           actionPhotoFrom247 = String(d.actionPhotoUrl);
         }
@@ -658,14 +659,16 @@ export function useAutoFill() {
           missingFields.push({ field: f, source: "CFBD", reason: "Source not reached" }),
         );
       } else if (!cfbdRecruitFound) {
-        ["Stars (CFBD)", "Recruiting Rating", "High School"].forEach((f) =>
+        ["Stars (CFBD)", "Recruiting Rating"].forEach((f) =>
           missingFields.push({ field: f, source: "CFBD", reason: "Player not matched" }),
         );
       } else {
         if (!storeAfter.starRating) missingFields.push({ field: "Stars (CFBD)", source: "CFBD", reason: "Field not in response" });
         if (!storeAfter.recruitingRating) missingFields.push({ field: "Recruiting Rating", source: "CFBD", reason: "Field not in response" });
-        if (!storeAfter.highSchool) missingFields.push({ field: "High School", source: "CFBD", reason: "Field not in response" });
       }
+
+      // High School — sourced from 247
+      if (!storeAfter.highSchool) missingFields.push({ field: "High School", source: "247", reason: "Field not in response" });
 
       // 247Sports fields — check store for enriched values (transfer + prospect)
       const has247Transfer = storeAfter.transferStars247 != null || storeAfter.transferRating247 != null;
