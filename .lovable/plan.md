@@ -1,55 +1,32 @@
 
-Yes, but only slightly.
 
-What the example URLs confirm:
-- 247Sports canonical recruiting URLs do use the pattern `/player/{slug}-{id}/high-school-{id}/`
-- On3 recruiting URLs do use the pattern `/rivals/{slug}-{id}/`
+## Plan: Add Missing Fields UI to ProfilePreview + Fix Action Photo Discovery
 
-What this changes in the earlier diagnosis:
-- It does not change the main issue: the current autofill is still failing primarily at URL discovery, because `supabase/functions/firecrawl-profile/index.ts` is scraping Google-result markdown instead of doing a reliable profile search.
-- It does refine the implementation: we should match these exact skeletons with ID-aware regexes instead of loose substring checks.
-- It also means On3’s `/rivals/` path is valid as-is, so the first fix is not “change the On3 path,” it is “make discovery reliable and score the right result.”
+### Problem 1: Missing Fields Not Showing
+`ProfilePreview.tsx` (the active component on `/onboarding/preview`) never renders the missing fields section. The missing fields UI exists only in `ScrapeFill.tsx`, which is **never imported or rendered anywhere in the app**. The fix is to add the missing fields panel to `ProfilePreview.tsx`.
 
-Updated implementation plan
+### Problem 2: Action Photo Not Found
+All three action photo sources failed:
+- **247Sports**: Regex requires player name slug in the image URL (`devon-dampier`), but 247's CDN images rarely include player names — they use numeric IDs
+- **ESPN**: The `isActionPhoto` filter requires `/photo/` URLs to also contain game-context keywords (`action`, `game`, `play`, `field`, `stadium`), which is too strict. Most ESPN player page photos use `/combiner/` paths which pass, but the regex `(?:src|content)="(https?:\/\/a\.espncdn\.com\/...)` only matches `a.espncdn.com`, missing other ESPN CDN subdomains
+- **School roster**: Google scrape for school domain failed to find a matching roster URL
 
-1. Fix profile discovery in `supabase/functions/firecrawl-profile/index.ts`
-- Replace Google-page scraping with a real Firecrawl search request.
-- Search for candidate URLs using athlete name plus school.
-- Rank candidates against the exact patterns your examples confirm:
-  - 247 preferred: `/player/{slug}-{id}/high-school-{id}/`
-  - 247 fallback: `/player/{slug}-{id}/`
-  - On3 preferred: `/rivals/{slug}-{id}/`
+### Changes
 
-2. Tighten URL matching using the example skeletons
-- Replace broad `includes("/player/")` and `includes("/rivals/")` logic with regex-based matching.
-- Keep slug matching, but also require the numeric ID suffix so we don’t accept unrelated pages that happen to contain the name.
+**1. `src/features/onboarding/steps/ProfilePreview.tsx`**
+- Add missing fields collapsible panel inside the `autoFill.status === "results"` block, below the existing field list and above the Apply/Skip buttons
+- Uses same collapsed toggle pattern as "View All Fields"
+- Renders `autoFill.missingFields` with field name, reason, and source badge
+- Only shows when `autoFill.missingFields.length > 0`
+- Add `const [showMissing, setShowMissing] = useState(false)` for toggle state
 
-3. Keep the current 247 parser, but fix the frontend contract
-- The backend currently returns `stars247`, `rating247`, `compositeRating247`, etc.
-- `src/hooks/useAutoFill.ts` is still reading stale keys like `d.stars`, `d.playerRating247`, and `d.compositeRating`.
-- Update `src/services/firecrawl.ts` types and `useAutoFill.ts` field mapping so successful 247 results actually populate the UI/store.
+**2. `supabase/functions/firecrawl-profile/index.ts`** — Fix 247 action photo extraction
+- Remove the player-slug requirement from 247 photo matching — instead, look for any large player image on the 247 profile page that isn't a headshot, logo, or icon
+- Accept common 247 CDN image patterns (`s3media.247sports.com` photo URLs) that are action/player photos
+- Widen ESPN regex to accept any `espncdn.com` subdomain, not just `a.espncdn.com`
 
-4. Make attempt/failure states explicit
-- Return clearer outcomes from the edge function:
-  - search ran but no matching profile URL found
-  - profile page found but parse returned no usable fields
-  - success with data
-- Use that to make missing-field reasons accurate instead of defaulting everything to “Source not reached.”
+### Technical Details
+- 247 images use URLs like `https://s3media.247sports.com/Uploads/Assets/...` — no player slug. Current code filters all of these out because of the `if (!lower.includes(slug)) return false` check
+- ESPN CDN uses multiple subdomains: `a.espncdn.com`, `a1.espncdn.com`, `media.espncdn.com`, etc.
+- The `ProfilePreview.tsx` missing fields UI will use inline styles (matching the existing component pattern) instead of Tailwind tokens
 
-5. Keep the UI behavior, but make 247/On3 visibly attempted
-- If 247 or On3 were queried but returned no data, still surface them as attempted sources in the autofill results/missing-fields flow so it no longer looks like CFBD was the only provider searched.
-
-Technical details
-- Current 247 logic already prefers `high-school` URLs, which matches your example.
-- Current On3 logic already extracts `/rivals/`, which also matches your example.
-- So the example URLs do not require a new parser shape; they mainly tell us how to harden candidate selection and confirm that discovery—not the downstream parsing target—is the weak link.
-
-Files to update
-- `supabase/functions/firecrawl-profile/index.ts`
-- `src/services/firecrawl.ts`
-- `src/hooks/useAutoFill.ts`
-
-Expected outcome
-- 247 and On3 will actually resolve profiles more consistently.
-- Successful 247 data will stop being dropped by the frontend due to key mismatches.
-- The autofill modal will clearly show whether 247/On3 were searched, matched, parsed, or failed.
