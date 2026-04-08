@@ -23,7 +23,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Document common mistakes and their corrections for targeted feedback." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define the natural phases of this skill for granular analysis." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Specify reference objects and calibration instructions for accurate AI measurements." },
-  { key: "camera", label: "Camera", icon: "videocam", subtitle: "Provide guidelines for optimal video recording setup." },
+  { key: "camera", label: "Camera", icon: "videocam", subtitle: "Provide guidelines for optimal video recording setup and camera positioning." },
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define key moments the AI should analyze closely." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Customize the tone, structure, and persona of the AI coach feedback." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Create achievement badges to motivate athletes and reward milestones." },
@@ -799,9 +799,6 @@ function CameraEditor({ value, onChange, inputClass, labelClass }: StructuredEdi
 
   return (
     <div className="space-y-4">
-      <p className="text-on-surface-variant text-xs leading-relaxed">
-        Define optimal camera positions and environment guidelines for accurate video analysis.
-      </p>
       {sections.map((s) => (
          <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
           <div className="flex items-center gap-2 mb-2">
