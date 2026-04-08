@@ -1,32 +1,25 @@
 
 
-## Extract High School from 247Sports Instead of CFBD
+## Add Rank Badges Back to ProCard
 
-### What's Changing
-The CFBD recruiting endpoint often fails to match transfer players, so `highSchool` never populates. The 247 college profile page already contains the high school name in a structured `<li>` element. We'll extract it there and update the source badge from CFBD to 247.
+The ProCard currently shows rank badges using `nationalRank` and `positionRank` (old CFBD fields). These need to be updated to use the new 247 transfer fields: `transferOvrRank247` and `transferPositionRank247`.
 
 ### Changes
 
-**1. `supabase/functions/firecrawl-profile/index.ts`**
-- Add `highSchool: string | null` to the return type of `parse247RecruitingData`
-- Parse it from the full HTML (not a section — it's in the player bio area): look for `<li>` containing `<span>High School</span>`, then extract the text content of the second `<span>` (strip the `<a>` tag, take inner text)
-- Return `highSchool` alongside the existing transfer/prospect fields
-- Redeploy edge function
+**1. `src/features/builder/components/ProCard.tsx`**
+- Add `transferOvrRank247` and `transferPositionRank247` to the store destructure (line 7)
+- Replace the existing rank badges block (lines 114-128) to use:
+  - First badge: `OVR #{transferOvrRank247}` — shows when `transferOvrRank247` exists
+  - Second badge: `{position} #{transferPositionRank247}` — shows when `transferPositionRank247` exists, uses `position` from CFBD
+- Remove `nationalRank` and `positionRank` from the destructure if no longer used elsewhere in this component
 
-**2. `src/hooks/useAutoFill.ts`**
-- In the 247 data mapping block (~line 397-408): add `if (d.highSchool) data.highSchool = d.highSchool;`
-- Add `highSchool` to `immediateRatingFields` block so it writes to the store immediately with source `"247"`
-- Remove `highSchool` from the CFBD missing-fields check (~line 661-667) — no longer tracked under CFBD
-- Add a 247 missing-field check: if `!storeAfter.highSchool`, push `{ field: "High School", source: "247", reason: "Field not in response" }`
+**2. `src/features/onboarding/steps/ProfilePreview.tsx`**
+- The `ProfilePreview` already renders `<ProCard />` (line 60), so the badges will automatically appear there too — no additional changes needed since ProCard reads from the same Zustand store.
 
-**3. `src/features/builder/components/IdentityForm.tsx`**
-- Change the `badge` prop on the High School `InputCard` from `"CFBD"` to `"247"`
+### Result
+Both the builder card and the onboarding preview card will show:
+- `OVR #6` badge (from `transferOvrRank247`)
+- `QB #1` badge (from `transferPositionRank247`, with position label from CFBD)
 
-**4. `src/hooks/useAutoFill.ts` (field labels)**
-- No change needed — `highSchool: "High School"` label already exists
-
-### Not Changing
-- CFBD still pulls `recruit.school` if available — but it will no longer be the primary source and 247 will overwrite it
-- Store schema — `highSchool` field already exists
-- Hometown — stays as CFBD
+Badges only render when values are non-null.
 
