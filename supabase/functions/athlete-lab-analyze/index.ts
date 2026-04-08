@@ -21,16 +21,26 @@ Analyze the performance against the node's metrics, phases, and standards.
 IMPORTANT: Return your response as valid JSON matching this exact schema:
 {
   "overallScore": <number 0-100>,
-  "phaseBreakdown": [{"phase": "<name>", "score": <0-100>, "feedback": "<specific feedback>"}],
-  "metricScores": [{"name": "<metric name>", "score": <0-100>, "value": "<measured value>", "target": "<elite target>"}],
-  "strengths": ["<strength 1>", "<strength 2>"],
-  "improvements": ["<improvement 1>", "<improvement 2>"],
-  "coachFeedback": "<detailed coach feedback paragraph>",
-  "confidence": <0.0-1.0>
+  "phaseBreakdown": [{"phase": "<name>", "score": <0-100>, "feedback": "<specific actionable feedback for this phase>"}],
+  "metricScores": [{"name": "<metric name>", "score": <0-100>, "value": "<measured value with unit>", "target": "<elite target with unit>", "difference": "<+/- difference from target>"}],
+  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+  "improvements": ["<improvement 1>", "<improvement 2>", "<improvement 3>"],
+  "coachFeedback": "<detailed multi-paragraph coach feedback>",
+  "confidence": <0.0-1.0>,
+  "eliteComparison": "<1-2 sentence comparison to elite benchmark for this skill>",
+  "warnings": ["<any data quality issues, e.g. missing reference object, poor angle>"]
 }
 
-Use the node's LLM prompt template to guide tone and structure of the coachFeedback field.
-Be specific, reference phases and metrics by name, and give actionable feedback.`;
+Rules:
+- Use the node's LLM prompt template to guide tone and structure of the coachFeedback field.
+- Be specific: reference phases and metrics by name.
+- Give actionable, coach-style feedback — not generic praise.
+- For metricScores, include ALL metrics defined in the node config, even if estimated.
+- For phaseBreakdown, include ALL phases defined in the node config.
+- The "difference" field should show how far the measured value is from the elite target (e.g., "+0.3s", "-2 inches", "matches target").
+- The "eliteComparison" field should reference the elite videos or pro mechanics description.
+- The "warnings" array should flag issues like missing calibration reference, poor camera angle, or low-confidence estimates. Return empty array if no warnings.
+- Strengths should be 2-4 items, improvements should be 2-4 items.`;
 
     const userPrompt = `TRAINING NODE CONFIGURATION:
 Name: ${node.name}
@@ -42,6 +52,9 @@ Common Errors: ${JSON.stringify(node.common_errors)}
 Phase Breakdown: ${JSON.stringify(node.phase_breakdown)}
 Form Checkpoints: ${JSON.stringify(node.form_checkpoints)}
 LLM Prompt Template: ${node.llm_prompt_template}
+Elite Videos: ${JSON.stringify(node.elite_videos)}
+Camera Guidelines: ${node.camera_guidelines}
+Reference Object: ${node.reference_object}
 
 ATHLETE PERFORMANCE DESCRIPTION:
 ${videoDescription}
@@ -96,6 +109,10 @@ Analyze this performance and return the JSON response.`;
     }
 
     const parsed = JSON.parse(content);
+
+    // Ensure warnings and eliteComparison exist even if model omits them
+    if (!parsed.warnings) parsed.warnings = [];
+    if (!parsed.eliteComparison) parsed.eliteComparison = "";
 
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
