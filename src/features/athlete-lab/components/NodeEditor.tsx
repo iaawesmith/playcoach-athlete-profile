@@ -51,6 +51,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
   const [draft, setDraft] = useState<TrainingNode>(node);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     setDraft(node);
