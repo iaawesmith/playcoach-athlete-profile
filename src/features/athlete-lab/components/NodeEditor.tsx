@@ -156,10 +156,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 18 }}>
             {TABS.find((t) => t.key === tab)?.icon}
           </span>
-          <h3 className="text-on-surface font-extrabold uppercase text-sm tracking-wide flex-1">
+          <h3 className="text-on-surface font-extrabold uppercase text-sm tracking-wide">
             {TABS.find((t) => t.key === tab)?.label}
           </h3>
           <SectionTooltip tip={TOOLTIPS[tab]} />
+          <div className="flex-1" />
           <button
             onClick={() => setHelpOpen(true)}
             title="Open admin guidance for this tab"
