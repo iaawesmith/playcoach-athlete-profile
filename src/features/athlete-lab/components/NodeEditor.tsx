@@ -93,7 +93,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   };
 
   const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
-  const labelClass = "block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2";
+  const labelClass = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
+  const sectionHeaderClass = "flex items-center gap-2 mb-2";
 
   return (
     <div className="flex-1 h-full overflow-y-auto">
@@ -184,13 +185,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "basics" && (
           <div className="space-y-4">
-            <div>
-              <label className={labelClass}>Route / Skill Name</label>
+             <div>
+              <label className={`${labelClass} block mb-2`}>Route / Skill Name</label>
               <input className={inputClass} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
             </div>
             <div>
-              <div className="flex items-center gap-1 mb-2">
-                <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">Icon / Visual Diagram</label>
+              <div className={sectionHeaderClass}>
+                <label className={labelClass}>Icon / Visual Diagram</label>
                 <SectionTooltip tip="Upload an icon or diagram. This will appear next to the node name in the sidebar." />
               </div>
               <div className="flex items-center gap-3">
@@ -365,12 +366,12 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
           <div key={i} className="bg-surface-container rounded-xl p-4 group">
             {editIdx === i ? (
               <div className="space-y-3">
-                <div>
-                  <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Label</label>
+                 <div>
+                  <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Label</label>
                   <input className={inputClass} value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
                 </div>
                 <div>
-                  <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
+                  <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
                   <input className={inputClass} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
                 </div>
                 <div className="flex gap-2">
@@ -403,12 +404,12 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
       {adding ? (
         <div className="bg-surface-container-high rounded-xl p-4 space-y-3 border border-primary-container/20">
           <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Reference Video</p>
-          <div>
-            <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Descriptive Label</label>
+           <div>
+            <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Descriptive Label</label>
             <input className={inputClass} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
           </div>
           <div>
-            <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
+            <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block">Video URL</label>
             <input className={inputClass} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
           </div>
           <div className="flex gap-2">
@@ -426,8 +427,8 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 }
 
 function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void }) {
-  const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
-  const labelClass = "text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1";
+   const inputClass = "w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/25 transition-colors";
+  const labelClass = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
 
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
 
@@ -444,14 +445,14 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><div className={labelClass}>Name</div><input className={inputClass} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} /></div>
-            <div><div className={labelClass}>Unit</div><input className={inputClass} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} /></div>
+           <div className="grid grid-cols-2 gap-3">
+            <div><div className={`${labelClass} mb-1`}>Name</div><input className={inputClass} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} /></div>
+            <div><div className={`${labelClass} mb-1`}>Unit</div><input className={inputClass} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} /></div>
           </div>
-          <div><div className={labelClass}>Description</div><textarea className={`${inputClass} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} /></div>
+          <div><div className={`${labelClass} mb-1`}>Description</div><textarea className={`${inputClass} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><div className={labelClass}>Elite Target</div><input className={inputClass} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} /></div>
-            <div><div className={labelClass}>Weight (%)</div><input type="number" className={inputClass} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} /></div>
+            <div><div className={`${labelClass} mb-1`}>Elite Target</div><input className={inputClass} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} /></div>
+            <div><div className={`${labelClass} mb-1`}>Weight (%)</div><input type="number" className={inputClass} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} /></div>
           </div>
         </div>
       ))}
@@ -765,8 +766,8 @@ function ReferenceEditor({ value, onChange, inputClass, labelClass }: Structured
         Define reference objects and calibration instructions for accurate AI measurements.
       </p>
       {sections.map((s) => (
-        <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
-          <div className="flex items-center gap-1 mb-1">
+         <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
+          <div className="flex items-center gap-2 mb-2">
             <label className={labelClass}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
@@ -811,8 +812,8 @@ function CameraEditor({ value, onChange, inputClass, labelClass }: StructuredEdi
         Define optimal camera positions and environment guidelines for accurate video analysis.
       </p>
       {sections.map((s) => (
-        <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
-          <div className="flex items-center gap-1 mb-1">
+         <div key={s} className="p-4 rounded-xl bg-surface-container-high border border-white/5">
+          <div className="flex items-center gap-2 mb-2">
             <label className={labelClass}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
@@ -861,7 +862,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
     <div className="space-y-6">
       {/* Scoring Rules Text */}
       <div>
-        <label className={labelClass}>Scoring Formula Description</label>
+        <label className={`${labelClass} block mb-2`}>Scoring Formula Description</label>
         <p className="text-on-surface-variant text-xs mb-2 leading-relaxed">
           Describe how the overall Route Mastery Score is calculated from individual metrics. The AI uses this to explain scores to athletes.
         </p>
@@ -936,7 +937,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-3 rounded-xl bg-surface-container-high border border-white/5">
-            <label className={labelClass}>Bonus Rules</label>
+            <label className={`${labelClass} block mb-1`}>Bonus Rules</label>
             <p className="text-on-surface-variant text-[10px] mb-2">e.g. "+5 if all phases ≥ 80"</p>
             <textarea
               className={`${inputClass} min-h-[60px] resize-y`}
@@ -946,7 +947,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
             />
           </div>
           <div className="p-3 rounded-xl bg-surface-container-high border border-white/5">
-            <label className={labelClass}>Confidence Thresholds</label>
+            <label className={`${labelClass} block mb-1`}>Confidence Thresholds</label>
             <p className="text-on-surface-variant text-[10px] mb-2">e.g. "Below 0.6 = low confidence warning"</p>
             <textarea
               className={`${inputClass} min-h-[60px] resize-y`}
@@ -972,7 +973,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, inputClass
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {metrics.map((m) => (
               <div key={m.name} className="p-3 rounded-xl bg-surface-container-high border border-white/5">
-                <label className="text-on-surface-variant text-[9px] font-medium uppercase tracking-widest mb-1 block truncate">{m.name || "Unnamed"}</label>
+                <label className="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-1 block truncate">{m.name || "Unnamed"}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
