@@ -26,6 +26,7 @@ export function ProfilePreview() {
   const [msgIndex, setMsgIndex] = useState(0);
   const [segmentCount, setSegmentCount] = useState(0);
   const [fieldsExpanded, setFieldsExpanded] = useState(false);
+  const [showMissing, setShowMissing] = useState(false);
 
   const isSearching = autoFill.status === "resolving" || autoFill.status === "enriching";
 
