@@ -13,21 +13,21 @@ interface NodeEditorProps {
 
 type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "test";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "basics", label: "Basics", icon: "edit" },
-  { key: "videos", label: "Videos", icon: "video_library" },
-  { key: "overview", label: "Overview", icon: "description" },
-  { key: "mechanics", label: "Mechanics", icon: "engineering" },
-  { key: "metrics", label: "Metrics", icon: "analytics" },
-  { key: "scoring", label: "Scoring", icon: "scoreboard" },
-  { key: "errors", label: "Errors", icon: "error_outline" },
-  { key: "phases", label: "Phases", icon: "timeline" },
-  { key: "reference", label: "Reference", icon: "straighten" },
-  { key: "camera", label: "Camera", icon: "videocam" },
-  { key: "checkpoints", label: "Checkpoints", icon: "flag" },
-  { key: "prompt", label: "LLM Prompt", icon: "smart_toy" },
-  { key: "badges", label: "Badges", icon: "military_tech" },
-  { key: "test", label: "Run Analysis", icon: "science" },
+const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
+  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the core identity and visual representation of this training node." },
+  { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add high-quality elite reference videos for AI benchmark comparison." },
+  { key: "overview", label: "Overview", icon: "description", subtitle: "Provide high-level context about the skill and its importance in game situations." },
+  { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define detailed coaching cues for each phase of the skill." },
+  { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define the measurable components the AI will evaluate." },
+  { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how metrics combine into the final 0-100 mastery score." },
+  { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Document common mistakes and their corrections for targeted feedback." },
+  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define the natural phases of this skill for granular analysis." },
+  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Specify reference objects for accurate scale and measurement." },
+  { key: "camera", label: "Camera", icon: "videocam", subtitle: "Provide guidelines for optimal video recording setup." },
+  { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define key moments the AI should analyze closely." },
+  { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Customize the tone, structure, and persona of the AI coach feedback." },
+  { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Create achievement badges to motivate athletes and reward milestones." },
+  { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
 ];
 
 const TOOLTIPS: Record<TabKey, string> = {
@@ -152,23 +152,34 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
       {/* Content */}
       <div className="py-6 space-y-6">
         {/* Active tab banner */}
-        <div className="mx-0 px-6 py-3 bg-primary-container/10 border-b border-primary-container/20 flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 18 }}>
-            {TABS.find((t) => t.key === tab)?.icon}
-          </span>
-          <h3 className="text-on-surface font-extrabold uppercase text-sm tracking-wide">
-            {TABS.find((t) => t.key === tab)?.label}
-          </h3>
-          <SectionTooltip tip={TOOLTIPS[tab]} />
-          <div className="flex-1" />
-          <button
-            onClick={() => setHelpOpen(true)}
-            title="Open admin guidance for this tab"
-            className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-primary-foreground hover:brightness-110 transition-all active:scale-95"
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0, 'wght' 700" }}>help</span>
-          </button>
-        </div>
+        {(() => {
+          const activeTab = TABS.find((t) => t.key === tab);
+          return (
+            <div className="mx-0 px-6 py-4 bg-primary-container/10 border-b border-primary-container/20 flex items-start gap-3">
+              <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontSize: 20 }}>
+                {activeTab?.icon}
+              </span>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-on-surface font-extrabold uppercase text-sm tracking-wide leading-tight">
+                  {activeTab?.label}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <p className="text-on-surface-variant text-xs leading-snug">
+                    {activeTab?.subtitle}
+                  </p>
+                  <SectionTooltip tip={TOOLTIPS[tab]} />
+                </div>
+              </div>
+              <button
+                onClick={() => setHelpOpen(true)}
+                title="Open admin guidance for this tab"
+                className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-primary-foreground hover:brightness-110 transition-all active:scale-95 shrink-0 mt-0.5"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 0, 'wght' 700" }}>help</span>
+              </button>
+            </div>
+          );
+        })()}
         <div className="px-6 space-y-6">
 
         {tab === "basics" && (
