@@ -10,6 +10,7 @@ import { ProfilePreview } from "./features/onboarding/steps/ProfilePreview";
 import { AgencySetup } from "./features/onboarding/steps/AgencySetup";
 import { AgencyDashboard } from "./pages/AgencyDashboard";
 import { CoachDashboard } from "./pages/CoachDashboard";
+import { AthleteLab } from "./features/athlete-lab/AthleteLab";
 import NotFound from "./pages/NotFound.tsx";
 import { useUserStore } from "./store/userStore";
 
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/builder" element={<BuilderLayout />} />
           <Route path="/agency-dashboard" element={<AgencyDashboard />} />
           <Route path="/coach-dashboard" element={<CoachDashboard />} />
+          <Route path="/athlete-lab" element={<AthleteLab />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </OnboardingGuard>
