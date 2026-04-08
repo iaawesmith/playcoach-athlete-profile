@@ -99,7 +99,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   return (
     <div className="flex-1 h-full overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-surface/90 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-white/5">
+      <div className="sticky top-0 z-10 bg-surface-container-high/90 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-outline-variant/15">
         <div className="flex items-center gap-3">
           {draft.icon_url ? (
             <img src={draft.icon_url} alt="" className="w-6 h-6 rounded object-cover" />
@@ -132,11 +132,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         </div>
       </div>
 
-      {/* Divider between header and tabs */}
-      <div className="mx-6 mt-4 border-t border-outline-variant/20" />
-
       {/* Tabs */}
-      <div className="px-6 pt-4 pb-1 flex gap-1 overflow-x-auto scrollbar-thin shrink-0">
+      <div className="px-6 pt-4 pb-1 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 bg-surface/90">
         {TABS.map((t) => (
           <button
             key={t.key}
