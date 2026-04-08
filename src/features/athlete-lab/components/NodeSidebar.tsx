@@ -27,10 +27,9 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
             key={node.id}
             className={`group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${
               selectedId === node.id
-                ? "bg-surface-container-high border-l-2"
-                : "hover:bg-surface-container"
+                ? "bg-surface-container-highest border-l-[3px] border-primary-container"
+                : "hover:bg-surface-container-high"
             }`}
-            style={selectedId === node.id ? { borderLeftColor: "#00e639" } : undefined}
             onClick={() => onSelect(node.id)}
           >
             {node.icon_url ? (
