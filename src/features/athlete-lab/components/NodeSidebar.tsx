@@ -25,10 +25,10 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
         {nodes.map((node) => (
           <div
             key={node.id}
-            className={`group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${
+            className={`group flex items-center gap-3 cursor-pointer transition-all duration-200 ${
               selectedId === node.id
-                ? "bg-surface-container-highest border-l-[3px] border-primary-container"
-                : "hover:bg-surface-container-high"
+                ? "bg-surface-variant px-4 py-3.5 rounded-xl border-l-4 border-primary-container shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                : "px-3 py-3 rounded-xl hover:bg-surface-container"
             }`}
             onClick={() => onSelect(node.id)}
           >
