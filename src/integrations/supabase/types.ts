@@ -49,6 +49,7 @@ export type Database = {
           icon_url: string | null
           id: string
           key_metrics: Json
+          knowledge_base: Json
           llm_prompt_template: string
           name: string
           overview: string
@@ -68,6 +69,7 @@ export type Database = {
           icon_url?: string | null
           id?: string
           key_metrics?: Json
+          knowledge_base?: Json
           llm_prompt_template?: string
           name: string
           overview?: string
@@ -87,6 +89,7 @@ export type Database = {
           icon_url?: string | null
           id?: string
           key_metrics?: Json
+          knowledge_base?: Json
           llm_prompt_template?: string
           name?: string
           overview?: string
