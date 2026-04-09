@@ -281,6 +281,7 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
                       ref={editorRef}
                       contentEditable
                       suppressContentEditableWarning
+                      onPaste={handlePaste}
                       className="min-h-[400px] p-4 rounded-xl border border-gray-300 text-sm leading-relaxed focus:outline-none focus:border-primary-container/60 transition-colors prose-admin"
                       style={{ backgroundColor: '#ffffff', color: '#1a1a1a' }}
                     />
