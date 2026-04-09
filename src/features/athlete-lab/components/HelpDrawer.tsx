@@ -241,6 +241,8 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
                     <div className="w-px h-5 bg-white/10 mx-1" />
                     <ToolbarBtn icon="title" onClick={() => execCommand("formatBlock", "h3")} title="Heading" />
                     <ToolbarBtn icon="format_paragraph" onClick={() => execCommand("formatBlock", "p")} title="Paragraph" />
+                    <div className="w-px h-5 bg-white/10 mx-1" />
+                    <ToolbarBtn icon="horizontal_rule" onClick={() => execCommand("insertHorizontalRule")} title="Line Separator" />
                   </div>
                 )}
 
@@ -251,14 +253,15 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
                       ref={editorRef}
                       contentEditable
                       suppressContentEditableWarning
-                      className="min-h-[400px] p-4 rounded-xl border border-outline-variant/10 text-on-surface text-sm leading-relaxed focus:outline-none focus:border-primary-container/30 transition-colors prose-admin"
-                      style={{ backgroundColor: '#0E1319' }}
+                      className="min-h-[400px] p-4 rounded-xl border border-gray-300 text-sm leading-relaxed focus:outline-none focus:border-primary-container/60 transition-colors prose-admin"
+                      style={{ backgroundColor: '#ffffff', color: '#1a1a1a' }}
                     />
                   ) : (
                     <div
-                      className="p-4 rounded-xl bg-surface-container-high border border-white/5 text-on-surface text-sm leading-relaxed prose-admin min-h-[200px]"
+                      className="p-4 rounded-xl border border-gray-300 text-sm leading-relaxed prose-admin min-h-[200px]"
+                      style={{ backgroundColor: '#ffffff', color: '#1a1a1a' }}
                       dangerouslySetInnerHTML={{
-                        __html: selected.content || "<p class='text-on-surface-variant/40 italic'>No content yet. Click Edit to add documentation for this section.</p>",
+                        __html: selected.content || "<p style='color:#999;font-style:italic'>No content yet. Click Edit to add documentation for this section.</p>",
                       }}
                     />
                   )}
