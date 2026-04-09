@@ -112,6 +112,7 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
         el.removeAttribute("style");
         el.removeAttribute("class");
         el.removeAttribute("data-sourcepos");
+        el.removeAttribute("width");
       });
       const cleanedHtml = doc.body.innerHTML;
       document.execCommand("insertHTML", false, cleanedHtml);

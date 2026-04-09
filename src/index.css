@@ -113,3 +113,7 @@
 .prose-admin li { margin-bottom: 0.25rem; color: #333333; }
 .prose-admin strong { color: #1a1a1a; font-weight: 700; }
 .prose-admin hr { border: none; border-top: 1px solid #d1d5db; margin: 1rem 0; }
+.prose-admin table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+.prose-admin th { background: #f3f4f6; font-weight: 700; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #d1d5db; color: #1a1a1a; font-size: 0.8125rem; }
+.prose-admin td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; vertical-align: top; color: #333333; font-size: 0.8125rem; }
+.prose-admin tr:last-child td { border-bottom: none; }
