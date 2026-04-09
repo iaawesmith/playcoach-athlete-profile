@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ClipboardEvent } from "react";
 import type { KnowledgeSection } from "../types";
 
 interface HelpDrawerProps {
@@ -97,6 +97,34 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
     document.execCommand(cmd, false, value);
     editorRef.current?.focus();
   };
+
+  const handlePaste = useCallback((e: ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const clipboardData = e.clipboardData;
+    const html = clipboardData.getData("text/html");
+    const plain = clipboardData.getData("text/plain");
+
+    if (html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const walker = doc.body.querySelectorAll("*");
+      walker.forEach((el) => {
+        el.removeAttribute("style");
+        el.removeAttribute("class");
+        el.removeAttribute("data-sourcepos");
+      });
+      const cleanedHtml = doc.body.innerHTML;
+      document.execCommand("insertHTML", false, cleanedHtml);
+    } else if (plain) {
+      const escaped = plain
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n\n/g, "</p><p>")
+        .replace(/\n/g, "<br>");
+      document.execCommand("insertHTML", false, `<p>${escaped}</p>`);
+    }
+  }, []);
 
   if (!open) return null;
 
@@ -253,6 +281,7 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
                       ref={editorRef}
                       contentEditable
                       suppressContentEditableWarning
+                      onPaste={handlePaste}
                       className="min-h-[400px] p-4 rounded-xl border border-gray-300 text-sm leading-relaxed focus:outline-none focus:border-primary-container/60 transition-colors prose-admin"
                       style={{ backgroundColor: '#ffffff', color: '#1a1a1a' }}
                     />
