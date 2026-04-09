@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ClipboardEvent } from "react";
 import type { KnowledgeSection } from "../types";
 
 interface HelpDrawerProps {
