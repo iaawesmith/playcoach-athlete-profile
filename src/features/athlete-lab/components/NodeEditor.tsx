@@ -87,7 +87,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         llm_prompt_template: draft.llm_prompt_template,
         badges: draft.badges,
         elite_videos: draft.elite_videos,
-      });
+        knowledge_base: draft.knowledge_base,
       onUpdated(updated);
       setDirty(false);
     } catch {
@@ -303,6 +303,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           onClose={() => setHelpOpen(false)}
           tabKey={tab}
           tabLabel={TABS.find((t) => t.key === tab)?.label ?? tab}
+          knowledgeBase={draft.knowledge_base ?? {}}
+          onKnowledgeBaseChange={(kb) => { update("knowledge_base", kb); }}
         />
       </div>
     </div>
