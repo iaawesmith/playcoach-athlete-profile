@@ -32,10 +32,13 @@ export interface KnowledgeSection {
   content: string;
 }
 
+export type NodePosition = "WR" | "QB" | "RB";
+
 export interface TrainingNode {
   id: string;
   name: string;
   icon_url: string | null;
+  position: NodePosition | null;
   overview: string;
   pro_mechanics: string;
   key_metrics: KeyMetric[];

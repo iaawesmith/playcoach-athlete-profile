@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { TrainingNode } from "./types";
+import type { TrainingNode, NodePosition } from "./types";
 import { fetchNodes, createNode, deleteNode as deleteNodeApi } from "@/services/athleteLab";
 import { NodeSidebar } from "./components/NodeSidebar";
 import { NodeEditor } from "./components/NodeEditor";
@@ -28,9 +28,9 @@ export function AthleteLab() {
     }
   };
 
-  const handleAdd = async () => {
+  const handleAdd = async (position: NodePosition) => {
     try {
-      const newNode = await createNode({ name: "New Training Node" });
+      const newNode = await createNode({ name: "New Training Node", position });
       setNodes((prev) => [...prev, newNode]);
       setSelectedId(newNode.id);
     } catch {
