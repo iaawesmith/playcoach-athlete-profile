@@ -26,6 +26,12 @@ export interface EliteVideo {
   label: string;
 }
 
+export interface KnowledgeSection {
+  id: string;
+  sectionTitle: string;
+  content: string;
+}
+
 export interface TrainingNode {
   id: string;
   name: string;
