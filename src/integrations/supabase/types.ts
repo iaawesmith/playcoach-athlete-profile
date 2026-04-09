@@ -54,6 +54,7 @@ export type Database = {
           name: string
           overview: string
           phase_breakdown: Json
+          position: string | null
           pro_mechanics: string
           reference_object: string
           scoring_rules: string
@@ -74,6 +75,7 @@ export type Database = {
           name: string
           overview?: string
           phase_breakdown?: Json
+          position?: string | null
           pro_mechanics?: string
           reference_object?: string
           scoring_rules?: string
@@ -94,6 +96,7 @@ export type Database = {
           name?: string
           overview?: string
           phase_breakdown?: Json
+          position?: string | null
           pro_mechanics?: string
           reference_object?: string
           scoring_rules?: string
