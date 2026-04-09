@@ -98,6 +98,34 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
     editorRef.current?.focus();
   };
 
+  const handlePaste = useCallback((e: ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const clipboardData = e.clipboardData;
+    const html = clipboardData.getData("text/html");
+    const plain = clipboardData.getData("text/plain");
+
+    if (html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const walker = doc.body.querySelectorAll("*");
+      walker.forEach((el) => {
+        el.removeAttribute("style");
+        el.removeAttribute("class");
+        el.removeAttribute("data-sourcepos");
+      });
+      const cleanedHtml = doc.body.innerHTML;
+      document.execCommand("insertHTML", false, cleanedHtml);
+    } else if (plain) {
+      const escaped = plain
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n\n/g, "</p><p>")
+        .replace(/\n/g, "<br>");
+      document.execCommand("insertHTML", false, `<p>${escaped}</p>`);
+    }
+  }, []);
+
   if (!open) return null;
 
   return (
