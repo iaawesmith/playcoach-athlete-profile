@@ -1,38 +1,29 @@
 
 
-## Plan: Fix Knowledge Base Text Readability + Improve Paste from Claude
+## Plan: Optimize Table Paste Support in Knowledge Base Editor
 
 ### Problem
-The `.prose-admin` CSS class uses dark-theme color tokens (`hsl(var(--on-surface))` = near-white, `hsl(var(--on-surface-variant))` = light grey). On the white editor background, this makes text invisible or very faint.
+When pasting a table from Claude, the HTML `<table>` structure is preserved by the paste handler, but there are no CSS rules for tables inside `.prose-admin`, so they render as unstyled text blobs on the white background.
 
 ### Changes
 
-**1. Fix text colors in `src/index.css` (prose-admin rules)**
+**1. Add table styles to `src/index.css` (inside `.prose-admin`)**
 
-Replace all color references with dark colors appropriate for a white background:
-- `h3`, `h4`, `strong` → `color: #1a1a1a` (near-black)
-- `p`, `ul`, `ol` → `color: #333333` (dark grey, fully readable)
-- `li` → inherit from parent
+Add rules for `table`, `th`, `td`, `thead`, `tbody`:
+- `table`: full width, border-collapse, bottom margin
+- `th`: bold, dark background (`#f3f4f6`), left-aligned, padding, bottom border
+- `td`: padding, bottom border (`#e5e7eb`), vertical-align top
+- `tr:last-child td`: no bottom border
 
-**2. Improve paste-friendliness in `HelpDrawer.tsx`**
+This will make any pasted table render with clean light-grey header row, subtle row dividers, and proper cell padding — matching the look from the screenshot.
 
-Add an `onPaste` handler on the contentEditable div that intercepts paste events and:
-- Tries `text/html` first from clipboard (preserves headings, bold, lists, links from Claude)
-- Strips problematic inline styles (background colors, font-family, font-size, color) that Claude/browsers inject, keeping only structural formatting (bold, italic, lists, headings, links)
-- Falls back to `text/plain` with basic line-break preservation if no HTML available
+**2. Update paste handler in `HelpDrawer.tsx`**
 
-This means when you copy formatted text from Claude (with headings, bold, bullets), the structure pastes cleanly without bringing Claude's light-theme colors or fonts into the editor.
+The current handler strips `style` and `class` from all elements. Tables from Claude may also carry `width` attributes or inline widths that cause layout issues. Add `width` to the list of stripped attributes so tables default to full-width via CSS.
 
-### Technical Detail
-
-The paste handler will:
-1. `e.preventDefault()` to block default paste
-2. Get `text/html` from `clipboardData`
-3. Parse it into a temporary DOM element
-4. Walk all elements, removing `style` attributes (or selectively stripping `color`, `background`, `font-family`, `font-size`)
-5. Insert the cleaned HTML via `document.execCommand('insertHTML', false, cleanedHtml)`
+No other changes needed — the existing `text/html` paste path already preserves `<table>`, `<tr>`, `<th>`, `<td>` structure.
 
 ### Files Modified
-- `src/index.css` — update `.prose-admin` color values
-- `src/features/athlete-lab/components/HelpDrawer.tsx` — add `onPaste` handler
+- `src/index.css` — add `.prose-admin table/th/td` rules
+- `src/features/athlete-lab/components/HelpDrawer.tsx` — strip `width` attribute in paste handler
 
