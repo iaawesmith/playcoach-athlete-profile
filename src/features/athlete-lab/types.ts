@@ -48,6 +48,7 @@ export interface TrainingNode {
   llm_prompt_template: string;
   badges: Badge[];
   elite_videos: EliteVideo[];
+  knowledge_base: Record<string, KnowledgeSection[]>;
   created_at: string;
   updated_at: string;
 }
