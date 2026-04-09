@@ -88,6 +88,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         badges: draft.badges,
         elite_videos: draft.elite_videos,
         knowledge_base: draft.knowledge_base,
+      });
       onUpdated(updated);
       setDirty(false);
     } catch {
