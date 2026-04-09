@@ -1,25 +1,23 @@
 
 
-## Make Help Icon More Visible (Green Solid Fill + White Icon)
+## Plan: White Background Editor + Line Separator Button
 
-### Problem
-The help icon (`?`) that opens the admin guidance drawer is barely visible — it's a faint ghost icon (`text-on-surface-variant/40`) that blends into the dark background.
+### Changes (single file: `HelpDrawer.tsx`)
 
-### Solution
-Update the help button styling on **line 152** of `NodeEditor.tsx` to use a solid Performance Green (`bg-primary-container`) background with white icon text, making it immediately noticeable on every tab.
+1. **Editor & Reader — white background, black text**
+   - Both the contentEditable div (editing mode) and the read-only div (view mode) get `backgroundColor: '#ffffff'` and `color: '#1a1a1a'`.
+   - Update the empty-state placeholder text to use a dark gray color instead of the current light variant.
+   - Border stays subtle (gray tone adjusted for white context).
 
-### Change
-**`src/features/athlete-lab/components/NodeEditor.tsx`** — line 152
+2. **Add "Horizontal Rule" toolbar button**
+   - Add a new `ToolbarBtn` with the `horizontal_rule` Material Symbol icon after the Heading/Paragraph group.
+   - onClick calls `execCommand("insertHorizontalRule")` which inserts an `<hr>` element.
 
-Current:
-```
-className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-primary-container hover:bg-surface-container-high transition-colors"
-```
+3. **No other changes** — sidebar, header, drawer background, toolbar background all stay as-is.
 
-Updated:
-```
-className="ml-auto w-7 h-7 rounded-full bg-primary-container flex items-center justify-center text-white hover:brightness-110 transition-all active:scale-95"
-```
+### Technical Details
 
-This gives it a solid green circle with a white `?` icon — consistent across all tabs since it's rendered once in the shared tab header area.
+- `execCommand("insertHorizontalRule")` is the native browser command for inserting `<hr>` tags in contentEditable regions.
+- The white background applies to both the editing and reading views so content looks consistent.
+- May add a small CSS rule via className or inline style to ensure `<hr>` elements inside the editor render visibly on white background.
 
