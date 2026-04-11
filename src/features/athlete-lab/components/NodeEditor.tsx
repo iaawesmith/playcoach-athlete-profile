@@ -65,6 +65,40 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "Metrics", detail: `Metric weights must add up to 100% (currently ${totalWeight}%)` });
   }
 
+  // Keypoint mapping completeness for each metric
+  for (const m of node.key_metrics) {
+    const km = m.keypoint_mapping;
+    if (!km || !km.calculation_type) {
+      issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: missing keypoint mapping` });
+    } else {
+      if (km.keypoint_indices.length === 0) {
+        issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: no keypoints selected` });
+      } else {
+        // Validate count for calc type
+        const count = km.keypoint_indices.length;
+        if (km.calculation_type === "angle" && count !== 3) {
+          issues.push({ label: "Metrics", detail: `${m.name}: Angle requires exactly 3 keypoints (${count} selected)` });
+        } else if ((km.calculation_type === "distance" || km.calculation_type === "frame_delta") && count !== 2) {
+          issues.push({ label: "Metrics", detail: `${m.name}: ${km.calculation_type} requires exactly 2 keypoints (${count} selected)` });
+        } else if ((km.calculation_type === "velocity" || km.calculation_type === "acceleration") && (count < 1 || count > 2)) {
+          issues.push({ label: "Metrics", detail: `${m.name}: ${km.calculation_type} requires 1-2 keypoints (${count} selected)` });
+        }
+      }
+      if (!km.phase_id) {
+        issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: no phase assigned` });
+      }
+      // Temporal window check
+      const tw = m.temporal_window ?? 1;
+      if (km.calculation_type === "velocity" && tw < 3) {
+        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for velocity (${tw}, need ≥3)` });
+      } else if (km.calculation_type === "acceleration" && tw < 5) {
+        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for acceleration (${tw}, need ≥5)` });
+      } else if (km.calculation_type === "frame_delta" && tw < 10) {
+        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for frame delta (${tw}, need ≥10)` });
+      }
+    }
+  }
+
   // At least 1 phase
   if (node.phase_breakdown.length === 0) {
     issues.push({ label: "Phases", detail: "At least 1 phase with notes is required" });
