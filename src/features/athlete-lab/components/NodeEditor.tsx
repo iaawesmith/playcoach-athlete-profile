@@ -426,6 +426,17 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                   {activeTab?.subtitle}
                 </p>
               </div>
+              {tab === "metrics" && (
+                <a
+                  href="https://github.com/iaawesmith/playcoach-athlete-profile/blob/main/src/constants/keypointLibrary.json"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View the full 133-keypoint COCO-WholeBody reference used by the analysis pipeline."
+                  className="text-on-surface-variant/60 text-[11px] font-medium hover:text-on-surface-variant transition-colors shrink-0 mt-1"
+                >
+                  133 Keypoints ↗
+                </a>
+              )}
               <button
                 onClick={() => setHelpOpen(true)}
                 title="Open admin guidance for this tab"
