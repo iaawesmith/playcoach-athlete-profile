@@ -492,6 +492,20 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               )}
               <p className="text-on-surface-variant/40 text-[11px]">Set max tight enough to reject full practice session recordings.</p>
             </div>
+
+            {/* Version indicator */}
+            <div className="pt-4 mt-2 border-t border-outline-variant/15 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-on-surface-variant/40 text-[10px] font-medium uppercase tracking-widest">Node Version</span>
+                <span className="text-on-surface-variant/60 text-[10px] font-semibold">v{draft.node_version ?? 1}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-on-surface-variant/40 text-[10px] font-medium uppercase tracking-widest">Last Saved</span>
+                <span className="text-on-surface-variant/60 text-[10px] font-semibold">
+                  {draft.updated_at ? new Date(draft.updated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"}
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
