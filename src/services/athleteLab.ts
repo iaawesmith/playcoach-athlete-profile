@@ -54,6 +54,18 @@ export async function deleteNode(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function setNodeStatus(id: string, status: NodeStatus): Promise<TrainingNode> {
+  const { data, error } = await supabase
+    .from("athlete_lab_nodes" as never)
+    .update({ status } as never)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as unknown as TrainingNode;
+}
+
 export async function runAnalysis(node: TrainingNode, videoDescription: string): Promise<AnalysisResult> {
   const { data, error } = await supabase.functions.invoke("athlete-lab-analyze", {
     body: { node, videoDescription },
