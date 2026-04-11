@@ -1691,11 +1691,10 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-            <label className={`${LABEL_CLASS} block mb-1`}>Bonus Rules</label>
-            <p className="text-on-surface-variant text-[10px] mb-2">e.g. "+5 if all phases ≥ 80"</p>
+            <label className={`${LABEL_CLASS} block mb-2`}>Bonus Rules</label>
             <textarea
               className={`${INPUT_CLASS} min-h-[60px] resize-y`}
-              placeholder="Describe any bonus point rules..."
+              placeholder='e.g. +5 if all phases ≥ 80'
               value=""
               readOnly
             />
