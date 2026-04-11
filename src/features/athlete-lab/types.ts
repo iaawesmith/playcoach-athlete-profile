@@ -15,7 +15,10 @@ export interface PhaseNote {
   id?: string;
   phase: string;
   notes: string;
+  weight?: number;
 }
+
+export type SegmentationMethod = "proportional" | "checkpoint";
 
 export interface MechanicsSection {
   id: string;
