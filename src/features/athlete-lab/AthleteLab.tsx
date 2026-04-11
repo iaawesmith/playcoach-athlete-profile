@@ -70,7 +70,17 @@ export function AthleteLab() {
         <span className="text-on-surface font-black uppercase tracking-tighter text-lg">AthleteLab</span>
         <div className="w-px h-6 bg-white/10 mx-4" />
         <span className="text-primary-container text-xs font-semibold uppercase tracking-[0.3em]">Training Node Manager</span>
+        <div className="flex-1" />
+        <button
+          onClick={() => setShowAdminRef(true)}
+          title="Admin Reference & Handoff Prompt"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface-variant hover:bg-surface-container-high transition-colors"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>menu_book</span>
+        </button>
       </div>
+
+      {showAdminRef && <AdminReferencePanel onClose={() => setShowAdminRef(false)} />}
 
       <div className="flex flex-1 min-h-0">
         <NodeSidebar
