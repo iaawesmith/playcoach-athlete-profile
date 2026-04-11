@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod } from "../types";
+import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
@@ -552,7 +553,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
+          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} />
         )}
 
         {tab === "scoring" && (
