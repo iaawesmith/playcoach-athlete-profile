@@ -1018,20 +1018,31 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
 }
 
 function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p: PhaseNote[]) => void }) {
+  // Ensure every phase has an id
+  useEffect(() => {
+    const needsIds = phases.some(p => !p.id);
+    if (needsIds) {
+      const updated = phases.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
+      onChange(updated);
+    }
+  }, []); // only on mount
+
+  const ensureId = (p: PhaseNote): PhaseNote => p.id ? p : { ...p, id: crypto.randomUUID() };
+
   return (
     <div className="space-y-3">
       {phases.map((p, i) => (
-        <div key={i} className={CARD_CLASS}>
+        <div key={p.id || i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
-            <input className={`${INPUT_CLASS} w-48`} value={p.phase} onChange={(e) => { const n = [...phases]; n[i] = { ...p, phase: e.target.value }; onChange(n); }} placeholder="Phase name" />
+            <input className={`${INPUT_CLASS} w-48`} value={p.phase} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), phase: e.target.value }; onChange(n); }} placeholder="Phase name" />
             <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...p, notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
+          <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
         </div>
       ))}
-      <button onClick={() => onChange([...phases, { phase: "", notes: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
+      <button onClick={() => onChange([...phases, { id: crypto.randomUUID(), phase: "", notes: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Add Phase
       </button>
     </div>
