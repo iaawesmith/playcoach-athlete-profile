@@ -103,11 +103,10 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
             style={selectedId === node.id ? { backgroundColor: '#2A323F' } : undefined}
             onClick={() => onSelect(node.id)}
           >
-            {node.icon_url ? (
-              <img src={node.icon_url} alt="" className="w-5 h-5 rounded object-cover" />
-            ) : (
-              <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 20 }}>route</span>
-            )}
+            <span
+              className="w-3 h-3 rounded-full shrink-0"
+              style={{ backgroundColor: node.status === "live" ? "#00e639" : "#f59e0b" }}
+            />
             <span className="flex-1 text-on-surface text-sm font-medium truncate">{node.name}</span>
 
             {/* Position badge */}
