@@ -691,6 +691,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         <div>
           <div className="flex items-center gap-1.5 mb-2">
             <label className={LABEL_CLASS}>Clip Window</label>
+            <SectionTooltip tip="The exact start and end timestamps of the relevant movement within the video. The analysis pipeline extracts only this window — set it tight around the specific route or skill being demonstrated to avoid processing dead time." />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -732,7 +733,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
         {/* Camera Angle */}
         <div>
-          <label className={`${LABEL_CLASS} mb-1 block`}>Camera Angle</label>
+          <div className="flex items-center gap-1.5 mb-1">
+            <label className={LABEL_CLASS}>Camera Angle</label>
+            <SectionTooltip tip="The angle this video was filmed from. Must match the Reference tab calibration for this angle — used by the pipeline to convert pixel measurements to real-world distances. Choose the closest match if the angle is not exact." />
+          </div>
           <div className="relative">
             <select
               className={INPUT_CLASS + " appearance-none cursor-pointer"}
@@ -755,7 +759,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
         {/* Video Type */}
         <div>
-          <label className={`${LABEL_CLASS} mb-2 block`}>Video Type</label>
+          <div className="flex items-center gap-1.5 mb-2">
+            <label className={LABEL_CLASS}>Video Type</label>
+            <SectionTooltip tip="Educational — shown to athletes as a learning example but not used in analysis calibration. Analysis — used by the pipeline as a reference for metric calibration. Both — serves both purposes." />
+          </div>
           <div className="flex gap-1">
             {TYPE_OPTIONS.map((o) => (
               <button
@@ -777,7 +784,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         {/* Reference Toggle */}
         <div className="flex items-center justify-between py-2">
           <div>
-            <label className={LABEL_CLASS}>Reference Video</label>
+            <div className="flex items-center gap-1.5">
+              <label className={LABEL_CLASS}>Reference Video</label>
+              <SectionTooltip tip="The single video shown to athletes alongside their results as the elite performance benchmark. Only one video per node can be the Reference. Toggling this on will automatically remove it from any other video currently flagged as Reference." />
+            </div>
             <p className="text-on-surface-variant/50 text-[10px] mt-0.5">Shown to athletes as the elite example alongside their results. One per node.</p>
           </div>
           <button
@@ -835,11 +845,17 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
             {editIdx === i ? (
               <div className="space-y-3">
                 <div>
-                  <label className={`${LABEL_CLASS} mb-1 block`}>Label</label>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <label className={LABEL_CLASS}>Descriptive Label</label>
+                    <SectionTooltip tip="The name shown to athletes and admins when this video appears in the training feed. Be specific — include the player name and what the clip demonstrates." />
+                  </div>
                   <input className={INPUT_CLASS} value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
                 </div>
                 <div>
-                  <label className={`${LABEL_CLASS} mb-1 block`}>Video URL</label>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <label className={LABEL_CLASS}>Video URL</label>
+                    <SectionTooltip tip="Paste a full YouTube URL. The video must be publicly accessible or unlisted. Private videos cannot be loaded." />
+                  </div>
                   <input className={INPUT_CLASS} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
                 </div>
                 {renderFormFields(editStartSec, setEditStartSec, editEndSec, setEditEndSec, editCameraAngle, setEditCameraAngle, editVideoType, setEditVideoType, editIsReference, setEditIsReference, editAngleError)}
@@ -889,11 +905,17 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         <div className={CARD_CLASS + " border-primary-container/20"}>
           <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Reference Video</p>
           <div>
-            <label className={`${LABEL_CLASS} mb-1 block`}>Descriptive Label</label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className={LABEL_CLASS}>Descriptive Label</label>
+              <SectionTooltip tip="The name shown to athletes and admins when this video appears in the training feed. Be specific — include the player name and what the clip demonstrates." />
+            </div>
             <input className={INPUT_CLASS} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
           </div>
           <div>
-            <label className={`${LABEL_CLASS} mb-1 block`}>Video URL</label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className={LABEL_CLASS}>Video URL</label>
+              <SectionTooltip tip="Paste a full YouTube URL. The video must be publicly accessible or unlisted. Private videos cannot be loaded." />
+            </div>
             <input className={INPUT_CLASS} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
           </div>
           {renderFormFields(newStartSec, setNewStartSec, newEndSec, setNewEndSec, newCameraAngle, setNewCameraAngle, newVideoType, setNewVideoType, newIsReference, setNewIsReference, addAngleError)}
