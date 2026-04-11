@@ -89,6 +89,20 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "Clip Duration", detail: "Minimum must be less than maximum" });
   }
 
+  // Every mechanics section must be linked to a valid phase
+  try {
+    const mechanicsSections: MechanicsSection[] = node.pro_mechanics ? JSON.parse(node.pro_mechanics) : [];
+    if (Array.isArray(mechanicsSections)) {
+      const phaseIds = new Set((node.phase_breakdown || []).map(p => p.id).filter(Boolean));
+      for (const sec of mechanicsSections) {
+        if (!sec.phase_id || !phaseIds.has(sec.phase_id)) {
+          issues.push({ label: "Mechanics", detail: "All mechanics sections must be linked to a valid phase" });
+          break;
+        }
+      }
+    }
+  } catch { /* old format, ignore */ }
+
   return issues;
 }
 
