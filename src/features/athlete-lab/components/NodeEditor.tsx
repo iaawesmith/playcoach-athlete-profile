@@ -1153,6 +1153,7 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
   }, [value]);
 
   const [sections, setSections] = useState<MechanicsSection[]>(parseSections);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setSections(parseSections());
@@ -1186,14 +1187,8 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
     serialize(next);
   };
 
-  const moveSection = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir;
-    if (target < 0 || target >= sections.length) return;
-    const next = [...sections];
-    [next[idx], next[target]] = [next[target], next[idx]];
-    setSections(next);
-    serialize(next);
-  };
+
+
 
   // Build set of phase IDs already linked
   const linkedPhaseIds = new Set(sections.map(s => s.phase_id).filter(Boolean));
@@ -1211,30 +1206,39 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
         const phaseName = getPhaseNameById(sec.phase_id);
         const isOrphan = sec.phase_id && !phaseIdSet.has(sec.phase_id);
         const isUnlinked = !sec.phase_id;
+        const isCollapsed = collapsed.has(sec.id);
+
+        const toggleCollapse = () => {
+          setCollapsed(prev => {
+            const next = new Set(prev);
+            if (next.has(sec.id)) next.delete(sec.id);
+            else next.add(sec.id);
+            return next;
+          });
+        };
 
         return (
           <div key={sec.id} className={CARD_CLASS}>
-            {/* Phase link header */}
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex flex-col">
-                <button onClick={() => moveSection(idx, -1)} disabled={idx === 0} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
-                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_up</span>
-                </button>
-                <button onClick={() => moveSection(idx, 1)} disabled={idx === sections.length - 1} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
-                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_down</span>
-                </button>
-              </div>
+            {/* Section header row: [chevron] [chain] [PHASE NAME] --- [× delete] */}
+            <div className="flex items-center gap-2">
+              <button onClick={toggleCollapse} className="text-on-surface-variant/50 hover:text-on-surface transition-colors shrink-0">
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  {isCollapsed ? "chevron_right" : "expand_more"}
+                </span>
+              </button>
 
               {/* Linked phase name or dropdown */}
               <div className="flex-1 min-w-0">
                 {isOrphan ? (
                   <div className="flex items-center gap-2">
-                    <span className={LABEL_CLASS + " mb-0 text-amber-400"}>⚠ Linked phase was deleted</span>
+                    <span className="material-symbols-outlined text-amber-400" style={{ fontSize: 14 }}>link_off</span>
+                    <span className={LABEL_CLASS + " mb-0 text-amber-400"}>Phase Deleted</span>
                   </div>
                 ) : phaseName ? (
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 14 }}>link</span>
-                    <span className={LABEL_CLASS + " mb-0"}>{phaseName}</span>
+                  <div className="flex items-center gap-2 select-none">
+                    <span className="material-symbols-outlined text-primary-container/60" style={{ fontSize: 14 }}>link</span>
+                    <span className="text-primary-container/70 text-[10px] font-semibold uppercase tracking-widest">{phaseName}</span>
+                    <span className="material-symbols-outlined text-on-surface-variant/20" style={{ fontSize: 11 }}>lock</span>
                   </div>
                 ) : (
                   <select
@@ -1260,26 +1264,31 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
               </button>
             </div>
 
-            {/* Warning banners */}
-            {isOrphan && (
-              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-2">
-                <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
-                <p className="text-amber-300 text-xs leading-snug">Linked phase was deleted. Please relink this section to an existing phase or delete it.</p>
-              </div>
-            )}
-            {isUnlinked && !isOrphan && (
-              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-2">
-                <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
-                <p className="text-amber-300 text-xs leading-snug">This section is not linked to a phase. Link it before going Live.</p>
-              </div>
-            )}
+            {/* Collapsible content */}
+            {!isCollapsed && (
+              <>
+                {/* Warning banners */}
+                {isOrphan && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
+                    <p className="text-amber-300 text-xs leading-snug">Linked phase was deleted. Please relink this section to an existing phase or delete it.</p>
+                  </div>
+                )}
+                {isUnlinked && !isOrphan && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
+                    <p className="text-amber-300 text-xs leading-snug">This section is not linked to a phase. Link it before going Live.</p>
+                  </div>
+                )}
 
-            <textarea
-              className={`${INPUT_CLASS} min-h-[80px] resize-y`}
-              value={sec.content}
-              onChange={(e) => updateSection(idx, e.target.value)}
-              placeholder={phaseName ? `Coaching cues for ${phaseName.toLowerCase()}...` : "Coaching cues..."}
-            />
+                <textarea
+                  className={`${INPUT_CLASS} min-h-[80px] resize-y`}
+                  value={sec.content}
+                  onChange={(e) => updateSection(idx, e.target.value)}
+                  placeholder={phaseName ? `Coaching cues for ${phaseName.toLowerCase()}...` : "Coaching cues..."}
+                />
+              </>
+            )}
           </div>
         );
       })}
