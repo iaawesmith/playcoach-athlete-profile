@@ -18,7 +18,7 @@ type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scor
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, and upload constraints for this node. Status controls whether athlete uploads trigger automatic analysis." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add elite reference videos with clip timestamps, camera angle, and type. One video must be flagged as the Reference shown to athletes alongside their results." },
-  { key: "overview", label: "Overview", icon: "description", subtitle: "Provide high-level context about the skill and its importance in game situations." },
+  { key: "overview", label: "Overview", icon: "description", subtitle: "Write a short athlete-facing description of this skill and why it matters. Shown at the top of the training feed before athletes film." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
   { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define the measurable components the AI will evaluate. Minimum 4–6 metrics suggested for balanced scoring." },
