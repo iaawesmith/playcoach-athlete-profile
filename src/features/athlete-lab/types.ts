@@ -21,9 +21,17 @@ export interface Badge {
   condition: string;
 }
 
+export type CameraAngle = "sideline" | "endzone" | "behind_qb";
+export type VideoType = "educational" | "analysis" | "both";
+
 export interface EliteVideo {
   url: string;
   label: string;
+  start_seconds?: number | null;
+  end_seconds?: number | null;
+  camera_angle?: CameraAngle | null;
+  video_type?: VideoType;
+  is_reference?: boolean;
 }
 
 export interface KnowledgeSection {
