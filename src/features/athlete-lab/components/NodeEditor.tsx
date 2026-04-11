@@ -388,6 +388,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               </div>
               <input className={INPUT_CLASS} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
             </div>
+
+            <div className="border-t border-white/[0.11] my-6" />
+
             <div>
               <div className="flex items-center gap-1.5 mb-2">
                 <label className={LABEL_CLASS}>Icon / Visual Diagram</label>
@@ -437,6 +440,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               </div>
             </div>
 
+            <div className="border-t border-white/[0.11] my-6" />
+
             <div className="space-y-3">
               <div className="flex items-center gap-1.5">
                 <label className={LABEL_CLASS}>Clip Duration</label>
@@ -480,7 +485,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             </div>
 
             {/* Version indicator */}
-            <div className="pt-4 mt-2 border-t border-outline-variant/15 flex items-center justify-between">
+            <div className="pt-8 mt-2 border-t border-white/[0.27]" />
+            <div className="pt-5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-on-surface-variant/40 text-[10px] font-medium uppercase tracking-widest">Node Version</span>
                 <span className="text-on-surface-variant/60 text-[10px] font-semibold">v{draft.node_version ?? 1}</span>
