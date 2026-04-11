@@ -1515,7 +1515,7 @@ function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
     <div className="space-y-4">
       {sections.map((s) => (
          <div key={s} className={CARD_CLASS}>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <label className={LABEL_CLASS}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
@@ -1523,7 +1523,7 @@ function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
             className={`${INPUT_CLASS} min-h-[70px] resize-y`}
             value={fields[s] || ""}
             onChange={(e) => handleChange(s, e.target.value)}
-            placeholder={descriptions[s]}
+            placeholder={placeholders[s]}
           />
         </div>
       ))}
@@ -1612,7 +1612,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
           className={`${INPUT_CLASS} min-h-[120px] resize-y`}
           value={scoringRules}
           onChange={(e) => onScoringRulesChange(e.target.value)}
-          placeholder="Describe the scoring formula..."
+          placeholder="e.g. Route Mastery Score = weighted average of all metrics. Scores ≥ 80 indicate elite execution..."
         />
       </div>
 
