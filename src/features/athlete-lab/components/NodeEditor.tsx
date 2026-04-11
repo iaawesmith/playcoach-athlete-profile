@@ -1180,6 +1180,381 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
   );
 }
 
+function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete }: {
+  phases: PhaseNote[];
+  onChange: (p: PhaseNote[]) => void;
+  segmentationMethod: SegmentationMethod;
+  onSegmentationMethodChange: (m: SegmentationMethod) => void;
+  onConfirmDelete: ConfirmDeleteFn;
+}) {
+  useEffect(() => {
+    const needsIds = phases.some(p => !p.id);
+    if (needsIds) {
+      const updated = phases.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
+      onChange(updated);
+    }
+  }, []); // only on mount
+
+  const ensureId = (p: PhaseNote): PhaseNote => p.id ? p : { ...p, id: crypto.randomUUID() };
+
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [addDraft, setAddDraft] = useState<PhaseNote>({ id: crypto.randomUUID(), phase: "", notes: "", weight: 0 });
+  const [editDraft, setEditDraft] = useState<PhaseNote>({ id: "", phase: "", notes: "", weight: 0 });
+
+  const handleDragStart = (idx: number) => { setDragIdx(idx); };
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const next = [...phases];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(idx, 0, moved);
+    onChange(next);
+    setDragIdx(idx);
+  };
+  const handleDragEnd = () => { setDragIdx(null); };
+
+  const startEdit = (i: number) => {
+    setEditIdx(i);
+    setEditDraft({ ...phases[i] });
+    setAdding(false);
+  };
+
+  const saveEdit = (i: number) => {
+    const n = [...phases];
+    n[i] = ensureId(editDraft);
+    onChange(n);
+    setEditIdx(null);
+  };
+
+  const handleAdd = () => {
+    onChange([...phases, ensureId(addDraft)]);
+    setAddDraft({ id: crypto.randomUUID(), phase: "", notes: "", weight: 0 });
+    setAdding(false);
+  };
+
+  const totalWeight = phases.reduce((s, p) => s + (p.weight ?? 0), 0);
+  const remaining = 100 - totalWeight;
+  const isProportional = segmentationMethod === "proportional";
+
+  const renderFields = (p: PhaseNote, setP: (v: PhaseNote) => void) => (
+    <div className="space-y-3 pt-3">
+      <div className="grid grid-cols-[1fr_auto] gap-3">
+        <div>
+          <div className="flex items-center gap-1 mb-2">
+            <label className={LABEL_CLASS}>Phase Name</label>
+            <SectionTooltip tip="The name of this movement phase. Must be unique within this node. This name is used across Mechanics, Metrics, and the analysis pipeline — keep it short and descriptive." />
+          </div>
+          <input className={INPUT_CLASS} value={p.phase} onChange={(e) => setP({ ...p, phase: e.target.value })} placeholder="e.g. Release" />
+        </div>
+        {isProportional && (
+          <div className="w-24">
+            <div className="flex items-center gap-1 mb-2">
+              <label className={LABEL_CLASS}>% of Clip</label>
+              <SectionTooltip tip="The percentage of the video clip this phase occupies. All phases must sum to 100%." />
+            </div>
+            <div className="relative">
+              <input type="number" min={1} max={99} step={1} className={`${INPUT_CLASS} !pr-7 !text-right w-full`} value={p.weight != null && p.weight > 0 ? p.weight : ""} onChange={(e) => { const raw = e.target.value; const val = raw === "" ? 0 : Math.min(99, Math.max(0, Math.round(Number(raw)))); setP({ ...p, weight: val }); }} placeholder="—" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div>
+        <div className="flex items-center gap-1 mb-2">
+          <label className={LABEL_CLASS}>Phase Description</label>
+          <SectionTooltip tip="A brief coaching description of what happens in this phase. Used as context by the AI feedback engine." />
+        </div>
+        <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => setP({ ...p, notes: e.target.value })} placeholder="e.g. Athlete pushes off the line with initial burst..." />
+      </div>
+      <div>
+        <div className="flex items-center gap-1 mb-2">
+          <label className={LABEL_CLASS}>Frame Buffer</label>
+          <SectionTooltip tip="Number of frames to include on either side of this phase boundary. Default of 3 works for most skills." />
+        </div>
+        <div className="relative w-[100px]">
+          <input type="number" min={0} max={15} step={1} className={`${INPUT_CLASS} !pr-14 !text-right w-full`} value={p.frame_buffer ?? 3} onChange={(e) => { const val = Math.min(15, Math.max(0, Math.round(Number(e.target.value)))); setP({ ...p, frame_buffer: val }); }} />
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[10px]">frames</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Segmentation method selector */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <label className={LABEL_CLASS}>Segmentation Method</label>
+          <SectionTooltip tip="Proportional: divides clip frames by the percentage weights you set per phase. Checkpoint-triggered: phase boundaries are set by specific body position events defined in the Checkpoints tab." />
+        </div>
+        <div className="flex rounded-xl overflow-hidden border border-outline-variant/20" style={{ backgroundColor: '#0E1319' }}>
+          <button onClick={() => onSegmentationMethodChange("proportional")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${isProportional ? "bg-primary-container/15 text-primary-container border-r border-primary-container/30" : "text-on-surface-variant hover:text-on-surface border-r border-outline-variant/20"}`}>Proportional</button>
+          <button onClick={() => onSegmentationMethodChange("checkpoint")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${!isProportional ? "bg-primary-container/15 text-primary-container" : "text-on-surface-variant hover:text-on-surface"}`}>Checkpoint-triggered</button>
+        </div>
+        {!isProportional && (
+          <p className="text-on-surface-variant/50 text-xs leading-snug">Phase boundaries will be determined by Checkpoints. Proportion weights are ignored.</p>
+        )}
+      </div>
+
+      {/* Section label */}
+      <div className="flex items-center gap-1.5">
+        <label className={LABEL_CLASS}>Skill Phases</label>
+        <SectionTooltip tip="Define the sequential movement phases for this skill. Each phase is used to segment video frames during analysis. Minimum 4 phases recommended. Order matters — phases are processed top to bottom." />
+      </div>
+
+      {/* Phase cards */}
+      <div className="space-y-2">
+        {phases.map((p, i) => (
+          <div
+            key={p.id || i}
+            className={`${CARD_CLASS} ${dragIdx === i ? "opacity-50" : ""}`}
+            draggable={editIdx !== i}
+            onDragStart={() => handleDragStart(i)}
+            onDragOver={(e) => handleDragOver(e, i)}
+            onDragEnd={handleDragEnd}
+          >
+            {editIdx === i ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="cursor-grab active:cursor-grabbing text-on-surface-variant/30"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>drag_indicator</span></span>
+                  <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center">{i + 1}</span>
+                  <span className="text-on-surface text-xs font-bold flex-1">Phase {i + 1}</span>
+                </div>
+                {renderFields(editDraft, setEditDraft)}
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => saveEdit(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
+                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group">
+                <span className="cursor-grab active:cursor-grabbing text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors shrink-0">
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>drag_indicator</span>
+                </span>
+                <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center shrink-0">{i + 1}</span>
+                <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{p.phase || "Untitled Phase"}</p>
+                {isProportional && <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{p.weight ?? 0}%</span>}
+                <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{p.frame_buffer ?? 3} frames</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                  </button>
+                  <button onClick={() => { const phaseName = p.phase || `Phase ${i + 1}`; onConfirmDelete({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i)); setEditIdx(null); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {adding ? (
+        <div className={CARD_CLASS + " border-primary-container/20"}>
+          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Phase</p>
+          {renderFields(addDraft, setAddDraft)}
+          <div className="flex gap-2 pt-2">
+            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
+            <button onClick={() => { setAdding(false); setAddDraft({ id: crypto.randomUUID(), phase: "", notes: "", weight: 0 }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => { setAdding(true); setEditIdx(null); }} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Phase
+        </button>
+      )}
+
+      {/* Proportion total indicator */}
+      {isProportional && phases.length > 0 && (
+        <div className="pt-2">
+          {totalWeight === 100 ? (
+            <p className="text-primary-container text-xs font-semibold">Total: 100% ✓</p>
+          ) : totalWeight > 100 ? (
+            <p className="text-amber-400 text-xs font-semibold">Total: {totalWeight}% — over by {totalWeight - 100}%</p>
+          ) : (
+            <p className="text-on-surface-variant/60 text-xs font-semibold">Total: {totalWeight}% — {remaining}% remaining</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete }: { checkpoints: string[]; onChange: (c: string[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [editDraft, setEditDraft] = useState("");
+
+  const startEdit = (i: number) => {
+    setEditIdx(i);
+    setEditDraft(checkpoints[i]);
+    setAdding(false);
+  };
+
+  const saveEdit = (i: number) => {
+    const n = [...checkpoints];
+    n[i] = editDraft;
+    onChange(n);
+    setEditIdx(null);
+  };
+
+  const handleAdd = () => {
+    onChange([...checkpoints, draft]);
+    setDraft("");
+    setAdding(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="space-y-2">
+        {checkpoints.map((c, i) => (
+          <div key={i} className={CARD_CLASS}>
+            {editIdx === i ? (
+              <div className="space-y-3">
+                <span className="text-on-surface text-xs font-bold">Checkpoint {i + 1}</span>
+                <div className="pt-3">
+                  <div className={`${LABEL_CLASS} mb-2`}>Checkpoint Description</div>
+                  <input className={`${INPUT_CLASS} flex-1`} value={editDraft} onChange={(e) => setEditDraft(e.target.value)} placeholder="e.g. Hips fully rotated at the break point" />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => saveEdit(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
+                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 group">
+                <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center shrink-0">{i + 1}</span>
+                <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{c || "Untitled Checkpoint"}</p>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                  </button>
+                  <button onClick={() => onConfirmDelete({ title: "Delete Checkpoint?", body: `Deleting Checkpoint ${i + 1} will remove it from the analysis checklist. This cannot be undone.`, confirmLabel: "Delete Checkpoint", onConfirm: () => { onChange(checkpoints.filter((_, j) => j !== i)); setEditIdx(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {adding ? (
+        <div className={CARD_CLASS + " border-primary-container/20"}>
+          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Checkpoint</p>
+          <div className="pt-3">
+            <div className={`${LABEL_CLASS} mb-2`}>Checkpoint Description</div>
+            <input className={`${INPUT_CLASS} flex-1`} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="e.g. Hips fully rotated at the break point" />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
+            <button onClick={() => { setAdding(false); setDraft(""); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => { setAdding(true); setEditIdx(null); }} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Checkpoint
+        </button>
+      )}
+    </div>
+  );
+}
+
+function BadgesEditor({ badges, onChange, onConfirmDelete }: { badges: Badge[]; onChange: (b: Badge[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<Badge>({ name: "", condition: "" });
+  const [editDraft, setEditDraft] = useState<Badge>({ name: "", condition: "" });
+
+  const startEdit = (i: number) => {
+    setEditIdx(i);
+    setEditDraft({ ...badges[i] });
+    setAdding(false);
+  };
+
+  const saveEdit = (i: number) => {
+    const n = [...badges];
+    n[i] = editDraft;
+    onChange(n);
+    setEditIdx(null);
+  };
+
+  const handleAdd = () => {
+    onChange([...badges, draft]);
+    setDraft({ name: "", condition: "" });
+    setAdding(false);
+  };
+
+  const renderFields = (b: Badge, setB: (v: Badge) => void) => (
+    <div className="space-y-3 pt-3">
+      <div>
+        <div className={`${LABEL_CLASS} mb-2`}>Badge Name</div>
+        <input className={INPUT_CLASS} value={b.name} onChange={(e) => setB({ ...b, name: e.target.value })} placeholder="e.g. Route Technician" />
+      </div>
+      <div>
+        <div className={`${LABEL_CLASS} mb-2`}>Unlock Condition</div>
+        <input className={INPUT_CLASS} value={b.condition} onChange={(e) => setB({ ...b, condition: e.target.value })} placeholder="e.g. Score 85+ on 3 consecutive attempts" />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {badges.map((b, i) => (
+          <div key={i} className={CARD_CLASS}>
+            {editIdx === i ? (
+              <div className="space-y-3">
+                <span className="text-on-surface text-xs font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
+                  Badge {i + 1}
+                </span>
+                {renderFields(editDraft, setEditDraft)}
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => saveEdit(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
+                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 group">
+                <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
+                <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{b.name || "Untitled Badge"}</p>
+                <span className="text-on-surface-variant/40 text-[10px] font-medium truncate max-w-[200px] shrink-0">{b.condition || "No condition"}</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                  </button>
+                  <button onClick={() => onConfirmDelete({ title: "Delete Badge?", body: `Deleting ${b.name || `Badge ${i + 1}`} will remove it from the badge library. This cannot be undone.`, confirmLabel: "Delete Badge", onConfirm: () => { onChange(badges.filter((_, j) => j !== i)); setEditIdx(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {adding ? (
+        <div className={CARD_CLASS + " border-primary-container/20"}>
+          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Badge</p>
+          {renderFields(draft, setDraft)}
+          <div className="flex gap-2 pt-2">
+            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
+            <button onClick={() => { setAdding(false); setDraft({ name: "", condition: "" }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => { setAdding(true); setEditIdx(null); }} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Badge
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ── Structured Mechanics Editor ── */
 
 interface StructuredEditorProps {
