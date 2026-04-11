@@ -19,7 +19,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add high-quality elite reference videos for AI benchmark comparison. Minimum 3–5 videos suggested." },
   { key: "overview", label: "Overview", icon: "description", subtitle: "Provide high-level context about the skill and its importance in game situations." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define the natural phases of this skill. Minimum 4–5 phases suggested for granular analysis." },
-  { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define detailed coaching cues for each phase of the skill. Minimum 4–5 phases suggested for robust analysis." },
+  { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define the measurable components the AI will evaluate. Minimum 4–6 metrics suggested for balanced scoring." },
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how metrics combine into the final 0-100 mastery score." },
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Document common mistakes and their corrections. Minimum 4–5 errors suggested." },
