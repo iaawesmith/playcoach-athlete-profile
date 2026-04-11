@@ -1153,6 +1153,7 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
   }, [value]);
 
   const [sections, setSections] = useState<MechanicsSection[]>(parseSections);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setSections(parseSections());
