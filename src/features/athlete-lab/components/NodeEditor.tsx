@@ -398,11 +398,17 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         {tab === "basics" && (
           <div className="space-y-4">
              <div>
-              <label className={`${LABEL_CLASS} block mb-2`}>Route / Skill Name</label>
+              <div className="flex items-center gap-1.5 mb-2">
+                <label className={LABEL_CLASS}>Route / Skill Name</label>
+                <SectionTooltip tip="The name athletes see in their training feed and results. Keep it specific — 'Slant Route' not 'Route Running.'" />
+              </div>
               <input className={INPUT_CLASS} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
             </div>
             <div>
-              <label className={`${LABEL_CLASS} block mb-2`}>Icon / Visual Diagram</label>
+              <div className="flex items-center gap-1.5 mb-2">
+                <label className={LABEL_CLASS}>Icon / Visual Diagram</label>
+                <SectionTooltip tip="Displayed next to this node everywhere it appears in the athlete app. Use a clear diagram that shows the route or movement pattern at a glance." />
+              </div>
               <div className="flex items-center gap-3">
                 {draft.icon_url ? (
                   <div className="relative group">
@@ -447,11 +453,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               </div>
             </div>
 
-            {/* Clip Duration */}
             <div className="space-y-3">
-              <div>
-                <label className={`${LABEL_CLASS} block mb-1`}>Clip Duration</label>
-                <p className="text-on-surface-variant/60 text-xs mb-3">Acceptable video length for athlete uploads. Uploads outside this range are rejected before analysis runs.</p>
+              <div className="flex items-center gap-1.5">
+                <label className={LABEL_CLASS}>Clip Duration</label>
+                <SectionTooltip tip="The acceptable video length for uploads against this node. Videos shorter than the minimum or longer than the maximum are automatically rejected before analysis runs — saving compute and catching accidental full-session uploads." />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -487,7 +492,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               {draft.clip_duration_min != null && draft.clip_duration_max != null && draft.clip_duration_min >= draft.clip_duration_max && (
                 <p className="text-red-400 text-xs font-medium">Minimum must be less than maximum</p>
               )}
-              <p className="text-on-surface-variant/40 text-[11px]">Set max tight enough to reject full practice session recordings.</p>
+              
             </div>
 
             {/* Version indicator */}
