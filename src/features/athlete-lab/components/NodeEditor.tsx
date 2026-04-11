@@ -217,6 +217,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     setSaving(true);
     try {
       const shouldAutoDraft = node.status === "live" && criticalChanged.current;
+      const isLiveSave = node.status === "live" && !shouldAutoDraft;
       const updates: Partial<TrainingNode> = {
         name: draft.name,
         icon_url: draft.icon_url,
@@ -238,6 +239,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
+      }
+      if (isLiveSave) {
+        updates.node_version = (draft.node_version ?? 1) + 1;
       }
       const updated = await updateNode(draft.id, updates);
       onUpdated(updated);
@@ -272,9 +276,14 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     setToggling(true);
     try {
       const newStatus: NodeStatus = draft.status === "live" ? "draft" : "live";
-      const updated = await setNodeStatus(draft.id, newStatus);
+      const updates: Partial<TrainingNode> = { status: newStatus };
+      // On first go-live, ensure version is at least 1
+      if (newStatus === "live" && (!draft.node_version || draft.node_version < 1)) {
+        updates.node_version = 1;
+      }
+      const updated = await updateNode(draft.id, updates);
       onUpdated(updated);
-      setDraft((d) => ({ ...d, status: newStatus }));
+      setDraft((d) => ({ ...d, ...updates }));
       setStatusModal(null);
     } catch {
       // error

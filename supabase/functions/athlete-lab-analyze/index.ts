@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,6 +114,22 @@ Analyze this performance and return the JSON response.`;
     // Ensure warnings and eliteComparison exist even if model omits them
     if (!parsed.warnings) parsed.warnings = [];
     if (!parsed.eliteComparison) parsed.eliteComparison = "";
+
+    // Persist result with node_version
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const sb = createClient(supabaseUrl, supabaseKey);
+      await sb.from("athlete_lab_results").insert({
+        node_id: node.id,
+        node_version: node.node_version ?? 1,
+        video_description: videoDescription ?? "",
+        overall_score: typeof parsed.overallScore === "number" ? parsed.overallScore : null,
+        result_data: parsed,
+      });
+    } catch (_persistErr) {
+      // Don't fail the response if persistence fails
+    }
 
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
