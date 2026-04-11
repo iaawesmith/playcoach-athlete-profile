@@ -4,6 +4,7 @@ import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
+import { ConfirmModal } from "./ConfirmModal";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
