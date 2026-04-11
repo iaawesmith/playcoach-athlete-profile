@@ -894,7 +894,8 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                     </button>
                     <button onClick={() => onChange(videos.filter((_, j) => j !== i))} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
-                  </button>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
