@@ -377,12 +377,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                 <h3 className="text-on-surface font-extrabold uppercase text-sm tracking-wide leading-tight">
                   {activeTab?.label}
                 </h3>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <p className="text-on-surface-variant text-xs leading-snug">
-                    {activeTab?.subtitle}
-                  </p>
-                  <SectionTooltip tip={TOOLTIPS[tab]} />
-                </div>
+                <p className="text-on-surface-variant text-xs leading-snug mt-1">
+                  {activeTab?.subtitle}
+                </p>
               </div>
               <button
                 onClick={() => setHelpOpen(true)}
