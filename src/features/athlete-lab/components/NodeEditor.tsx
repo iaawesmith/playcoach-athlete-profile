@@ -103,6 +103,15 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     }
   } catch { /* old format, ignore */ }
 
+  // Phase proportion weights must sum to 100 (only when using proportional segmentation)
+  const segMethod = node.segmentation_method ?? "proportional";
+  if (segMethod === "proportional" && node.phase_breakdown.length > 0) {
+    const totalWeight = node.phase_breakdown.reduce((s, p) => s + (p.weight ?? 0), 0);
+    if (totalWeight !== 100) {
+      issues.push({ label: "Phases", detail: `Phase proportions must sum to 100% (currently ${totalWeight}%)` });
+    }
+  }
+
   return issues;
 }
 
@@ -234,6 +243,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         knowledge_base: draft.knowledge_base,
         clip_duration_min: draft.clip_duration_min,
         clip_duration_max: draft.clip_duration_max,
+        segmentation_method: draft.segmentation_method,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
