@@ -1743,12 +1743,18 @@ function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: Structure
                   </div>
                 )}
 
-                <textarea
-                  className={`${INPUT_CLASS} min-h-[80px] resize-y`}
-                  value={sec.content}
-                  onChange={(e) => updateSection(idx, e.target.value)}
-                  placeholder={phaseName ? `Coaching cues for ${phaseName.toLowerCase()}...` : "Coaching cues..."}
-                />
+                <div>
+                  <div className="flex items-center gap-1 mb-2">
+                    <label className={LABEL_CLASS + " mb-0"}>Coaching Cues</label>
+                    <SectionTooltip tip="Write the coaching instruction for this phase in direct, athlete-facing language. This content is passed to the AI feedback engine as context — the more specific and technical your cues, the more precise the feedback athletes receive. Aim for 3-5 sentences covering what to do, how to do it, and what goes wrong when it is done incorrectly." />
+                  </div>
+                  <textarea
+                    className={`${INPUT_CLASS} min-h-[80px] resize-y`}
+                    value={sec.content}
+                    onChange={(e) => updateSection(idx, e.target.value)}
+                    placeholder={phaseName ? `Coaching cues for ${phaseName.toLowerCase()}...` : "Coaching cues..."}
+                  />
+                </div>
               </>
             )}
           </div>
