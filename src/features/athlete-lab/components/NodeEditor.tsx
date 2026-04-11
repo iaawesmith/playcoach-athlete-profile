@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod } from "../types";
+import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
@@ -62,6 +63,40 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
   const totalWeight = node.key_metrics.reduce((s, m) => s + m.weight, 0);
   if (totalWeight !== 100) {
     issues.push({ label: "Metrics", detail: `Metric weights must add up to 100% (currently ${totalWeight}%)` });
+  }
+
+  // Keypoint mapping completeness for each metric
+  for (const m of node.key_metrics) {
+    const km = m.keypoint_mapping;
+    if (!km || !km.calculation_type) {
+      issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: missing keypoint mapping` });
+    } else {
+      if (km.keypoint_indices.length === 0) {
+        issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: no keypoints selected` });
+      } else {
+        // Validate count for calc type
+        const count = km.keypoint_indices.length;
+        if (km.calculation_type === "angle" && count !== 3) {
+          issues.push({ label: "Metrics", detail: `${m.name}: Angle requires exactly 3 keypoints (${count} selected)` });
+        } else if ((km.calculation_type === "distance" || km.calculation_type === "frame_delta") && count !== 2) {
+          issues.push({ label: "Metrics", detail: `${m.name}: ${km.calculation_type} requires exactly 2 keypoints (${count} selected)` });
+        } else if ((km.calculation_type === "velocity" || km.calculation_type === "acceleration") && (count < 1 || count > 2)) {
+          issues.push({ label: "Metrics", detail: `${m.name}: ${km.calculation_type} requires 1-2 keypoints (${count} selected)` });
+        }
+      }
+      if (!km.phase_id) {
+        issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: no phase assigned` });
+      }
+      // Temporal window check
+      const tw = m.temporal_window ?? 1;
+      if (km.calculation_type === "velocity" && tw < 3) {
+        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for velocity (${tw}, need ≥3)` });
+      } else if (km.calculation_type === "acceleration" && tw < 5) {
+        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for acceleration (${tw}, need ≥5)` });
+      } else if (km.calculation_type === "frame_delta" && tw < 10) {
+        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for frame delta (${tw}, need ≥10)` });
+      }
+    }
   }
 
   // At least 1 phase
@@ -552,7 +587,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
+          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} />
         )}
 
         {tab === "scoring" && (
@@ -994,103 +1029,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
 type ConfirmDeleteFn = (opts: { title: string; body: string; confirmLabel: string; onConfirm: () => void }) => void;
 
-function KeyMetricsEditor({ metrics, onChange, onConfirmDelete }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
-  const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
-  const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState<KeyMetric>({ name: "", description: "", eliteTarget: "", unit: "", weight: 0 });
-  const [editDraft, setEditDraft] = useState<KeyMetric>({ name: "", description: "", eliteTarget: "", unit: "", weight: 0 });
-
-  const startEdit = (i: number) => {
-    setEditIdx(i);
-    setEditDraft({ ...metrics[i] });
-    setAdding(false);
-  };
-
-  const saveEdit = (i: number) => {
-    const n = [...metrics];
-    n[i] = editDraft;
-    onChange(n);
-    setEditIdx(null);
-  };
-
-  const handleAdd = () => {
-    onChange([...metrics, draft]);
-    setDraft({ name: "", description: "", eliteTarget: "", unit: "", weight: 0 });
-    setAdding(false);
-  };
-
-  const renderFields = (m: KeyMetric, setM: (v: KeyMetric) => void) => (
-    <div className="space-y-3 pt-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div><div className={`${LABEL_CLASS} mb-2`}>Name</div><input className={INPUT_CLASS} value={m.name} onChange={(e) => setM({ ...m, name: e.target.value })} placeholder="e.g. Separation Distance" /></div>
-        <div><div className={`${LABEL_CLASS} mb-2`}>Unit</div><input className={INPUT_CLASS} value={m.unit} onChange={(e) => setM({ ...m, unit: e.target.value })} placeholder="e.g. yards" /></div>
-      </div>
-      <div><div className={`${LABEL_CLASS} mb-2`}>Description</div><textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => setM({ ...m, description: e.target.value })} placeholder="e.g. Distance between receiver and nearest defender at catch point" /></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><div className={`${LABEL_CLASS} mb-2`}>Elite Target</div><input className={INPUT_CLASS} value={m.eliteTarget} onChange={(e) => setM({ ...m, eliteTarget: e.target.value })} placeholder="e.g. 3.5+" /></div>
-        <div><div className={`${LABEL_CLASS} mb-2`}>Weight (%)</div><input type="number" className={INPUT_CLASS} value={m.weight} onChange={(e) => setM({ ...m, weight: Number(e.target.value) })} placeholder="e.g. 25" /></div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className={`text-xs font-semibold ${totalWeight === 100 ? "text-primary-container" : "text-orange-400"}`}>
-        Total Weight: {totalWeight}% {totalWeight !== 100 && "(should be 100%)"}
-      </div>
-      <div className="space-y-2">
-        {metrics.map((m, i) => (
-          <div key={i} className={CARD_CLASS}>
-            {editIdx === i ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-on-surface text-xs font-bold">Metric {i + 1}</span>
-                </div>
-                {renderFields(editDraft, setEditDraft)}
-                <div className="flex gap-2 pt-2">
-                  <button onClick={() => saveEdit(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
-                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 group">
-                <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center shrink-0">{i + 1}</span>
-                <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{m.name || "Untitled Metric"}</p>
-                <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{m.unit}</span>
-                <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{m.eliteTarget}</span>
-                <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{m.weight}%</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
-                  </button>
-                  <button onClick={() => onConfirmDelete({ title: "Delete Metric?", body: `Deleting Metric ${i + 1}${m.name ? ` (${m.name})` : ""} will remove it from the scoring pipeline. This cannot be undone.`, confirmLabel: "Delete Metric", onConfirm: () => { onChange(metrics.filter((_, j) => j !== i)); setEditIdx(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {adding ? (
-        <div className={CARD_CLASS + " border-primary-container/20"}>
-          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Metric</p>
-          {renderFields(draft, setDraft)}
-          <div className="flex gap-2 pt-2">
-            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setDraft({ name: "", description: "", eliteTarget: "", unit: "", weight: 0 }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => { setAdding(true); setEditIdx(null); }} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Metric
-        </button>
-      )}
-    </div>
-  );
-}
+/* KeyMetricsEditor moved to ./KeyMetricsEditor.tsx */
 
 function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: CommonError[]; onChange: (e: CommonError[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   const [editIdx, setEditIdx] = useState<number | null>(null);
