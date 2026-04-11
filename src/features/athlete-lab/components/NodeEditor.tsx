@@ -997,14 +997,14 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-           <div className="grid grid-cols-2 gap-3">
-            <div><div className={`${LABEL_CLASS} mb-1`}>Name</div><input className={INPUT_CLASS} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} /></div>
-            <div><div className={`${LABEL_CLASS} mb-1`}>Unit</div><input className={INPUT_CLASS} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} /></div>
-          </div>
-          <div><div className={`${LABEL_CLASS} mb-1`}>Description</div><textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><div className={`${LABEL_CLASS} mb-1`}>Elite Target</div><input className={INPUT_CLASS} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} /></div>
-            <div><div className={`${LABEL_CLASS} mb-1`}>Weight (%)</div><input type="number" className={INPUT_CLASS} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} /></div>
+            <div><div className={`${LABEL_CLASS} mb-2`}>Name</div><input className={INPUT_CLASS} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} placeholder="e.g. Separation Distance" /></div>
+            <div><div className={`${LABEL_CLASS} mb-2`}>Unit</div><input className={INPUT_CLASS} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} placeholder="e.g. yards" /></div>
+          </div>
+          <div><div className={`${LABEL_CLASS} mb-2`}>Description</div><textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} placeholder="e.g. Distance between receiver and nearest defender at catch point" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><div className={`${LABEL_CLASS} mb-2`}>Elite Target</div><input className={INPUT_CLASS} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} placeholder="e.g. 3.5+" /></div>
+            <div><div className={`${LABEL_CLASS} mb-2`}>Weight (%)</div><input type="number" className={INPUT_CLASS} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} placeholder="e.g. 25" /></div>
           </div>
         </div>
       ))}
