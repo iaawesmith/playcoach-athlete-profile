@@ -1725,7 +1725,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {metrics.map((m) => (
               <div key={m.name} className="p-3 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-                <label className={`${LABEL_CLASS} mb-1 block truncate`}>{m.name || "Unnamed"}</label>
+                <label className={`${LABEL_CLASS} mb-2 block truncate`}>{m.name || "Unnamed"}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
