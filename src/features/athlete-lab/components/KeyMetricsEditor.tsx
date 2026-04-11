@@ -3,7 +3,7 @@ import type { KeyMetric, KeypointMapping, CalculationType, BilateralMode, PhaseN
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
-const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
+const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319] [&_option]:bg-surface-container [&_option]:text-on-surface [&_option:checked]:bg-primary-container/20";
 const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
 const CARD_CLASS = "p-5 rounded-xl border border-outline-variant/20 space-y-3 bg-[#1A2029]";
 
@@ -516,7 +516,7 @@ function KeypointMappingPanel({ km, setKm, phases }: {
           ))}
         </div>
         {/* Chips by sub_group */}
-        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin">
+        <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1 scrollbar-thin">
           {groupedTabKeypoints.map(({ subGroup, displayName, keypoints: sgKps }) => (
             <div key={subGroup}>
               <p className="text-on-surface-variant/40 text-[9px] font-semibold uppercase tracking-widest mb-1.5">{displayName}</p>
