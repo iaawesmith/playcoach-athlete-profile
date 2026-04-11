@@ -1137,58 +1137,89 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
           onDragOver={(e) => handleDragOver(e, i)}
           onDragEnd={handleDragEnd}
         >
-          {/* Row 1: drag handle, sequence, name, % weight, delete */}
-          <div className="flex items-center gap-2">
-            <span className="cursor-grab active:cursor-grabbing text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors shrink-0">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>drag_indicator</span>
-            </span>
-            <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 shrink-0 text-center">{i + 1}</span>
-            <input
-              className={`${INPUT_CLASS} flex-1`}
-              value={p.phase}
-              onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), phase: e.target.value }; onChange(n); }}
-              placeholder="Phase name"
-            />
+          {/* Row 1: drag handle, seq#, phase name + % of clip + delete */}
+          <div className="flex items-start gap-2">
+            {/* Drag handle + sequence number — vertically centered with inputs */}
+            <div className="flex items-center gap-1 pt-7 shrink-0">
+              <span className="cursor-grab active:cursor-grabbing text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors">
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>drag_indicator</span>
+              </span>
+              <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center">{i + 1}</span>
+            </div>
+
+            {/* Phase Name field */}
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-1">
+                <label className={LABEL_CLASS}>Phase Name</label>
+                <SectionTooltip tip="The name of this movement phase. Must be unique within this node. This name is used across Mechanics, Metrics, and the analysis pipeline — keep it short and descriptive." />
+              </div>
+              <input
+                className={`${INPUT_CLASS} w-full`}
+                value={p.phase}
+                onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), phase: e.target.value }; onChange(n); }}
+                placeholder="e.g. Release"
+              />
+            </div>
+
+            {/* % of Clip field */}
             {isProportional && (
-              <div className="relative shrink-0 w-20">
-                <input
-                  type="number"
-                  min={1}
-                  max={99}
-                  step={1}
-                  className={`${INPUT_CLASS} !pr-7 !text-right w-full`}
-                  value={p.weight != null && p.weight > 0 ? p.weight : ""}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    const val = raw === "" ? undefined : Math.min(99, Math.max(0, Math.round(Number(raw))));
-                    const n = [...phases];
-                    n[i] = { ...ensureId(p), weight: val ?? 0 };
-                    onChange(n);
-                  }}
-                  placeholder="—"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
+              <div className="shrink-0 w-24 space-y-2">
+                <div className="flex items-center gap-1">
+                  <label className={LABEL_CLASS}>% of Clip</label>
+                  <SectionTooltip tip="The percentage of the video clip this phase occupies. All phases must sum to 100%. Example: Release 15%, Stem 25%, Break 10%, Catch Window 50%." />
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    step={1}
+                    className={`${INPUT_CLASS} !pr-7 !text-right w-full`}
+                    value={p.weight != null && p.weight > 0 ? p.weight : ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const val = raw === "" ? undefined : Math.min(99, Math.max(0, Math.round(Number(raw))));
+                      const n = [...phases];
+                      n[i] = { ...ensureId(p), weight: val ?? 0 };
+                      onChange(n);
+                    }}
+                    placeholder="—"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
+                </div>
               </div>
             )}
-            <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete phase">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-            </button>
-          </div>
-          {/* Row 2: description */}
-          <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
-          {/* Row 3: frame buffer (secondary feel) */}
-          <div className="flex items-center gap-2 pt-0.5">
-            <div className="flex items-center gap-1">
-              <label className="text-on-surface-variant/40 text-[9px] font-medium uppercase tracking-widest">Frame Buffer</label>
-              <SectionTooltip tip="Number of frames to include on either side of this phase boundary. Catches movements that span the edge between two phases — for example a break that starts in the Stem phase and completes in the Break phase. Default of 3 frames works for most skills. Increase to 5-7 for fast explosive movements like a sharp cut." />
+
+            {/* Delete button — vertically centered with inputs */}
+            <div className="pt-7 shrink-0">
+              <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+              </button>
             </div>
-            <div className="relative w-[72px]">
+          </div>
+
+          {/* Row 2: Phase Description */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <label className={LABEL_CLASS}>Phase Description</label>
+              <SectionTooltip tip="A brief coaching description of what happens in this phase. Used as context by the AI feedback engine. Write in plain coaching language — what the athlete should be doing and why it matters." />
+            </div>
+            <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), notes: e.target.value }; onChange(n); }} placeholder="e.g. Athlete pushes off the line with initial burst..." />
+          </div>
+
+          {/* Row 3: Frame Buffer */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <label className={LABEL_CLASS}>Frame Buffer</label>
+              <SectionTooltip tip="Number of frames to include on either side of this phase boundary to catch movements that span two phases. Default of 3 works for most skills." />
+            </div>
+            <div className="relative w-[100px]">
               <input
                 type="number"
                 min={0}
                 max={15}
                 step={1}
-                className={`${INPUT_CLASS} !pr-14 !text-right !py-1.5 !text-xs w-full`}
+                className={`${INPUT_CLASS} !pr-14 !text-right w-full`}
                 value={p.frame_buffer ?? 3}
                 onChange={(e) => {
                   const val = Math.min(15, Math.max(0, Math.round(Number(e.target.value))));
