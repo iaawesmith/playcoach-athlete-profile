@@ -76,6 +76,7 @@ export interface TrainingNode {
   badges: Badge[];
   elite_videos: EliteVideo[];
   knowledge_base: Record<string, KnowledgeSection[]>;
+  segmentation_method: SegmentationMethod;
   created_at: string;
   updated_at: string;
 }
