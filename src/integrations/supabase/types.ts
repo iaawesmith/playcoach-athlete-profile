@@ -61,6 +61,7 @@ export type Database = {
           pro_mechanics: string
           reference_object: string
           scoring_rules: string
+          segmentation_method: string
           status: string
           updated_at: string
         }
@@ -86,6 +87,7 @@ export type Database = {
           pro_mechanics?: string
           reference_object?: string
           scoring_rules?: string
+          segmentation_method?: string
           status?: string
           updated_at?: string
         }
@@ -111,6 +113,7 @@ export type Database = {
           pro_mechanics?: string
           reference_object?: string
           scoring_rules?: string
+          segmentation_method?: string
           status?: string
           updated_at?: string
         }
