@@ -44,6 +44,7 @@ export interface TrainingNode {
   status: NodeStatus;
   clip_duration_min: number;
   clip_duration_max: number;
+  node_version: number;
   overview: string;
   pro_mechanics: string;
   key_metrics: KeyMetric[];
