@@ -372,7 +372,7 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
         </button>
 
         <div className={`overflow-hidden transition-all duration-200 ease-in-out ${mappingOpen ? "max-h-[3000px] opacity-100 mt-3" : "max-h-0 opacity-0"}`}>
-          <KeypointMappingPanel km={km} setKm={setKm} phases={phases} />
+          <KeypointMappingPanel km={km} setKm={setKm} phases={phases} metric={m} setMetric={setM} />
         </div>
       </div>
     </div>
@@ -380,10 +380,22 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
 }
 
 /* ── Keypoint Mapping Panel ── */
-function KeypointMappingPanel({ km, setKm, phases }: {
+
+const PRESET_FIELDS: Record<string, { name: string; unit: string }> = {
+  "Break Angle (standard)": { name: "Break Angle", unit: "degrees" },
+  "Break Angle (precise — heel plant)": { name: "Break Angle", unit: "degrees" },
+  "Separation Distance": { name: "Separation Distance", unit: "yards" },
+  "Release Speed": { name: "Release Speed", unit: "mph" },
+  "Head Snap Timing": { name: "Head Snap Timing", unit: "frames" },
+  "Catch Efficiency (wholebody)": { name: "Catch Efficiency", unit: "%" },
+};
+
+function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   km: KeypointMapping;
   setKm: (km: KeypointMapping) => void;
   phases: PhaseNote[];
+  metric: KeyMetric;
+  setMetric: (v: KeyMetric) => void;
 }) {
   const [activeGroupTab, setActiveGroupTab] = useState<string>(km.body_groups[0] || "body");
   const [presetLoaded, setPresetLoaded] = useState<string | null>(null);
@@ -454,8 +466,20 @@ function KeypointMappingPanel({ km, setKm, phases }: {
       keypoint_indices: combo.keypoints,
       calculation_type: combo.calculation as CalculationType,
     });
+
+    // Pre-fill name and unit on parent metric if empty
+    const presetFields = PRESET_FIELDS[combo.metric];
+    if (presetFields) {
+      const updates: Partial<KeyMetric> = {};
+      if (!metric.name.trim()) updates.name = presetFields.name;
+      if (!metric.unit.trim()) updates.unit = presetFields.unit;
+      if (Object.keys(updates).length > 0) {
+        setMetric({ ...metric, ...updates });
+      }
+    }
+
     setPresetLoaded(combo.metric);
-    setTimeout(() => setPresetLoaded(null), 3000);
+    setTimeout(() => setPresetLoaded(null), 4000);
   };
 
   const validation = getKeypointValidation(km.calculation_type, km.keypoint_indices.length);
@@ -512,7 +536,7 @@ function KeypointMappingPanel({ km, setKm, phases }: {
           ))}
         </div>
         {presetLoaded && (
-          <p className="text-on-surface-variant/50 text-[10px] mt-1">Preset loaded: {presetLoaded}</p>
+          <p className="text-on-surface-variant/50 text-[10px] mt-1">Preset loaded: {presetLoaded} — name and unit pre-filled. Review all fields before saving.</p>
         )}
       </div>
 
