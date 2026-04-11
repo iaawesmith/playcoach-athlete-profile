@@ -1187,14 +1187,8 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
     serialize(next);
   };
 
-  const moveSection = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir;
-    if (target < 0 || target >= sections.length) return;
-    const next = [...sections];
-    [next[idx], next[target]] = [next[target], next[idx]];
-    setSections(next);
-    serialize(next);
-  };
+
+
 
   // Build set of phase IDs already linked
   const linkedPhaseIds = new Set(sections.map(s => s.phase_id).filter(Boolean));
