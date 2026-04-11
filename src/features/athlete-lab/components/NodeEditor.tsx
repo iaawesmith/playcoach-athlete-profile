@@ -1125,139 +1125,176 @@ function serializeStructuredField(fields: Record<string, string>): string {
     .join("\n\n");
 }
 
-function MechanicsEditor({ value, onChange }: StructuredEditorProps) {
-  const defaultSections = ["Release Phase", "Stem Phase", "Break Phase", "Catch Phase", "General Tips"];
-
-  const initFromValue = useCallback((): { name: string; notes: string }[] => {
-    if (!value.trim()) {
-      return defaultSections.map((s) => ({ name: s, notes: "" }));
-    }
-    const parsed = parseStructuredField(value, defaultSections);
-    const hasStructured = defaultSections.some((s) => parsed[s].trim());
-    if (hasStructured) {
-      return defaultSections.map((s) => ({ name: s, notes: parsed[s] }));
-    }
+function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { phases: PhaseNote[] }) {
+  // Parse sections from JSON or migrate from legacy text format
+  const parseSections = useCallback((): MechanicsSection[] => {
+    if (!value.trim()) return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed) && parsed.every((s: any) => typeof s === "object" && "id" in s)) {
+        return parsed as MechanicsSection[];
+      }
+    } catch { /* not JSON, migrate from legacy */ }
+    // Legacy migration: parse old "SectionName: content" format into unlinked sections
     const lines = value.split("\n");
-    const detected: { name: string; notes: string }[] = [];
-    let current: { name: string; notes: string } | null = null;
+    const detected: MechanicsSection[] = [];
+    let current: MechanicsSection | null = null;
     for (const line of lines) {
       const match = line.match(/^([^:]+):\s*(.*)/);
       if (match && match[1].length < 60) {
         if (current) detected.push(current);
-        current = { name: match[1].trim(), notes: match[2].trim() };
+        current = { id: crypto.randomUUID(), phase_id: null, content: match[2].trim() };
       } else if (current) {
-        current.notes = current.notes ? current.notes + "\n" + line : line;
+        current.content = current.content ? current.content + "\n" + line : line;
       }
     }
     if (current) detected.push(current);
-    return detected.length > 0 ? detected : [{ name: "General Tips", notes: value }];
+    return detected.length > 0 ? detected : [{ id: crypto.randomUUID(), phase_id: null, content: value }];
   }, [value]);
 
-  const [phases, setPhases] = useState(initFromValue);
-  const [renamingIdx, setRenamingIdx] = useState<number | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [sections, setSections] = useState<MechanicsSection[]>(parseSections);
 
   useEffect(() => {
-    setPhases(initFromValue());
-  }, [initFromValue]);
+    setSections(parseSections());
+  }, [parseSections]);
 
-  const serialize = (list: { name: string; notes: string }[]) => {
-    return list
-      .filter((p) => p.notes.trim())
-      .map((p) => `${p.name}: ${p.notes.trim()}`)
-      .join("\n\n");
+  const serialize = (list: MechanicsSection[]) => {
+    onChange(JSON.stringify(list));
   };
 
-  const updatePhase = (idx: number, notes: string) => {
-    const next = phases.map((p, i) => (i === idx ? { ...p, notes } : p));
-    setPhases(next);
-    onChange(serialize(next));
+  const updateSection = (idx: number, content: string) => {
+    const next = sections.map((s, i) => (i === idx ? { ...s, content } : s));
+    setSections(next);
+    serialize(next);
   };
 
-  const addPhase = () => {
-    const next = [...phases, { name: `Phase ${phases.length + 1}`, notes: "" }];
-    setPhases(next);
+  const linkSection = (idx: number, phaseId: string) => {
+    const next = sections.map((s, i) => (i === idx ? { ...s, phase_id: phaseId } : s));
+    setSections(next);
+    serialize(next);
   };
 
-  const removePhase = (idx: number) => {
-    const next = phases.filter((_, i) => i !== idx);
-    setPhases(next);
-    onChange(serialize(next));
+  const addSection = () => {
+    const next = [...sections, { id: crypto.randomUUID(), phase_id: null, content: "" }];
+    setSections(next);
+    serialize(next);
   };
 
-  const startRename = (idx: number) => {
-    setRenamingIdx(idx);
-    setRenameValue(phases[idx].name);
+  const removeSection = (idx: number) => {
+    const next = sections.filter((_, i) => i !== idx);
+    setSections(next);
+    serialize(next);
   };
 
-  const confirmRename = () => {
-    if (renamingIdx === null) return;
-    const trimmed = renameValue.trim();
-    if (trimmed) {
-      const next = phases.map((p, i) => (i === renamingIdx ? { ...p, name: trimmed } : p));
-      setPhases(next);
-      onChange(serialize(next));
-    }
-    setRenamingIdx(null);
-  };
-
-  const movePhase = (idx: number, dir: -1 | 1) => {
+  const moveSection = (idx: number, dir: -1 | 1) => {
     const target = idx + dir;
-    if (target < 0 || target >= phases.length) return;
-    const next = [...phases];
+    if (target < 0 || target >= sections.length) return;
+    const next = [...sections];
     [next[idx], next[target]] = [next[target], next[idx]];
-    setPhases(next);
-    onChange(serialize(next));
+    setSections(next);
+    serialize(next);
+  };
+
+  // Build set of phase IDs already linked
+  const linkedPhaseIds = new Set(sections.map(s => s.phase_id).filter(Boolean));
+  const phaseIdSet = new Set(phases.map(p => p.id).filter(Boolean));
+
+  const getPhaseNameById = (phaseId: string | null): string | null => {
+    if (!phaseId) return null;
+    const phase = phases.find(p => p.id === phaseId);
+    return phase ? phase.phase : null;
   };
 
   return (
     <div className="space-y-4">
-      {phases.map((phase, idx) => (
-        <div key={idx} className={CARD_CLASS}>
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col">
-              <button onClick={() => movePhase(idx, -1)} disabled={idx === 0} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
-                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_up</span>
-              </button>
-              <button onClick={() => movePhase(idx, 1)} disabled={idx === phases.length - 1} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
-                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_down</span>
+      {sections.map((sec, idx) => {
+        const phaseName = getPhaseNameById(sec.phase_id);
+        const isOrphan = sec.phase_id && !phaseIdSet.has(sec.phase_id);
+        const isUnlinked = !sec.phase_id;
+
+        return (
+          <div key={sec.id} className={CARD_CLASS}>
+            {/* Phase link header */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-col">
+                <button onClick={() => moveSection(idx, -1)} disabled={idx === 0} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_up</span>
+                </button>
+                <button onClick={() => moveSection(idx, 1)} disabled={idx === sections.length - 1} className="text-on-surface-variant/40 hover:text-on-surface disabled:opacity-20 transition-colors">
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>keyboard_arrow_down</span>
+                </button>
+              </div>
+
+              {/* Linked phase name or dropdown */}
+              <div className="flex-1 min-w-0">
+                {isOrphan ? (
+                  <div className="flex items-center gap-2">
+                    <span className={LABEL_CLASS + " mb-0 text-amber-400"}>⚠ Linked phase was deleted</span>
+                  </div>
+                ) : phaseName ? (
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 14 }}>link</span>
+                    <span className={LABEL_CLASS + " mb-0"}>{phaseName}</span>
+                  </div>
+                ) : (
+                  <select
+                    className={`${INPUT_CLASS} !py-1.5 !text-xs max-w-[240px]`}
+                    value=""
+                    onChange={(e) => linkSection(idx, e.target.value)}
+                  >
+                    <option value="" disabled>Select a phase…</option>
+                    {phases.filter(p => p.id && p.phase.trim()).map(p => {
+                      const alreadyLinked = linkedPhaseIds.has(p.id!);
+                      return (
+                        <option key={p.id} value={p.id!} disabled={alreadyLinked}>
+                          {p.phase}{alreadyLinked ? " (already linked)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+
+              <button onClick={() => { if (window.confirm("Delete this mechanics section?")) removeSection(idx); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
               </button>
             </div>
 
-            {renamingIdx === idx ? (
-              <input
-                autoFocus
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={confirmRename}
-                onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setRenamingIdx(null); }}
-                className={`${INPUT_CLASS} flex-1 !py-1`}
-              />
-            ) : (
-              <button onClick={() => startRename(idx)} className="flex items-center gap-1.5 group flex-1 text-left">
-                <span className={LABEL_CLASS + " mb-0"}>{phase.name}</span>
-                <span className="material-symbols-outlined text-on-surface-variant/30 group-hover:text-primary-container transition-colors" style={{ fontSize: 12 }}>edit</span>
-              </button>
+            {/* Warning banners */}
+            {isOrphan && (
+              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-2">
+                <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
+                <p className="text-amber-300 text-xs leading-snug">Linked phase was deleted. Please relink this section to an existing phase or delete it.</p>
+              </div>
+            )}
+            {isUnlinked && !isOrphan && (
+              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-2">
+                <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
+                <p className="text-amber-300 text-xs leading-snug">This section is not linked to a phase. Link it before going Live.</p>
+              </div>
             )}
 
-            <button onClick={() => { if (window.confirm(`Delete ${phases[idx]?.name || 'this phase'}?`)) removePhase(idx); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all ml-auto" title="Delete phase">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-            </button>
+            <textarea
+              className={`${INPUT_CLASS} min-h-[80px] resize-y`}
+              value={sec.content}
+              onChange={(e) => updateSection(idx, e.target.value)}
+              placeholder={phaseName ? `Coaching cues for ${phaseName.toLowerCase()}...` : "Coaching cues..."}
+            />
           </div>
-
-          <textarea
-            className={`${INPUT_CLASS} min-h-[80px] resize-y`}
-            value={phase.notes}
-            onChange={(e) => updatePhase(idx, e.target.value)}
-            placeholder={`Notes for ${phase.name.toLowerCase()}...`}
-          />
-        </div>
-      ))}
+        );
+      })}
 
       <button
-        onClick={addPhase}
+        onClick={addSection}
         className="w-full h-10 rounded-xl border border-dashed border-outline-variant/20 text-on-surface-variant text-xs font-semibold uppercase tracking-widest hover:border-primary-container/40 hover:text-primary-container transition-colors flex items-center justify-center gap-2"
         style={{ backgroundColor: '#131920' }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
+        Add Section
+      </button>
+    </div>
+  );
+}
       >
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
         Add Phase
