@@ -535,7 +535,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               <label className={LABEL_CLASS}>Skill Overview</label>
               <SectionTooltip tip="A short description of what this skill is and why it matters in game situations. Shown to athletes at the top of their training feed before they film. Keep it under 3 sentences — clear, direct, and written for a 14-22 year old athlete." />
             </div>
-            <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="Describe the purpose of this skill..." />
+            <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="e.g. The slant route is a quick inside-breaking route used to exploit zone coverage gaps..." />
           </div>
         )}
 
@@ -587,7 +587,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "prompt" && (
-          <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => updateWithCriticalTrack("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <label className={LABEL_CLASS}>Prompt Template</label>
+            </div>
+            <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => updateWithCriticalTrack("llm_prompt_template", e.target.value)} placeholder="e.g. You are an elite football skills coach analyzing a {{position}} athlete performing a {{skill_name}}..." />
+          </div>
         )}
 
         {tab === "badges" && (
