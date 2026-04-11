@@ -15,7 +15,10 @@ export interface PhaseNote {
   id?: string;
   phase: string;
   notes: string;
+  weight?: number;
 }
+
+export type SegmentationMethod = "proportional" | "checkpoint";
 
 export interface MechanicsSection {
   id: string;
@@ -73,6 +76,7 @@ export interface TrainingNode {
   badges: Badge[];
   elite_videos: EliteVideo[];
   knowledge_base: Record<string, KnowledgeSection[]>;
+  segmentation_method: SegmentationMethod;
   created_at: string;
   updated_at: string;
 }
