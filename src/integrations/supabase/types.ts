@@ -54,6 +54,7 @@ export type Database = {
           knowledge_base: Json
           llm_prompt_template: string
           name: string
+          node_version: number
           overview: string
           phase_breakdown: Json
           position: string | null
@@ -78,6 +79,7 @@ export type Database = {
           knowledge_base?: Json
           llm_prompt_template?: string
           name: string
+          node_version?: number
           overview?: string
           phase_breakdown?: Json
           position?: string | null
@@ -102,6 +104,7 @@ export type Database = {
           knowledge_base?: Json
           llm_prompt_template?: string
           name?: string
+          node_version?: number
           overview?: string
           phase_breakdown?: Json
           position?: string | null
@@ -112,6 +115,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      athlete_lab_results: {
+        Row: {
+          created_at: string
+          id: string
+          node_id: string
+          node_version: number
+          overall_score: number | null
+          result_data: Json
+          video_description: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          node_id: string
+          node_version?: number
+          overall_score?: number | null
+          result_data?: Json
+          video_description?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          node_id?: string
+          node_version?: number
+          overall_score?: number | null
+          result_data?: Json
+          video_description?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_lab_results_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_lab_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
