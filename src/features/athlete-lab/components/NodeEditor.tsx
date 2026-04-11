@@ -31,22 +31,6 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
 ];
 
-const TOOLTIPS: Record<TabKey, string> = {
-  basics: "The official name of this drill or skill",
-  videos: "High-quality videos of elite athletes performing this exact route/skill. These are the benchmarks the AI compares against.",
-  overview: "Brief explanation of why this route/skill matters and what success looks like",
-  mechanics: "Define the natural phases of this skill. You can add, rename, or remove phases as needed for any drill type (routes, QB drops, vertical jump, etc.).",
-  metrics: "Define every metric the AI should calculate and how heavily it contributes to the overall score",
-  scoring: "How the final Route Mastery Score is calculated",
-  errors: "Help the AI identify and give constructive feedback on typical errors",
-  phases: "Define the phases of this movement so the AI can give phase-specific feedback",
-  reference: "Real-world scale reference needed for accurate measurements",
-  camera: "Best camera positions for accurate analysis",
-  checkpoints: "Key moments the AI should analyze closely",
-  prompt: "Tailor the tone and focus of the AI coach feedback for this node",
-  badges: "Achievements athletes can earn for this skill",
-  test: "Upload a sample video or paste a URL to instantly test AI analysis against this node's configuration",
-};
 
 /* Critical tabs that auto-draft when changed on a live node */
 const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt"];
