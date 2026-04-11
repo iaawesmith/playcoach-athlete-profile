@@ -516,7 +516,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "mechanics" && (
-          <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} />
+          <div className="space-y-4">
+            <div className="flex items-center gap-1.5">
+              <label className={LABEL_CLASS}>Phase Mechanics</label>
+              <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
+            </div>
+            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} />
+          </div>
         )}
 
         {tab === "metrics" && (
