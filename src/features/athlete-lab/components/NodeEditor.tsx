@@ -506,7 +506,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "overview" && (
-          <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="Describe the purpose of this skill..." />
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <label className={LABEL_CLASS}>Skill Overview</label>
+              <SectionTooltip tip="A short description of what this skill is and why it matters in game situations. Shown to athletes at the top of their training feed before they film. Keep it under 3 sentences — clear, direct, and written for a 14-22 year old athlete." />
+            </div>
+            <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="Describe the purpose of this skill..." />
+          </div>
         )}
 
         {tab === "mechanics" && (
