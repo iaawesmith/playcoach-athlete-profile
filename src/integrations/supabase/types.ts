@@ -58,6 +58,7 @@ export type Database = {
           pro_mechanics: string
           reference_object: string
           scoring_rules: string
+          status: string
           updated_at: string
         }
         Insert: {
@@ -79,6 +80,7 @@ export type Database = {
           pro_mechanics?: string
           reference_object?: string
           scoring_rules?: string
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -100,6 +102,7 @@ export type Database = {
           pro_mechanics?: string
           reference_object?: string
           scoring_rules?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
