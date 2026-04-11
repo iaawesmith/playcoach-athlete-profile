@@ -1075,13 +1075,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
 
   return (
     <div className="space-y-4">
-      {/* Section label + tooltip */}
-      <div className="flex items-center gap-1.5">
-        <label className={LABEL_CLASS}>Skill Phases</label>
-        <SectionTooltip tip="Define the sequential movement phases for this skill. Each phase is used to segment video frames during analysis — the pipeline evaluates metrics only within the frame window assigned to each phase. Minimum 4 phases recommended. Order matters — phases are processed top to bottom." />
-      </div>
-
-      {/* Segmentation method selector */}
+      {/* Segmentation method selector — above Skill Phases */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <label className={LABEL_CLASS}>Segmentation Method</label>
@@ -1116,6 +1110,12 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
         )}
       </div>
 
+      {/* Section label + tooltip */}
+      <div className="flex items-center gap-1.5">
+        <label className={LABEL_CLASS}>Skill Phases</label>
+        <SectionTooltip tip="Define the sequential movement phases for this skill. Each phase is used to segment video frames during analysis — the pipeline evaluates metrics only within the frame window assigned to each phase. Minimum 4 phases recommended. Order matters — phases are processed top to bottom." />
+      </div>
+
       {/* Phase cards */}
       {phases.map((p, i) => (
         <div
@@ -1146,14 +1146,15 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
                   max={99}
                   step={1}
                   className={`${INPUT_CLASS} !pr-7 !text-right w-full`}
-                  value={p.weight ?? ""}
+                  value={p.weight != null && p.weight > 0 ? p.weight : ""}
                   onChange={(e) => {
-                    const val = e.target.value === "" ? 0 : Math.min(99, Math.max(0, Math.round(Number(e.target.value))));
+                    const raw = e.target.value;
+                    const val = raw === "" ? undefined : Math.min(99, Math.max(0, Math.round(Number(raw))));
                     const n = [...phases];
-                    n[i] = { ...ensureId(p), weight: val };
+                    n[i] = { ...ensureId(p), weight: val ?? 0 };
                     onChange(n);
                   }}
-                  placeholder="0"
+                  placeholder="—"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
               </div>
@@ -1164,26 +1165,26 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
           </div>
           {/* Row 2: description */}
           <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
-          {/* Row 3: frame buffer */}
-          <div className="flex items-center gap-3 pt-1">
-            <div className="flex items-center gap-1.5">
-              <label className={LABEL_CLASS}>Frame Buffer</label>
+          {/* Row 3: frame buffer (secondary feel) */}
+          <div className="flex items-center gap-2 pt-0.5">
+            <div className="flex items-center gap-1">
+              <label className="text-on-surface-variant/40 text-[9px] font-medium uppercase tracking-widest">Frame Buffer</label>
               <SectionTooltip tip="Number of frames to include on either side of this phase boundary. Catches movements that span the edge between two phases — for example a break that starts in the Stem phase and completes in the Break phase. Default of 3 frames works for most skills. Increase to 5-7 for fast explosive movements like a sharp cut." />
             </div>
-            <div className="relative w-24">
+            <div className="relative w-[72px]">
               <input
                 type="number"
                 min={0}
                 max={15}
                 step={1}
-                className={`${INPUT_CLASS} !pr-16 !text-right w-full`}
+                className={`${INPUT_CLASS} !pr-14 !text-right !py-1.5 !text-xs w-full`}
                 value={p.frame_buffer ?? 3}
                 onChange={(e) => {
                   const val = Math.min(15, Math.max(0, Math.round(Number(e.target.value))));
                   const n = [...phases]; n[i] = { ...ensureId(p), frame_buffer: val }; onChange(n);
                 }}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">frames</span>
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[10px]">frames</span>
             </div>
           </div>
         </div>
