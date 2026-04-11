@@ -1141,6 +1141,22 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
         <SectionTooltip tip="Define the sequential movement phases for this skill. Each phase is used to segment video frames during analysis — the pipeline evaluates metrics only within the frame window assigned to each phase. Minimum 4 phases recommended. Order matters — phases are processed top to bottom." />
       </div>
 
+      {/* Column header row */}
+      <div className="flex items-center gap-2 px-5">
+        <div className="flex items-center gap-1 shrink-0 w-[50px]" />
+        <div className="flex-1 flex items-center gap-1">
+          <label className={LABEL_CLASS}>Phase Name</label>
+          <SectionTooltip tip="The name of this movement phase. Must be unique within this node. This name is used across Mechanics, Metrics, and the analysis pipeline — keep it short and descriptive." />
+        </div>
+        {isProportional && (
+          <div className="shrink-0 w-24 flex items-center gap-1 justify-end">
+            <label className={LABEL_CLASS}>% of Clip</label>
+            <SectionTooltip tip="The percentage of the video clip this phase occupies. All phases must sum to 100%. Example: Release 15%, Stem 25%, Break 10%, Catch Window 50%." />
+          </div>
+        )}
+        <div className="shrink-0 w-7" />
+      </div>
+
       {/* Phase cards */}
       {phases.map((p, i) => (
         <div
@@ -1151,65 +1167,47 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
           onDragOver={(e) => handleDragOver(e, i)}
           onDragEnd={handleDragEnd}
         >
-          {/* Row 1: drag handle, seq#, phase name + % of clip + delete */}
-          <div className="flex items-start gap-2">
-            {/* Drag handle + sequence number — vertically centered with inputs */}
-            <div className="flex items-center gap-1 pt-7 shrink-0">
+          {/* Row 1: drag handle, seq#, phase name input, % input, delete */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 shrink-0">
               <span className="cursor-grab active:cursor-grabbing text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors">
                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>drag_indicator</span>
               </span>
               <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center">{i + 1}</span>
             </div>
 
-            {/* Phase Name field */}
-            <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-1">
-                <label className={LABEL_CLASS}>Phase Name</label>
-                <SectionTooltip tip="The name of this movement phase. Must be unique within this node. This name is used across Mechanics, Metrics, and the analysis pipeline — keep it short and descriptive." />
-              </div>
-              <input
-                className={`${INPUT_CLASS} w-full`}
-                value={p.phase}
-                onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), phase: e.target.value }; onChange(n); }}
-                placeholder="e.g. Release"
-              />
-            </div>
+            <input
+              className={`${INPUT_CLASS} flex-1`}
+              value={p.phase}
+              onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), phase: e.target.value }; onChange(n); }}
+              placeholder="e.g. Release"
+            />
 
-            {/* % of Clip field */}
             {isProportional && (
-              <div className="shrink-0 w-24 space-y-2">
-                <div className="flex items-center gap-1">
-                  <label className={LABEL_CLASS}>% of Clip</label>
-                  <SectionTooltip tip="The percentage of the video clip this phase occupies. All phases must sum to 100%. Example: Release 15%, Stem 25%, Break 10%, Catch Window 50%." />
-                </div>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={1}
-                    max={99}
-                    step={1}
-                    className={`${INPUT_CLASS} !pr-7 !text-right w-full`}
-                    value={p.weight != null && p.weight > 0 ? p.weight : ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const val = raw === "" ? undefined : Math.min(99, Math.max(0, Math.round(Number(raw))));
-                      const n = [...phases];
-                      n[i] = { ...ensureId(p), weight: val ?? 0 };
-                      onChange(n);
-                    }}
-                    placeholder="—"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
-                </div>
+              <div className="relative shrink-0 w-24">
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  step={1}
+                  className={`${INPUT_CLASS} !pr-7 !text-right w-full`}
+                  value={p.weight != null && p.weight > 0 ? p.weight : ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const val = raw === "" ? undefined : Math.min(99, Math.max(0, Math.round(Number(raw))));
+                    const n = [...phases];
+                    n[i] = { ...ensureId(p), weight: val ?? 0 };
+                    onChange(n);
+                  }}
+                  placeholder="—"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
               </div>
             )}
 
-            {/* Delete button — vertically centered with inputs */}
-            <div className="pt-7 shrink-0">
-              <button onClick={() => { const phaseName = p.phase || `Phase ${i + 1}`; onConfirmDelete({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i)); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-              </button>
-            </div>
+            <button onClick={() => { const phaseName = p.phase || `Phase ${i + 1}`; onConfirmDelete({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i)); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete phase">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+            </button>
           </div>
 
           {/* Row 2: Phase Description */}
