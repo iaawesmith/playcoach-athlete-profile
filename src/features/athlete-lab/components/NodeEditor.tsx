@@ -983,7 +983,9 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   );
 }
 
-function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void }) {
+type ConfirmDeleteFn = (opts: { title: string; body: string; confirmLabel: string; onConfirm: () => void }) => void;
+
+function KeyMetricsEditor({ metrics, onChange, onConfirmDelete }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
 
   return (
@@ -995,7 +997,7 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
         <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Metric {i + 1}</span>
-            <button onClick={() => setConfirmModal({ title: "Delete Metric?", body: `Deleting Metric ${i + 1}${m.name ? ` (${m.name})` : ""} will remove it from the scoring pipeline. This cannot be undone.`, confirmLabel: "Delete Metric", onConfirm: () => { onChange(metrics.filter((_, j) => j !== i)); setConfirmModal(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete metric">
+            <button onClick={() => onConfirmDelete({ title: "Delete Metric?", body: `Deleting Metric ${i + 1}${m.name ? ` (${m.name})` : ""} will remove it from the scoring pipeline. This cannot be undone.`, confirmLabel: "Delete Metric", onConfirm: () => { onChange(metrics.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete metric">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
@@ -1017,14 +1019,14 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
   );
 }
 
-function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onChange: (e: CommonError[]) => void }) {
+function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: CommonError[]; onChange: (e: CommonError[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   return (
     <div className="space-y-3">
       {errors.map((err, i) => (
         <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Error {i + 1}</span>
-            <button onClick={() => setConfirmModal({ title: "Delete Error?", body: `Deleting Error ${i + 1}${err.error ? ` (${err.error})` : ""} will remove it from the error library. This cannot be undone.`, confirmLabel: "Delete Error", onConfirm: () => { onChange(errors.filter((_, j) => j !== i)); setConfirmModal(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete error">
+            <button onClick={() => onConfirmDelete({ title: "Delete Error?", body: `Deleting Error ${i + 1}${err.error ? ` (${err.error})` : ""} will remove it from the error library. This cannot be undone.`, confirmLabel: "Delete Error", onConfirm: () => { onChange(errors.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete error">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
