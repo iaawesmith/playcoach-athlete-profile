@@ -547,12 +547,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               <label className={LABEL_CLASS}>Phase Mechanics</label>
               <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
             </div>
-            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} />
+            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} onConfirmDelete={(opts) => setConfirmModal(opts)} />
           </div>
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} />
+          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "scoring" && (
@@ -564,7 +564,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "errors" && (
-          <CommonErrorsEditor errors={draft.common_errors} onChange={(e) => update("common_errors", e)} />
+          <CommonErrorsEditor errors={draft.common_errors} onChange={(e) => update("common_errors", e)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "phases" && (
@@ -573,6 +573,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
             segmentationMethod={draft.segmentation_method ?? "proportional"}
             onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+            onConfirmDelete={(opts) => setConfirmModal(opts)}
           />
         )}
 
@@ -585,7 +586,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "checkpoints" && (
-          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} />
+          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "prompt" && (
@@ -598,7 +599,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "badges" && (
-          <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} />
+          <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "test" && (
@@ -614,6 +615,14 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           tabLabel={TABS.find((t) => t.key === tab)?.label ?? tab}
           knowledgeBase={draft.knowledge_base ?? {}}
           onKnowledgeBaseChange={(kb) => { update("knowledge_base", kb); }}
+        />
+        <ConfirmModal
+          open={!!confirmModal}
+          title={confirmModal?.title ?? ""}
+          body={confirmModal?.body ?? ""}
+          confirmLabel={confirmModal?.confirmLabel ?? "Delete"}
+          onConfirm={() => { confirmModal?.onConfirm(); setConfirmModal(null); }}
+          onCancel={() => setConfirmModal(null)}
         />
       </div>
     </div>
