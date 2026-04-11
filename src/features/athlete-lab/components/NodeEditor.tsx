@@ -1560,11 +1560,17 @@ function CameraEditor({ value, onChange }: StructuredEditorProps) {
     "Lighting & Environment": "Tips for optimal video quality (e.g. avoid backlit, outdoor daylight preferred)",
   };
 
+  const placeholders: Record<string, string> = {
+    "Primary Camera Angle": "e.g. Sideline, 10 yards back, camera at waist height",
+    "Secondary Camera Angle": "e.g. End zone elevated, 15 feet high behind the line of scrimmage",
+    "Lighting & Environment": "e.g. Outdoor daylight preferred, avoid filming into the sun",
+  };
+
   return (
     <div className="space-y-4">
       {sections.map((s) => (
          <div key={s} className={CARD_CLASS}>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <label className={LABEL_CLASS}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
@@ -1572,7 +1578,7 @@ function CameraEditor({ value, onChange }: StructuredEditorProps) {
             className={`${INPUT_CLASS} min-h-[70px] resize-y`}
             value={fields[s] || ""}
             onChange={(e) => handleChange(s, e.target.value)}
-            placeholder={descriptions[s]}
+            placeholder={placeholders[s]}
           />
         </div>
       ))}
