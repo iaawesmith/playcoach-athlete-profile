@@ -16,6 +16,7 @@ export interface PhaseNote {
   phase: string;
   notes: string;
   weight?: number;
+  frame_buffer?: number;
 }
 
 export type SegmentationMethod = "proportional" | "checkpoint";
