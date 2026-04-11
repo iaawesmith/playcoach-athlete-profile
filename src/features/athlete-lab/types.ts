@@ -1,9 +1,25 @@
+export type CalculationType = "angle" | "distance" | "velocity" | "acceleration" | "frame_delta";
+export type BilateralMode = "auto" | "left" | "right";
+
+export interface KeypointMapping {
+  body_groups: string[];
+  keypoint_indices: number[];
+  calculation_type: CalculationType | null;
+  bilateral: BilateralMode;
+  confidence_threshold: number;
+  phase_id: string | null;
+}
+
 export interface KeyMetric {
   name: string;
   description: string;
   eliteTarget: string;
   unit: string;
   weight: number;
+  tolerance?: number | null;
+  temporal_window?: number;
+  depends_on_metric_id?: string | null;
+  keypoint_mapping?: KeypointMapping | null;
 }
 
 export interface CommonError {
