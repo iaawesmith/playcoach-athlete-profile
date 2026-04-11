@@ -566,7 +566,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "phases" && (
-          <PhasesEditor phases={draft.phase_breakdown} onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)} />
+          <PhasesEditor
+            phases={draft.phase_breakdown}
+            onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
+            segmentationMethod={draft.segmentation_method ?? "proportional"}
+            onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+          />
         )}
 
         {tab === "reference" && (
