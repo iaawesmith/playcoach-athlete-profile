@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod } from "../types";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
