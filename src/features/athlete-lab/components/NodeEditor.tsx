@@ -1164,6 +1164,28 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
           </div>
           {/* Row 2: description */}
           <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
+          {/* Row 3: frame buffer */}
+          <div className="flex items-center gap-3 pt-1">
+            <div className="flex items-center gap-1.5">
+              <label className={LABEL_CLASS}>Frame Buffer</label>
+              <SectionTooltip tip="Number of frames to include on either side of this phase boundary. Catches movements that span the edge between two phases — for example a break that starts in the Stem phase and completes in the Break phase. Default of 3 frames works for most skills. Increase to 5-7 for fast explosive movements like a sharp cut." />
+            </div>
+            <div className="relative w-24">
+              <input
+                type="number"
+                min={0}
+                max={15}
+                step={1}
+                className={`${INPUT_CLASS} !pr-16 !text-right w-full`}
+                value={p.frame_buffer ?? 3}
+                onChange={(e) => {
+                  const val = Math.min(15, Math.max(0, Math.round(Number(e.target.value))));
+                  const n = [...phases]; n[i] = { ...ensureId(p), frame_buffer: val }; onChange(n);
+                }}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">frames</span>
+            </div>
+          </div>
         </div>
       ))}
 
