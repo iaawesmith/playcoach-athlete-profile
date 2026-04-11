@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { TrainingNode, AnalysisResult } from "@/features/athlete-lab/types";
+import type { TrainingNode, AnalysisResult, NodeStatus } from "@/features/athlete-lab/types";
 
 export async function fetchNodes(): Promise<TrainingNode[]> {
   const { data, error } = await supabase
@@ -52,6 +52,18 @@ export async function deleteNode(id: string): Promise<void> {
     .eq("id", id);
 
   if (error) throw error;
+}
+
+export async function setNodeStatus(id: string, status: NodeStatus): Promise<TrainingNode> {
+  const { data, error } = await supabase
+    .from("athlete_lab_nodes" as never)
+    .update({ status } as never)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as unknown as TrainingNode;
 }
 
 export async function runAnalysis(node: TrainingNode, videoDescription: string): Promise<AnalysisResult> {

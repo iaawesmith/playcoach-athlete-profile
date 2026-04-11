@@ -34,11 +34,14 @@ export interface KnowledgeSection {
 
 export type NodePosition = "WR" | "QB" | "RB";
 
+export type NodeStatus = "draft" | "live";
+
 export interface TrainingNode {
   id: string;
   name: string;
   icon_url: string | null;
   position: NodePosition | null;
+  status: NodeStatus;
   overview: string;
   pro_mechanics: string;
   key_metrics: KeyMetric[];

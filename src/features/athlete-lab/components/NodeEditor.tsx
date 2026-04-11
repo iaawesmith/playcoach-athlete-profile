@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo } from "../types";
-import { updateNode } from "@/services/athleteLab";
+import { useState, useEffect, useCallback, useRef } from "react";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus } from "../types";
+import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
+import { toast } from "sonner";
 
 interface NodeEditorProps {
   node: TrainingNode;
@@ -47,10 +48,129 @@ const TOOLTIPS: Record<TabKey, string> = {
   test: "Upload a sample video or paste a URL to instantly test AI analysis against this node's configuration",
 };
 
+/* Critical tabs that auto-draft when changed on a live node */
+const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt"];
+
 /* ── Shared style constants ── */
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
 const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
 const CARD_CLASS = "p-5 rounded-xl border border-outline-variant/20 space-y-3 bg-[#1A2029]";
+
+/* ── Completeness check ── */
+interface BlockingItem { label: string; detail: string }
+
+function checkCompleteness(node: TrainingNode): BlockingItem[] {
+  const issues: BlockingItem[] = [];
+
+  // At least 1 video with start/end timestamps
+  const videosWithTimestamps = node.elite_videos.filter(
+    (v) => v.url && v.url.trim().length > 0
+  );
+  if (videosWithTimestamps.length === 0) {
+    issues.push({ label: "Videos", detail: "At least 1 reference video is required" });
+  }
+
+  // At least 4 metrics and weights sum to 100
+  if (node.key_metrics.length < 4) {
+    issues.push({ label: "Metrics", detail: `At least 4 metrics required (currently ${node.key_metrics.length})` });
+  }
+  const totalWeight = node.key_metrics.reduce((s, m) => s + m.weight, 0);
+  if (totalWeight !== 100) {
+    issues.push({ label: "Metrics", detail: `Metric weights must add up to 100% (currently ${totalWeight}%)` });
+  }
+
+  // At least 1 phase
+  if (node.phase_breakdown.length === 0) {
+    issues.push({ label: "Phases", detail: "At least 1 phase with notes is required" });
+  }
+
+  // LLM prompt not empty
+  if (!node.llm_prompt_template || node.llm_prompt_template.trim().length === 0) {
+    issues.push({ label: "LLM Prompt", detail: "Prompt template cannot be empty" });
+  }
+
+  // Position (solution class) must be set
+  if (!node.position || node.position.trim().length === 0) {
+    issues.push({ label: "Training Status", detail: "A position / solution class must be set" });
+  }
+
+  return issues;
+}
+
+/* ── Status Toggle Modal ── */
+function StatusModal({ mode, blockingItems, onConfirm, onCancel, toggling }: {
+  mode: "go-live" | "go-draft" | "blocking";
+  blockingItems?: BlockingItem[];
+  onConfirm: () => void;
+  onCancel: () => void;
+  toggling: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative w-full max-w-md mx-4 rounded-xl border border-outline-variant/20 p-6 space-y-4" style={{ backgroundColor: '#1A2029' }}>
+        {mode === "blocking" && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-amber-400" style={{ fontSize: 22 }}>warning</span>
+              <h2 className="text-on-surface font-black uppercase tracking-tighter text-lg">Complete These Before Going Live</h2>
+            </div>
+            <div className="space-y-2">
+              {blockingItems?.map((item, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <div>
+                    <span className="text-on-surface font-semibold">{item.label}</span>
+                    <span className="text-on-surface-variant"> — {item.detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <button onClick={onCancel} className="h-10 px-6 rounded-full border border-outline-variant/20 text-on-surface font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all" style={{ backgroundColor: '#111720' }}>
+                Got It
+              </button>
+            </div>
+          </>
+        )}
+        {mode === "go-live" && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 22 }}>rocket_launch</span>
+              <h2 className="text-on-surface font-black uppercase tracking-tighter text-lg">Go Live</h2>
+            </div>
+            <p className="text-on-surface-variant text-sm">This node will trigger automatic analysis on athlete uploads. Go live?</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={onCancel} className="h-10 px-5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold uppercase tracking-[0.15em] text-xs active:scale-95 transition-all" style={{ backgroundColor: '#111720' }}>
+                Cancel
+              </button>
+              <button onClick={onConfirm} disabled={toggling} className="h-10 px-6 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all disabled:opacity-40">
+                {toggling ? "Activating..." : "Go Live"}
+              </button>
+            </div>
+          </>
+        )}
+        {mode === "go-draft" && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 22 }}>pause_circle</span>
+              <h2 className="text-on-surface font-black uppercase tracking-tighter text-lg">Set to Draft</h2>
+            </div>
+            <p className="text-on-surface-variant text-sm">Setting this node to Draft will pause automatic analysis for new uploads. Existing results are not affected. Continue?</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={onCancel} className="h-10 px-5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold uppercase tracking-[0.15em] text-xs active:scale-95 transition-all" style={{ backgroundColor: '#111720' }}>
+                Cancel
+              </button>
+              <button onClick={onConfirm} disabled={toggling} className="h-10 px-6 rounded-full border border-outline-variant/20 text-on-surface font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all" style={{ backgroundColor: '#2a2f38' }}>
+                {toggling ? "Updating..." : "Set to Draft"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
@@ -58,10 +178,15 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [statusModal, setStatusModal] = useState<"go-live" | "go-draft" | "blocking" | null>(null);
+  const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
+  const [toggling, setToggling] = useState(false);
+  const criticalChanged = useRef(false);
 
   useEffect(() => {
     setDraft(node);
     setDirty(false);
+    criticalChanged.current = false;
   }, [node.id]);
 
   const update = useCallback(<K extends keyof TrainingNode>(key: K, value: TrainingNode[K]) => {
@@ -69,10 +194,19 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     setDirty(true);
   }, []);
 
+  /* Track critical field changes */
+  const updateWithCriticalTrack = useCallback(<K extends keyof TrainingNode>(key: K, value: TrainingNode[K]) => {
+    update(key, value);
+    if (node.status === "live") {
+      criticalChanged.current = true;
+    }
+  }, [update, node.status]);
+
   const save = async () => {
     setSaving(true);
     try {
-      const updated = await updateNode(draft.id, {
+      const shouldAutoDraft = node.status === "live" && criticalChanged.current;
+      const updates: Partial<TrainingNode> = {
         name: draft.name,
         icon_url: draft.icon_url,
         overview: draft.overview,
@@ -88,15 +222,56 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         badges: draft.badges,
         elite_videos: draft.elite_videos,
         knowledge_base: draft.knowledge_base,
-      });
+      };
+      if (shouldAutoDraft) {
+        updates.status = "draft";
+      }
+      const updated = await updateNode(draft.id, updates);
       onUpdated(updated);
       setDirty(false);
+      criticalChanged.current = false;
+      if (shouldAutoDraft) {
+        toast("Node set to Draft — pipeline config was changed. Review and re-activate when ready.");
+      }
     } catch {
-      // error handling would go here
+      // error handling
     } finally {
       setSaving(false);
     }
   };
+
+  const handleStatusToggle = () => {
+    const currentStatus: NodeStatus = draft.status ?? "draft";
+    if (currentStatus === "draft") {
+      const issues = checkCompleteness(draft);
+      if (issues.length > 0) {
+        setBlockingItems(issues);
+        setStatusModal("blocking");
+      } else {
+        setStatusModal("go-live");
+      }
+    } else {
+      setStatusModal("go-draft");
+    }
+  };
+
+  const confirmStatusChange = async () => {
+    setToggling(true);
+    try {
+      const newStatus: NodeStatus = draft.status === "live" ? "draft" : "live";
+      const updated = await setNodeStatus(draft.id, newStatus);
+      onUpdated(updated);
+      setDraft((d) => ({ ...d, status: newStatus }));
+      setStatusModal(null);
+    } catch {
+      // error
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const currentStatus: NodeStatus = draft.status ?? "draft";
+  const isLive = currentStatus === "live";
 
   return (
     <div className="flex-1 h-full overflow-y-auto" style={{ backgroundColor: '#111720' }}>
@@ -111,14 +286,18 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <h1 className="text-on-surface font-black uppercase tracking-tighter text-xl">{draft.name || "New Node"}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border ${
-            dirty
-              ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-              : "border-primary-container/30 bg-primary-container/10 text-primary-container"
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${dirty ? "bg-amber-400" : "bg-primary-container"}`} />
-            {dirty ? "Draft" : "Live"}
-          </div>
+          <button
+            onClick={handleStatusToggle}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border cursor-pointer hover:brightness-110 active:scale-95 transition-all ${
+              isLive
+                ? "border-primary-container/30 bg-primary-container/10 text-primary-container"
+                : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${isLive ? "bg-primary-container" : "bg-on-surface-variant/50"}`} />
+            {isLive ? "Live" : "Draft"}
+            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>expand_more</span>
+          </button>
           <button
             onClick={save}
             disabled={saving || !dirty}
@@ -133,6 +312,16 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           </button>
         </div>
       </div>
+
+      {statusModal && (
+        <StatusModal
+          mode={statusModal}
+          blockingItems={blockingItems}
+          onConfirm={confirmStatusChange}
+          onCancel={() => setStatusModal(null)}
+          toggling={toggling}
+        />
+      )}
 
       {/* ── Tab row ── */}
       <div className="px-6 pt-3 pb-2 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 border-b border-outline-variant/10" style={{ backgroundColor: '#131920' }}>
@@ -254,13 +443,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => update("key_metrics", m)} />
+          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} />
         )}
 
         {tab === "scoring" && (
           <ScoringEditor
             scoringRules={draft.scoring_rules}
-            onScoringRulesChange={(v) => update("scoring_rules", v)}
+            onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
             metrics={draft.key_metrics}
           />
         )}
@@ -270,7 +459,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "phases" && (
-          <PhasesEditor phases={draft.phase_breakdown} onChange={(p) => update("phase_breakdown", p)} />
+          <PhasesEditor phases={draft.phase_breakdown} onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)} />
         )}
 
         {tab === "reference" && (
@@ -286,7 +475,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "prompt" && (
-          <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => update("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
+          <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => updateWithCriticalTrack("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
         )}
 
         {tab === "badges" && (
