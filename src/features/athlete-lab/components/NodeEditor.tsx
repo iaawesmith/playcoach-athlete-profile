@@ -1511,6 +1511,12 @@ function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
     "Scale Notes": "Additional notes on measurement accuracy or environment considerations",
   };
 
+  const placeholders: Record<string, string> = {
+    "Reference Object": "e.g. Standard regulation football (11 inches)",
+    "Calibration Instructions": "e.g. Measure the football's length in pixels to establish a distance scale",
+    "Scale Notes": "e.g. Outdoor fields with yard lines provide additional calibration reference",
+  };
+
   return (
     <div className="space-y-4">
       {sections.map((s) => (
