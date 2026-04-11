@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_reference_links: {
+        Row: {
+          created_at: string
+          description: string
+          display_order: number
+          id: string
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          display_order?: number
+          id?: string
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          display_order?: number
+          id?: string
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       admin_tab_guidance: {
         Row: {
           content: string
