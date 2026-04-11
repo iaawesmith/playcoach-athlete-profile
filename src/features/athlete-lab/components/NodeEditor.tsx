@@ -869,13 +869,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                 <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontSize: 20 }}>play_circle</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-on-surface text-sm font-semibold truncate">{v.label || "Untitled Video"}</p>
-                    {v.is_reference && (
-                      <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest bg-primary-container/15 text-primary-container border border-primary-container/30">Reference</span>
-                    )}
+                    <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{v.label || "Untitled Video"}</p>
                   </div>
                   <p className="text-on-surface-variant/60 text-xs truncate mt-0.5">{v.url}</p>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-2.5">
                     {v.camera_angle && (
                       <span className="text-on-surface-variant/40 text-[10px] font-medium">{angleLabelMap[v.camera_angle]}</span>
                     )}
@@ -887,13 +884,18 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                     )}
                   </div>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
-                  </button>
-                  <button onClick={() => onChange(videos.filter((_, j) => j !== i))} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
-                  </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {v.is_reference && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest bg-primary-container/15 text-primary-container border border-primary-container/30">Reference</span>
+                  )}
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                    </button>
+                    <button onClick={() => onChange(videos.filter((_, j) => j !== i))} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
