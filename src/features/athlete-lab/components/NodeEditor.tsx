@@ -535,7 +535,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               <label className={LABEL_CLASS}>Skill Overview</label>
               <SectionTooltip tip="A short description of what this skill is and why it matters in game situations. Shown to athletes at the top of their training feed before they film. Keep it under 3 sentences — clear, direct, and written for a 14-22 year old athlete." />
             </div>
-            <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="Describe the purpose of this skill..." />
+            <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="e.g. The slant route is a quick inside-breaking route used to exploit zone coverage gaps..." />
           </div>
         )}
 
@@ -587,7 +587,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "prompt" && (
-          <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => updateWithCriticalTrack("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <label className={LABEL_CLASS}>Prompt Template</label>
+            </div>
+            <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => updateWithCriticalTrack("llm_prompt_template", e.target.value)} placeholder="e.g. You are an elite football skills coach analyzing a {{position}} athlete performing a {{skill_name}}..." />
+          </div>
         )}
 
         {tab === "badges" && (
@@ -992,14 +997,14 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-           <div className="grid grid-cols-2 gap-3">
-            <div><div className={`${LABEL_CLASS} mb-1`}>Name</div><input className={INPUT_CLASS} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} /></div>
-            <div><div className={`${LABEL_CLASS} mb-1`}>Unit</div><input className={INPUT_CLASS} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} /></div>
-          </div>
-          <div><div className={`${LABEL_CLASS} mb-1`}>Description</div><textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><div className={`${LABEL_CLASS} mb-1`}>Elite Target</div><input className={INPUT_CLASS} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} /></div>
-            <div><div className={`${LABEL_CLASS} mb-1`}>Weight (%)</div><input type="number" className={INPUT_CLASS} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} /></div>
+            <div><div className={`${LABEL_CLASS} mb-2`}>Name</div><input className={INPUT_CLASS} value={m.name} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, name: e.target.value }; onChange(n); }} placeholder="e.g. Separation Distance" /></div>
+            <div><div className={`${LABEL_CLASS} mb-2`}>Unit</div><input className={INPUT_CLASS} value={m.unit} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, unit: e.target.value }; onChange(n); }} placeholder="e.g. yards" /></div>
+          </div>
+          <div><div className={`${LABEL_CLASS} mb-2`}>Description</div><textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, description: e.target.value }; onChange(n); }} placeholder="e.g. Distance between receiver and nearest defender at catch point" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><div className={`${LABEL_CLASS} mb-2`}>Elite Target</div><input className={INPUT_CLASS} value={m.eliteTarget} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, eliteTarget: e.target.value }; onChange(n); }} placeholder="e.g. 3.5+" /></div>
+            <div><div className={`${LABEL_CLASS} mb-2`}>Weight (%)</div><input type="number" className={INPUT_CLASS} value={m.weight} onChange={(e) => { const n = [...metrics]; n[i] = { ...m, weight: Number(e.target.value) }; onChange(n); }} placeholder="e.g. 25" /></div>
           </div>
         </div>
       ))}
@@ -1021,8 +1026,14 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <input className={INPUT_CLASS} value={err.error} onChange={(e) => { const n = [...errors]; n[i] = { ...err, error: e.target.value }; onChange(n); }} placeholder="Common error..." />
-          <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => { const n = [...errors]; n[i] = { ...err, correction: e.target.value }; onChange(n); }} placeholder="How to fix it..." />
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Error Description</div>
+            <input className={INPUT_CLASS} value={err.error} onChange={(e) => { const n = [...errors]; n[i] = { ...err, error: e.target.value }; onChange(n); }} placeholder="e.g. Rounding the break instead of planting and cutting" />
+          </div>
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Correction</div>
+            <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => { const n = [...errors]; n[i] = { ...err, correction: e.target.value }; onChange(n); }} placeholder="e.g. Plant hard on the inside foot at 45 degrees, then accelerate through the break" />
+          </div>
         </div>
       ))}
       <button onClick={() => onChange([...errors, { error: "", correction: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -1215,12 +1226,14 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
   return (
     <div className="space-y-2">
       {checkpoints.map((c, i) => (
-        <div key={i} className="flex gap-2 items-center">
-          <span className="text-on-surface-variant text-xs font-mono w-6">{i + 1}.</span>
-          <input className={`${INPUT_CLASS} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="Checkpoint..." />
-          <button onClick={() => { if (window.confirm(`Delete Checkpoint ${i + 1}?`)) onChange(checkpoints.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-          </button>
+        <div key={i} className="space-y-1">
+          <div className={`${LABEL_CLASS}`}>Checkpoint {i + 1}</div>
+          <div className="flex gap-2 items-center">
+            <input className={`${INPUT_CLASS} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="e.g. Hips fully rotated at the break point" />
+            <button onClick={() => { if (window.confirm(`Delete Checkpoint ${i + 1}?`)) onChange(checkpoints.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+            </button>
+          </div>
         </div>
       ))}
       <button onClick={() => onChange([...checkpoints, ""])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -1244,8 +1257,14 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <input className={INPUT_CLASS} value={b.name} onChange={(e) => { const n = [...badges]; n[i] = { ...b, name: e.target.value }; onChange(n); }} placeholder="Badge name" />
-          <input className={INPUT_CLASS} value={b.condition} onChange={(e) => { const n = [...badges]; n[i] = { ...b, condition: e.target.value }; onChange(n); }} placeholder="Unlock condition" />
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Badge Name</div>
+            <input className={INPUT_CLASS} value={b.name} onChange={(e) => { const n = [...badges]; n[i] = { ...b, name: e.target.value }; onChange(n); }} placeholder="e.g. Route Technician" />
+          </div>
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Unlock Condition</div>
+            <input className={INPUT_CLASS} value={b.condition} onChange={(e) => { const n = [...badges]; n[i] = { ...b, condition: e.target.value }; onChange(n); }} placeholder="e.g. Score 85+ on 3 consecutive attempts" />
+          </div>
         </div>
       ))}
       <button onClick={() => onChange([...badges, { name: "", condition: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -1492,11 +1511,17 @@ function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
     "Scale Notes": "Additional notes on measurement accuracy or environment considerations",
   };
 
+  const placeholders: Record<string, string> = {
+    "Reference Object": "e.g. Standard regulation football (11 inches)",
+    "Calibration Instructions": "e.g. Measure the football's length in pixels to establish a distance scale",
+    "Scale Notes": "e.g. Outdoor fields with yard lines provide additional calibration reference",
+  };
+
   return (
     <div className="space-y-4">
       {sections.map((s) => (
          <div key={s} className={CARD_CLASS}>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <label className={LABEL_CLASS}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
@@ -1504,7 +1529,7 @@ function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
             className={`${INPUT_CLASS} min-h-[70px] resize-y`}
             value={fields[s] || ""}
             onChange={(e) => handleChange(s, e.target.value)}
-            placeholder={descriptions[s]}
+            placeholder={placeholders[s]}
           />
         </div>
       ))}
@@ -1535,11 +1560,17 @@ function CameraEditor({ value, onChange }: StructuredEditorProps) {
     "Lighting & Environment": "Tips for optimal video quality (e.g. avoid backlit, outdoor daylight preferred)",
   };
 
+  const placeholders: Record<string, string> = {
+    "Primary Camera Angle": "e.g. Sideline, 10 yards back, camera at waist height",
+    "Secondary Camera Angle": "e.g. End zone elevated, 15 feet high behind the line of scrimmage",
+    "Lighting & Environment": "e.g. Outdoor daylight preferred, avoid filming into the sun",
+  };
+
   return (
     <div className="space-y-4">
       {sections.map((s) => (
          <div key={s} className={CARD_CLASS}>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <label className={LABEL_CLASS}>{s}</label>
             <SectionTooltip tip={descriptions[s]} />
           </div>
@@ -1547,7 +1578,7 @@ function CameraEditor({ value, onChange }: StructuredEditorProps) {
             className={`${INPUT_CLASS} min-h-[70px] resize-y`}
             value={fields[s] || ""}
             onChange={(e) => handleChange(s, e.target.value)}
-            placeholder={descriptions[s]}
+            placeholder={placeholders[s]}
           />
         </div>
       ))}
@@ -1593,7 +1624,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
           className={`${INPUT_CLASS} min-h-[120px] resize-y`}
           value={scoringRules}
           onChange={(e) => onScoringRulesChange(e.target.value)}
-          placeholder="Describe the scoring formula..."
+          placeholder="e.g. Route Mastery Score = weighted average of all metrics. Scores ≥ 80 indicate elite execution..."
         />
       </div>
 
@@ -1660,21 +1691,19 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-            <label className={`${LABEL_CLASS} block mb-1`}>Bonus Rules</label>
-            <p className="text-on-surface-variant text-[10px] mb-2">e.g. "+5 if all phases ≥ 80"</p>
+            <label className={`${LABEL_CLASS} block mb-2`}>Bonus Rules</label>
             <textarea
               className={`${INPUT_CLASS} min-h-[60px] resize-y`}
-              placeholder="Describe any bonus point rules..."
+              placeholder='e.g. +5 if all phases ≥ 80'
               value=""
               readOnly
             />
           </div>
           <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-            <label className={`${LABEL_CLASS} block mb-1`}>Confidence Thresholds</label>
-            <p className="text-on-surface-variant text-[10px] mb-2">e.g. "Below 0.6 = low confidence warning"</p>
+            <label className={`${LABEL_CLASS} block mb-2`}>Confidence Thresholds</label>
             <textarea
               className={`${INPUT_CLASS} min-h-[60px] resize-y`}
-              placeholder="Describe confidence thresholds..."
+              placeholder='e.g. Below 0.6 = low confidence warning'
               value=""
               readOnly
             />
@@ -1696,7 +1725,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {metrics.map((m) => (
               <div key={m.name} className="p-3 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-                <label className={`${LABEL_CLASS} mb-1 block truncate`}>{m.name || "Unnamed"}</label>
+                <label className={`${LABEL_CLASS} mb-2 block truncate`}>{m.name || "Unnamed"}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
