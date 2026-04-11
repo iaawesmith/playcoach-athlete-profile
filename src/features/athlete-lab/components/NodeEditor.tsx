@@ -18,7 +18,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the core identity and visual representation of this training node." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add high-quality elite reference videos for AI benchmark comparison. Minimum 3–5 videos suggested." },
   { key: "overview", label: "Overview", icon: "description", subtitle: "Provide high-level context about the skill and its importance in game situations." },
-  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define the natural phases of this skill. Minimum 4–5 phases suggested for granular analysis." },
+  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
   { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define the measurable components the AI will evaluate. Minimum 4–6 metrics suggested for balanced scoring." },
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how metrics combine into the final 0-100 mastery score." },
