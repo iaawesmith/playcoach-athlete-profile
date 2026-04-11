@@ -1295,13 +1295,8 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
     </div>
   );
 }
-      >
-        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
-        Add Phase
-      </button>
-    </div>
-  );
-}
+
+
 
 function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
   const sections = ["Reference Object", "Calibration Instructions", "Scale Notes"];
