@@ -1370,7 +1370,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
       {isProportional && phases.length > 0 && (
         <div className="pt-2">
           {totalWeight === 100 ? (
-            <p className="text-primary-container text-xs font-semibold">Total: 100% ✓</p>
+            <p className="text-primary-container text-xs font-semibold" style={{ textShadow: '0 0 8px rgba(0,230,57,0.4)' }}>Total: 100% ✓</p>
           ) : totalWeight > 100 ? (
             <p className="text-amber-400 text-xs font-semibold">Total: {totalWeight}% — over by {totalWeight - 100}%</p>
           ) : (
