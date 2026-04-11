@@ -245,7 +245,30 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
             <span className={LABEL_CLASS}>Unit</span>
             <SectionTooltip tip={TOOLTIPS.unit} />
           </div>
-          <input className={INPUT_CLASS} value={m.unit} onChange={(e) => setM({ ...m, unit: e.target.value })} placeholder="e.g. yards" />
+          <div className="relative">
+            <input
+              className={INPUT_CLASS}
+              value={m.unit}
+              onChange={(e) => setM({ ...m, unit: e.target.value })}
+              placeholder="e.g. yards"
+              onFocus={() => setUnitDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setUnitDropdownOpen(false), 150)}
+            />
+            {unitDropdownOpen && (
+              <div className="absolute z-50 mt-1 w-full rounded-xl border border-white/10 bg-surface-container shadow-[0_20px_50px_rgba(0,0,0,0.5)] py-1 max-h-[220px] overflow-y-auto">
+                {["degrees", "yards", "mph", "mph/s", "frames", "%", "feet", "seconds"].map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    className="w-full text-left px-3 py-1.5 text-sm text-on-surface hover:bg-primary-container/20 hover:text-primary transition-colors"
+                    onMouseDown={(e) => { e.preventDefault(); setM({ ...m, unit: u }); setUnitDropdownOpen(false); }}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -687,7 +710,7 @@ function KeypointMappingPanel({ km, setKm, phases }: {
       {/* Keypoint Indices (read-only) */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Keypoint Indices</span>
+          <span className={LABEL_CLASS}>Keypoint Indices (Read-Only)</span>
           <SectionTooltip tip={TOOLTIPS.keypointIndices} />
         </div>
         <div className={`${INPUT_CLASS} max-w-[320px] opacity-60 cursor-default`}>
