@@ -9,6 +9,7 @@ export function AthleteLab() {
   const [nodes, setNodes] = useState<TrainingNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAdminRef, setShowAdminRef] = useState(false);
 
   useEffect(() => {
     loadNodes();
