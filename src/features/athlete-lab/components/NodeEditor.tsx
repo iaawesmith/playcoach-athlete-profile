@@ -1026,8 +1026,14 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <input className={INPUT_CLASS} value={err.error} onChange={(e) => { const n = [...errors]; n[i] = { ...err, error: e.target.value }; onChange(n); }} placeholder="Common error..." />
-          <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => { const n = [...errors]; n[i] = { ...err, correction: e.target.value }; onChange(n); }} placeholder="How to fix it..." />
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Error Description</div>
+            <input className={INPUT_CLASS} value={err.error} onChange={(e) => { const n = [...errors]; n[i] = { ...err, error: e.target.value }; onChange(n); }} placeholder="e.g. Rounding the break instead of planting and cutting" />
+          </div>
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Correction</div>
+            <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => { const n = [...errors]; n[i] = { ...err, correction: e.target.value }; onChange(n); }} placeholder="e.g. Plant hard on the inside foot at 45 degrees, then accelerate through the break" />
+          </div>
         </div>
       ))}
       <button onClick={() => onChange([...errors, { error: "", correction: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -1220,12 +1226,14 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
   return (
     <div className="space-y-2">
       {checkpoints.map((c, i) => (
-        <div key={i} className="flex gap-2 items-center">
-          <span className="text-on-surface-variant text-xs font-mono w-6">{i + 1}.</span>
-          <input className={`${INPUT_CLASS} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="Checkpoint..." />
-          <button onClick={() => { if (window.confirm(`Delete Checkpoint ${i + 1}?`)) onChange(checkpoints.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-          </button>
+        <div key={i} className="space-y-1">
+          <div className={`${LABEL_CLASS}`}>Checkpoint {i + 1}</div>
+          <div className="flex gap-2 items-center">
+            <input className={`${INPUT_CLASS} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="e.g. Hips fully rotated at the break point" />
+            <button onClick={() => { if (window.confirm(`Delete Checkpoint ${i + 1}?`)) onChange(checkpoints.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+            </button>
+          </div>
         </div>
       ))}
       <button onClick={() => onChange([...checkpoints, ""])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
@@ -1249,8 +1257,14 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
-          <input className={INPUT_CLASS} value={b.name} onChange={(e) => { const n = [...badges]; n[i] = { ...b, name: e.target.value }; onChange(n); }} placeholder="Badge name" />
-          <input className={INPUT_CLASS} value={b.condition} onChange={(e) => { const n = [...badges]; n[i] = { ...b, condition: e.target.value }; onChange(n); }} placeholder="Unlock condition" />
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Badge Name</div>
+            <input className={INPUT_CLASS} value={b.name} onChange={(e) => { const n = [...badges]; n[i] = { ...b, name: e.target.value }; onChange(n); }} placeholder="e.g. Route Technician" />
+          </div>
+          <div>
+            <div className={`${LABEL_CLASS} mb-2`}>Unlock Condition</div>
+            <input className={INPUT_CLASS} value={b.condition} onChange={(e) => { const n = [...badges]; n[i] = { ...b, condition: e.target.value }; onChange(n); }} placeholder="e.g. Score 85+ on 3 consecutive attempts" />
+          </div>
         </div>
       ))}
       <button onClick={() => onChange([...badges, { name: "", condition: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
