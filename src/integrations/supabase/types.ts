@@ -42,6 +42,8 @@ export type Database = {
         Row: {
           badges: Json
           camera_guidelines: string
+          clip_duration_max: number
+          clip_duration_min: number
           common_errors: Json
           created_at: string
           elite_videos: Json
@@ -64,6 +66,8 @@ export type Database = {
         Insert: {
           badges?: Json
           camera_guidelines?: string
+          clip_duration_max?: number
+          clip_duration_min?: number
           common_errors?: Json
           created_at?: string
           elite_videos?: Json
@@ -86,6 +90,8 @@ export type Database = {
         Update: {
           badges?: Json
           camera_guidelines?: string
+          clip_duration_max?: number
+          clip_duration_min?: number
           common_errors?: Json
           created_at?: string
           elite_videos?: Json

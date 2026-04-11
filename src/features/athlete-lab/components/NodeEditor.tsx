@@ -94,6 +94,17 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "Training Status", detail: "A position / solution class must be set" });
   }
 
+  // Clip duration must be set and valid
+  if (!node.clip_duration_min || node.clip_duration_min < 1) {
+    issues.push({ label: "Clip Duration", detail: "Minimum clip duration must be at least 1 second" });
+  }
+  if (!node.clip_duration_max || node.clip_duration_max < 1) {
+    issues.push({ label: "Clip Duration", detail: "Maximum clip duration is required" });
+  }
+  if (node.clip_duration_min && node.clip_duration_max && node.clip_duration_min >= node.clip_duration_max) {
+    issues.push({ label: "Clip Duration", detail: "Minimum must be less than maximum" });
+  }
+
   return issues;
 }
 
@@ -222,6 +233,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         badges: draft.badges,
         elite_videos: draft.elite_videos,
         knowledge_base: draft.knowledge_base,
+        clip_duration_min: draft.clip_duration_min,
+        clip_duration_max: draft.clip_duration_max,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
@@ -426,6 +439,49 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                   />
                 </label>
               </div>
+            </div>
+
+            {/* Clip Duration */}
+            <div className="space-y-3">
+              <div>
+                <label className={`${LABEL_CLASS} block mb-1`}>Clip Duration</label>
+                <p className="text-on-surface-variant/60 text-xs mb-3">Acceptable video length for athlete uploads. Uploads outside this range are rejected before analysis runs.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={`${LABEL_CLASS} block mb-1`}>Minimum</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      className={INPUT_CLASS + " pr-12"}
+                      value={draft.clip_duration_min ?? 5}
+                      onChange={(e) => update("clip_duration_min", Math.max(1, Math.round(Number(e.target.value))))}
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">sec</span>
+                  </div>
+                </div>
+                <div>
+                  <label className={`${LABEL_CLASS} block mb-1`}>Maximum</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={1}
+                      max={300}
+                      step={1}
+                      className={INPUT_CLASS + " pr-12"}
+                      value={draft.clip_duration_max ?? 30}
+                      onChange={(e) => update("clip_duration_max", Math.min(300, Math.max(1, Math.round(Number(e.target.value)))))}
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">sec</span>
+                  </div>
+                </div>
+              </div>
+              {draft.clip_duration_min != null && draft.clip_duration_max != null && draft.clip_duration_min >= draft.clip_duration_max && (
+                <p className="text-red-400 text-xs font-medium">Minimum must be less than maximum</p>
+              )}
+              <p className="text-on-surface-variant/40 text-[11px]">Set max tight enough to reject full practice session recordings.</p>
             </div>
           </div>
         )}
