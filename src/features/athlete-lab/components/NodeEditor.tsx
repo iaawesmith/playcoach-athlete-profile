@@ -1056,11 +1056,12 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
   );
 }
 
-function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange }: {
+function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete }: {
   phases: PhaseNote[];
   onChange: (p: PhaseNote[]) => void;
   segmentationMethod: SegmentationMethod;
   onSegmentationMethodChange: (m: SegmentationMethod) => void;
+  onConfirmDelete: ConfirmDeleteFn;
 }) {
   // Ensure every phase has an id
   useEffect(() => {
@@ -1205,7 +1206,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
 
             {/* Delete button — vertically centered with inputs */}
             <div className="pt-7 shrink-0">
-              <button onClick={() => { const phaseName = p.phase || `Phase ${i + 1}`; setConfirmModal({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i)); setConfirmModal(null); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
+              <button onClick={() => { const phaseName = p.phase || `Phase ${i + 1}`; onConfirmDelete({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i)); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
               </button>
             </div>
@@ -1266,7 +1267,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
   );
 }
 
-function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; onChange: (c: string[]) => void }) {
+function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete }: { checkpoints: string[]; onChange: (c: string[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   return (
     <div className="space-y-2">
       {checkpoints.map((c, i) => (
@@ -1274,7 +1275,7 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
           <div className={`${LABEL_CLASS}`}>Checkpoint {i + 1}</div>
           <div className="flex gap-2 items-center">
             <input className={`${INPUT_CLASS} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="e.g. Hips fully rotated at the break point" />
-            <button onClick={() => setConfirmModal({ title: "Delete Checkpoint?", body: `Deleting Checkpoint ${i + 1} will remove it from the analysis checklist. This cannot be undone.`, confirmLabel: "Delete Checkpoint", onConfirm: () => { onChange(checkpoints.filter((_, j) => j !== i)); setConfirmModal(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
+            <button onClick={() => onConfirmDelete({ title: "Delete Checkpoint?", body: `Deleting Checkpoint ${i + 1} will remove it from the analysis checklist. This cannot be undone.`, confirmLabel: "Delete Checkpoint", onConfirm: () => { onChange(checkpoints.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
@@ -1287,7 +1288,7 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
   );
 }
 
-function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Badge[]) => void }) {
+function BadgesEditor({ badges, onChange, onConfirmDelete }: { badges: Badge[]; onChange: (b: Badge[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   return (
     <div className="space-y-3">
       {badges.map((b, i) => (
@@ -1297,7 +1298,7 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
               <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
               Badge {i + 1}
             </span>
-            <button onClick={() => setConfirmModal({ title: "Delete Badge?", body: `Deleting ${b.name || `Badge ${i + 1}`} will remove it from the badge library. This cannot be undone.`, confirmLabel: "Delete Badge", onConfirm: () => { onChange(badges.filter((_, j) => j !== i)); setConfirmModal(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete badge">
+            <button onClick={() => onConfirmDelete({ title: "Delete Badge?", body: `Deleting ${b.name || `Badge ${i + 1}`} will remove it from the badge library. This cannot be undone.`, confirmLabel: "Delete Badge", onConfirm: () => { onChange(badges.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete badge">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
@@ -1350,7 +1351,7 @@ function serializeStructuredField(fields: Record<string, string>): string {
     .join("\n\n");
 }
 
-function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { phases: PhaseNote[] }) {
+function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: StructuredEditorProps & { phases: PhaseNote[]; onConfirmDelete: ConfirmDeleteFn }) {
   // Parse sections from JSON or migrate from legacy text format
   const parseSections = useCallback((): MechanicsSection[] => {
     if (!value.trim()) return [];
