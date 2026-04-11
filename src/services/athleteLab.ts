@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { TrainingNode, AnalysisResult } from "@/features/athlete-lab/types";
+import type { TrainingNode, AnalysisResult, NodeStatus } from "@/features/athlete-lab/types";
 
 export async function fetchNodes(): Promise<TrainingNode[]> {
   const { data, error } = await supabase
