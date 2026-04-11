@@ -200,6 +200,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [statusModal, setStatusModal] = useState<"go-live" | "go-draft" | "blocking" | null>(null);
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; body: string; confirmLabel: string; onConfirm: () => void } | null>(null);
   const criticalChanged = useRef(false);
 
   useEffect(() => {
