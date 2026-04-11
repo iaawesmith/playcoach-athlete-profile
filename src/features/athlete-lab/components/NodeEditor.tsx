@@ -443,13 +443,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => update("key_metrics", m)} />
+          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} />
         )}
 
         {tab === "scoring" && (
           <ScoringEditor
             scoringRules={draft.scoring_rules}
-            onScoringRulesChange={(v) => update("scoring_rules", v)}
+            onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
             metrics={draft.key_metrics}
           />
         )}
@@ -459,7 +459,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "phases" && (
-          <PhasesEditor phases={draft.phase_breakdown} onChange={(p) => update("phase_breakdown", p)} />
+          <PhasesEditor phases={draft.phase_breakdown} onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)} />
         )}
 
         {tab === "reference" && (
@@ -475,7 +475,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "prompt" && (
-          <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => update("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
+          <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => updateWithCriticalTrack("llm_prompt_template", e.target.value)} placeholder="Custom LLM prompt template..." />
         )}
 
         {tab === "badges" && (
