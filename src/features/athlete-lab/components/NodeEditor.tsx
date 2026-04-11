@@ -1700,11 +1700,10 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
             />
           </div>
           <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-            <label className={`${LABEL_CLASS} block mb-1`}>Confidence Thresholds</label>
-            <p className="text-on-surface-variant text-[10px] mb-2">e.g. "Below 0.6 = low confidence warning"</p>
+            <label className={`${LABEL_CLASS} block mb-2`}>Confidence Thresholds</label>
             <textarea
               className={`${INPUT_CLASS} min-h-[60px] resize-y`}
-              placeholder="Describe confidence thresholds..."
+              placeholder='e.g. Below 0.6 = low confidence warning'
               value=""
               readOnly
             />
