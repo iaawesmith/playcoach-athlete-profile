@@ -1032,7 +1032,12 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
   );
 }
 
-function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p: PhaseNote[]) => void }) {
+function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange }: {
+  phases: PhaseNote[];
+  onChange: (p: PhaseNote[]) => void;
+  segmentationMethod: SegmentationMethod;
+  onSegmentationMethodChange: (m: SegmentationMethod) => void;
+}) {
   // Ensure every phase has an id
   useEffect(() => {
     const needsIds = phases.some(p => !p.id);
@@ -1044,22 +1049,141 @@ function PhasesEditor({ phases, onChange }: { phases: PhaseNote[]; onChange: (p:
 
   const ensureId = (p: PhaseNote): PhaseNote => p.id ? p : { ...p, id: crypto.randomUUID() };
 
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const handleDragStart = (idx: number) => {
+    setDragIdx(idx);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const next = [...phases];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(idx, 0, moved);
+    onChange(next);
+    setDragIdx(idx);
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+  };
+
+  const totalWeight = phases.reduce((s, p) => s + (p.weight ?? 0), 0);
+  const remaining = 100 - totalWeight;
+  const isProportional = segmentationMethod === "proportional";
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Section label + tooltip */}
+      <div className="flex items-center gap-1.5">
+        <label className={LABEL_CLASS}>Skill Phases</label>
+        <SectionTooltip tip="Define the sequential movement phases for this skill. Each phase is used to segment video frames during analysis — the pipeline evaluates metrics only within the frame window assigned to each phase. Minimum 4 phases recommended. Order matters — phases are processed top to bottom." />
+      </div>
+
+      {/* Segmentation method selector */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <label className={LABEL_CLASS}>Segmentation Method</label>
+          <SectionTooltip tip="Proportional: divides clip frames by the percentage weights you set per phase. Checkpoint-triggered: phase boundaries are set by specific body position events defined in the Checkpoints tab. Use Proportional for most nodes — use Checkpoint-triggered only when Checkpoints are fully configured." />
+        </div>
+        <div className="flex rounded-xl overflow-hidden border border-outline-variant/20" style={{ backgroundColor: '#0E1319' }}>
+          <button
+            onClick={() => onSegmentationMethodChange("proportional")}
+            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${
+              isProportional
+                ? "bg-primary-container/15 text-primary-container border-r border-primary-container/30"
+                : "text-on-surface-variant hover:text-on-surface border-r border-outline-variant/20"
+            }`}
+          >
+            Proportional
+          </button>
+          <button
+            onClick={() => onSegmentationMethodChange("checkpoint")}
+            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${
+              !isProportional
+                ? "bg-primary-container/15 text-primary-container"
+                : "text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Checkpoint-triggered
+          </button>
+        </div>
+        {!isProportional && (
+          <p className="text-on-surface-variant/50 text-xs leading-snug">
+            Phase boundaries will be determined by Checkpoints. Proportion weights are ignored.
+          </p>
+        )}
+      </div>
+
+      {/* Phase cards */}
       {phases.map((p, i) => (
-        <div key={p.id || i} className={CARD_CLASS}>
-          <div className="flex items-center justify-between">
-            <input className={`${INPUT_CLASS} w-48`} value={p.phase} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), phase: e.target.value }; onChange(n); }} placeholder="Phase name" />
-            <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
+        <div
+          key={p.id || i}
+          className={`${CARD_CLASS} ${dragIdx === i ? "opacity-50" : ""}`}
+          draggable
+          onDragStart={() => handleDragStart(i)}
+          onDragOver={(e) => handleDragOver(e, i)}
+          onDragEnd={handleDragEnd}
+        >
+          {/* Row 1: drag handle, sequence, name, % weight, delete */}
+          <div className="flex items-center gap-2">
+            <span className="cursor-grab active:cursor-grabbing text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors shrink-0">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>drag_indicator</span>
+            </span>
+            <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 shrink-0 text-center">{i + 1}</span>
+            <input
+              className={`${INPUT_CLASS} flex-1`}
+              value={p.phase}
+              onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), phase: e.target.value }; onChange(n); }}
+              placeholder="Phase name"
+            />
+            {isProportional && (
+              <div className="relative shrink-0 w-20">
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  step={1}
+                  className={`${INPUT_CLASS} !pr-7 !text-right w-full`}
+                  value={p.weight ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value === "" ? 0 : Math.min(99, Math.max(0, Math.round(Number(e.target.value))));
+                    const n = [...phases];
+                    n[i] = { ...ensureId(p), weight: val };
+                    onChange(n);
+                  }}
+                  placeholder="0"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
+              </div>
+            )}
+            <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete phase">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
+          {/* Row 2: description */}
           <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => { const n = [...phases]; n[i] = { ...ensureId(p), notes: e.target.value }; onChange(n); }} placeholder="Phase notes..." />
         </div>
       ))}
-      <button onClick={() => onChange([...phases, { id: crypto.randomUUID(), phase: "", notes: "" }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
+
+      {/* Add phase button */}
+      <button onClick={() => onChange([...phases, { id: crypto.randomUUID(), phase: "", notes: "", weight: 0 }])} className="text-primary-container text-xs font-semibold uppercase tracking-widest flex items-center gap-1 hover:opacity-80">
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Add Phase
       </button>
+
+      {/* Proportion total indicator */}
+      {isProportional && phases.length > 0 && (
+        <div className="pt-2">
+          {totalWeight === 100 ? (
+            <p className="text-primary-container text-xs font-semibold">Total: 100% ✓</p>
+          ) : totalWeight > 100 ? (
+            <p className="text-amber-400 text-xs font-semibold">Total: {totalWeight}% — over by {totalWeight - 100}%</p>
+          ) : (
+            <p className="text-on-surface-variant/60 text-xs font-semibold">Total: {totalWeight}% — {remaining}% remaining</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
