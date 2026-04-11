@@ -12,8 +12,15 @@ export interface CommonError {
 }
 
 export interface PhaseNote {
+  id?: string;
   phase: string;
   notes: string;
+}
+
+export interface MechanicsSection {
+  id: string;
+  phase_id: string | null;
+  content: string;
 }
 
 export interface Badge {
