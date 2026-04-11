@@ -1485,7 +1485,7 @@ function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: Structure
                 )}
               </div>
 
-              <button onClick={() => { const secName = sec.title || `Section ${idx + 1}`; onConfirmDelete({ title: "Delete Mechanics Section?", body: `Deleting ${secName} will remove all coaching cues in this section. This cannot be undone.`, confirmLabel: "Delete Section", onConfirm: () => { removeSection(idx); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
+              <button onClick={() => { const linkedPhase = phases.find(p => p.id === sec.phase_id); const secName = linkedPhase?.phase || `Section ${idx + 1}`; onConfirmDelete({ title: "Delete Mechanics Section?", body: `Deleting ${secName} will remove all coaching cues in this section. This cannot be undone.`, confirmLabel: "Delete Section", onConfirm: () => { removeSection(idx); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
               </button>
             </div>
