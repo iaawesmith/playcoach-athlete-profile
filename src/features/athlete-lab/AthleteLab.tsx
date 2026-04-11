@@ -3,6 +3,7 @@ import type { TrainingNode, NodePosition } from "./types";
 import { fetchNodes, createNode, deleteNode as deleteNodeApi } from "@/services/athleteLab";
 import { NodeSidebar } from "./components/NodeSidebar";
 import { NodeEditor } from "./components/NodeEditor";
+import { AdminReferencePanel } from "./components/AdminReferencePanel";
 
 export function AthleteLab() {
   const [nodes, setNodes] = useState<TrainingNode[]>([]);
