@@ -4,6 +4,7 @@ import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
+import { ConfirmModal } from "./ConfirmModal";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
@@ -199,6 +200,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [statusModal, setStatusModal] = useState<"go-live" | "go-draft" | "blocking" | null>(null);
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; body: string; confirmLabel: string; onConfirm: () => void } | null>(null);
   const criticalChanged = useRef(false);
 
   useEffect(() => {
@@ -545,12 +547,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               <label className={LABEL_CLASS}>Phase Mechanics</label>
               <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
             </div>
-            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} />
+            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} onConfirmDelete={(opts) => setConfirmModal(opts)} />
           </div>
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} />
+          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "scoring" && (
@@ -562,7 +564,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "errors" && (
-          <CommonErrorsEditor errors={draft.common_errors} onChange={(e) => update("common_errors", e)} />
+          <CommonErrorsEditor errors={draft.common_errors} onChange={(e) => update("common_errors", e)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "phases" && (
@@ -571,6 +573,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
             segmentationMethod={draft.segmentation_method ?? "proportional"}
             onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+            onConfirmDelete={(opts) => setConfirmModal(opts)}
           />
         )}
 
@@ -583,7 +586,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "checkpoints" && (
-          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} />
+          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "prompt" && (
@@ -596,7 +599,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "badges" && (
-          <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} />
+          <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "test" && (
@@ -612,6 +615,14 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           tabLabel={TABS.find((t) => t.key === tab)?.label ?? tab}
           knowledgeBase={draft.knowledge_base ?? {}}
           onKnowledgeBaseChange={(kb) => { update("knowledge_base", kb); }}
+        />
+        <ConfirmModal
+          open={!!confirmModal}
+          title={confirmModal?.title ?? ""}
+          body={confirmModal?.body ?? ""}
+          confirmLabel={confirmModal?.confirmLabel ?? "Delete"}
+          onConfirm={() => { confirmModal?.onConfirm(); setConfirmModal(null); }}
+          onCancel={() => setConfirmModal(null)}
         />
       </div>
     </div>
@@ -981,7 +992,9 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   );
 }
 
-function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void }) {
+type ConfirmDeleteFn = (opts: { title: string; body: string; confirmLabel: string; onConfirm: () => void }) => void;
+
+function KeyMetricsEditor({ metrics, onChange, onConfirmDelete }: { metrics: KeyMetric[]; onChange: (m: KeyMetric[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
 
   return (
@@ -993,7 +1006,7 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
         <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Metric {i + 1}</span>
-            <button onClick={() => { if (window.confirm(`Delete Metric ${i + 1}?`)) onChange(metrics.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete metric">
+            <button onClick={() => onConfirmDelete({ title: "Delete Metric?", body: `Deleting Metric ${i + 1}${m.name ? ` (${m.name})` : ""} will remove it from the scoring pipeline. This cannot be undone.`, confirmLabel: "Delete Metric", onConfirm: () => { onChange(metrics.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete metric">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
@@ -1015,14 +1028,14 @@ function KeyMetricsEditor({ metrics, onChange }: { metrics: KeyMetric[]; onChang
   );
 }
 
-function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onChange: (e: CommonError[]) => void }) {
+function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: CommonError[]; onChange: (e: CommonError[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   return (
     <div className="space-y-3">
       {errors.map((err, i) => (
         <div key={i} className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-on-surface text-xs font-bold">Error {i + 1}</span>
-            <button onClick={() => { if (window.confirm(`Delete Error ${i + 1}?`)) onChange(errors.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete error">
+            <button onClick={() => onConfirmDelete({ title: "Delete Error?", body: `Deleting Error ${i + 1}${err.error ? ` (${err.error})` : ""} will remove it from the error library. This cannot be undone.`, confirmLabel: "Delete Error", onConfirm: () => { onChange(errors.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete error">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
@@ -1043,11 +1056,12 @@ function CommonErrorsEditor({ errors, onChange }: { errors: CommonError[]; onCha
   );
 }
 
-function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange }: {
+function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete }: {
   phases: PhaseNote[];
   onChange: (p: PhaseNote[]) => void;
   segmentationMethod: SegmentationMethod;
   onSegmentationMethodChange: (m: SegmentationMethod) => void;
+  onConfirmDelete: ConfirmDeleteFn;
 }) {
   // Ensure every phase has an id
   useEffect(() => {
@@ -1192,7 +1206,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
 
             {/* Delete button — vertically centered with inputs */}
             <div className="pt-7 shrink-0">
-              <button onClick={() => { if (window.confirm(`Delete Phase ${i + 1}?`)) onChange(phases.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
+              <button onClick={() => { const phaseName = p.phase || `Phase ${i + 1}`; onConfirmDelete({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i)); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete phase">
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
               </button>
             </div>
@@ -1253,7 +1267,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
   );
 }
 
-function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; onChange: (c: string[]) => void }) {
+function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete }: { checkpoints: string[]; onChange: (c: string[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   return (
     <div className="space-y-2">
       {checkpoints.map((c, i) => (
@@ -1261,7 +1275,7 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
           <div className={`${LABEL_CLASS}`}>Checkpoint {i + 1}</div>
           <div className="flex gap-2 items-center">
             <input className={`${INPUT_CLASS} flex-1`} value={c} onChange={(e) => { const n = [...checkpoints]; n[i] = e.target.value; onChange(n); }} placeholder="e.g. Hips fully rotated at the break point" />
-            <button onClick={() => { if (window.confirm(`Delete Checkpoint ${i + 1}?`)) onChange(checkpoints.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
+            <button onClick={() => onConfirmDelete({ title: "Delete Checkpoint?", body: `Deleting Checkpoint ${i + 1} will remove it from the analysis checklist. This cannot be undone.`, confirmLabel: "Delete Checkpoint", onConfirm: () => { onChange(checkpoints.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete checkpoint">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
@@ -1274,7 +1288,7 @@ function CheckpointsEditor({ checkpoints, onChange }: { checkpoints: string[]; o
   );
 }
 
-function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Badge[]) => void }) {
+function BadgesEditor({ badges, onChange, onConfirmDelete }: { badges: Badge[]; onChange: (b: Badge[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   return (
     <div className="space-y-3">
       {badges.map((b, i) => (
@@ -1284,7 +1298,7 @@ function BadgesEditor({ badges, onChange }: { badges: Badge[]; onChange: (b: Bad
               <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
               Badge {i + 1}
             </span>
-            <button onClick={() => { if (window.confirm(`Delete Badge ${i + 1}?`)) onChange(badges.filter((_, j) => j !== i)); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete badge">
+            <button onClick={() => onConfirmDelete({ title: "Delete Badge?", body: `Deleting ${b.name || `Badge ${i + 1}`} will remove it from the badge library. This cannot be undone.`, confirmLabel: "Delete Badge", onConfirm: () => { onChange(badges.filter((_, j) => j !== i)); } })} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete badge">
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
             </button>
           </div>
@@ -1337,7 +1351,7 @@ function serializeStructuredField(fields: Record<string, string>): string {
     .join("\n\n");
 }
 
-function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { phases: PhaseNote[] }) {
+function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: StructuredEditorProps & { phases: PhaseNote[]; onConfirmDelete: ConfirmDeleteFn }) {
   // Parse sections from JSON or migrate from legacy text format
   const parseSections = useCallback((): MechanicsSection[] => {
     if (!value.trim()) return [];
@@ -1471,7 +1485,7 @@ function MechanicsEditor({ value, onChange, phases }: StructuredEditorProps & { 
                 )}
               </div>
 
-              <button onClick={() => { if (window.confirm("Delete this mechanics section?")) removeSection(idx); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
+              <button onClick={() => { const linkedPhase = phases.find(p => p.id === sec.phase_id); const secName = linkedPhase?.phase || `Section ${idx + 1}`; onConfirmDelete({ title: "Delete Mechanics Section?", body: `Deleting ${secName} will remove all coaching cues in this section. This cannot be undone.`, confirmLabel: "Delete Section", onConfirm: () => { removeSection(idx); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
               </button>
             </div>
