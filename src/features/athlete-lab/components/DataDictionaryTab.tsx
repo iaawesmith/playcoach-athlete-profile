@@ -341,7 +341,7 @@ export function DataDictionaryTab() {
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">AthleteLab</th>
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Supabase</th>
                 <th className="px-3 py-2.5 text-left text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">MMPose</th>
-                <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]" title="Red dot = this field must be configured before a node can go Live.">
+                <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em] cursor-help" title="Required for Live — this field must be configured before a node can be set to Live.">
                   <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
                 </th>
               </tr>
