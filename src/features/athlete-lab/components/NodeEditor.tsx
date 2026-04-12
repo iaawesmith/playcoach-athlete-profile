@@ -305,6 +305,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         confidence_handling: draft.confidence_handling,
         min_metrics_threshold: draft.min_metrics_threshold,
         score_bands: draft.score_bands,
+        solution_class: draft.solution_class,
+        reference_calibrations: draft.reference_calibrations,
+        reference_filming_instructions: draft.reference_filming_instructions,
+        reference_fallback_behavior: draft.reference_fallback_behavior,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
