@@ -74,10 +74,16 @@ const DEFAULT_LINKS: Omit<ReferenceLink, "id">[] = [
     display_order: 2,
   },
   {
-    title: "Supabase Dashboard",
-    url: "https://supabase.com/dashboard",
-    description: "Database, storage, and edge functions for PlayCoach",
+    title: "Data Dictionary (GitHub)",
+    url: "https://github.com/iaawesmith/playcoach-athlete-profile/blob/main/docs/data-dictionary/fields.json",
+    description: "Live fields.json — AthleteLab, Supabase, and MMPose alignment status",
     display_order: 3,
+  },
+  {
+    title: "PlayCoach GitHub Repo",
+    url: "https://github.com/iaawesmith/playcoach-athlete-profile",
+    description: "Main codebase — src, docs, constants, and data dictionary",
+    display_order: 4,
   },
 ];
 
