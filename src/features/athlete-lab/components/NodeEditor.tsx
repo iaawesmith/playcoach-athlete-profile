@@ -1859,9 +1859,15 @@ interface ScoringEditorProps {
   scoringRules: string;
   onScoringRulesChange: (v: string) => void;
   metrics: KeyMetric[];
+  confidenceHandling: ConfidenceHandling;
+  onConfidenceHandlingChange: (v: ConfidenceHandling) => void;
+  minMetricsThreshold: number;
+  onMinMetricsThresholdChange: (v: number) => void;
+  scoreBands: ScoreBands;
+  onScoreBandsChange: (v: ScoreBands) => void;
 }
 
-function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringEditorProps) {
+function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidenceHandling, onConfidenceHandlingChange, minMetricsThreshold, onMinMetricsThresholdChange, scoreBands, onScoreBandsChange }: ScoringEditorProps) {
   const [simValues, setSimValues] = useState<Record<string, number>>({});
 
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
@@ -1880,13 +1886,29 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
     return "#ef4444";
   };
 
+  const flaggedCount = Math.ceil(metrics.length * minMetricsThreshold / 100);
+
+  const CONFIDENCE_OPTIONS: { value: ConfidenceHandling; label: string; recommended?: boolean; description: string }[] = [
+    { value: "skip", label: "SKIP", recommended: true, description: "Exclude low-confidence metrics from the aggregate score and redistribute their weight proportionally across remaining metrics. Produces the most accurate score from available data." },
+    { value: "penalize", label: "PENALIZE", description: "Score low-confidence metrics at 0. More punishing — use when filming conditions are controlled and low confidence indicates athlete error." },
+    { value: "flag_only", label: "FLAG ONLY", description: "Score normally but mark the metric as low confidence in athlete results. Use for informational nodes where score accuracy is less critical." },
+  ];
+
+  const BAND_ROWS: { key: keyof ScoreBands; rangeLabel: string }[] = [
+    { key: "elite", rangeLabel: "90 — 100" },
+    { key: "varsity", rangeLabel: "75 — 89" },
+    { key: "developing", rangeLabel: "60 — 74" },
+    { key: "needs_work", rangeLabel: "Below 60" },
+  ];
+
   return (
     <div className="space-y-6">
+      {/* Scoring Formula Description */}
       <div>
-        <label className={`${LABEL_CLASS} block mb-2`}>Scoring Formula Description</label>
-        <p className="text-on-surface-variant text-xs mb-2 leading-relaxed">
-          Describe how the overall Route Mastery Score is calculated from individual metrics. The AI uses this to explain scores to athletes.
-        </p>
+        <div className="flex items-center gap-1.5 mb-2">
+          <label className={LABEL_CLASS}>Scoring Formula Description</label>
+          <SectionTooltip tip="Describe how the overall Route Mastery Score is calculated from individual metrics. The AI uses this to explain scores to athletes." />
+        </div>
         <textarea
           className={`${INPUT_CLASS} min-h-[120px] resize-y`}
           value={scoringRules}
@@ -1901,6 +1923,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
           <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>pie_chart</span>
             Current Weight Distribution
+            <SectionTooltip tip="Shows how each metric's weight contributes to the overall Mastery Score. Weights are set in the Metrics tab and must total 100%." />
           </h4>
           <span className={`text-xs font-black px-3 py-1 rounded-full ${weightValid ? "bg-primary-container/15 text-primary-container" : "bg-red-500/15 text-red-400"}`}>
             {totalWeight}% {!weightValid && "⚠"}
@@ -1947,34 +1970,125 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
         )}
       </div>
 
-      {/* Global Scoring Rules */}
+      {/* ── SECTION 1: Confidence Handling ── */}
+      <div className="pt-2">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-px flex-1 bg-outline-variant/20" />
+          <span className={`${LABEL_CLASS} shrink-0`}>Confidence Handling</span>
+          <div className="h-px flex-1 bg-outline-variant/20" />
+        </div>
+      </div>
+
       <div className={CARD_CLASS + " space-y-4"}>
-        <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
-          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>tune</span>
-          Global Scoring Rules (Optional)
-        </h4>
+        <div className="flex items-center gap-1.5">
+          <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>shield</span>
+            Low Confidence Handling
+          </h4>
+          <SectionTooltip tip="What happens when a metric's keypoints fall below its confidence threshold during analysis. This is a node-level setting that applies to all metrics." />
+        </div>
+
+        <div className="space-y-3">
+          {CONFIDENCE_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${confidenceHandling === opt.value ? "border-primary-container/40 bg-primary-container/5" : "border-outline-variant/15 hover:border-outline-variant/30"}`}
+              style={{ backgroundColor: confidenceHandling === opt.value ? undefined : '#0E1319' }}
+            >
+              <div className="mt-0.5 shrink-0">
+                <div
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${confidenceHandling === opt.value ? "border-primary-container" : "border-outline-variant/40"}`}
+                >
+                  {confidenceHandling === opt.value && (
+                    <div className="w-2 h-2 rounded-full bg-primary-container" />
+                  )}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-on-surface text-xs font-black uppercase tracking-[0.15em]">{opt.label}</span>
+                  {opt.recommended && (
+                    <span className="text-[9px] font-semibold uppercase tracking-widest text-primary-container bg-primary-container/10 px-2 py-0.5 rounded-full">Recommended</span>
+                  )}
+                </div>
+                <p className="text-on-surface-variant text-xs mt-1 leading-relaxed">{opt.description}</p>
+              </div>
+              <input
+                type="radio"
+                className="sr-only"
+                name="confidence_handling"
+                value={opt.value}
+                checked={confidenceHandling === opt.value}
+                onChange={() => onConfidenceHandlingChange(opt.value)}
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* ── SECTION 2: Minimum Metrics Threshold ── */}
+      <div className={CARD_CLASS + " space-y-4"}>
+        <div className="flex items-center gap-1.5">
+          <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>block</span>
+            Minimum Metrics Threshold
+          </h4>
+          <SectionTooltip tip="If more than this percentage of metrics are flagged as low confidence, the entire analysis is rejected and the athlete is asked to refilm. Prevents meaningless Mastery Scores from poor footage." />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-on-surface-variant text-xs whitespace-nowrap">Reject analysis if more than</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            className={`${INPUT_CLASS} w-20 text-center font-bold`}
+            value={minMetricsThreshold}
+            onChange={(e) => onMinMetricsThresholdChange(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+          />
+          <span className="text-on-surface-variant text-xs whitespace-nowrap">% of metrics are low confidence</span>
+        </div>
+
+        {metrics.length > 0 && (
+          <p className="text-on-surface-variant/70 text-xs leading-relaxed">
+            With <span className="text-on-surface font-semibold">{metrics.length}</span> metrics configured, analysis is rejected if <span className="text-on-surface font-semibold">{flaggedCount}</span> or more metrics are flagged.
+          </p>
+        )}
+      </div>
+
+      {/* ── SECTION 3: Score Bands ── */}
+      <div className="pt-2">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-px flex-1 bg-outline-variant/20" />
+          <span className={`${LABEL_CLASS} shrink-0`}>Score Bands</span>
+          <div className="h-px flex-1 bg-outline-variant/20" />
+        </div>
+      </div>
+
+      <div className={CARD_CLASS + " space-y-4"}>
+        <div className="flex items-center gap-1.5">
+          <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>label</span>
+            Score Band Labels
+          </h4>
+          <SectionTooltip tip="Labels shown to athletes alongside their Mastery Score. Also used by the AI feedback system to frame results." />
+        </div>
         <p className="text-on-surface-variant text-xs leading-relaxed">
-          Define bonus/penalty rules and confidence thresholds. These are included in the scoring formula description above.
+          Labels shown to athletes alongside their Mastery Score. Also used by the AI feedback system to frame results.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-            <label className={`${LABEL_CLASS} block mb-2`}>Bonus Rules</label>
-            <textarea
-              className={`${INPUT_CLASS} min-h-[60px] resize-y`}
-              placeholder='e.g. +5 if all phases ≥ 80'
-              value=""
-              readOnly
-            />
-          </div>
-          <div className="p-4 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-            <label className={`${LABEL_CLASS} block mb-2`}>Confidence Thresholds</label>
-            <textarea
-              className={`${INPUT_CLASS} min-h-[60px] resize-y`}
-              placeholder='e.g. Below 0.6 = low confidence warning'
-              value=""
-              readOnly
-            />
-          </div>
+
+        <div className="space-y-2">
+          {BAND_ROWS.map((band) => (
+            <div key={band.key} className="flex items-center gap-4 p-3 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
+              <span className="text-on-surface-variant text-xs font-semibold w-24 shrink-0 tabular-nums">{band.rangeLabel}</span>
+              <input
+                className={`${INPUT_CLASS} flex-1`}
+                value={scoreBands[band.key]}
+                onChange={(e) => onScoreBandsChange({ ...scoreBands, [band.key]: e.target.value })}
+                placeholder="Label"
+              />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1984,6 +2098,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
           <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>calculate</span>
             Scoring Preview Simulator
+            <SectionTooltip tip="Enter sample scores (0–100) for each metric to preview the calculated Mastery Score and its band label." />
           </h4>
           <p className="text-on-surface-variant text-xs leading-relaxed">
             Enter sample scores (0–100) for each metric to see the calculated Route Mastery Score.
@@ -2025,6 +2140,11 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics }: ScoringE
               <div className="text-on-surface font-black uppercase tracking-tighter text-lg">Simulated Score</div>
               <p className="text-on-surface-variant text-xs">
                 Based on weighted average of {metrics.length} metrics
+                {simulatedScore !== null && (
+                  <span className="ml-2 text-primary-container font-semibold">
+                    — {simulatedScore >= 90 ? scoreBands.elite : simulatedScore >= 75 ? scoreBands.varsity : simulatedScore >= 60 ? scoreBands.developing : scoreBands.needs_work}
+                  </span>
+                )}
               </p>
             </div>
           </div>
