@@ -8,6 +8,7 @@ import { HelpDrawer } from "./HelpDrawer";
 import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
+import { LlmPromptEditor } from "./LlmPromptEditor";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
@@ -30,7 +31,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Define reference objects for each camera angle so the pipeline can convert pixel distances to real-world yards. Required for all Distance and Velocity metrics." },
   { key: "camera", label: "Camera", icon: "videocam", subtitle: "Set filming requirements and guidelines that ensure athlete videos produce reliable keypoint detection. These settings directly affect analysis accuracy." },
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define frame-level body position events that trigger phase boundaries. Used when Segmentation Method in the Phases tab is set to Checkpoint-triggered." },
-  { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Customize the tone, structure, and persona of the AI coach feedback." },
+  { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Create achievement badges to motivate athletes and reward milestones. Minimum 4–6 badges suggested." },
   { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the rtmlib pose estimation engine settings for this node. These parameters are passed directly to Cloud Run and determine which model runs and how." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
@@ -343,6 +344,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         camera_guidelines: draft.camera_guidelines,
         form_checkpoints: draft.form_checkpoints,
         llm_prompt_template: draft.llm_prompt_template,
+        llm_tone: draft.llm_tone,
+        llm_max_words: draft.llm_max_words,
+        llm_system_instructions: draft.llm_system_instructions,
         badges: draft.badges,
         elite_videos: draft.elite_videos,
         knowledge_base: draft.knowledge_base,
@@ -729,12 +733,16 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "prompt" && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5">
-              <label className={LABEL_CLASS}>Prompt Template</label>
-            </div>
-            <textarea className={`${INPUT_CLASS} min-h-[300px] resize-y font-mono text-xs`} value={draft.llm_prompt_template} onChange={(e) => updateWithCriticalTrack("llm_prompt_template", e.target.value)} placeholder="e.g. You are an elite football skills coach analyzing a {{position}} athlete performing a {{skill_name}}..." />
-          </div>
+          <LlmPromptEditor
+            promptTemplate={draft.llm_prompt_template}
+            onPromptChange={(v) => updateWithCriticalTrack("llm_prompt_template", v)}
+            tone={draft.llm_tone ?? "direct"}
+            onToneChange={(v) => updateWithCriticalTrack("llm_tone" as keyof TrainingNode, v as never)}
+            maxWords={draft.llm_max_words ?? 150}
+            onMaxWordsChange={(v) => updateWithCriticalTrack("llm_max_words" as keyof TrainingNode, v as never)}
+            systemInstructions={draft.llm_system_instructions ?? ""}
+            onSystemInstructionsChange={(v) => updateWithCriticalTrack("llm_system_instructions" as keyof TrainingNode, v as never)}
+          />
         )}
 
         {tab === "badges" && (

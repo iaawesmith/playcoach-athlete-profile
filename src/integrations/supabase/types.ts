@@ -147,7 +147,10 @@ export type Database = {
           id: string
           key_metrics: Json
           knowledge_base: Json
+          llm_max_words: number
           llm_prompt_template: string
+          llm_system_instructions: string
+          llm_tone: string
           min_metrics_threshold: number
           name: string
           node_version: number
@@ -183,7 +186,10 @@ export type Database = {
           id?: string
           key_metrics?: Json
           knowledge_base?: Json
+          llm_max_words?: number
           llm_prompt_template?: string
+          llm_system_instructions?: string
+          llm_tone?: string
           min_metrics_threshold?: number
           name: string
           node_version?: number
@@ -219,7 +225,10 @@ export type Database = {
           id?: string
           key_metrics?: Json
           knowledge_base?: Json
+          llm_max_words?: number
           llm_prompt_template?: string
+          llm_system_instructions?: string
+          llm_tone?: string
           min_metrics_threshold?: number
           name?: string
           node_version?: number
