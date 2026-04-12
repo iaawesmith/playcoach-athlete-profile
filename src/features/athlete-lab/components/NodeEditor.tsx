@@ -291,6 +291,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     const normalizedNode = {
       ...node,
       form_checkpoints: migrateCheckpoints(node.form_checkpoints),
+      badges: migrateBadges(node.badges as any),
       key_metrics: (node.key_metrics ?? []).map((m) => ({
         tolerance: null,
         temporal_window: 1,
