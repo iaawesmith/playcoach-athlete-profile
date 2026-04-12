@@ -71,6 +71,15 @@ export type NodePosition = "WR" | "QB" | "RB";
 
 export type NodeStatus = "draft" | "live";
 
+export type ConfidenceHandling = "skip" | "penalize" | "flag_only";
+
+export interface ScoreBands {
+  elite: string;
+  varsity: string;
+  developing: string;
+  needs_work: string;
+}
+
 export interface TrainingNode {
   id: string;
   name: string;
@@ -94,6 +103,9 @@ export interface TrainingNode {
   elite_videos: EliteVideo[];
   knowledge_base: Record<string, KnowledgeSection[]>;
   segmentation_method: SegmentationMethod;
+  confidence_handling: ConfidenceHandling;
+  min_metrics_threshold: number;
+  score_bands: ScoreBands;
   created_at: string;
   updated_at: string;
 }
