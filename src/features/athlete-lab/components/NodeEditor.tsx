@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
@@ -302,6 +302,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         clip_duration_min: draft.clip_duration_min,
         clip_duration_max: draft.clip_duration_max,
         segmentation_method: draft.segmentation_method,
+        confidence_handling: draft.confidence_handling,
+        min_metrics_threshold: draft.min_metrics_threshold,
+        score_bands: draft.score_bands,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
@@ -627,6 +630,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             scoringRules={draft.scoring_rules}
             onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
             metrics={draft.key_metrics}
+            confidenceHandling={draft.confidence_handling ?? "skip"}
+            onConfidenceHandlingChange={(v) => updateWithCriticalTrack("confidence_handling", v)}
+            minMetricsThreshold={draft.min_metrics_threshold ?? 50}
+            onMinMetricsThresholdChange={(v) => updateWithCriticalTrack("min_metrics_threshold", v)}
+            scoreBands={draft.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" }}
+            onScoreBandsChange={(v) => updateWithCriticalTrack("score_bands", v)}
           />
         )}
 
