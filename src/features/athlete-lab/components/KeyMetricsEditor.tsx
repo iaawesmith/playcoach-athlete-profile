@@ -453,11 +453,20 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   };
 
   const loadPreset = (combo: typeof combinations[0]) => {
-    // Find needed groups
+    // Determine needed body groups from keypoint indices using both
+    // library lookup AND index-range fallback to guarantee correctness
     const neededGroups = new Set<string>();
     for (const idx of combo.keypoints) {
       const kp = keypoints.find(k => k.index === idx);
-      if (kp) neededGroups.add(kp.group);
+      if (kp) {
+        neededGroups.add(kp.group);
+      } else {
+        // Fallback: derive group from index range
+        if (idx >= 0 && idx <= 16) neededGroups.add("body");
+        else if (idx >= 17 && idx <= 22) neededGroups.add("feet");
+        else if (idx >= 23 && idx <= 90) neededGroups.add("face");
+        else if (idx >= 91 && idx <= 132) neededGroups.add("hands");
+      }
     }
     const newGroups = Array.from(new Set([...km.body_groups, ...neededGroups]));
     setKm({
@@ -466,6 +475,9 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
       keypoint_indices: combo.keypoints,
       calculation_type: combo.calculation as CalculationType,
     });
+    // Switch active tab to the first newly-added group so user sees the selection
+    const firstNewGroup = Array.from(neededGroups).find(g => !km.body_groups.includes(g));
+    if (firstNewGroup) setActiveGroupTab(firstNewGroup);
 
     // Pre-fill name and unit on parent metric if empty
     const presetFields = PRESET_FIELDS[combo.metric];
