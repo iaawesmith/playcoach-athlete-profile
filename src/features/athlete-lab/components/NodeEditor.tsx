@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
@@ -14,7 +14,7 @@ interface NodeEditorProps {
   onIconChange?: (nodeId: string, iconUrl: string | null) => void;
 }
 
-type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "test";
+type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, and upload constraints for this node. Status controls whether athlete uploads trigger automatic analysis." },
@@ -30,12 +30,13 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define key moments the AI should analyze closely. Minimum 6–8 checkpoints suggested." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Customize the tone, structure, and persona of the AI coach feedback." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Create achievement badges to motivate athletes and reward milestones. Minimum 4–6 badges suggested." },
+  { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the rtmlib pose estimation engine settings for this node. These parameters are passed directly to Cloud Run and determine which model runs and how." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
 ];
 
 
 /* Critical tabs that auto-draft when changed on a live node */
-const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt"];
+const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt", "training_status"];
 
 /* ── Shared style constants ── */
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
@@ -109,9 +110,27 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "LLM Prompt", detail: "Prompt template cannot be empty" });
   }
 
-  // Position (solution class) must be set
-  if (!node.position || node.position.trim().length === 0) {
-    issues.push({ label: "Training Status", detail: "A position / solution class must be set" });
+  // Solution class must be configured
+  if (!node.solution_class || node.solution_class.trim().length === 0) {
+    issues.push({ label: "Training Status", detail: "Solution class not configured" });
+  } else {
+    // Check solution class supports all keypoint indices
+    const sc = node.solution_class;
+    for (const m of node.key_metrics) {
+      const indices = m.keypoint_mapping?.keypoint_indices ?? [];
+      if (sc === "body" && indices.some(i => i >= 17)) {
+        const needsFeet = indices.some(i => i >= 17 && i <= 22);
+        const needsHands = indices.some(i => i >= 91);
+        if (needsHands) {
+          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
+        } else if (needsFeet) {
+          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses feet keypoints requiring Body with Feet or higher` });
+        }
+      }
+      if (sc === "body_with_feet" && indices.some(i => i >= 91)) {
+        issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
+      }
+    }
   }
 
   // Clip duration must be set and valid
@@ -326,6 +345,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         reference_calibrations: draft.reference_calibrations,
         reference_filming_instructions: draft.reference_filming_instructions,
         reference_fallback_behavior: draft.reference_fallback_behavior,
+        performance_mode: draft.performance_mode,
+        det_frequency: draft.det_frequency,
+        tracking_enabled: draft.tracking_enabled,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
@@ -706,6 +728,17 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "badges" && (
           <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
+        )}
+
+        {tab === "training_status" && (
+          <TrainingStatusEditor
+            node={draft}
+            onSolutionClassChange={(v) => { updateWithCriticalTrack("solution_class", v); if (v === "wholebody3d") update("tracking_enabled", false); }}
+            onPerformanceModeChange={(v) => updateWithCriticalTrack("performance_mode", v)}
+            onDetFrequencyChange={(v) => updateWithCriticalTrack("det_frequency", v)}
+            onTrackingEnabledChange={(v) => updateWithCriticalTrack("tracking_enabled", v)}
+            onNavigateTab={(t) => setTab(t)}
+          />
         )}
 
         {tab === "test" && (
@@ -1862,6 +1895,262 @@ function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: Structure
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
         Add Section
       </button>
+    </div>
+  );
+}
+
+/* ── Solution class helpers ── */
+const SOLUTION_CLASSES = [
+  { value: "body", title: "Body", desc: "Standard 17-keypoint body detection. Fastest model, lowest memory.", coverage: "Keypoints 0-16: Head, Shoulders, Arms, Hips, Knees, Ankles", useWhen: "No foot or hand keypoints used in any metric" },
+  { value: "body_with_feet", title: "Body with Feet", desc: "26-keypoint model adding heel and toe detection. Required for heel plant metrics.", coverage: "Keypoints 0-22: Body + Big Toe, Small Toe, Heel (both feet)", useWhen: "Any metric uses keypoints 17-22 (heel plant, toe push-off)" },
+  { value: "wholebody", title: "Wholebody", desc: "Full 133-keypoint 2D model. Required for hand and face keypoints.", coverage: "Keypoints 0-132: Full body + hands + face (2D pixel coordinates)", useWhen: "Any metric uses hand keypoints 91-132 (catch efficiency, hand position)" },
+  { value: "wholebody3d", title: "Wholebody 3D", desc: "Full 133-keypoint 3D model. Returns coordinates in meters — no Reference tab calibration needed.", coverage: "Keypoints 0-132: Full body + hands + face (3D coordinates in meters)", useWhen: "Maximum accuracy required. Note: tracking must be OFF for 3D models." },
+] as const;
+
+const SOLUTION_CLASS_MAP: Record<string, string> = {
+  body: "Body",
+  body_with_feet: "BodyWithFeet",
+  wholebody: "Wholebody",
+  wholebody3d: "Wholebody3D",
+};
+
+function getSolutionClassWarnings(solutionClass: string, metrics: KeyMetric[], trackingEnabled: boolean): string[] {
+  const warnings: string[] = [];
+  for (const m of metrics) {
+    const indices = m.keypoint_mapping?.keypoint_indices ?? [];
+    if (solutionClass === "body") {
+      if (indices.some(i => i >= 17 && i <= 22)) warnings.push(`⚠ ${m.name || "Untitled"} uses feet keypoints (indices 17-22) — requires Body with Feet or higher.`);
+      if (indices.some(i => i >= 91)) warnings.push(`⚠ ${m.name || "Untitled"} uses hand keypoints (indices 91-132) — requires Wholebody.`);
+    }
+    if (solutionClass === "body_with_feet" && indices.some(i => i >= 91)) {
+      warnings.push(`⚠ ${m.name || "Untitled"} uses hand keypoints (indices 91-132) — requires Wholebody.`);
+    }
+  }
+  if (solutionClass === "wholebody3d" && trackingEnabled) {
+    warnings.push("⚠ Wholebody 3D requires Tracking = OFF. 3D coordinate tracking with IoU is unreliable.");
+  }
+  return warnings;
+}
+
+function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeChange, onDetFrequencyChange, onTrackingEnabledChange, onNavigateTab }: {
+  node: TrainingNode;
+  onSolutionClassChange: (v: string) => void;
+  onPerformanceModeChange: (v: PerformanceMode) => void;
+  onDetFrequencyChange: (v: number) => void;
+  onTrackingEnabledChange: (v: boolean) => void;
+  onNavigateTab: (t: TabKey) => void;
+}) {
+  const [pipelineOpen, setPipelineOpen] = useState(false);
+  const sc = node.solution_class ?? "";
+  const pm = node.performance_mode ?? "balanced";
+  const df = node.det_frequency ?? 7;
+  const te = node.tracking_enabled ?? true;
+  const scWarnings = getSolutionClassWarnings(sc, node.key_metrics, te);
+
+  /* ── Readiness checks ── */
+  const readiness: { label: string; ok: boolean; detail: string; tab: TabKey }[] = [];
+  readiness.push({ label: "Solution class configured", ok: !!sc, detail: sc ? `Set to ${SOLUTION_CLASSES.find(s => s.value === sc)?.title ?? sc}` : "Not set", tab: "training_status" });
+  const scConflicts = sc ? getSolutionClassWarnings(sc, node.key_metrics, false) : [];
+  readiness.push({ label: "Solution class supports all keypoints", ok: !!sc && scConflicts.length === 0, detail: scConflicts.length > 0 ? `${scConflicts.length} conflict(s)` : "All metrics compatible", tab: "training_status" });
+
+  const allMapped = node.key_metrics.length > 0 && node.key_metrics.every(m => m.keypoint_mapping?.calculation_type);
+  readiness.push({ label: "All metrics have keypoint mapping", ok: allMapped, detail: allMapped ? `${node.key_metrics.length} metrics mapped` : "Some metrics missing mapping", tab: "metrics" });
+  const totalWeight = node.key_metrics.reduce((s, m) => s + m.weight, 0);
+  readiness.push({ label: "Metric weights sum to 100%", ok: totalWeight === 100, detail: `Currently ${totalWeight}%`, tab: "metrics" });
+  const allPhased = node.key_metrics.length > 0 && node.key_metrics.every(m => m.keypoint_mapping?.phase_id);
+  readiness.push({ label: "All metrics have phase assigned", ok: allPhased, detail: allPhased ? "All assigned" : "Some missing phase", tab: "metrics" });
+
+  readiness.push({ label: "At least 4 phases defined", ok: node.phase_breakdown.length >= 4, detail: `${node.phase_breakdown.length} phases`, tab: "phases" });
+  const segMethod = node.segmentation_method ?? "proportional";
+  const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.weight ?? 0), 0);
+  readiness.push({ label: "Phase weights sum to 100%", ok: segMethod !== "proportional" || phaseWeightSum === 100, detail: segMethod === "proportional" ? `${phaseWeightSum}%` : "N/A (checkpoint)", tab: "phases" });
+
+  const hasVideos = node.elite_videos.some(v => v.url?.trim());
+  readiness.push({ label: "At least 1 video configured", ok: hasVideos, detail: hasVideos ? `${node.elite_videos.filter(v => v.url?.trim()).length} videos` : "No videos", tab: "videos" });
+  const hasRef = node.elite_videos.some(v => v.is_reference);
+  readiness.push({ label: "Reference video flagged", ok: hasRef, detail: hasRef ? "Set" : "Not set", tab: "videos" });
+  const allTimestamped = node.elite_videos.filter(v => v.url?.trim()).every(v => v.start_seconds != null && v.end_seconds != null);
+  readiness.push({ label: "All videos have timestamps", ok: !hasVideos || allTimestamped, detail: allTimestamped ? "All set" : "Some missing", tab: "videos" });
+
+  if (sc !== "wholebody3d") {
+    const usedAngles = new Set(node.elite_videos.map(v => v.camera_angle).filter(Boolean));
+    const cals = node.reference_calibrations ?? [];
+    const allCalibrated = usedAngles.size === 0 || [...usedAngles].every(a => { const c = cals.find(cl => cl.camera_angle === a); return c && c.reference_object_name && c.known_size_yards && c.pixels_per_yard; });
+    readiness.push({ label: "Reference calibration configured", ok: allCalibrated, detail: allCalibrated ? "All angles calibrated" : "Some angles missing", tab: "reference" });
+  }
+
+  readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
+
+  const passCount = readiness.filter(r => r.ok).length;
+  const failCount = readiness.length - passCount;
+  const allPass = failCount === 0;
+
+  const scClassName = SOLUTION_CLASS_MAP[sc] ?? "Body";
+  const pipelineCode = `from rtmlib import PoseTracker, ${scClassName}
+
+pose_tracker = PoseTracker(
+    ${scClassName},           # solution_class
+    det_frequency=${df},     # det_frequency
+    tracking=${te ? "True" : "False"},     # tracking_enabled
+    mode='${pm}', # performance_mode
+    backend='onnxruntime',
+    device='cuda'
+)`;
+
+  return (
+    <div className="space-y-8">
+      {/* SECTION 1 — SOLUTION CLASS */}
+      <div>
+        <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Model Configuration</div>
+        <div className="border-t border-outline-variant/10 pt-5 space-y-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <label className={LABEL_CLASS}>Solution Class</label>
+            <SectionTooltip tip="Determines which rtmlib model tier is instantiated on Cloud Run. Must support ALL keypoint indices used in this node's metrics. Selecting a tier that doesn't support your keypoints returns empty arrays — metrics fail silently with no error." />
+          </div>
+          <div className="space-y-3">
+            {SOLUTION_CLASSES.map(opt => (
+              <label key={opt.value} className={`block p-5 rounded-xl border cursor-pointer transition-all ${sc === opt.value ? 'border-primary-container/50' : 'border-outline-variant/20 hover:border-outline-variant/40'}`} style={{ backgroundColor: sc === opt.value ? 'rgba(0,230,57,0.04)' : '#1A2029' }}>
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sc === opt.value ? 'border-primary-container' : 'border-outline-variant/50'}`}>
+                    {sc === opt.value && <div className="w-2 h-2 rounded-full bg-primary-container" />}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="text-on-surface font-black uppercase tracking-tighter text-base">{opt.title}</div>
+                    <p className="text-on-surface-variant text-sm leading-relaxed">{opt.desc}</p>
+                    <div className="text-on-surface-variant/70 text-xs"><span className="font-semibold text-on-surface-variant">Coverage:</span> {opt.coverage}</div>
+                    <div className="text-on-surface-variant/70 text-xs"><span className="font-semibold text-on-surface-variant">Use when:</span> {opt.useWhen}</div>
+                  </div>
+                </div>
+                <input type="radio" className="sr-only" checked={sc === opt.value} onChange={() => onSolutionClassChange(opt.value)} />
+              </label>
+            ))}
+          </div>
+          {scWarnings.length > 0 && (
+            <div className="space-y-2 mt-3">
+              {scWarnings.map((w, i) => (
+                <div key={i} className="flex items-start gap-2 text-amber-400 text-sm p-3 rounded-xl border border-amber-400/20" style={{ backgroundColor: 'rgba(245,158,11,0.05)' }}>
+                  <span className="mt-0.5">{w}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 2 — PERFORMANCE MODE */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <label className={LABEL_CLASS}>Performance Mode</label>
+          <SectionTooltip tip="Controls which ONNX model weights are loaded. Passed directly to rtmlib PoseTracker as the mode parameter. Affects inference speed and keypoint accuracy." />
+        </div>
+        <div className="space-y-3">
+          {([
+            { value: "performance" as const, label: "PERFORMANCE", desc: "Largest, most accurate model. Recommended for high-weight metrics requiring maximum keypoint precision. Slower inference — adds 2-4 seconds to analysis time.", isDefault: false },
+            { value: "balanced" as const, label: "BALANCED", desc: "Default rtmlib setting. Best speed/accuracy tradeoff for most nodes. Recommended for all standard route running nodes.", isDefault: true },
+            { value: "lightweight" as const, label: "LIGHTWEIGHT", desc: "Fastest inference. Reduced accuracy — use only for simple metrics or when analysis time is critical.", isDefault: false },
+          ]).map(opt => (
+            <label key={opt.value} className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${pm === opt.value ? 'border-primary-container/40' : 'border-outline-variant/20'}`} style={{ backgroundColor: pm === opt.value ? 'rgba(0,230,57,0.04)' : '#1A2029' }}>
+              <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${pm === opt.value ? 'border-primary-container' : 'border-outline-variant/50'}`}>
+                {pm === opt.value && <div className="w-2 h-2 rounded-full bg-primary-container" />}
+              </div>
+              <div>
+                <div className="text-on-surface text-xs font-black uppercase tracking-[0.15em]">{opt.label}{opt.isDefault && <span className="ml-2 text-on-surface-variant font-normal normal-case tracking-normal">(recommended)</span>}</div>
+                <p className="text-on-surface-variant text-xs mt-1 leading-relaxed">{opt.desc}</p>
+              </div>
+              <input type="radio" className="sr-only" checked={pm === opt.value} onChange={() => onPerformanceModeChange(opt.value)} />
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* SECTION 3 — DETECTION SETTINGS */}
+      <div>
+        <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Detection Settings</div>
+        <div className="border-t border-outline-variant/10 pt-5 space-y-6">
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Detection Frequency</label>
+              <SectionTooltip tip="How often rtmlib runs full YOLOX person detection vs tracking between detections. Lower = more accurate person tracking. Higher = faster processing. Passed directly to rtmlib PoseTracker as det_frequency parameter." />
+            </div>
+            <input type="number" min={1} max={30} step={1} className={`${INPUT_CLASS} w-28`} value={df} onChange={(e) => onDetFrequencyChange(Math.max(1, Math.min(30, parseInt(e.target.value) || 7)))} />
+            <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Recommended: 3-5 for clips under 5 seconds. 7 (default) for standard clips. Higher values may cause tracking drift on fast movements.</p>
+            <div className="mt-3 flex items-center gap-3 text-[10px] text-on-surface-variant/50 uppercase tracking-widest">
+              <span>More Accurate</span>
+              <div className="flex-1 h-1.5 rounded-full relative" style={{ backgroundColor: '#0E1319' }}>
+                <div className="absolute top-0 left-0 h-full rounded-full bg-primary-container/40" style={{ width: `${((df - 1) / 29) * 100}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary-container border-2 border-surface" style={{ left: `calc(${((df - 1) / 29) * 100}% - 6px)` }} />
+              </div>
+              <span>Faster</span>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <label className={LABEL_CLASS}>Tracking</label>
+                <SectionTooltip tip="IoU-based person tracking between detection frames. Must be OFF for Wholebody 3D nodes — 3D coordinate tracking with IoU is unreliable and produces incorrect results. Automatically set to OFF when Wholebody 3D solution class is selected." />
+              </div>
+              <button
+                type="button"
+                disabled={sc === "wholebody3d"}
+                onClick={() => onTrackingEnabledChange(!te)}
+                className={`relative w-12 h-6 rounded-full transition-all ${te ? 'bg-primary-container' : 'bg-outline-variant/40'} ${sc === "wholebody3d" ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full shadow transition-transform ${te ? 'translate-x-6' : 'translate-x-0.5'}`} style={{ backgroundColor: '#f7f9fe' }} />
+              </button>
+            </div>
+            {sc === "wholebody3d" && (
+              <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Tracking is automatically disabled for Wholebody 3D nodes.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 4 — NODE READINESS */}
+      <div>
+        <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Node Readiness</div>
+        <div className="border-t border-outline-variant/10 pt-5 space-y-4">
+          {allPass ? (
+            <div className="rounded-xl border border-primary-container/30 p-4 flex items-center gap-3" style={{ backgroundColor: 'rgba(0,230,57,0.06)' }}>
+              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 20 }}>check_circle</span>
+              <span className="text-on-surface text-sm font-bold">NODE READY — all requirements met. You can set this node to Live.</span>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-amber-400/30 p-4 flex items-center gap-3" style={{ backgroundColor: 'rgba(245,158,11,0.05)' }}>
+              <span className="material-symbols-outlined text-amber-400" style={{ fontSize: 20 }}>warning</span>
+              <span className="text-on-surface text-sm font-bold">{failCount} item{failCount !== 1 ? 's' : ''} need{failCount === 1 ? 's' : ''} attention before this node can go Live.</span>
+            </div>
+          )}
+          <div className="space-y-1">
+            {readiness.map((item, i) => (
+              <button key={i} type="button" onClick={() => onNavigateTab(item.tab)} className="w-full flex items-start gap-2.5 p-3 rounded-xl text-left transition-all hover:bg-surface-container-high/50">
+                <span className={`text-sm mt-0.5 ${item.ok ? 'text-primary-container' : 'text-red-400'}`}>{item.ok ? '✓' : '✗'}</span>
+                <div className="flex-1">
+                  <span className="text-on-surface text-sm">{item.label}</span>
+                  <span className="text-on-surface-variant text-xs ml-2">— {item.detail}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 5 — PIPELINE REFERENCE */}
+      <div>
+        <button type="button" onClick={() => setPipelineOpen(!pipelineOpen)} className="w-full flex items-center justify-between text-on-surface font-black uppercase tracking-tighter text-lg">
+          <span>Pipeline Reference</span>
+          <span className="material-symbols-outlined text-on-surface-variant transition-transform" style={{ fontSize: 20, transform: pipelineOpen ? 'rotate(180deg)' : 'rotate(0)' }}>expand_more</span>
+        </button>
+        {pipelineOpen && (
+          <div className="border-t border-outline-variant/10 pt-4 mt-2 space-y-2">
+            <label className={LABEL_CLASS}>Generated Pipeline Code</label>
+            <p className="text-on-surface-variant/60 text-[10px]">Read-only. This is the exact rtmlib instantiation the Edge Function will use for this node.</p>
+            <pre className="p-4 rounded-xl text-xs font-mono text-primary-container/90 overflow-x-auto whitespace-pre leading-relaxed" style={{ backgroundColor: '#0E1319', border: '1px solid rgba(68,72,76,0.2)' }}>
+              {sc ? pipelineCode : "# Select a solution class above to see generated code"}
+            </pre>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
