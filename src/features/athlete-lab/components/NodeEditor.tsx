@@ -2086,9 +2086,9 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
           <label className={LABEL_CLASS}>Known Real-World Size</label>
           <SectionTooltip tip="The exact real-world measurement of the reference object. The pipeline divides the pixel measurement of this object by this value to get pixels-per-yard." />
         </div>
-        <div className="flex gap-2">
-          <input type="number" step="0.01" className={`${INPUT_CLASS} flex-1`} value={displaySize} onChange={(e) => handleSizeChange(e.target.value, sizeUnit)} placeholder="e.g. 5" />
-          <select className={`${INPUT_CLASS} w-28`} value={sizeUnit} onChange={(e) => { setSizeUnit(e.target.value); handleSizeChange(displaySize, e.target.value); }}>
+        <div className="flex gap-3">
+          <input type="number" step="0.01" className={`${INPUT_CLASS} w-[30%]`} value={displaySize} onChange={(e) => handleSizeChange(e.target.value, sizeUnit)} placeholder="e.g. 5" />
+          <select className={`${INPUT_CLASS} w-[25%]`} value={sizeUnit} onChange={(e) => { setSizeUnit(e.target.value); handleSizeChange(displaySize, e.target.value); }}>
             {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
         </div>
