@@ -42,6 +42,21 @@ export interface PhaseNote {
 
 export type SegmentationMethod = "proportional" | "checkpoint";
 
+export type PhaseTransitionRole = "marks_start" | "marks_end" | "informational";
+
+export interface Checkpoint {
+  id: string;
+  name: string;
+  description: string;
+  phase_id: string | null;
+  phase_transition_role: PhaseTransitionRole;
+  trigger_condition: string;
+  required_keypoint_indices: number[];
+  confidence_threshold: number;
+  priority: number;
+  sequence_order: number;
+}
+
 export interface MechanicsSection {
   id: string;
   phase_id: string | null;
@@ -114,7 +129,7 @@ export interface TrainingNode {
   phase_breakdown: PhaseNote[];
   reference_object: string;
   camera_guidelines: string;
-  form_checkpoints: string[];
+  form_checkpoints: Checkpoint[];
   llm_prompt_template: string;
   badges: Badge[];
   elite_videos: EliteVideo[];
