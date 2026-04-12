@@ -711,7 +711,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "camera" && (
-          <CameraEditor value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
+          <CameraEditor node={draft} value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
         )}
 
         {tab === "checkpoints" && (
@@ -2409,54 +2409,7 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
   );
 }
 
-function CameraEditor({ value, onChange }: StructuredEditorProps) {
-  const sections = ["Primary Camera Angle", "Secondary Camera Angle", "Lighting & Environment"];
-  const parsed = parseStructuredField(value, sections);
-  const hasStructured = sections.some((s) => parsed[s].trim());
-  const [fields, setFields] = useState<Record<string, string>>(hasStructured ? parsed : (() => {
-    const init: Record<string, string> = {};
-    sections.forEach((s) => { init[s] = ""; });
-    if (value.trim() && !hasStructured) init["Primary Camera Angle"] = value;
-    return init;
-  }));
-
-  const handleChange = (section: string, val: string) => {
-    const next = { ...fields, [section]: val };
-    setFields(next);
-    onChange(serializeStructuredField(next));
-  };
-
-  const descriptions: Record<string, string> = {
-    "Primary Camera Angle": "Best camera position for primary analysis (e.g. sideline, 10 yards back, waist height)",
-    "Secondary Camera Angle": "Optional second angle for deeper analysis (e.g. end zone, elevated)",
-    "Lighting & Environment": "Tips for optimal video quality (e.g. avoid backlit, outdoor daylight preferred)",
-  };
-
-  const placeholders: Record<string, string> = {
-    "Primary Camera Angle": "e.g. Sideline, 10 yards back, camera at waist height",
-    "Secondary Camera Angle": "e.g. End zone elevated, 15 feet high behind the line of scrimmage",
-    "Lighting & Environment": "e.g. Outdoor daylight preferred, avoid filming into the sun",
-  };
-
-  return (
-    <div className="space-y-4">
-      {sections.map((s) => (
-         <div key={s} className={CARD_CLASS}>
-          <div className="flex items-center gap-2 mb-2">
-            <label className={LABEL_CLASS}>{s}</label>
-            <SectionTooltip tip={descriptions[s]} />
-          </div>
-          <textarea
-            className={`${INPUT_CLASS} min-h-[70px] resize-y`}
-            value={fields[s] || ""}
-            onChange={(e) => handleChange(s, e.target.value)}
-            placeholder={placeholders[s]}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
+/* CameraEditor moved to CameraEditor.tsx */
 
 /* ── Scoring Editor ── */
 
