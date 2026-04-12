@@ -9,6 +9,7 @@ import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
+import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
@@ -32,7 +33,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "camera", label: "Camera", icon: "videocam", subtitle: "Set filming requirements and guidelines that ensure athlete videos produce reliable keypoint detection. These settings directly affect analysis accuracy." },
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define frame-level body position events that trigger phase boundaries. Used when Segmentation Method in the Phases tab is set to Checkpoint-triggered." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
-  { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Create achievement badges to motivate athletes and reward milestones. Minimum 4–6 badges suggested." },
+  { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Define achievements athletes earn by hitting performance milestones. Badges appear on athlete profiles and provide motivation to improve." },
   { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the rtmlib pose estimation engine settings for this node. These parameters are passed directly to Cloud Run and determine which model runs and how." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
 ];
@@ -746,7 +747,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "badges" && (
-          <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
+          <BadgesEditor badges={draft.badges} keyMetrics={draft.key_metrics} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
         {tab === "training_status" && (
@@ -1527,98 +1528,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
   );
 }
 
-/* CheckpointsEditor moved to CheckpointsEditor.tsx */
-function BadgesEditor({ badges, onChange, onConfirmDelete }: { badges: Badge[]; onChange: (b: Badge[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
-  const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState<Badge>({ name: "", condition: "" });
-  const [editDraft, setEditDraft] = useState<Badge>({ name: "", condition: "" });
-
-  const startEdit = (i: number) => {
-    setEditIdx(i);
-    setEditDraft({ ...badges[i] });
-    setAdding(false);
-  };
-
-  const saveEdit = (i: number) => {
-    const n = [...badges];
-    n[i] = editDraft;
-    onChange(n);
-    setEditIdx(null);
-  };
-
-  const handleAdd = () => {
-    onChange([...badges, draft]);
-    setDraft({ name: "", condition: "" });
-    setAdding(false);
-  };
-
-  const renderFields = (b: Badge, setB: (v: Badge) => void) => (
-    <div className="space-y-3 pt-3">
-      <div>
-        <div className={`${LABEL_CLASS} mb-2`}>Badge Name</div>
-        <input className={INPUT_CLASS} value={b.name} onChange={(e) => setB({ ...b, name: e.target.value })} placeholder="e.g. Route Technician" />
-      </div>
-      <div>
-        <div className={`${LABEL_CLASS} mb-2`}>Unlock Condition</div>
-        <input className={INPUT_CLASS} value={b.condition} onChange={(e) => setB({ ...b, condition: e.target.value })} placeholder="e.g. Score 85+ on 3 consecutive attempts" />
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        {badges.map((b, i) => (
-          <div key={i} className={CARD_CLASS}>
-            {editIdx === i ? (
-              <div className="space-y-3">
-                <span className="text-on-surface text-xs font-bold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
-                  Badge {i + 1}
-                </span>
-                {renderFields(editDraft, setEditDraft)}
-                <div className="flex gap-2 pt-2">
-                  <button onClick={() => saveEdit(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
-                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 group">
-                <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>military_tech</span>
-                <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{b.name || "Untitled Badge"}</p>
-                <span className="text-on-surface-variant/40 text-[10px] font-medium truncate max-w-[200px] shrink-0">{b.condition || "No condition"}</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
-                  </button>
-                  <button onClick={() => onConfirmDelete({ title: "Delete Badge?", body: `Deleting ${b.name || `Badge ${i + 1}`} will remove it from the badge library. This cannot be undone.`, confirmLabel: "Delete Badge", onConfirm: () => { onChange(badges.filter((_, j) => j !== i)); setEditIdx(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {adding ? (
-        <div className={CARD_CLASS + " border-primary-container/20"}>
-          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Badge</p>
-          {renderFields(draft, setDraft)}
-          <div className="flex gap-2 pt-2">
-            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setDraft({ name: "", condition: "" }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => { setAdding(true); setEditIdx(null); }} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Badge
-        </button>
-      )}
-    </div>
-  );
-}
+/* BadgesEditor moved to BadgesEditor.tsx */
 
 /* ── Structured Mechanics Editor ── */
 
