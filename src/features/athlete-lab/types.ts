@@ -63,9 +63,23 @@ export interface MechanicsSection {
   content: string;
 }
 
+export type BadgeRarity = "common" | "rare" | "epic" | "legendary";
+export type BadgeConditionType = "score" | "metric" | "streak" | "custom";
+
 export interface Badge {
+  id: string;
   name: string;
+  icon: string;
+  description: string;
+  rarity: BadgeRarity;
   condition: string;
+  condition_type: BadgeConditionType;
+  condition_operator: string;
+  condition_threshold: number;
+  condition_metric_id: string | null;
+  condition_count: number;
+  condition_custom: string | null;
+  sequence_order: number;
 }
 
 export type CameraAngle = "sideline" | "endzone" | "behind_qb";
