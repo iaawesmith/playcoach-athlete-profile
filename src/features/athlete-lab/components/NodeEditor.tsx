@@ -345,6 +345,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         reference_calibrations: draft.reference_calibrations,
         reference_filming_instructions: draft.reference_filming_instructions,
         reference_fallback_behavior: draft.reference_fallback_behavior,
+        performance_mode: draft.performance_mode,
+        det_frequency: draft.det_frequency,
+        tracking_enabled: draft.tracking_enabled,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
