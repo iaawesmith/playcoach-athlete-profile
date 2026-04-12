@@ -7,6 +7,7 @@ import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
 import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
+import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
@@ -28,7 +29,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Define common mistakes, set severity levels, and configure auto-detection conditions so the pipeline can automatically confirm errors from metric output." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Define reference objects for each camera angle so the pipeline can convert pixel distances to real-world yards. Required for all Distance and Velocity metrics." },
   { key: "camera", label: "Camera", icon: "videocam", subtitle: "Set filming requirements and guidelines that ensure athlete videos produce reliable keypoint detection. These settings directly affect analysis accuracy." },
-  { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define key moments the AI should analyze closely. Minimum 6–8 checkpoints suggested." },
+  { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define frame-level body position events that trigger phase boundaries. Used when Segmentation Method in the Phases tab is set to Checkpoint-triggered." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Customize the tone, structure, and persona of the AI coach feedback." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Create achievement badges to motivate athletes and reward milestones. Minimum 4–6 badges suggested." },
   { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the rtmlib pose estimation engine settings for this node. These parameters are passed directly to Cloud Run and determine which model runs and how." },
@@ -189,6 +190,10 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
   const cameraIssues = checkCameraCompleteness(node);
   issues.push(...cameraIssues);
 
+  // Checkpoint completeness
+  const checkpointIssues = checkCheckpointCompleteness(node.segmentation_method ?? "proportional", migrateCheckpoints(node.form_checkpoints));
+  issues.push(...checkpointIssues);
+
   return issues;
 }
 
@@ -283,6 +288,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults
     const normalizedNode = {
       ...node,
+      form_checkpoints: migrateCheckpoints(node.form_checkpoints),
       key_metrics: (node.key_metrics ?? []).map((m) => ({
         tolerance: null,
         temporal_window: 1,
@@ -719,7 +725,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "checkpoints" && (
-          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
+          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} segmentationMethod={draft.segmentation_method ?? "proportional"} />
         )}
 
         {tab === "prompt" && (
@@ -1513,87 +1519,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
   );
 }
 
-function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete }: { checkpoints: string[]; onChange: (c: string[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
-  const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [editDraft, setEditDraft] = useState("");
-
-  const startEdit = (i: number) => {
-    setEditIdx(i);
-    setEditDraft(checkpoints[i]);
-    setAdding(false);
-  };
-
-  const saveEdit = (i: number) => {
-    const n = [...checkpoints];
-    n[i] = editDraft;
-    onChange(n);
-    setEditIdx(null);
-  };
-
-  const handleAdd = () => {
-    onChange([...checkpoints, draft]);
-    setDraft("");
-    setAdding(false);
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="space-y-2">
-        {checkpoints.map((c, i) => (
-          <div key={i} className={CARD_CLASS}>
-            {editIdx === i ? (
-              <div className="space-y-3">
-                <span className="text-on-surface text-xs font-bold">Checkpoint {i + 1}</span>
-                <div className="pt-3">
-                  <div className={`${LABEL_CLASS} mb-2`}>Checkpoint Description</div>
-                  <input className={`${INPUT_CLASS} flex-1`} value={editDraft} onChange={(e) => setEditDraft(e.target.value)} placeholder="e.g. Hips fully rotated at the break point" />
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button onClick={() => saveEdit(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
-                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 group">
-                <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center shrink-0">{i + 1}</span>
-                <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{c || "Untitled Checkpoint"}</p>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
-                  </button>
-                  <button onClick={() => onConfirmDelete({ title: "Delete Checkpoint?", body: `Deleting Checkpoint ${i + 1} will remove it from the analysis checklist. This cannot be undone.`, confirmLabel: "Delete Checkpoint", onConfirm: () => { onChange(checkpoints.filter((_, j) => j !== i)); setEditIdx(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {adding ? (
-        <div className={CARD_CLASS + " border-primary-container/20"}>
-          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Checkpoint</p>
-          <div className="pt-3">
-            <div className={`${LABEL_CLASS} mb-2`}>Checkpoint Description</div>
-            <input className={`${INPUT_CLASS} flex-1`} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="e.g. Hips fully rotated at the break point" />
-          </div>
-          <div className="flex gap-2 pt-2">
-            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setDraft(""); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => { setAdding(true); setEditIdx(null); }} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Checkpoint
-        </button>
-      )}
-    </div>
-  );
-}
-
+/* CheckpointsEditor moved to CheckpointsEditor.tsx */
 function BadgesEditor({ badges, onChange, onConfirmDelete }: { badges: Badge[]; onChange: (b: Badge[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
