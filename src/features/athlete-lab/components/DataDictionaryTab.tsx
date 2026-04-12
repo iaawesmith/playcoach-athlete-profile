@@ -332,7 +332,16 @@ export function DataDictionaryTab() {
       {/* Table */}
       <div className="rounded-xl border border-outline-variant/10 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full table-fixed text-xs">
+            <colgroup>
+              <col style={{ width: 120 }} />
+              <col />
+              <col style={{ width: 280 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 140 }} />
+              <col style={{ width: 60 }} />
+            </colgroup>
             <thead>
               <tr className="bg-surface-container-high border-b border-outline-variant/10">
                 <th className="px-3 py-2.5 text-left text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Tab</th>
@@ -340,7 +349,7 @@ export function DataDictionaryTab() {
                 <th className="px-3 py-2.5 text-left text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Supabase Column</th>
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">AthleteLab</th>
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Supabase</th>
-                <th className="px-3 py-2.5 text-left text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">MMPose</th>
+                <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">MMPose</th>
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em] cursor-help" title="Required for Live — this field must be configured before a node can be set to Live.">
                   <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
                 </th>
@@ -407,7 +416,7 @@ function FieldRow({
         </td>
 
         {/* Field Label */}
-        <td className="px-3 py-2.5 min-w-[200px]">
+        <td className="px-3 py-2.5 overflow-hidden">
           <p className="text-on-surface font-bold text-xs">{f.label}</p>
           <p className="text-on-surface-variant/60 text-[10px] mt-0.5 line-clamp-1">{f.description}</p>
         </td>
@@ -429,7 +438,7 @@ function FieldRow({
         </td>
 
         {/* MMPose */}
-        <td className="px-3 py-2.5">
+        <td className="px-3 py-2.5 text-center">
           <MmposePill status={f.mmpose_status} rtmlibRef={f.rtmlib_reference} />
         </td>
 
