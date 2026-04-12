@@ -23,7 +23,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
   { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what rtmlib measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
-  { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how metrics combine into the final 0-100 mastery score." },
+  { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how the Mastery Score is calculated, how low-confidence keypoints are handled, and how scores are communicated to athletes." },
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Document common mistakes and their corrections. Minimum 4–5 errors suggested." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Specify reference objects and calibration instructions for accurate AI measurements." },
   { key: "camera", label: "Camera", icon: "videocam", subtitle: "Provide guidelines for optimal video recording setup and camera positioning." },
