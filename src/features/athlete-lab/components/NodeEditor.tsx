@@ -730,6 +730,17 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <BadgesEditor badges={draft.badges} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
+        {tab === "training_status" && (
+          <TrainingStatusEditor
+            node={draft}
+            onSolutionClassChange={(v) => { updateWithCriticalTrack("solution_class", v); if (v === "wholebody3d") update("tracking_enabled", false); }}
+            onPerformanceModeChange={(v) => updateWithCriticalTrack("performance_mode", v)}
+            onDetFrequencyChange={(v) => updateWithCriticalTrack("det_frequency", v)}
+            onTrackingEnabledChange={(v) => updateWithCriticalTrack("tracking_enabled", v)}
+            onNavigateTab={(t) => setTab(t)}
+          />
+        )}
+
         {tab === "test" && (
           <TestingPanel node={draft} />
         )}
