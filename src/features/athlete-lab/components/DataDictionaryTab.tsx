@@ -137,7 +137,7 @@ export function DataDictionaryTab() {
   }, []);
 
   const fetchFromGitHub = useCallback(async (): Promise<DictionaryData> => {
-    const res = await fetch(GITHUB_URL);
+    const res = await fetch(GITHUB_URL + "?t=" + Date.now());
     if (!res.ok) throw new Error("GitHub fetch failed");
     return res.json();
   }, []);
