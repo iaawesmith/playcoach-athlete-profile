@@ -185,6 +185,10 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     }
   }
 
+  // Camera completeness
+  const cameraIssues = checkCameraCompleteness(node);
+  issues.push(...cameraIssues);
+
   return issues;
 }
 
