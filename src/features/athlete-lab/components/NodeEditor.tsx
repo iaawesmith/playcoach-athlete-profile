@@ -658,7 +658,16 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "reference" && (
-          <ReferenceEditor value={draft.reference_object} onChange={(v) => update("reference_object", v)} />
+          <ReferenceCalibrationEditor
+            solutionClass={draft.solution_class ?? ""}
+            calibrations={draft.reference_calibrations ?? []}
+            onCalibrationsChange={(c) => update("reference_calibrations", c)}
+            filmingInstructions={draft.reference_filming_instructions ?? ""}
+            onFilmingInstructionsChange={(v) => update("reference_filming_instructions", v)}
+            fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
+            onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
+            eliteVideos={draft.elite_videos ?? []}
+          />
         )}
 
         {tab === "camera" && (
