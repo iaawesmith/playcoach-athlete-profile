@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { DataDictionaryTab } from "./DataDictionaryTab";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -406,22 +407,12 @@ export function AdminReferencePanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full">
+      <div className={`flex-1 overflow-y-auto p-6 mx-auto w-full ${activeTab === "data_dictionary" ? "max-w-6xl" : "max-w-4xl"}`}>
         {activeTab === "agent_briefing" && <PromptTab tabKey="agent_briefing" />}
         {activeTab === "node_builder" && <PromptTab tabKey="node_builder" />}
         {activeTab === "architecture" && <PromptTab tabKey="architecture" />}
         {activeTab === "links" && <LinksTab />}
-        {activeTab === "data_dictionary" && (
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="w-16 h-16 rounded-xl bg-surface-container flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-on-surface-variant/40" style={{ fontSize: 32 }}>database</span>
-            </div>
-            <p className="text-on-surface font-bold text-sm">Coming soon</p>
-            <p className="text-on-surface-variant text-xs mt-1 max-w-xs">
-              Field definitions and schema reference will be documented here.
-            </p>
-          </div>
-        )}
+        {activeTab === "data_dictionary" && <DataDictionaryTab />}
       </div>
     </div>
   );
