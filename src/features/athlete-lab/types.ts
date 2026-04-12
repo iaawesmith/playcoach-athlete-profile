@@ -95,6 +95,8 @@ export interface ScoreBands {
   needs_work: string;
 }
 
+export type PerformanceMode = "performance" | "balanced" | "lightweight";
+
 export interface TrainingNode {
   id: string;
   name: string;
@@ -125,6 +127,9 @@ export interface TrainingNode {
   reference_calibrations: ReferenceCalibration[];
   reference_filming_instructions: string;
   reference_fallback_behavior: ReferenceFallback;
+  performance_mode: PerformanceMode;
+  det_frequency: number;
+  tracking_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
