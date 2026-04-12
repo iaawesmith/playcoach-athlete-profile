@@ -1197,16 +1197,16 @@
   ],
 
   "summary": {
-    "total_fields": 63,
+    "total_fields": 58,
     "by_tab": {
       "Basics": 6,
       "Videos": 7,
       "Overview": 1,
       "Phases": 5,
       "Mechanics": 2,
-      "Metrics": 13,
+      "Metrics": 14,
       "Scoring": 3,
-      "Errors": 3,
+      "Errors": 4,
       "Reference": 4,
       "Camera": 0,
       "LLM Prompt": 1,
@@ -1214,19 +1214,19 @@
       "Admin Reference": 7
     },
     "by_athletelab_status": {
-      "implemented": 58,
-      "in_progress": 3,
-      "not_built": 2
+      "implemented": 55,
+      "in_progress": 2,
+      "not_built": 1
     },
     "by_supabase_status": {
-      "column_exists": 58,
-      "needs_migration": 3,
+      "column_exists": 55,
+      "needs_migration": 1,
       "missing": 2
     },
     "by_mmpose_status": {
       "direct_mapping": 22,
       "indirect_mapping": 13,
-      "not_applicable": 28
+      "not_applicable": 23
     },
     "required_for_live": 20,
     "pipeline_critical": 22
