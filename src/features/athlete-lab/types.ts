@@ -121,6 +121,10 @@ export interface TrainingNode {
   confidence_handling: ConfidenceHandling;
   min_metrics_threshold: number;
   score_bands: ScoreBands;
+  solution_class: string;
+  reference_calibrations: ReferenceCalibration[];
+  reference_filming_instructions: string;
+  reference_fallback_behavior: ReferenceFallback;
   created_at: string;
   updated_at: string;
 }
