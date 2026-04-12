@@ -137,7 +137,7 @@ export function DataDictionaryTab() {
   }, []);
 
   const fetchFromGitHub = useCallback(async (): Promise<DictionaryData> => {
-    const res = await fetch(GITHUB_URL);
+    const res = await fetch(GITHUB_URL + "?t=" + Date.now());
     if (!res.ok) throw new Error("GitHub fetch failed");
     return res.json();
   }, []);
@@ -186,6 +186,10 @@ export function DataDictionaryTab() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      // Delete existing cache before fetching fresh data
+      await supabase.from("admin_reference_cache").delete().eq("cache_key", "data_dictionary");
+      localStorage.removeItem("dd_cache");
+
       const fresh = await fetchFromGitHub();
       setData(fresh);
       await saveToCache(fresh);
