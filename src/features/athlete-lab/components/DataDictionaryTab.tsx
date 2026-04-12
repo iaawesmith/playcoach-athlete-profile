@@ -145,15 +145,16 @@ export function DataDictionaryTab() {
   const saveToCache = useCallback(async (d: DictionaryData) => {
     const now = new Date().toISOString();
     try {
+      const jsonData = JSON.parse(JSON.stringify(d));
       const { data: existing } = await supabase
         .from("admin_reference_cache")
         .select("id")
         .eq("cache_key", "data_dictionary")
         .maybeSingle();
       if (existing) {
-        await supabase.from("admin_reference_cache").update({ data: d as unknown as Record<string, unknown>, synced_at: now }).eq("cache_key", "data_dictionary");
+        await supabase.from("admin_reference_cache").update({ data: jsonData, synced_at: now }).eq("cache_key", "data_dictionary");
       } else {
-        await supabase.from("admin_reference_cache").insert({ cache_key: "data_dictionary", data: d as unknown as Record<string, unknown>, synced_at: now });
+        await supabase.from("admin_reference_cache").insert([{ cache_key: "data_dictionary", data: jsonData, synced_at: now }]);
       }
     } catch {
       localStorage.setItem("dd_cache", JSON.stringify({ data: d, synced_at: now }));
