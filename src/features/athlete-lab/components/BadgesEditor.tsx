@@ -132,7 +132,7 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
       <div className="space-y-3">
         <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
           Score Threshold
-          <SectionTooltip content="Unlock when the overall Mastery Score reaches or exceeds this value." />
+          <SectionTooltip tip="Unlock when the overall Mastery Score reaches or exceeds this value." />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-on-surface-variant text-xs">Unlock when Mastery Score is</span>
@@ -152,7 +152,7 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
       <div className="space-y-3">
         <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
           Metric Condition
-          <SectionTooltip content="Unlock when a specific metric value reaches the target threshold." />
+          <SectionTooltip tip="Unlock when a specific metric value reaches the target threshold." />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <select className={INPUT_CLASS + " !w-48"} value={b.condition_metric_id || ""} onChange={(e) => setB({ condition_metric_id: e.target.value || null })}>
@@ -177,7 +177,7 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
       <div className="space-y-3">
         <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
           Streak Condition
-          <SectionTooltip content="Unlock when the condition is met on multiple consecutive analyses in a row." />
+          <SectionTooltip tip="Unlock when the condition is met on multiple consecutive analyses in a row." />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-on-surface-variant text-xs">Unlock when Mastery Score is</span>
@@ -197,7 +197,7 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
       <div className="space-y-3">
         <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
           Custom Condition
-          <SectionTooltip content="Describe the unlock condition in plain English. The Edge Function evaluates this as plain text context — not executed code." />
+          <SectionTooltip tip="Describe the unlock condition in plain English. The Edge Function evaluates this as plain text context — not executed code." />
         </div>
         <textarea className={INPUT_CLASS + " min-h-[80px]"} value={b.condition_custom || ""} onChange={(e) => setB({ condition_custom: e.target.value })} placeholder="e.g. All phase scores above 85 AND Break Angle within tolerance on 3 analyses" />
       </div>
@@ -228,14 +228,14 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
         <div className="flex-1">
           <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
             Badge Name
-            <SectionTooltip content="Athlete-facing badge title. Keep it aspirational and sport-specific. e.g. 'Route Technician', 'Deep Threat', 'Plant Foot Master'" />
+            <SectionTooltip tip="Athlete-facing badge title. Keep it aspirational and sport-specific. e.g. 'Route Technician', 'Deep Threat', 'Plant Foot Master'" />
           </div>
           <input className={INPUT_CLASS} value={b.name} onChange={(e) => setB({ name: e.target.value })} placeholder="e.g. Route Technician" />
         </div>
         <div>
           <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
             Icon
-            <SectionTooltip content="Emoji or icon displayed alongside the badge name on the athlete profile and results screen." />
+            <SectionTooltip tip="Emoji or icon displayed alongside the badge name on the athlete profile and results screen." />
           </div>
           {renderEmojiPicker(b.icon || "🏆", (e) => setB({ icon: e }), isAdd ? showEmojiPicker : editEmojiPicker, isAdd ? setShowEmojiPicker : setEditEmojiPicker)}
         </div>
@@ -245,7 +245,7 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
       <div>
         <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
           Description
-          <SectionTooltip content="Short motivational line shown to the athlete when they earn or view this badge. Keep under 15 words." />
+          <SectionTooltip tip="Short motivational line shown to the athlete when they earn or view this badge. Keep under 15 words." />
         </div>
         <input className={INPUT_CLASS} value={b.description || ""} onChange={(e) => setB({ description: e.target.value })} placeholder="e.g. Your break mechanics are operating at an elite level." />
       </div>
@@ -254,7 +254,7 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
       <div>
         <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
           Rarity / Tier
-          <SectionTooltip content="Affects visual presentation on the athlete profile and sets difficulty expectations." />
+          <SectionTooltip tip="Affects visual presentation on the athlete profile and sets difficulty expectations." />
         </div>
         <div className="flex gap-2 flex-wrap">
           {(["common", "rare", "epic", "legendary"] as BadgeRarity[]).map((r) => {
@@ -280,7 +280,7 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
       <div>
         <div className={`${LABEL_CLASS} mb-2 flex items-center gap-1.5`}>
           Unlock Condition Type
-          <SectionTooltip content="Determines how the pipeline evaluates whether this badge should be awarded after each analysis." />
+          <SectionTooltip tip="Determines how the pipeline evaluates whether this badge should be awarded after each analysis." />
         </div>
         <select className={INPUT_CLASS} value={b.condition_type || "score"} onChange={(e) => setB({ condition_type: e.target.value as ConditionType })}>
           <option value="score">Score-Based — Unlock when overall Mastery Score reaches a threshold</option>
