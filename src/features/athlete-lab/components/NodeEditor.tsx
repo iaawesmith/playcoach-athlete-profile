@@ -2073,9 +2073,6 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
           </h4>
           <SectionTooltip tip="Labels shown to athletes alongside their Mastery Score. Also used by the AI feedback system to frame results." />
         </div>
-        <p className="text-on-surface-variant text-xs leading-relaxed">
-          Labels shown to athletes alongside their Mastery Score. Also used by the AI feedback system to frame results.
-        </p>
 
         <div className="space-y-2">
           {BAND_ROWS.map((band) => (
@@ -2100,9 +2097,6 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
             Scoring Preview Simulator
             <SectionTooltip tip="Enter sample scores (0–100) for each metric to preview the calculated Mastery Score and its band label." />
           </h4>
-          <p className="text-on-surface-variant text-xs leading-relaxed">
-            Enter sample scores (0–100) for each metric to see the calculated Route Mastery Score.
-          </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {metrics.map((m) => (
@@ -2137,7 +2131,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
               {simulatedScore ?? "—"}
             </div>
             <div>
-              <div className="text-on-surface font-black uppercase tracking-tighter text-lg">Simulated Score</div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg flex items-center gap-1.5">Simulated Score <SectionTooltip tip="This simulated score uses the weighted average formula that the live pipeline applies. Adjust individual metric scores above to see how each one affects the final Mastery Score. The score band label updates automatically based on your configured Score Band Labels above." /></div>
               <p className="text-on-surface-variant text-xs">
                 Based on weighted average of {metrics.length} metrics
                 {simulatedScore !== null && (
