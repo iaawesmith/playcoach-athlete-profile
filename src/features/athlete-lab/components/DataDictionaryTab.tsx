@@ -137,9 +137,33 @@ export function DataDictionaryTab() {
   }, []);
 
   const fetchFromGitHub = useCallback(async (): Promise<DictionaryData> => {
-    const res = await fetch(GITHUB_URL + "?t=" + Date.now());
+    const requestUrl = GITHUB_URL + "?t=" + Date.now();
+    console.info("[DataDictionary] Fetch URL:", requestUrl);
+
+    const res = await fetch(requestUrl);
     if (!res.ok) throw new Error("GitHub fetch failed");
-    return res.json();
+
+    const json = (await res.json()) as DictionaryData;
+    const versionValue = json.meta["version"];
+    const totalFieldsValue = json.summary["total_fields"];
+    const version = typeof versionValue === "string" ? versionValue : null;
+    const totalFields = typeof totalFieldsValue === "number" ? totalFieldsValue : null;
+    const fieldsLength = Array.isArray(json.fields) ? json.fields.length : 0;
+
+    console.info("[DataDictionary] GitHub response:", {
+      version,
+      total_fields: totalFields,
+      fields_length: fieldsLength,
+    });
+
+    if (totalFields !== null && totalFields !== fieldsLength) {
+      console.warn("[DataDictionary] Field count mismatch:", {
+        total_fields: totalFields,
+        fields_length: fieldsLength,
+      });
+    }
+
+    return json;
   }, []);
 
   const saveToCache = useCallback(async (d: DictionaryData) => {
