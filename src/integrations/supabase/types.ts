@@ -115,10 +115,14 @@ export type Database = {
           phase_breakdown: Json
           position: string | null
           pro_mechanics: string
+          reference_calibrations: Json
+          reference_fallback_behavior: string
+          reference_filming_instructions: string
           reference_object: string
           score_bands: Json
           scoring_rules: string
           segmentation_method: string
+          solution_class: string
           status: string
           updated_at: string
         }
@@ -144,10 +148,14 @@ export type Database = {
           phase_breakdown?: Json
           position?: string | null
           pro_mechanics?: string
+          reference_calibrations?: Json
+          reference_fallback_behavior?: string
+          reference_filming_instructions?: string
           reference_object?: string
           score_bands?: Json
           scoring_rules?: string
           segmentation_method?: string
+          solution_class?: string
           status?: string
           updated_at?: string
         }
@@ -173,10 +181,14 @@ export type Database = {
           phase_breakdown?: Json
           position?: string | null
           pro_mechanics?: string
+          reference_calibrations?: Json
+          reference_fallback_behavior?: string
+          reference_filming_instructions?: string
           reference_object?: string
           score_bands?: Json
           scoring_rules?: string
           segmentation_method?: string
+          solution_class?: string
           status?: string
           updated_at?: string
         }
