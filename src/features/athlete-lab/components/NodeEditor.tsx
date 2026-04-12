@@ -24,7 +24,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what rtmlib measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how the Mastery Score is calculated, how low-confidence keypoints are handled, and how scores are communicated to athletes." },
-  { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Document common mistakes and their corrections. Minimum 4–5 errors suggested." },
+  { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Define common mistakes, set severity levels, and configure auto-detection conditions so the pipeline can automatically confirm errors from metric output." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Specify reference objects and calibration instructions for accurate AI measurements." },
   { key: "camera", label: "Camera", icon: "videocam", subtitle: "Provide guidelines for optimal video recording setup and camera positioning." },
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define key moments the AI should analyze closely. Minimum 6–8 checkpoints suggested." },
@@ -1075,12 +1075,12 @@ type ConfirmDeleteFn = (opts: { title: string; body: string; confirmLabel: strin
 function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: CommonError[]; onChange: (e: CommonError[]) => void; onConfirmDelete: ConfirmDeleteFn }) {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState<CommonError>({ error: "", correction: "" });
-  const [editDraft, setEditDraft] = useState<CommonError>({ error: "", correction: "" });
+  const [draft, setDraft] = useState<CommonError>({ error: "", correction: "", severity: "common", auto_detection_condition: "", auto_detectable: false });
+  const [editDraft, setEditDraft] = useState<CommonError>({ error: "", correction: "", severity: "common", auto_detection_condition: "", auto_detectable: false });
 
   const startEdit = (i: number) => {
     setEditIdx(i);
-    setEditDraft({ ...errors[i] });
+    setEditDraft({ severity: "common", auto_detection_condition: "", auto_detectable: false, ...errors[i] });
     setAdding(false);
   };
 
@@ -1093,19 +1093,95 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
 
   const handleAdd = () => {
     onChange([...errors, draft]);
-    setDraft({ error: "", correction: "" });
+    setDraft({ error: "", correction: "", severity: "common", auto_detection_condition: "", auto_detectable: false });
     setAdding(false);
+  };
+
+  const SEVERITY_OPTIONS: { value: string; label: string; activeClass: string }[] = [
+    { value: "minor", label: "MINOR", activeClass: "bg-on-surface-variant/20 text-on-surface-variant border-on-surface-variant/40" },
+    { value: "common", label: "COMMON", activeClass: "bg-amber-500/15 text-amber-400 border-amber-500/40" },
+    { value: "critical", label: "CRITICAL", activeClass: "bg-red-500/15 text-red-400 border-red-500/40" },
+  ];
+
+  const severityPill = (sev: string | undefined) => {
+    const s = sev || "common";
+    const opt = SEVERITY_OPTIONS.find(o => o.value === s);
+    if (!opt) return null;
+    return <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${opt.activeClass}`}>{opt.label}</span>;
   };
 
   const renderFields = (err: CommonError, setErr: (v: CommonError) => void) => (
     <div className="space-y-3 pt-3">
       <div>
-        <div className={`${LABEL_CLASS} mb-2`}>Error Description</div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className={LABEL_CLASS}>Error Name</span>
+          <SectionTooltip tip="A short, descriptive name for this common error. Used as a label in athlete feedback and auto-detection rules." />
+        </div>
         <input className={INPUT_CLASS} value={err.error} onChange={(e) => setErr({ ...err, error: e.target.value })} placeholder="e.g. Rounding the break instead of planting and cutting" />
       </div>
+
+      {/* Severity */}
       <div>
-        <div className={`${LABEL_CLASS} mb-2`}>Correction</div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className={LABEL_CLASS}>Severity</span>
+          <SectionTooltip tip="How prominently this error appears in athlete feedback. Critical errors are always highlighted first regardless of other results. Common errors appear in standard feedback flow. Minor errors are mentioned only when the athlete's score is high enough that small details matter." />
+        </div>
+        <div className="flex gap-2">
+          {SEVERITY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setErr({ ...err, severity: opt.value as CommonError["severity"] })}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border transition-all active:scale-95 ${(err.severity || "common") === opt.value ? opt.activeClass : "border-outline-variant/20 text-on-surface-variant/50 hover:border-outline-variant/40"}`}
+              style={(err.severity || "common") !== opt.value ? { backgroundColor: '#0E1319' } : undefined}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className={LABEL_CLASS}>Correction</span>
+          <SectionTooltip tip="The coaching correction shown to the athlete when this error is detected. Be specific and actionable." />
+        </div>
         <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => setErr({ ...err, correction: e.target.value })} placeholder="e.g. Plant hard on the inside foot at 45 degrees, then accelerate through the break" />
+      </div>
+
+      {/* Auto-Detection Condition */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <span className={LABEL_CLASS}>Auto-Detection Condition</span>
+            <SectionTooltip tip="Optional. A metric-based rule that lets the pipeline automatically detect and confirm this error from analysis output. Format: [Metric Name] [operator] [value]. Example: 'Break Angle > 52' — fires when Break Angle measurement exceeds 52 degrees. When fired, this error is passed to Claude as a confirmed observation, not a possibility." />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`${LABEL_CLASS} flex items-center gap-1`}>
+              Auto-Detectable
+              <SectionTooltip tip="When ON, the pipeline evaluates the condition above against metric results for every analysis. Confirmed detections are passed to Claude as facts. When OFF, this error exists as LLM context only — Claude may mention it as a possibility based on low metric scores but cannot confirm it automatically." />
+            </span>
+            <button
+              type="button"
+              onClick={() => setErr({ ...err, auto_detectable: !err.auto_detectable })}
+              className={`relative w-10 h-5 rounded-full transition-colors ${err.auto_detectable ? "bg-primary-container" : "bg-outline-variant/30"}`}
+            >
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-transform ${err.auto_detectable ? "translate-x-5 bg-[#00460a]" : "translate-x-0.5 bg-on-surface-variant/60"}`} />
+            </button>
+          </div>
+        </div>
+        <input
+          className={INPUT_CLASS}
+          value={err.auto_detection_condition || ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            setErr({ ...err, auto_detection_condition: val, auto_detectable: val.trim().length > 0 ? true : false });
+          }}
+          placeholder="e.g. Break Angle > 52"
+        />
+        <p className="text-on-surface-variant/50 text-[10px] mt-1.5 leading-relaxed">
+          Format: [Metric Name] [{">"} {"<"} = ≥ ≤] [value] — Leave blank if this error cannot be auto-detected from metric output.
+        </p>
       </div>
     </div>
   );
@@ -1128,6 +1204,13 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
               <div className="flex items-center gap-3 group">
                 <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center shrink-0">{i + 1}</span>
                 <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{err.error || "Untitled Error"}</p>
+                {severityPill(err.severity)}
+                {err.auto_detectable && (
+                  <span className="text-primary-container/60 text-[9px] font-semibold uppercase tracking-widest flex items-center gap-0.5 shrink-0">
+                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>bolt</span>
+                    auto
+                  </span>
+                )}
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
@@ -1148,7 +1231,7 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
           {renderFields(draft, setDraft)}
           <div className="flex gap-2 pt-2">
             <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setDraft({ error: "", correction: "" }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+            <button onClick={() => { setAdding(false); setDraft({ error: "", correction: "", severity: "common", auto_detection_condition: "", auto_detectable: false }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
           </div>
         </div>
       ) : (

@@ -22,9 +22,14 @@ export interface KeyMetric {
   keypoint_mapping?: KeypointMapping | null;
 }
 
+export type ErrorSeverity = "minor" | "common" | "critical";
+
 export interface CommonError {
   error: string;
   correction: string;
+  severity?: ErrorSeverity;
+  auto_detection_condition?: string;
+  auto_detectable?: boolean;
 }
 
 export interface PhaseNote {
