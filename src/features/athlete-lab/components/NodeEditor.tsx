@@ -8,6 +8,7 @@ import { HelpDrawer } from "./HelpDrawer";
 import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
+import { LlmPromptEditor } from "./LlmPromptEditor";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
