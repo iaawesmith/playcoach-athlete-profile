@@ -190,6 +190,10 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
   const cameraIssues = checkCameraCompleteness(node);
   issues.push(...cameraIssues);
 
+  // Checkpoint completeness
+  const checkpointIssues = checkCheckpointCompleteness(node.segmentation_method ?? "proportional", migrateCheckpoints(node.form_checkpoints));
+  issues.push(...checkpointIssues);
+
   return issues;
 }
 
@@ -284,6 +288,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults
     const normalizedNode = {
       ...node,
+      form_checkpoints: migrateCheckpoints(node.form_checkpoints),
       key_metrics: (node.key_metrics ?? []).map((m) => ({
         tolerance: null,
         temporal_window: 1,
