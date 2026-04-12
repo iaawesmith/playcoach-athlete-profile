@@ -1849,53 +1849,255 @@ function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: Structure
   );
 }
 
+const CAMERA_ANGLES_LIST: CameraAngle[] = ["sideline", "endzone", "behind_qb"];
+const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
 
+const REF_PRESETS: { label: string; sizeYards: number }[] = [
+  { label: "5-Yard Line Spacing", sizeYards: 5 },
+  { label: "Hash Mark Width", sizeYards: 1.83 },
+  { label: "Standard Cone", sizeYards: 0.5 },
+];
 
-function ReferenceEditor({ value, onChange }: StructuredEditorProps) {
-  const sections = ["Reference Object", "Calibration Instructions", "Scale Notes"];
-  const parsed = parseStructuredField(value, sections);
-  const hasStructured = sections.some((s) => parsed[s].trim());
-  const [fields, setFields] = useState<Record<string, string>>(hasStructured ? parsed : (() => {
-    const init: Record<string, string> = {};
-    sections.forEach((s) => { init[s] = ""; });
-    if (value.trim() && !hasStructured) init["Reference Object"] = value;
-    return init;
-  }));
+function ReferenceCalibrationEditor({
+  solutionClass,
+  calibrations,
+  onCalibrationsChange,
+  filmingInstructions,
+  onFilmingInstructionsChange,
+  fallbackBehavior,
+  onFallbackBehaviorChange,
+  eliteVideos,
+}: {
+  solutionClass: string;
+  calibrations: ReferenceCalibration[];
+  onCalibrationsChange: (c: ReferenceCalibration[]) => void;
+  filmingInstructions: string;
+  onFilmingInstructionsChange: (v: string) => void;
+  fallbackBehavior: ReferenceFallback;
+  onFallbackBehaviorChange: (v: ReferenceFallback) => void;
+  eliteVideos: EliteVideo[];
+}) {
+  if (solutionClass === "wholebody3d") {
+    return (
+      <div className="rounded-xl border border-primary-container/30 p-5 flex items-start gap-3" style={{ backgroundColor: 'rgba(0,230,57,0.06)' }}>
+        <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontSize: 20 }}>check_circle</span>
+        <p className="text-on-surface text-sm leading-relaxed">
+          <span className="font-bold text-primary-container">Reference calibration not required</span> — this node uses Wholebody3d which returns 3D coordinates in meters. Distance and Velocity metrics do not require pixel-to-yard conversion.
+        </p>
+      </div>
+    );
+  }
 
-  const handleChange = (section: string, val: string) => {
-    const next = { ...fields, [section]: val };
-    setFields(next);
-    onChange(serializeStructuredField(next));
+  const usedAngles = new Set(eliteVideos.map(v => v.camera_angle).filter(Boolean) as CameraAngle[]);
+  const anglesToShow = usedAngles.size > 0 ? CAMERA_ANGLES_LIST.filter(a => usedAngles.has(a)) : CAMERA_ANGLES_LIST;
+
+  const getCalibration = (angle: CameraAngle): ReferenceCalibration => {
+    return calibrations.find(c => c.camera_angle === angle) ?? {
+      camera_angle: angle,
+      reference_object_name: "",
+      known_size_yards: null,
+      placement_instructions: "",
+      pixels_per_yard: null,
+    };
   };
 
-  const descriptions: Record<string, string> = {
-    "Reference Object": "What real-world object should be in frame for scale (e.g. football, cone, yard line)",
-    "Calibration Instructions": "How the AI should use the reference object to calculate distances and angles",
-    "Scale Notes": "Additional notes on measurement accuracy or environment considerations",
+  const updateCalibration = (angle: CameraAngle, patch: Partial<ReferenceCalibration>) => {
+    const existing = getCalibration(angle);
+    const updated = { ...existing, ...patch };
+    const next = calibrations.filter(c => c.camera_angle !== angle);
+    next.push(updated);
+    onCalibrationsChange(next);
   };
 
-  const placeholders: Record<string, string> = {
-    "Reference Object": "e.g. Standard regulation football (11 inches)",
-    "Calibration Instructions": "e.g. Measure the football's length in pixels to establish a distance scale",
-    "Scale Notes": "e.g. Outdoor fields with yard lines provide additional calibration reference",
+  const isCalibrated = (angle: CameraAngle): boolean => {
+    const c = getCalibration(angle);
+    return !!(c.reference_object_name && c.known_size_yards && c.pixels_per_yard);
+  };
+
+  const UNIT_OPTIONS = ["yards", "feet", "inches"] as const;
+
+  return (
+    <div className="space-y-6">
+      {usedAngles.size === 0 && (
+        <div className="rounded-xl border border-outline-variant/20 p-4 flex items-start gap-3" style={{ backgroundColor: '#1A2029' }}>
+          <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 18 }}>info</span>
+          <p className="text-on-surface-variant text-sm">Set camera angles in the Videos tab to see which calibrations are required.</p>
+        </div>
+      )}
+
+      {anglesToShow.map(angle => {
+        const cal = getCalibration(angle);
+        const calibrated = isCalibrated(angle);
+        return (
+          <CalibrationCard
+            key={angle}
+            angle={angle}
+            label={CAMERA_ANGLE_LABELS[angle]}
+            calibration={cal}
+            calibrated={calibrated}
+            unitOptions={UNIT_OPTIONS}
+            onUpdate={(patch) => updateCalibration(angle, patch)}
+          />
+        );
+      })}
+
+      <div className="border-t border-outline-variant/10 pt-6">
+        <div className="flex items-center gap-1.5 mb-3">
+          <label className={LABEL_CLASS}>Athlete Filming Instructions</label>
+          <SectionTooltip tip="Shown to athletes in the upload flow before they film. Explain the full setup including reference object placement, camera position, and common mistakes." />
+        </div>
+        <textarea
+          className={`${INPUT_CLASS} min-h-[120px] resize-y`}
+          value={filmingInstructions}
+          onChange={(e) => onFilmingInstructionsChange(e.target.value)}
+          placeholder="e.g. Before filming, place a standard cone at the line of scrimmage. Film from the sideline at least 10 yards away. The cone must be fully visible in the bottom of the frame throughout the rep."
+        />
+      </div>
+
+      <div className="border-t border-outline-variant/10 pt-6">
+        <div className="flex items-center gap-1.5 mb-4">
+          <label className={LABEL_CLASS}>If No Reference Detected</label>
+          <SectionTooltip tip="What the pipeline does if it cannot find a reference object in the athlete's video. This affects all Distance and Velocity metrics." />
+        </div>
+        <div className="space-y-3">
+          {([
+            { value: "pixel_warning" as const, label: "USE PIXEL UNITS WITH WARNING", desc: "Score Distance metrics using pixel values. Flag results as uncalibrated in athlete results.", isDefault: true },
+            { value: "disable_distance" as const, label: "DISABLE DISTANCE METRICS", desc: "Skip all Distance and Velocity metrics. Only Angle and Frame Delta metrics are scored.", isDefault: false },
+            { value: "estimate_field_lines" as const, label: "ESTIMATE USING FIELD LINES", desc: "Attempt to estimate scale from standard field line spacing. Less accurate — use only as last resort.", isDefault: false },
+          ]).map(opt => (
+            <label key={opt.value} className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${fallbackBehavior === opt.value ? 'border-primary-container/40' : 'border-outline-variant/20'}`} style={{ backgroundColor: fallbackBehavior === opt.value ? 'rgba(0,230,57,0.04)' : '#1A2029' }}>
+              <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${fallbackBehavior === opt.value ? 'border-primary-container' : 'border-outline-variant/50'}`}>
+                {fallbackBehavior === opt.value && <div className="w-2 h-2 rounded-full bg-primary-container" />}
+              </div>
+              <div>
+                <div className="text-on-surface text-xs font-black uppercase tracking-[0.15em]">{opt.label}{opt.isDefault && <span className="ml-2 text-on-surface-variant font-normal normal-case tracking-normal">(default)</span>}</div>
+                <p className="text-on-surface-variant text-xs mt-1 leading-relaxed">{opt.desc}</p>
+              </div>
+              <input type="radio" className="sr-only" checked={fallbackBehavior === opt.value} onChange={() => onFallbackBehaviorChange(opt.value)} />
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, onUpdate }: {
+  angle: CameraAngle;
+  label: string;
+  calibration: ReferenceCalibration;
+  calibrated: boolean;
+  unitOptions: readonly string[];
+  onUpdate: (patch: Partial<ReferenceCalibration>) => void;
+}) {
+  const [sizeUnit, setSizeUnit] = useState<string>("yards");
+  const [displaySize, setDisplaySize] = useState<string>(calibration.known_size_yards?.toString() ?? "");
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(() => {
+    const match = REF_PRESETS.find(p => p.label === calibration.reference_object_name);
+    return match ? match.label : calibration.reference_object_name ? "custom" : null;
+  });
+
+  useEffect(() => {
+    setDisplaySize(calibration.known_size_yards?.toString() ?? "");
+    setSizeUnit("yards");
+    const match = REF_PRESETS.find(p => p.label === calibration.reference_object_name);
+    setSelectedPreset(match ? match.label : calibration.reference_object_name ? "custom" : null);
+  }, [angle]);
+
+  const applyPreset = (preset: { label: string; sizeYards: number } | null) => {
+    if (!preset) {
+      setSelectedPreset("custom");
+      onUpdate({ reference_object_name: "", known_size_yards: null });
+      setDisplaySize("");
+      return;
+    }
+    setSelectedPreset(preset.label);
+    onUpdate({ reference_object_name: preset.label, known_size_yards: preset.sizeYards });
+    setDisplaySize(preset.sizeYards.toString());
+    setSizeUnit("yards");
+  };
+
+  const handleSizeChange = (raw: string, unit: string) => {
+    setDisplaySize(raw);
+    const num = parseFloat(raw);
+    if (isNaN(num)) {
+      onUpdate({ known_size_yards: null });
+      return;
+    }
+    let yards = num;
+    if (unit === "feet") yards = num / 3;
+    if (unit === "inches") yards = num / 36;
+    onUpdate({ known_size_yards: parseFloat(yards.toFixed(4)) });
   };
 
   return (
-    <div className="space-y-4">
-      {sections.map((s) => (
-         <div key={s} className={CARD_CLASS}>
-          <div className="flex items-center gap-2 mb-2">
-            <label className={LABEL_CLASS}>{s}</label>
-            <SectionTooltip tip={descriptions[s]} />
-          </div>
-          <textarea
-            className={`${INPUT_CLASS} min-h-[70px] resize-y`}
-            value={fields[s] || ""}
-            onChange={(e) => handleChange(s, e.target.value)}
-            placeholder={placeholders[s]}
-          />
+    <div className={CARD_CLASS}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg">{label}</h3>
+        <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${calibrated ? 'text-primary-container' : 'text-amber-400'}`}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{calibrated ? 'check_circle' : 'warning'}</span>
+          {calibrated ? 'Calibrated' : 'Not configured'}
+        </span>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex items-center gap-1.5 mb-2">
+          <label className={LABEL_CLASS}>Reference Object</label>
+          <SectionTooltip tip="The physical object placed in frame that the pipeline uses to calculate the pixel-to-yard conversion ratio. Must be clearly visible in the video." />
         </div>
-      ))}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {REF_PRESETS.map(p => (
+            <button key={p.label} type="button" onClick={() => applyPreset(p)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === p.label ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
+              style={selectedPreset === p.label ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
+              {p.label}
+            </button>
+          ))}
+          <button type="button" onClick={() => applyPreset(null)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === 'custom' ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
+            style={selectedPreset === 'custom' ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
+            Custom
+          </button>
+        </div>
+        {(selectedPreset === "custom" || (!selectedPreset && !REF_PRESETS.some(p => p.label === calibration.reference_object_name) && calibration.reference_object_name)) && (
+          <input className={INPUT_CLASS} value={calibration.reference_object_name} onChange={(e) => onUpdate({ reference_object_name: e.target.value })} placeholder="Enter custom reference object name" />
+        )}
+      </div>
+
+      <div className="mb-4">
+        <div className="flex items-center gap-1.5 mb-2">
+          <label className={LABEL_CLASS}>Known Real-World Size</label>
+          <SectionTooltip tip="The exact real-world measurement of the reference object. The pipeline divides the pixel measurement of this object by this value to get pixels-per-yard." />
+        </div>
+        <div className="flex gap-2">
+          <input type="number" step="0.01" className={`${INPUT_CLASS} flex-1`} value={displaySize} onChange={(e) => handleSizeChange(e.target.value, sizeUnit)} placeholder="e.g. 5" />
+          <select className={`${INPUT_CLASS} w-28`} value={sizeUnit} onChange={(e) => { setSizeUnit(e.target.value); handleSizeChange(displaySize, e.target.value); }}>
+            {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex items-center gap-1.5 mb-2">
+          <label className={LABEL_CLASS}>Placement Instructions</label>
+          <SectionTooltip tip="Instructions shown to athletes in the upload flow explaining where to place this reference object. Be specific — vague instructions produce inconsistent calibration." />
+        </div>
+        <textarea
+          className={`${INPUT_CLASS} min-h-[80px] resize-y`}
+          value={calibration.placement_instructions}
+          onChange={(e) => onUpdate({ placement_instructions: e.target.value })}
+          placeholder="e.g. Place a standard cone at the line of scrimmage, clearly visible in the bottom third of the frame. The cone must be fully visible and upright."
+        />
+      </div>
+
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <label className={LABEL_CLASS}>Pixels Per Yard</label>
+          <SectionTooltip tip="Auto-calculated from test footage or set manually. This is the exact value the Edge Function uses to convert pixel distances to yards. Higher values = camera is closer to the field." />
+        </div>
+        <input type="number" step="1" className={INPUT_CLASS} value={calibration.pixels_per_yard ?? ""} onChange={(e) => onUpdate({ pixels_per_yard: e.target.value ? parseFloat(e.target.value) : null })} placeholder="e.g. 142" />
+        <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Measure from a test clip: count pixels across your reference object, divide by its known size in yards.</p>
+      </div>
     </div>
   );
 }
