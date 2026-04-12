@@ -78,6 +78,16 @@ export type NodeStatus = "draft" | "live";
 
 export type ConfidenceHandling = "skip" | "penalize" | "flag_only";
 
+export type ReferenceFallback = "pixel_warning" | "disable_distance" | "estimate_field_lines";
+
+export interface ReferenceCalibration {
+  camera_angle: CameraAngle;
+  reference_object_name: string;
+  known_size_yards: number | null;
+  placement_instructions: string;
+  pixels_per_yard: number | null;
+}
+
 export interface ScoreBands {
   elite: string;
   varsity: string;
