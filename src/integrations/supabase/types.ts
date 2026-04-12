@@ -99,6 +99,7 @@ export type Database = {
           clip_duration_max: number
           clip_duration_min: number
           common_errors: Json
+          confidence_handling: string
           created_at: string
           elite_videos: Json
           form_checkpoints: Json
@@ -107,6 +108,7 @@ export type Database = {
           key_metrics: Json
           knowledge_base: Json
           llm_prompt_template: string
+          min_metrics_threshold: number
           name: string
           node_version: number
           overview: string
@@ -114,6 +116,7 @@ export type Database = {
           position: string | null
           pro_mechanics: string
           reference_object: string
+          score_bands: Json
           scoring_rules: string
           segmentation_method: string
           status: string
@@ -125,6 +128,7 @@ export type Database = {
           clip_duration_max?: number
           clip_duration_min?: number
           common_errors?: Json
+          confidence_handling?: string
           created_at?: string
           elite_videos?: Json
           form_checkpoints?: Json
@@ -133,6 +137,7 @@ export type Database = {
           key_metrics?: Json
           knowledge_base?: Json
           llm_prompt_template?: string
+          min_metrics_threshold?: number
           name: string
           node_version?: number
           overview?: string
@@ -140,6 +145,7 @@ export type Database = {
           position?: string | null
           pro_mechanics?: string
           reference_object?: string
+          score_bands?: Json
           scoring_rules?: string
           segmentation_method?: string
           status?: string
@@ -151,6 +157,7 @@ export type Database = {
           clip_duration_max?: number
           clip_duration_min?: number
           common_errors?: Json
+          confidence_handling?: string
           created_at?: string
           elite_videos?: Json
           form_checkpoints?: Json
@@ -159,6 +166,7 @@ export type Database = {
           key_metrics?: Json
           knowledge_base?: Json
           llm_prompt_template?: string
+          min_metrics_threshold?: number
           name?: string
           node_version?: number
           overview?: string
@@ -166,6 +174,7 @@ export type Database = {
           position?: string | null
           pro_mechanics?: string
           reference_object?: string
+          score_bands?: Json
           scoring_rules?: string
           segmentation_method?: string
           status?: string
