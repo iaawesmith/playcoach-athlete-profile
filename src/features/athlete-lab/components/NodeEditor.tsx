@@ -493,6 +493,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         ))}
       </div>
 
+      {/* ── Readiness Bar ── */}
+      <NodeReadinessBar node={draft} onTabChange={setTab} onSetLive={handleStatusToggle} />
+
       {/* ── Content ── */}
       <div className="space-y-0">
         {/* Green banner header */}
