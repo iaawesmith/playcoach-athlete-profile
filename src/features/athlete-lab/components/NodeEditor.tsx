@@ -11,6 +11,7 @@ import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } fr
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { toast } from "sonner";
+import { NodeReadinessBar } from "./NodeReadinessBar";
 
 interface NodeEditorProps {
   node: TrainingNode;
@@ -491,6 +492,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           </button>
         ))}
       </div>
+
+      {/* ── Readiness Bar ── */}
+      <NodeReadinessBar node={draft} onTabChange={setTab} onSetLive={handleStatusToggle} />
 
       {/* ── Content ── */}
       <div className="space-y-0">
