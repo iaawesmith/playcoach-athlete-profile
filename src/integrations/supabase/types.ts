@@ -101,6 +101,7 @@ export type Database = {
           common_errors: Json
           confidence_handling: string
           created_at: string
+          det_frequency: number
           elite_videos: Json
           form_checkpoints: Json
           icon_url: string | null
@@ -112,6 +113,7 @@ export type Database = {
           name: string
           node_version: number
           overview: string
+          performance_mode: string
           phase_breakdown: Json
           position: string | null
           pro_mechanics: string
@@ -124,6 +126,7 @@ export type Database = {
           segmentation_method: string
           solution_class: string
           status: string
+          tracking_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -134,6 +137,7 @@ export type Database = {
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
+          det_frequency?: number
           elite_videos?: Json
           form_checkpoints?: Json
           icon_url?: string | null
@@ -145,6 +149,7 @@ export type Database = {
           name: string
           node_version?: number
           overview?: string
+          performance_mode?: string
           phase_breakdown?: Json
           position?: string | null
           pro_mechanics?: string
@@ -157,6 +162,7 @@ export type Database = {
           segmentation_method?: string
           solution_class?: string
           status?: string
+          tracking_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -167,6 +173,7 @@ export type Database = {
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
+          det_frequency?: number
           elite_videos?: Json
           form_checkpoints?: Json
           icon_url?: string | null
@@ -178,6 +185,7 @@ export type Database = {
           name?: string
           node_version?: number
           overview?: string
+          performance_mode?: string
           phase_breakdown?: Json
           position?: string | null
           pro_mechanics?: string
@@ -190,6 +198,7 @@ export type Database = {
           segmentation_method?: string
           solution_class?: string
           status?: string
+          tracking_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
