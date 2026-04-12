@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_reference_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          data: Json
+          id: string
+          synced_at: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          data?: Json
+          id?: string
+          synced_at?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
       admin_reference_links: {
         Row: {
           created_at: string
