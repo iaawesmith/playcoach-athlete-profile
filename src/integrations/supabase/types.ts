@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_enhancements: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          lovable_prompt: string | null
+          notes: string | null
+          reason: string
+          tab: string
+          title: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          lovable_prompt?: string | null
+          notes?: string | null
+          reason?: string
+          tab: string
+          title: string
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          lovable_prompt?: string | null
+          notes?: string | null
+          reason?: string
+          tab?: string
+          title?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: []
+      }
       admin_reference_cache: {
         Row: {
           cache_key: string
