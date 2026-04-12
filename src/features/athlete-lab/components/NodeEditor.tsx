@@ -110,9 +110,27 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "LLM Prompt", detail: "Prompt template cannot be empty" });
   }
 
-  // Position (solution class) must be set
-  if (!node.position || node.position.trim().length === 0) {
-    issues.push({ label: "Training Status", detail: "A position / solution class must be set" });
+  // Solution class must be configured
+  if (!node.solution_class || node.solution_class.trim().length === 0) {
+    issues.push({ label: "Training Status", detail: "Solution class not configured" });
+  } else {
+    // Check solution class supports all keypoint indices
+    const sc = node.solution_class;
+    for (const m of node.key_metrics) {
+      const indices = m.keypoint_mapping?.keypoint_indices ?? [];
+      if (sc === "body" && indices.some(i => i >= 17)) {
+        const needsFeet = indices.some(i => i >= 17 && i <= 22);
+        const needsHands = indices.some(i => i >= 91);
+        if (needsHands) {
+          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
+        } else if (needsFeet) {
+          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses feet keypoints requiring Body with Feet or higher` });
+        }
+      }
+      if (sc === "body_with_feet" && indices.some(i => i >= 91)) {
+        issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
+      }
+    }
   }
 
   // Clip duration must be set and valid
