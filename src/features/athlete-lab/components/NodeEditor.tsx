@@ -239,7 +239,28 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const criticalChanged = useRef(false);
 
   useEffect(() => {
-    setDraft(node);
+    // Normalize metrics on load: ensure keypoint_mapping fields have defaults
+    const normalizedNode = {
+      ...node,
+      key_metrics: (node.key_metrics ?? []).map((m) => ({
+        tolerance: null,
+        temporal_window: 1,
+        depends_on_metric_id: null,
+        ...m,
+        keypoint_mapping: m.keypoint_mapping
+          ? {
+              body_groups: ["body"],
+              keypoint_indices: [],
+              calculation_type: null,
+              bilateral: "auto" as const,
+              confidence_threshold: 0.70,
+              phase_id: null,
+              ...m.keypoint_mapping,
+            }
+          : null,
+      })),
+    };
+    setDraft(normalizedNode);
     setDirty(false);
     criticalChanged.current = false;
   }, [node.id]);
