@@ -11,6 +11,7 @@ import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } fr
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { toast } from "sonner";
+import { NodeReadinessBar } from "./NodeReadinessBar";
 
 interface NodeEditorProps {
   node: TrainingNode;
