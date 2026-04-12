@@ -6,6 +6,7 @@ import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
 import { ConfirmModal } from "./ConfirmModal";
+import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
 import { toast } from "sonner";
 
 interface NodeEditorProps {
