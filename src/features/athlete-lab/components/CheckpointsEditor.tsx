@@ -232,6 +232,7 @@ export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phas
                 onCancel={() => cancelEdit(cp.id)}
                 phases={phases}
                 idx={idx}
+                keyMetrics={keyMetrics}
               />
             )}
           </div>
