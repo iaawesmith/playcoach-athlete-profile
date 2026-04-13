@@ -8,7 +8,7 @@ import { PipelineSetupTab } from "./PipelineSetupTab";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "data_dictionary" | "enhancements";
+type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "pipeline_setup" | "enhancements" | "data_dictionary";
 
 interface ReferenceLink {
   id: string;
