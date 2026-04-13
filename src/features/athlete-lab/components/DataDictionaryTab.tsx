@@ -113,12 +113,13 @@ function generateAuditMarkdown(fields: DictionaryField[]): string {
   const mmMap: Record<string, string> = { direct_mapping: "DIRECT", indirect_mapping: "INDIRECT", not_applicable: "N/A", llm_only: "LLM" };
 
   const rows = fields.map(f =>
-    `| ${f.tab} | ${f.label} | ${f.supabase_table}.${f.supabase_column} | ${f.type} | ${alMap[f.athletelab_status] || "?"} | ${sbMap[f.supabase_status] || "?"} | ${mmMap[f.mmpose_status] || "?"} |`
+    `| ${f.tab} | ${f.label} | ${f.supabase_table}.${f.supabase_column} | ${f.type} | ${alMap[f.athletelab_status] || "?"} | ${sbMap[f.supabase_status] || "?"} | ${mmMap[f.mmpose_status] || "?"} | ${f.required_for_live ? "✅" : ""} |`
   ).join("\n");
 
   const fullyClear = fields.filter(f => f.athletelab_status === "implemented" && f.supabase_status === "column_exists").length;
   const withGaps = fields.filter(f => f.athletelab_status !== "implemented" || f.supabase_status !== "column_exists").length;
   const directCount = fields.filter(f => f.mmpose_status === "direct_mapping").length;
+  const liveCount = fields.filter(f => f.required_for_live).length;
   const pipelineCritical = fields
     .filter(f => f.mmpose_status === "direct_mapping" && f.required_for_live)
     .map(f => f.label)
@@ -128,13 +129,13 @@ function generateAuditMarkdown(fields: DictionaryField[]): string {
 # Generated: ${now}
 # Total: ${fields.length} fields across ${tabs.size} tabs
 
-| TAB | FIELD | SUPABASE PATH | TYPE | AL | SB | MMPOSE |
-|---|---|---|---|---|---|---|
+| TAB | FIELD | SUPABASE PATH | TYPE | AL | SB | MMPOSE | LIVE |
+|---|---|---|---|---|---|---|---|
 ${rows}
 
 ---
 
-SUMMARY: ${fields.length} fields | ${fullyClear} ✅✅ fully clear | ${withGaps} with gaps | ${directCount} direct MMPose connections
+SUMMARY: ${fields.length} fields | ${fullyClear} ✅✅ fully clear | ${withGaps} with gaps | ${directCount} direct MMPose connections | ${liveCount} required for live
 
 PIPELINE CRITICAL: fields where mmpose=DIRECT and required_for_live=true: ${pipelineCritical || "none"}
 `;
