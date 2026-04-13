@@ -291,7 +291,11 @@ function generateTrainingStatus(node: TrainingNode): string {
     }
   }
 
-  return `## Training Status\n\nSolution Class: ${configuredClass}\nPerformance Mode: ${node.performance_mode ?? "balanced"}\nDetection Frequency: every ${node.det_frequency ?? 1} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across all metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}`;
+  const pipelineRef = rawClass
+    ? `\n\nPipeline Reference (rtmlib instantiation):\n\`\`\`python\nfrom rtmlib import PoseTracker, ${configuredClass}\n\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${node.det_frequency ?? 1},\n    tracking=${node.tracking_enabled ? "True" : "False"},\n    mode='${node.performance_mode ?? "balanced"}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\`\`\``
+    : "";
+
+  return `## Training Status\n\nSolution Class: ${configuredClass}\nPerformance Mode: ${node.performance_mode ?? "balanced"}\nDetection Frequency: every ${node.det_frequency ?? 1} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across all metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
 }
 
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
