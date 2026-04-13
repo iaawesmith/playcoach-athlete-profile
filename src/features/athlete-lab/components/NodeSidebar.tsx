@@ -93,10 +93,14 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-1">
-        {filtered.map((node) => (
+        {filtered.map((node) => {
+          const categories = computeCategories(node);
+          const score = computeScore(categories);
+          const color = scoreColor(score);
+          return (
           <div
             key={node.id}
-            className={`group flex items-center gap-3 cursor-pointer transition-all duration-200 ${
+            className={`group flex items-center gap-2 cursor-pointer transition-all duration-200 ${
               selectedId === node.id
                 ? "px-4 py-3.5 rounded-xl border-l-[5px] border-primary-container shadow-[inset_0_0_20px_rgba(0,230,57,0.08),0_0_16px_rgba(0,230,57,0.12)]"
                 : "px-3 py-3 rounded-xl hover:bg-surface-container"
@@ -108,9 +112,9 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
               className="w-3 h-3 rounded-full shrink-0"
               style={{ backgroundColor: node.status === "live" ? "#00e639" : "#f59e0b" }}
             />
-            <span className="flex-1 text-on-surface text-sm font-medium truncate">{node.name}</span>
+            <span className="text-on-surface text-sm font-medium truncate">{node.name}</span>
 
-            {/* Position badge */}
+            {/* Position badge next to name */}
             {node.position && (
               <span
                 className="px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider shrink-0"
@@ -119,6 +123,17 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
                 {node.position}
               </span>
             )}
+
+            {/* Spacer */}
+            <span className="flex-1 min-w-0" />
+
+            {/* Readiness pill */}
+            <span
+              className="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0"
+              style={{ backgroundColor: `${color}20`, color, border: `1px solid ${color}30` }}
+            >
+              {score}%
+            </span>
 
             <button
               onClick={(e) => {
@@ -131,7 +146,8 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
             </button>
           </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && (
           <div className="text-center py-12 text-on-surface-variant text-xs">
             <span className="material-symbols-outlined block mb-2" style={{ fontSize: 32 }}>neurology</span>
