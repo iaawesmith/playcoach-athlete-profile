@@ -146,6 +146,7 @@ export function DataDictionaryTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Filters
   const [tabFilter, setTabFilter] = useState("all");
