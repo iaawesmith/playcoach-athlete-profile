@@ -695,7 +695,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               <label className={LABEL_CLASS}>Phase Mechanics</label>
               <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
             </div>
-            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} onConfirmDelete={(opts) => setConfirmModal(opts)} />
+            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} metrics={draft.key_metrics} onConfirmDelete={(opts) => setConfirmModal(opts)} />
           </div>
         )}
 
@@ -1614,7 +1614,7 @@ function serializeStructuredField(fields: Record<string, string>): string {
     .join("\n\n");
 }
 
-function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: StructuredEditorProps & { phases: PhaseNote[]; onConfirmDelete: ConfirmDeleteFn }) {
+function MechanicsEditor({ value, onChange, phases, metrics, onConfirmDelete }: StructuredEditorProps & { phases: PhaseNote[]; metrics: KeyMetric[]; onConfirmDelete: ConfirmDeleteFn }) {
   // Parse sections from JSON or migrate from legacy text format
   const parseSections = useCallback((): MechanicsSection[] => {
     if (!value.trim()) return [];
@@ -1782,6 +1782,28 @@ function MechanicsEditor({ value, onChange, phases, onConfirmDelete }: Structure
                     placeholder={phaseName ? `Coaching cues for ${phaseName.toLowerCase()}...` : "Coaching cues..."}
                   />
                 </div>
+
+                {/* Auto-generated metric summary */}
+                {(() => {
+                  const phaseMetrics = metrics.filter(m => m.keypoint_mapping?.phase_id === sec.phase_id && sec.phase_id);
+                  if (phaseMetrics.length === 0) return null;
+                  const totalWeight = phaseMetrics.reduce((s, m) => s + m.weight, 0);
+                  let names: string;
+                  if (phaseMetrics.length === 1) {
+                    names = phaseMetrics[0].name;
+                  } else if (phaseMetrics.length === 2) {
+                    names = `${phaseMetrics[0].name} and ${phaseMetrics[1].name}`;
+                  } else {
+                    names = phaseMetrics.slice(0, -1).map(m => m.name).join(", ") + ", and " + phaseMetrics[phaseMetrics.length - 1].name;
+                  }
+                  const verb = phaseMetrics.length === 1 ? "is" : "are";
+                  return (
+                    <div className="mt-2 px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant/40 mb-1">Auto: Metrics measured in this phase</p>
+                      <p className="text-on-surface-variant/70 text-xs leading-relaxed">{names} {verb} measured in this phase — {totalWeight}% of your total score.</p>
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
