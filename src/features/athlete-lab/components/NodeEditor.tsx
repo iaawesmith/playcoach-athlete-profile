@@ -12,6 +12,7 @@ import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
+import { generateTabMarkdown } from "../utils/nodeExport";
 
 interface NodeEditorProps {
   node: TrainingNode;
