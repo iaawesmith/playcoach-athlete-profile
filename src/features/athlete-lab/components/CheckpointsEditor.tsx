@@ -243,13 +243,14 @@ export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phas
 }
 
 /* ── Edit Form ── */
-function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx }: {
+function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx, keyMetrics }: {
   draft: Checkpoint;
   onChange: (partial: Partial<Checkpoint>) => void;
   onSave: () => void;
   onCancel: () => void;
   phases: PhaseNote[];
   idx: number;
+  keyMetrics: KeyMetric[];
 }) {
   const [activeGroupTab, setActiveGroupTab] = useState<string>("body");
 
