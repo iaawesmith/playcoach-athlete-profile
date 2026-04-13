@@ -76,7 +76,7 @@ function generatePhases(node: TrainingNode): string {
   const segLabel = seg === "proportional" ? "Proportional" : "Checkpoint-triggered";
   let out = `## Phases\n\nCount: ${phases.length} phases\nSegmentation Method: ${segLabel}\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\n`;
   phases.forEach((p, i) => {
-    out += `\n### Phase ${i + 1}: ${p.phase} — ${p.weight ?? 0}% of clip\nDescription: ${p.notes || "Not configured"}\nFrame Buffer: ${p.frame_buffer ?? 0} frames\n`;
+    out += `\n### Phase ${i + 1}: ${p.phase} — ${p.weight ?? 0}% of clip\nDescription: ${p.notes || "Not configured"}\nFrame Buffer: ${p.frame_buffer ?? 3} frames\n`;
   });
   return out;
 }
