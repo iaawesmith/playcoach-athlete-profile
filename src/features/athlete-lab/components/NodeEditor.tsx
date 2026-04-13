@@ -1143,29 +1143,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         ))}
       </div>
 
-      {adding ? (
-        <div className={CARD_CLASS + " border-primary-container/20"}>
-          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Reference Video</p>
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <label className={LABEL_CLASS}>Descriptive Label</label>
-              <SectionTooltip tip="The name shown to athletes and admins when this video appears in the training feed. Be specific — include the player name and what the clip demonstrates." />
-            </div>
-            <input className={INPUT_CLASS} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <label className={LABEL_CLASS}>Video URL</label>
-              <SectionTooltip tip="Paste a full YouTube URL. The video must be publicly accessible or unlisted. Private videos cannot be loaded." />
-            </div>
-            <input className={INPUT_CLASS} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
-          </div>
-          {renderFormFields(newStartSec, setNewStartSec, newEndSec, setNewEndSec, newCameraAngle, setNewCameraAngle, newVideoType, setNewVideoType, newIsReference, setNewIsReference, addAngleError)}
-          <div className="flex gap-2">
-            <button onClick={handleAddWithValidation} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec(""); setNewCameraAngle(""); setNewVideoType("both"); setNewIsReference(false); setAddAngleError(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
-          </div>
-        </div>
       {/* Camera Angle Coverage */}
       {(() => {
         const configuredAngles = new Set(videos.map(v => v.camera_angle).filter(Boolean));
@@ -1195,13 +1172,14 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
       })()}
 
       {adding ? (
-        <div className={CARD_CLASS + " space-y-3"}>
+        <div className={CARD_CLASS + " border-primary-container/20"}>
+          <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Reference Video</p>
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <label className={LABEL_CLASS}>Descriptive Label</label>
               <SectionTooltip tip="The name shown to athletes and admins when this video appears in the training feed. Be specific — include the player name and what the clip demonstrates." />
             </div>
-            <input className={INPUT_CLASS} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
+            <input className={INPUT_CLASS} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Tyreek Hill - Slant Route Breakdown"' />
           </div>
           <div>
             <div className="flex items-center gap-1.5 mb-1">
