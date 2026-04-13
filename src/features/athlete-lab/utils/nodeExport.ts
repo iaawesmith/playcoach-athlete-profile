@@ -256,7 +256,7 @@ function generateBadges(node: TrainingNode): string {
   let out = `## Badges (${badges.length} defined)\n`;
   for (const b of badges) {
     const metricName = b.condition_metric_id ? (metrics.find(m => m.name === b.condition_metric_id)?.name ?? b.condition_metric_id) : "N/A";
-    const op = (b as Record<string, unknown>).condition_operator as string | undefined;
+    const op = (b as unknown as Record<string, unknown>).condition_operator as string | undefined;
     const conditionLine = op === "+-"
       ? `Condition: within ± ${b.condition_count} of ${b.condition_threshold}`
       : `Threshold: ${b.condition_threshold}\nRequired Count: ${b.condition_count} analyses`;
