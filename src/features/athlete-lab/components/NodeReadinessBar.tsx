@@ -1,10 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import type { TrainingNode, MechanicsSection } from "../types";
 import { checkCameraCompleteness } from "./CameraEditor";
 import { checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { SectionTooltip } from "./SectionTooltip";
 import { generateFullNodeMarkdown } from "../utils/nodeExport";
-import { toast } from "sonner";
 
 type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
 
