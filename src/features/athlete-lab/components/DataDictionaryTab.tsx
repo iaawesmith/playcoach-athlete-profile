@@ -243,6 +243,13 @@ export function DataDictionaryTab() {
 
   useEffect(() => { initialLoad(); }, [initialLoad]);
 
+  const handleCopyAudit = async () => {
+    const md = generateAuditMarkdown(fields);
+    await navigator.clipboard.writeText(md);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
