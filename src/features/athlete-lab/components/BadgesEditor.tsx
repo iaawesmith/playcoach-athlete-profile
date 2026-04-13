@@ -210,13 +210,16 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
         {currentIcon || "🏆"}
       </button>
       {show && (
-        <div className="absolute z-50 top-full mt-1 right-0 p-3 rounded-xl border border-outline-variant/20 bg-[#1A2029] shadow-xl grid grid-cols-4 gap-1.5 max-w-[280px] max-h-[200px] overflow-y-auto">
-          {EMOJI_OPTIONS.map((em) => (
-            <button key={em} type="button" onClick={() => { onSelect(em); setShow(false); }} className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg hover:bg-outline-variant/20 transition-colors ${currentIcon === em ? "bg-primary-container/20 ring-1 ring-primary-container" : ""}`}>
-              {em}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShow(false)} />
+          <div className="absolute z-50 top-full mt-1 left-0 p-3 rounded-xl border border-outline-variant/20 bg-[#1A2029] shadow-xl grid grid-cols-4 gap-1.5 w-[180px] max-h-[280px] overflow-y-auto">
+            {EMOJI_OPTIONS.map((em) => (
+              <button key={em} type="button" onClick={() => { onSelect(em); setShow(false); }} className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg hover:bg-outline-variant/20 transition-colors ${currentIcon === em ? "bg-primary-container/20 ring-1 ring-primary-container" : ""}`}>
+                {em}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
