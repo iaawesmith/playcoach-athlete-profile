@@ -166,10 +166,18 @@ function generateReference(node: TrainingNode): string {
   } else {
     for (const cal of cals) {
       const angleLabel = cal.camera_angle === "behind_qb" ? "Behind QB" : cal.camera_angle.charAt(0).toUpperCase() + cal.camera_angle.slice(1);
-      out += `\n### ${angleLabel}\nReference Object: ${cal.reference_object_name || "Not configured"}\nKnown Size: ${cal.known_size_yards ?? "Not configured"}\nPixels Per Yard: ${cal.pixels_per_yard ?? "NOT SET — BLOCKING"}\n`;
+      const knownSize = cal.known_size_yards != null ? `${cal.known_size_yards} yards` : "Not configured";
+      out += `\n### ${angleLabel}\nReference Object: ${cal.reference_object_name || "Not configured"}\nKnown Size: ${knownSize}\nPixels Per Yard: ${cal.pixels_per_yard ?? "NOT SET — BLOCKING"}\nPlacement Instructions: ${cal.placement_instructions?.trim() || "Not configured"}\n`;
     }
   }
-  out += `\nFallback Behavior: ${node.reference_fallback_behavior ?? "pixel_warning"}\n\nFilming Instructions:\n${node.reference_filming_instructions?.trim() || "Not configured"}`;
+  const fallbackMap: Record<string, string> = {
+    pixel_warning: "Use pixel units with warning",
+    disable_distance_metrics: "Disable distance metrics",
+    estimate_using_field_lines: "Estimate using field lines",
+  };
+  const rawFallback = node.reference_fallback_behavior ?? "pixel_warning";
+  const fallbackLabel = fallbackMap[rawFallback] ?? rawFallback;
+  out += `\nFallback Behavior: ${fallbackLabel}\n\nFilming Instructions:\n${node.reference_filming_instructions?.trim() || "Not configured"}`;
   return out;
 }
 
