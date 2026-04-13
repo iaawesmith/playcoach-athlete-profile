@@ -281,11 +281,11 @@ function generateTrainingStatus(node: TrainingNode): string {
       const indices = m.keypoint_mapping?.keypoint_indices ?? [];
       if (node.solution_class === "body" && indices.some(i => i >= 17)) {
         const needed = indices.some(i => i >= 23) ? "Wholebody" : "Body_with_feet";
-        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 17))} which requires ${needed} but node is configured for ${node.solution_class}`;
+        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 17))} which requires ${needed} but node is configured for ${capitalize(node.solution_class!)}`;
         break;
       }
       if (node.solution_class === "body_with_feet" && indices.some(i => i >= 91)) {
-        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 91))} which requires Wholebody but node is configured for ${node.solution_class}`;
+        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 91))} which requires Wholebody but node is configured for ${capitalize(node.solution_class!)}`;
         break;
       }
     }
