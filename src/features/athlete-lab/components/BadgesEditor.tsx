@@ -158,13 +158,20 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-on-surface-variant text-xs">Unlock when Mastery Score is</span>
           {opSelect}
-          <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_threshold ?? 90} onChange={(e) => setB({ condition_threshold: Number(e.target.value) })} min={0} max={100} />
-          <span className="text-on-surface-variant text-xs">on</span>
-          <input type="number" className={INPUT_CLASS + " !w-16 !px-2 text-center"} value={b.condition_count ?? 1} onChange={(e) => setB({ condition_count: Math.max(1, Number(e.target.value)) })} min={1} />
-          <span className="text-on-surface-variant text-xs">consecutive analysis{(b.condition_count ?? 1) > 1 ? "es" : ""}</span>
+          {!isWithinTolerance && (
+            <>
+              <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_threshold ?? 90} onChange={(e) => setB({ condition_threshold: Number(e.target.value) })} min={0} max={100} />
+              <span className="text-on-surface-variant text-xs">on</span>
+              <input type="number" className={INPUT_CLASS + " !w-16 !px-2 text-center"} value={b.condition_count ?? 1} onChange={(e) => setB({ condition_count: Math.max(1, Number(e.target.value)) })} min={1} />
+              <span className="text-on-surface-variant text-xs">consecutive analysis{(b.condition_count ?? 1) > 1 ? "es" : ""}</span>
+            </>
+          )}
         </div>
+        {toleranceInputs}
         <p className="text-on-surface-variant/50 text-[11px] italic">
-          Unlocks when Mastery Score {b.condition_operator || ">="} {b.condition_threshold ?? 90} on {b.condition_count ?? 1} consecutive analysis{(b.condition_count ?? 1) > 1 ? "es" : ""}
+          {isWithinTolerance
+            ? `Unlocks when Mastery Score is within ±${b.condition_count ?? 1} of ${b.condition_threshold ?? 90}`
+            : `Unlocks when Mastery Score ${b.condition_operator || ">="} ${b.condition_threshold ?? 90} on ${b.condition_count ?? 1} consecutive analysis${(b.condition_count ?? 1) > 1 ? "es" : ""}`}
         </p>
       </div>
     );
@@ -181,14 +188,21 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
             {keyMetrics.map((m, idx) => <option key={idx} value={m.name}>{m.name || `Metric ${idx + 1}`}</option>)}
           </select>
           {opSelect}
-          <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_threshold ?? 0} onChange={(e) => setB({ condition_threshold: Number(e.target.value) })} />
-          <span className="text-on-surface-variant text-xs">on</span>
-          <input type="number" className={INPUT_CLASS + " !w-16 !px-2 text-center"} value={b.condition_count ?? 1} onChange={(e) => setB({ condition_count: Math.max(1, Number(e.target.value)) })} min={1} />
-          <span className="text-on-surface-variant text-xs">analysis{(b.condition_count ?? 1) > 1 ? "es" : ""}</span>
+          {!isWithinTolerance && (
+            <>
+              <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_threshold ?? 0} onChange={(e) => setB({ condition_threshold: Number(e.target.value) })} />
+              <span className="text-on-surface-variant text-xs">on</span>
+              <input type="number" className={INPUT_CLASS + " !w-16 !px-2 text-center"} value={b.condition_count ?? 1} onChange={(e) => setB({ condition_count: Math.max(1, Number(e.target.value)) })} min={1} />
+              <span className="text-on-surface-variant text-xs">analysis{(b.condition_count ?? 1) > 1 ? "es" : ""}</span>
+            </>
+          )}
         </div>
+        {toleranceInputs}
         {b.condition_metric_id && (
           <p className="text-on-surface-variant/50 text-[11px] italic">
-            Unlocks when {b.condition_metric_id} {b.condition_operator || ">="} {b.condition_threshold ?? 0} on {b.condition_count ?? 1} analysis{(b.condition_count ?? 1) > 1 ? "es" : ""}
+            {isWithinTolerance
+              ? `Unlocks when ${b.condition_metric_id} is within ±${b.condition_count ?? 1} of ${b.condition_threshold ?? 0}`
+              : `Unlocks when ${b.condition_metric_id} ${b.condition_operator || ">="} ${b.condition_threshold ?? 0} on ${b.condition_count ?? 1} analysis${(b.condition_count ?? 1) > 1 ? "es" : ""}`}
           </p>
         )}
       </div>
@@ -203,13 +217,20 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-on-surface-variant text-xs">Unlock when Mastery Score is</span>
           {opSelect}
-          <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_threshold ?? 80} onChange={(e) => setB({ condition_threshold: Number(e.target.value) })} min={0} max={100} />
-          <span className="text-on-surface-variant text-xs">on</span>
-          <input type="number" className={INPUT_CLASS + " !w-16 !px-2 text-center"} value={b.condition_count ?? 5} onChange={(e) => setB({ condition_count: Math.max(1, Number(e.target.value)) })} min={1} />
-          <span className="text-on-surface-variant text-xs">consecutive analyses in a row</span>
+          {!isWithinTolerance && (
+            <>
+              <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_threshold ?? 80} onChange={(e) => setB({ condition_threshold: Number(e.target.value) })} min={0} max={100} />
+              <span className="text-on-surface-variant text-xs">on</span>
+              <input type="number" className={INPUT_CLASS + " !w-16 !px-2 text-center"} value={b.condition_count ?? 5} onChange={(e) => setB({ condition_count: Math.max(1, Number(e.target.value)) })} min={1} />
+              <span className="text-on-surface-variant text-xs">consecutive analyses in a row</span>
+            </>
+          )}
         </div>
+        {toleranceInputs}
         <p className="text-on-surface-variant/50 text-[11px] italic">
-          Unlocks when Mastery Score {b.condition_operator || ">="} {b.condition_threshold ?? 80} on {b.condition_count ?? 5} consecutive analyses in a row
+          {isWithinTolerance
+            ? `Unlocks when Mastery Score is within ±${b.condition_count ?? 1} of ${b.condition_threshold ?? 80} on consecutive analyses`
+            : `Unlocks when Mastery Score ${b.condition_operator || ">="} ${b.condition_threshold ?? 80} on ${b.condition_count ?? 5} consecutive analyses in a row`}
         </p>
       </div>
     );
