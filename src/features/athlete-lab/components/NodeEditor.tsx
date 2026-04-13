@@ -1060,10 +1060,15 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
   return (
     <div className="space-y-4">
-      {/* Section label */}
-      <div className="flex items-center gap-1.5">
-        <label className={LABEL_CLASS}>Reference Videos</label>
-        <SectionTooltip tip="Add YouTube clips used for athlete education and pipeline calibration. Set start and end timestamps on any video used for analysis. Only one video can serve as the Reference — the elite example shown alongside athlete results." />
+      {/* Section label + count indicator */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <label className={LABEL_CLASS}>Reference Videos</label>
+          <SectionTooltip tip="Add YouTube clips used for athlete education and pipeline calibration. Set start and end timestamps on any video used for analysis. Only one video can serve as the Reference — the elite example shown alongside athlete results." />
+        </div>
+        <span className={`text-[10px] font-semibold uppercase tracking-widest ${videos.length >= 3 ? "text-emerald-400" : videos.length === 2 ? "text-amber-400" : "text-red-400"}`}>
+          {videos.length} of 3+ recommended
+        </span>
       </div>
 
       {videos.length === 0 && !adding && (
@@ -1137,6 +1142,34 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
           </div>
         ))}
       </div>
+
+      {/* Camera Angle Coverage */}
+      {(() => {
+        const configuredAngles = new Set(videos.map(v => v.camera_angle).filter(Boolean));
+        const angles = [
+          { key: "sideline", label: "Sideline" },
+          { key: "endzone", label: "Endzone" },
+          { key: "behind_qb", label: "Behind QB" },
+        ] as const;
+        return (
+          <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: '#131920' }}>
+            <span className={LABEL_CLASS}>Camera Coverage</span>
+            <div className="space-y-1">
+              {angles.map(a => (
+                <div key={a.key} className="flex items-center gap-2 text-xs">
+                  <span className={configuredAngles.has(a.key) ? "text-emerald-400" : "text-red-400"}>
+                    {configuredAngles.has(a.key) ? "✅" : "❌"}
+                  </span>
+                  <span className="text-on-surface-variant">{a.label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-on-surface-variant/50 text-[10px]">
+              Each camera angle needs its own Reference calibration for Distance and Velocity metrics.
+            </p>
+          </div>
+        );
+      })()}
 
       {adding ? (
         <div className={CARD_CLASS + " border-primary-container/20"}>
