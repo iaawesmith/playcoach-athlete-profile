@@ -128,14 +128,26 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
   };
 
   const renderConditionFields = (b: Badge, setB: (patch: Partial<Badge>) => void) => {
+    const isWithinTolerance = (b.condition_operator || ">=") === "+-";
     const opSelect = (
-      <select className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_operator || ">="} onChange={(e) => setB({ condition_operator: e.target.value })}>
+      <select className={INPUT_CLASS + " !w-24 !px-2 text-center"} value={b.condition_operator || ">="} onChange={(e) => setB({ condition_operator: e.target.value })}>
         <option value=">=">≥</option>
         <option value=">">{">"}</option>
         <option value="=">＝</option>
+        <option value="<">{"<"}</option>
         <option value="<=">≤</option>
+        <option value="+-">± within</option>
       </select>
     );
+
+    const toleranceInputs = isWithinTolerance ? (
+      <div className="flex items-center gap-2 flex-wrap mt-2">
+        <span className="text-on-surface-variant text-xs">Target:</span>
+        <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_threshold ?? 0} onChange={(e) => setB({ condition_threshold: Number(e.target.value) })} />
+        <span className="text-on-surface-variant text-xs">Tolerance: ±</span>
+        <input type="number" className={INPUT_CLASS + " !w-20 !px-2 text-center"} value={b.condition_count ?? 1} onChange={(e) => setB({ condition_count: Math.max(0, Number(e.target.value)) })} min={0} />
+      </div>
+    ) : null;
 
     if (b.condition_type === "score") return (
       <div className="space-y-3">
