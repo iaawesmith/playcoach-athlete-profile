@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { TrainingNode, NodePosition } from "../types";
+import { computeCategories, computeScore, scoreColor } from "./NodeReadinessBar";
 
 const POSITION_TABS: Array<{ key: "ALL" | NodePosition; label: string }> = [
   { key: "ALL", label: "All" },
