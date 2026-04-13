@@ -54,9 +54,10 @@ interface CheckpointsEditorProps {
   onConfirmDelete: ConfirmDeleteFn;
   phases: PhaseNote[];
   segmentationMethod: string;
+  keyMetrics: KeyMetric[];
 }
 
-export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phases, segmentationMethod }: CheckpointsEditorProps) {
+export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phases, segmentationMethod, keyMetrics }: CheckpointsEditorProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<Record<string, Checkpoint>>({});
   const [dragIdx, setDragIdx] = useState<number | null>(null);
