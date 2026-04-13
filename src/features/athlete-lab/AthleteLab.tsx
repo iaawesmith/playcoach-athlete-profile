@@ -63,7 +63,7 @@ export function AthleteLab() {
   const selectedNode = nodes.find((n) => n.id === selectedId);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-surface">
+    <div className="h-screen w-full flex flex-col bg-surface overflow-hidden">
       {/* Top Bar */}
       <div className="h-16 flex items-center px-6 bg-surface/80 backdrop-blur-xl border-b border-white/10 shrink-0">
         <span className="material-symbols-outlined text-primary-container mr-3" style={{ fontSize: 24 }}>neurology</span>
