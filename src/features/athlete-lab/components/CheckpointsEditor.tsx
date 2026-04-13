@@ -360,7 +360,7 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx, ke
         <select
           className={INPUT_CLASS + " max-w-xs"}
           value={draft.phase_id ?? ""}
-          onChange={(e) => onChange({ phase_id: e.target.value || null })}
+          onChange={(e) => handlePhaseChange(e.target.value || null)}
           disabled={phases.length === 0}
         >
           {phases.length === 0 ? (
@@ -417,6 +417,14 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx, ke
           <label className={LABEL_CLASS}>Required Keypoints</label>
           <SectionTooltip tip="Which keypoints must be above the confidence threshold for this checkpoint to be considered valid. If any required keypoint falls below threshold, the checkpoint is flagged as undetectable for that frame." />
         </div>
+
+        {/* Auto-suggest label */}
+        {draft.phase_id && suggestedIndices.length > 0 && (
+          <p className="text-on-surface-variant/50 text-[10px] mb-2 italic">Auto-suggested from phase metrics — adjust as needed</p>
+        )}
+        {draft.phase_id && suggestedIndices.length === 0 && (
+          <p className="text-on-surface-variant/30 text-[10px] mb-2 italic">Assign metrics to this phase in the Metrics tab to get auto-suggestions</p>
+        )}
 
         {/* Group tabs */}
         <div className="flex gap-1 mb-3">
