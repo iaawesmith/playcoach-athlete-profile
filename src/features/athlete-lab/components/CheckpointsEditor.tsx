@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import type { Checkpoint, PhaseNote, PhaseTransitionRole } from "../types";
+import type { Checkpoint, PhaseNote, PhaseTransitionRole, KeyMetric } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
