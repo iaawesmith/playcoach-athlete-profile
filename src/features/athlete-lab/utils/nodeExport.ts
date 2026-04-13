@@ -269,7 +269,9 @@ function generateTrainingStatus(node: TrainingNode): string {
   const metrics = node.key_metrics ?? [];
   const maxIdx = getMaxKeypointIndex(metrics);
   const derivedClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "N/A";
-  const configuredClass = node.solution_class || "NOT CONFIGURED — BLOCKING";
+  const rawClass = node.solution_class || "";
+  const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const configuredClass = rawClass ? capitalize(rawClass) : "NOT CONFIGURED — BLOCKING";
 
   let compatibility = "COMPATIBLE";
   if (!node.solution_class) {
