@@ -336,6 +336,33 @@ export type Database = {
           },
         ]
       }
+      pipeline_setup_checklist: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          id: string
+          item_id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          id?: string
+          item_id: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          id?: string
+          item_id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
