@@ -4,7 +4,6 @@ import { runAnalysis } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { AnalysisLog } from "./AnalysisLog";
-import { supabase } from "@/integrations/supabase/client";
 
 interface TestingPanelProps {
   node: TrainingNode;
