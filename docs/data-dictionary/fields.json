@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": "1.2.0",
-    "last_updated": "2026-04-11",
+    "version": "1.3.0",
+    "last_updated": "2026-04-12",
     "maintainer": "iaawesmith",
     "github_repo": "https://github.com/iaawesmith/playcoach-athlete-profile",
     "keypoint_library": "https://github.com/iaawesmith/playcoach-athlete-profile/blob/main/src/constants/keypointLibrary.json",
@@ -10,7 +10,8 @@
     "changelog": {
       "1.0.0": "Initial release — 44 fields across 12 tabs",
       "1.1.0": "Corrected JSONB column paths to reflect actual schema",
-      "1.2.0": "Added Scoring (3), Errors (3), Reference (4), Training Status (4), Admin Enhancements (8) fields — total 63 fields"
+      "1.2.0": "Added Scoring (3), Errors (3), Reference (4), Training Status (4), Admin Enhancements (8) — 58 fields",
+      "1.3.0": "Added Camera (7), Checkpoints (8), LLM Prompt additions (3), Badges (8) — 84 fields total"
     },
     "status_legend": {
       "implemented": "Field is built and functional in AthleteLab UI",
@@ -53,7 +54,6 @@
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "node_icon",
       "label": "Icon / Visual Diagram",
@@ -73,7 +73,6 @@
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "clip_duration_min",
       "label": "Clip Duration — Minimum",
@@ -88,12 +87,11 @@
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
       "rtmlib_reference": "Edge Function pre-flight validation — rejects upload before sending to Cloud Run if clip duration is outside bounds",
-      "description": "Minimum acceptable video duration in seconds. Uploads shorter than this are rejected before reaching the rtmlib service.",
+      "description": "Minimum acceptable video duration in seconds.",
       "notes": "Prevents insufficient footage from producing unreliable keypoint data.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "clip_duration_max",
       "label": "Clip Duration — Maximum",
@@ -108,12 +106,11 @@
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
       "rtmlib_reference": "Edge Function pre-flight validation — prevents full practice session uploads from reaching Cloud Run",
-      "description": "Maximum acceptable video duration in seconds. Uploads longer than this are rejected before analysis runs.",
+      "description": "Maximum acceptable video duration in seconds.",
       "notes": "Set tight enough to reject accidental full-session recordings.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "node_status",
       "label": "Node Status (Draft / Live)",
@@ -127,13 +124,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
-      "rtmlib_reference": "Supabase Database Webhook only fires analysis pipeline when status = 'live'. Draft nodes do not trigger Cloud Run.",
-      "description": "Controls whether athlete uploads trigger automatic analysis. Draft = no analysis. Live = full pipeline active.",
+      "rtmlib_reference": "Supabase Database Webhook only fires analysis pipeline when status = 'live'.",
+      "description": "Controls whether athlete uploads trigger automatic analysis.",
       "notes": "Node cannot be set to Live unless all completeness checks pass.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "node_version",
       "label": "Node Version",
@@ -147,13 +143,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
-      "rtmlib_reference": "Stored on athlete_lab_results alongside analysis output. Allows results to be traced to exact node config that scored them.",
-      "description": "Auto-incremented integer. Increments on every SAVE when node is Live. Stored on every athlete result row.",
+      "rtmlib_reference": "Stored on athlete_lab_results alongside analysis output. Allows results to be traced to exact node config.",
+      "description": "Auto-incremented integer. Increments on every SAVE when node is Live.",
       "notes": "Ensures historical results remain accurate even when node config is updated.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "video_label",
       "label": "Video — Descriptive Label",
@@ -168,12 +163,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Admin-facing and athlete-facing label for this video. Shown in the training feed.",
-      "notes": "Stored as property of each object in the elite_videos JSONB array on athlete_lab_nodes.",
+      "description": "Admin-facing and athlete-facing label for this video.",
+      "notes": "Stored in elite_videos JSONB array.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "video_url",
       "label": "Video URL",
@@ -187,13 +181,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "Passed to Cloud Run rtmlib service as the video source URL. yt-dlp downloads the clip using this URL before frame extraction.",
-      "description": "YouTube URL for the reference video. Must be publicly accessible or unlisted.",
-      "notes": "Stored as property of each object in the elite_videos JSONB array on athlete_lab_nodes.",
+      "rtmlib_reference": "Passed to Cloud Run rtmlib service. yt-dlp downloads clip using this URL before frame extraction.",
+      "description": "YouTube URL for the reference video.",
+      "notes": "Stored in elite_videos JSONB array.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "video_start_seconds",
       "label": "Clip Window — Start",
@@ -208,12 +201,11 @@
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
       "rtmlib_reference": "Passed to Cloud Run as clip extraction parameter. rtmlib only processes frames within this window.",
-      "description": "Start timestamp in seconds for the relevant skill execution within the video.",
-      "notes": "Without this, rtmlib processes the entire video including huddle, pre-snap, and post-play footage.",
+      "description": "Start timestamp in seconds for the relevant skill execution.",
+      "notes": "Without this, rtmlib processes the entire video.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "video_end_seconds",
       "label": "Clip Window — End",
@@ -228,12 +220,11 @@
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
       "rtmlib_reference": "Paired with start_seconds to define the exact frame range sent to rtmlib.",
-      "description": "End timestamp in seconds for the relevant skill execution within the video.",
-      "notes": "Clip duration must fall within Basics tab clip_duration_min and clip_duration_max.",
+      "description": "End timestamp in seconds for the relevant skill execution.",
+      "notes": "Duration must fall within Basics tab clip_duration_min and clip_duration_max.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "video_camera_angle",
       "label": "Camera Angle",
@@ -249,11 +240,10 @@
       "mmpose_category": "indirect",
       "rtmlib_reference": "Used by Edge Function to select correct Reference tab scale calibration for pixel-to-yard conversion.",
       "description": "Camera angle this video was filmed from. Options: Sideline, Endzone, Behind QB.",
-      "notes": "Must match a Reference tab calibration entry for Distance metrics to return accurate yard values.",
+      "notes": "Must match a Reference tab calibration entry for Distance metrics.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "video_type",
       "label": "Video Type",
@@ -269,11 +259,10 @@
       "mmpose_category": "ui",
       "rtmlib_reference": null,
       "description": "Classification of video purpose. Educational / Analysis / Both.",
-      "notes": "Does not affect rtmlib processing. UI and content organization only.",
+      "notes": "Does not affect rtmlib processing.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "video_is_reference",
       "label": "Reference Video Flag",
@@ -288,12 +277,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Marks this video as the elite benchmark shown to athletes alongside their results. One per node.",
+      "description": "Marks this video as the elite benchmark shown to athletes. One per node.",
       "notes": "Only one video object per node can have is_reference = true.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "overview_text",
       "label": "Skill Overview",
@@ -308,12 +296,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Athlete-facing description of the skill. Shown at the top of the training feed before the athlete films.",
+      "description": "Athlete-facing description of the skill. Shown before the athlete films.",
       "notes": "2-3 sentences max. Written for athletes aged 14-22.",
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "phase_name",
       "label": "Phase Name",
@@ -329,11 +316,10 @@
       "mmpose_category": "indirect",
       "rtmlib_reference": "Phase names link metric phase_id assignments. Pipeline evaluates each metric only within its assigned phase frame window.",
       "description": "Name of this movement phase. Must be unique within the node.",
-      "notes": "Stored in phase_breakdown JSONB array on athlete_lab_nodes.",
+      "notes": "Stored in phase_breakdown JSONB array.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "phase_proportion_weight",
       "label": "% of Clip",
@@ -347,13 +333,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "Directly controls frame window boundaries. Pipeline divides total extracted frames proportionally by these weights.",
+      "rtmlib_reference": "Directly controls frame window boundaries. Pipeline divides total extracted frames proportionally.",
       "description": "Percentage of the total clip this phase occupies. All phase weights must sum to exactly 100.",
       "notes": "Incorrect weights cause metrics to be evaluated on wrong frames.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "phase_description",
       "label": "Phase Description",
@@ -373,7 +358,6 @@
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "phase_frame_buffer",
       "label": "Frame Buffer",
@@ -393,7 +377,6 @@
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "phase_segmentation_method",
       "label": "Segmentation Method",
@@ -413,7 +396,6 @@
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "mechanics_coaching_cues",
       "label": "Coaching Cues",
@@ -433,7 +415,6 @@
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "mechanics_phase_id",
       "label": "Phase Link",
@@ -448,12 +429,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Links each mechanics section to a specific phase. Ensures mechanics content is associated with correct phase in LLM context.",
-      "notes": "Linked by ID within JSONB structure — phase renames propagate automatically.",
+      "description": "Links each mechanics section to a specific phase.",
+      "notes": "Linked by ID — phase renames propagate automatically.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_name",
       "label": "Metric Name",
@@ -468,12 +448,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "llm",
       "rtmlib_reference": null,
-      "description": "Athlete-facing label for this measurement. Appears in results and Claude feedback.",
+      "description": "Athlete-facing label for this measurement.",
       "notes": "Under 4 words. Sport-accurate vocabulary.",
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_unit",
       "label": "Unit",
@@ -488,12 +467,11 @@
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
       "rtmlib_reference": "Must match calculation type: Angle=degrees, Distance=yards, Velocity=mph, Acceleration=mph/s, Frame Delta=frames.",
-      "description": "Unit of measurement displayed alongside calculated values in athlete results.",
+      "description": "Unit of measurement displayed alongside calculated values.",
       "notes": "Mismatch between unit and calculation type produces misleading results.",
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_description",
       "label": "Description",
@@ -508,12 +486,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "llm",
       "rtmlib_reference": null,
-      "description": "Passed to Claude API alongside metric results. Explains football significance of measurement.",
+      "description": "Passed to Claude API alongside metric results. Explains football significance.",
       "notes": "2-3 sentences. Football significance not technical calculation.",
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_elite_target",
       "label": "Elite Target",
@@ -527,13 +504,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "Scoring engine compares rtmlib calculated value against this target. Deviation = abs(measured - elite_target).",
+      "rtmlib_reference": "Scoring engine compares rtmlib calculated value against this target.",
       "description": "Benchmark value representing elite-level performance.",
       "notes": "Stored as eliteTarget (camelCase) in key_metrics JSONB array.",
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_tolerance",
       "label": "Tolerance",
@@ -549,11 +525,10 @@
       "mmpose_category": "direct",
       "rtmlib_reference": "Scoring engine applies tolerance as acceptable deviation band around elite_target.",
       "description": "Acceptable deviation from elite target before scoring penalties apply.",
-      "notes": "Angle ±2-5°, Distance ±0.3-0.7 yards, Velocity ±1-2 mph, Frame Delta ±1-2 frames.",
+      "notes": "Angle ±2-5°, Distance ±0.3-0.7 yards, Velocity ±1-2 mph.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_weight",
       "label": "Weight (%)",
@@ -573,7 +548,6 @@
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_temporal_window",
       "label": "Temporal Window",
@@ -593,7 +567,6 @@
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_depends_on",
       "label": "Depends On",
@@ -607,13 +580,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
-      "rtmlib_reference": "Edge Function checks upstream metric status before calculating this metric. If upstream flagged, this metric is skipped.",
-      "description": "Optional dependency on another metric. If upstream metric is flagged, this metric is skipped.",
+      "rtmlib_reference": "Edge Function checks upstream metric status. If upstream flagged, this metric is skipped.",
+      "description": "Optional dependency on another metric.",
       "notes": "Example: YAC Burst depends on Catch Efficiency.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_keypoint_indices",
       "label": "Keypoint Indices",
@@ -629,11 +601,10 @@
       "mmpose_category": "direct",
       "rtmlib_reference": "CRITICAL. Exact array indices used to extract coordinates from rtmlib output: keypoints[person][index] = [x,y].",
       "description": "Array of keypoint index numbers from COCO-WholeBody schema.",
-      "notes": "Auto-populated from Keypoint Selector UI. Verify against keypointLibrary.json before going Live.",
+      "notes": "Auto-populated from Keypoint Selector UI.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_calculation_type",
       "label": "Calculation Type",
@@ -653,7 +624,6 @@
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_bilateral",
       "label": "Bilateral",
@@ -673,7 +643,6 @@
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_confidence_threshold",
       "label": "Confidence Threshold",
@@ -687,13 +656,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "Read against scores[person][keypoint_index]. If any keypoint falls below threshold, metric is flagged as low confidence.",
+      "rtmlib_reference": "Read against scores[person][keypoint_index]. If any keypoint falls below threshold, metric is flagged.",
       "description": "Minimum rtmlib confidence score for keypoint coordinates to be considered reliable.",
       "notes": "Default 0.70. Never below 0.50. Use 0.75-0.80 for metrics above 15% weight.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_phase_id",
       "label": "Phase Assignment",
@@ -708,12 +676,11 @@
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
       "rtmlib_reference": "CRITICAL. Determines which frame window rtmlib output is extracted from for this metric.",
-      "description": "Links this metric to a specific phase. Pipeline only evaluates this metric within the assigned phase window.",
+      "description": "Links this metric to a specific phase.",
       "notes": "Linked by phase ID. Renames propagate. Deletion triggers orphan warning.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "metric_body_groups",
       "label": "Body Group Filter",
@@ -728,12 +695,11 @@
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
       "rtmlib_reference": "Determines which rtmlib Solution class is required. Hands require Wholebody. Feet require Body_with_feet minimum.",
-      "description": "Which keypoint groups are used in this metric. Controls Solution class requirement validation.",
+      "description": "Which keypoint groups are used in this metric.",
       "notes": "UI filter only — actual keypoints determined by keypoint_indices array.",
       "added": "2026-04-10",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "scoring_confidence_handling",
       "label": "Low Confidence Handling",
@@ -747,13 +713,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "Applied by scoring engine when metric keypoints fall below confidence_threshold. Skip=exclude, Penalize=score at 0, Flag=score normally but mark.",
+      "rtmlib_reference": "Applied by scoring engine when metric keypoints fall below confidence_threshold. Skip=exclude, Penalize=score at 0, Flag=mark.",
       "description": "Node-level rule for handling metrics whose keypoints fall below confidence threshold.",
-      "notes": "Skip recommended — prevents unreliable data from distorting Mastery Score.",
+      "notes": "Skip recommended.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "scoring_min_metrics_threshold",
       "label": "Minimum Metrics Threshold",
@@ -769,11 +734,10 @@
       "mmpose_category": "indirect",
       "rtmlib_reference": "Edge Function checks this before writing results. If flagged metric % exceeds threshold, analysis is rejected.",
       "description": "If more than this % of metrics are low confidence, reject analysis entirely.",
-      "notes": "Default 50%. Prevents meaningless scores from poor footage.",
+      "notes": "Default 50%.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "scoring_score_bands",
       "label": "Score Band Labels",
@@ -788,12 +752,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "llm",
       "rtmlib_reference": null,
-      "description": "Human-readable labels for score ranges shown to athletes. Passed to Claude for feedback framing.",
+      "description": "Human-readable labels for score ranges shown to athletes.",
       "notes": "90-100=Elite, 75-89=Varsity Ready, 60-74=Developing, below 60=Needs Work.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "error_name",
       "label": "Error Name",
@@ -809,11 +772,10 @@
       "mmpose_category": "llm",
       "rtmlib_reference": null,
       "description": "Name of this common mistake. Passed to Claude as a detected or potential error.",
-      "notes": "Stored in common_errors JSONB array on athlete_lab_nodes.",
+      "notes": "Stored in common_errors JSONB array.",
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "error_severity",
       "label": "Error Severity",
@@ -828,12 +790,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "llm",
       "rtmlib_reference": null,
-      "description": "How prominently this error appears in athlete feedback. Critical errors are always highlighted first.",
-      "notes": "Options: critical, common, minor. Affects feedback ordering and emphasis.",
+      "description": "How prominently this error appears in athlete feedback.",
+      "notes": "Options: critical, common, minor.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "error_auto_detection_condition",
       "label": "Auto-Detection Condition",
@@ -849,11 +810,10 @@
       "mmpose_category": "indirect",
       "rtmlib_reference": "Edge Function evaluates this condition against metric results. Confirmed detections passed to Claude as observed facts.",
       "description": "Metric-based trigger condition. Format: [Metric Name] [operator] [value].",
-      "notes": "e.g. 'Break Angle > 52'. Leave blank if error cannot be auto-detected.",
+      "notes": "e.g. 'Break Angle > 52'.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "error_auto_detectable",
       "label": "Auto-Detectable Toggle",
@@ -867,13 +827,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
-      "rtmlib_reference": "When true, Edge Function evaluates auto_detection_condition against metric output. Confirmed = passed to Claude as fact. False = LLM context only.",
-      "description": "Whether the pipeline automatically evaluates the detection condition for every analysis.",
+      "rtmlib_reference": "When true, Edge Function evaluates auto_detection_condition against metric output.",
+      "description": "Whether the pipeline automatically evaluates the detection condition.",
       "notes": "Auto-switches to ON when auto_detection_condition is filled in.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "reference_calibrations",
       "label": "Reference Calibrations",
@@ -887,13 +846,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "pixels_per_yard value from this array is applied to all Distance and Velocity metric outputs from rtmlib to convert pixel values to real-world yards.",
-      "description": "Array of calibration objects, one per camera angle. Contains reference object name, known size, placement instructions, and pixels_per_yard conversion factor.",
-      "notes": "Not required for Wholebody3d nodes — 3D coordinates returned in meters.",
+      "rtmlib_reference": "pixels_per_yard value applied to all Distance and Velocity metric outputs from rtmlib.",
+      "description": "Array of calibration objects, one per camera angle.",
+      "notes": "Not required for Wholebody3d nodes.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "reference_pixels_per_yard",
       "label": "Pixels Per Yard",
@@ -907,13 +865,12 @@
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "CRITICAL for Distance and Velocity metrics. Conversion factor: pixel_distance / pixels_per_yard = yards. Without this, Distance metrics return pixel values not yards.",
-      "description": "Number of pixels that equal one yard in this camera angle's frame. Calculated from test footage.",
-      "notes": "Measure from test clip: count pixels across reference object, divide by known size in yards.",
+      "rtmlib_reference": "CRITICAL for Distance and Velocity metrics. pixel_distance / pixels_per_yard = yards.",
+      "description": "Number of pixels that equal one yard. Calculated from test footage.",
+      "notes": "Count pixels across reference object, divide by known size in yards.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "reference_filming_instructions",
       "label": "Athlete Filming Instructions",
@@ -928,12 +885,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Instructions shown to athletes in the upload flow explaining reference object placement and camera setup.",
+      "description": "Instructions shown to athletes explaining reference object placement.",
       "notes": "Be specific — vague instructions produce inconsistent calibration.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "reference_fallback_behavior",
       "label": "If No Reference Detected",
@@ -947,93 +903,297 @@
       "supabase_status": "column_exists",
       "mmpose_status": "indirect_mapping",
       "mmpose_category": "indirect",
-      "rtmlib_reference": "Edge Function applies this rule when pixels_per_yard cannot be determined. Affects all Distance and Velocity metric outputs.",
-      "description": "What the pipeline does if no reference calibration is available for the upload's camera angle.",
+      "rtmlib_reference": "Edge Function applies this rule when pixels_per_yard cannot be determined.",
+      "description": "What the pipeline does if no reference calibration is available.",
       "notes": "Options: pixel_units_with_warning, disable_distance_metrics, estimate_using_field_lines.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
-      "id": "training_solution_class",
-      "label": "Solution Class",
-      "tab": "Training Status",
+      "id": "camera_min_fps",
+      "label": "Minimum FPS",
+      "tab": "Camera",
       "supabase_table": "athlete_lab_nodes",
-      "supabase_column": "solution_class",
-      "type": "text",
-      "default": null,
+      "supabase_column": "camera_guidelines (jsonb)",
+      "type": "integer",
+      "default": 30,
       "required_for_live": true,
       "athletelab_status": "implemented",
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "CRITICAL. Determines which rtmlib Solution class is instantiated on Cloud Run. Must support all keypoint indices used in node metrics. Mismatch returns empty arrays silently.",
-      "description": "rtmlib model tier to use. Body (0-16), Body_with_feet (0-22), Wholebody (0-132 2D), Wholebody3d (0-132 3D).",
-      "notes": "Slant Route requires Wholebody for hand keypoints 99 and 120 (Catch Efficiency).",
-      "added": "2026-04-11",
+      "rtmlib_reference": "FPS affects Velocity and Acceleration calculation accuracy. displacement_per_frame / (1/fps) = velocity. Lower FPS = less precise velocity.",
+      "description": "Minimum frames per second required for accurate metric calculations.",
+      "notes": "30fps minimum. 60fps recommended for break angle and plant foot metrics.",
+      "added": "2026-04-12",
       "added_by": "iaawesmith"
     },
-
     {
-      "id": "training_performance_mode",
-      "label": "Performance Mode",
-      "tab": "Training Status",
+      "id": "camera_min_resolution",
+      "label": "Minimum Resolution",
+      "tab": "Camera",
       "supabase_table": "athlete_lab_nodes",
-      "supabase_column": "performance_mode",
+      "supabase_column": "camera_guidelines (jsonb)",
       "type": "text",
-      "default": "balanced",
-      "required_for_live": false,
+      "default": "720p",
+      "required_for_live": true,
       "athletelab_status": "implemented",
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "Passed directly to rtmlib PoseTracker mode parameter. Controls which ONNX model weights are loaded.",
-      "description": "Speed/accuracy tradeoff. Performance=most accurate, Balanced=recommended, Lightweight=fastest.",
-      "notes": "Use Balanced for all standard route running nodes.",
-      "added": "2026-04-11",
+      "rtmlib_reference": "rtmlib model input is 384x288. Source video below 720p provides insufficient detail for reliable keypoint extraction.",
+      "description": "Minimum source video resolution for reliable keypoint detection.",
+      "notes": "720p minimum. 1080p recommended.",
+      "added": "2026-04-12",
       "added_by": "iaawesmith"
     },
-
     {
-      "id": "training_det_frequency",
-      "label": "Detection Frequency",
-      "tab": "Training Status",
+      "id": "camera_min_distance",
+      "label": "Recommended Distance — Minimum",
+      "tab": "Camera",
       "supabase_table": "athlete_lab_nodes",
-      "supabase_column": "det_frequency",
+      "supabase_column": "camera_guidelines (jsonb)",
       "type": "integer",
-      "default": 7,
-      "required_for_live": false,
+      "default": null,
+      "required_for_live": true,
       "athletelab_status": "implemented",
       "supabase_status": "column_exists",
-      "mmpose_status": "direct_mapping",
-      "mmpose_category": "direct",
-      "rtmlib_reference": "Passed to rtmlib PoseTracker det_frequency parameter. Runs full YOLOX detection every N frames, tracks between.",
-      "description": "How often rtmlib runs full person detection vs tracking. Lower = more accurate, slower.",
-      "notes": "Default 7. Use 3-5 for clips under 5 seconds.",
-      "added": "2026-04-11",
+      "mmpose_status": "indirect_mapping",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": "Too close = full body parts leave the frame. Auto-reject fires if athlete occupies less than threshold % of frame.",
+      "description": "Minimum recommended camera distance from athlete in yards.",
+      "notes": "Route running nodes: 10-20 yards sideline.",
+      "added": "2026-04-12",
       "added_by": "iaawesmith"
     },
-
     {
-      "id": "training_tracking",
-      "label": "Tracking",
-      "tab": "Training Status",
+      "id": "camera_max_distance",
+      "label": "Recommended Distance — Maximum",
+      "tab": "Camera",
       "supabase_table": "athlete_lab_nodes",
-      "supabase_column": "tracking_enabled",
-      "type": "boolean",
-      "default": true,
+      "supabase_column": "camera_guidelines (jsonb)",
+      "type": "integer",
+      "default": null,
+      "required_for_live": true,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "indirect_mapping",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": "Too far = athlete occupies less than 15% of frame — triggers auto-reject and keypoint accuracy degrades.",
+      "description": "Maximum recommended camera distance from athlete in yards.",
+      "notes": "Athlete should occupy 20-60% of frame height.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "camera_auto_reject_frame_size",
+      "label": "Auto-Reject: Athlete Too Small",
+      "tab": "Camera",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "camera_guidelines (jsonb)",
+      "type": "float",
+      "default": 15,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "indirect_mapping",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": "Edge Function checks athlete frame occupancy before sending to Cloud Run. Below threshold = rejected before rtmlib runs.",
+      "description": "Reject if athlete occupies less than this % of frame height.",
+      "notes": "Default 15%. Below this hand and foot keypoints return near-zero confidence.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "camera_auto_reject_confidence",
+      "label": "Auto-Reject: Keypoint Confidence",
+      "tab": "Camera",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "camera_guidelines (jsonb)",
+      "type": "float",
+      "default": 0.65,
       "required_for_live": false,
       "athletelab_status": "implemented",
       "supabase_status": "column_exists",
       "mmpose_status": "direct_mapping",
       "mmpose_category": "direct",
-      "rtmlib_reference": "Passed to rtmlib PoseTracker tracking parameter. Must be False for Wholebody3d — 3D IoU tracking is unreliable.",
-      "description": "Whether rtmlib tracks person identity between detection frames.",
-      "notes": "Auto-set to OFF when Wholebody3d is selected. ON for all 2D models.",
-      "added": "2026-04-11",
+      "rtmlib_reference": "Evaluated against average rtmlib confidence scores for required keypoints. Below threshold = analysis rejected before scoring.",
+      "description": "Reject if average confidence across required keypoints is below this threshold.",
+      "notes": "Set lower than your lowest per-metric confidence threshold. Default 0.65.",
+      "added": "2026-04-12",
       "added_by": "iaawesmith"
     },
-
+    {
+      "id": "camera_filming_instructions",
+      "label": "Athlete Filming Instructions",
+      "tab": "Camera",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "camera_filming_instructions",
+      "type": "text",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "ui",
+      "rtmlib_reference": null,
+      "description": "Step-by-step filming instructions shown to athletes in the upload flow.",
+      "notes": "Specific instructions reduce rejected uploads and improve keypoint quality.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_name",
+      "label": "Checkpoint Name",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].name",
+      "type": "text (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": null,
+      "description": "Short scannable name for this checkpoint. e.g. 'Plant Foot Strike', 'Head Snap Moment'.",
+      "notes": "Stored in form_checkpoints JSONB array.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_description",
+      "label": "Checkpoint Description",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].description",
+      "type": "text (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "llm",
+      "rtmlib_reference": null,
+      "description": "What this checkpoint is detecting and why it matters. Used as LLM context when checkpoint fires.",
+      "notes": null,
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_phase_id",
+      "label": "Phase Assignment",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].phase_id",
+      "type": "uuid (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "indirect_mapping",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": "Pipeline only looks for this checkpoint's trigger condition within the assigned phase frame window.",
+      "description": "Which phase this checkpoint is evaluated within.",
+      "notes": "Linked by phase_id. Renames propagate automatically.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_phase_transition_role",
+      "label": "Phase Transition Role",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].phase_transition_role",
+      "type": "text (jsonb)",
+      "default": "informational",
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "indirect_mapping",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": "When segmentation_method = checkpoint_triggered, this determines whether the checkpoint firing marks a phase start or end boundary.",
+      "description": "Whether this checkpoint marks a phase start, phase end, or is informational only.",
+      "notes": "Options: marks_phase_start, marks_phase_end, informational.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_trigger_condition",
+      "label": "Trigger Condition",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].trigger_condition",
+      "type": "text (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "indirect_mapping",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": "Edge Function evaluates this condition frame-by-frame within assigned phase using rtmlib keypoint coordinates.",
+      "description": "Body position event that fires this checkpoint. e.g. 'Left Heel (19) Y-coordinate reaches minimum value'.",
+      "notes": "Format: [Keypoint name] [condition type] [value].",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_required_keypoints",
+      "label": "Required Keypoints",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].required_keypoint_indices",
+      "type": "integer[] (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "direct_mapping",
+      "mmpose_category": "direct",
+      "rtmlib_reference": "Checked against rtmlib scores[person][index]. If any required keypoint falls below confidence threshold, checkpoint is flagged as undetectable.",
+      "description": "Keypoint indices that must be above confidence threshold for checkpoint to be valid.",
+      "notes": "Uses same chip selector interface as Metrics tab.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_confidence_threshold",
+      "label": "Confidence Threshold",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].confidence_threshold",
+      "type": "float (jsonb)",
+      "default": 0.75,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "direct_mapping",
+      "mmpose_category": "direct",
+      "rtmlib_reference": "Read against rtmlib scores[person][keypoint_index] for required keypoints. Higher default than metrics (0.75 vs 0.70) because checkpoints are binary pass/fail.",
+      "description": "Minimum rtmlib confidence for required keypoints. Default 0.75 (higher than metrics).",
+      "notes": "Binary pass/fail events require higher confidence than continuous metric calculations.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "checkpoint_priority",
+      "label": "Priority",
+      "tab": "Checkpoints",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "form_checkpoints[].priority",
+      "type": "integer (jsonb)",
+      "default": 1,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "indirect_mapping",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": "Edge Function uses priority to resolve conflicts when two checkpoints fire on the same frame. Lower number = higher priority.",
+      "description": "Evaluation precedence when two checkpoints fire simultaneously. Priority 1 = highest.",
+      "notes": "Lower number = higher priority.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
     {
       "id": "llm_prompt_template",
       "label": "LLM Prompt Template",
@@ -1053,7 +1213,291 @@
       "added": "2026-04-01",
       "added_by": "iaawesmith"
     },
-
+    {
+      "id": "llm_tone",
+      "label": "Tone",
+      "tab": "LLM Prompt",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "llm_tone",
+      "type": "text",
+      "default": "direct",
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "llm",
+      "rtmlib_reference": null,
+      "description": "Default communication style for Claude feedback. Options: encouraging, direct, technical.",
+      "notes": "Adjusts Claude's vocabulary and framing without rewriting the full prompt.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "llm_max_words",
+      "label": "Max Feedback Length",
+      "tab": "LLM Prompt",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "llm_max_words",
+      "type": "integer",
+      "default": 150,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "llm",
+      "rtmlib_reference": null,
+      "description": "Target word count for Claude's coaching feedback response.",
+      "notes": "50-200 words recommended. Above 350 may overwhelm athletes.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "llm_system_instructions",
+      "label": "System Instructions",
+      "tab": "LLM Prompt",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "llm_system_instructions",
+      "type": "text",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "llm",
+      "rtmlib_reference": null,
+      "description": "Persona and context statement prepended to every Claude call. Sets coaching voice before prompt template runs.",
+      "notes": "Keep under 100 words. e.g. 'You are an NFL wide receivers coach with 15 years experience.'",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "training_solution_class",
+      "label": "Solution Class",
+      "tab": "Training Status",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "solution_class",
+      "type": "text",
+      "default": null,
+      "required_for_live": true,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "direct_mapping",
+      "mmpose_category": "direct",
+      "rtmlib_reference": "CRITICAL. Determines which rtmlib Solution class is instantiated on Cloud Run. Mismatch returns empty arrays silently.",
+      "description": "rtmlib model tier. Body (0-16), Body_with_feet (0-22), Wholebody (0-132 2D), Wholebody3d (0-132 3D).",
+      "notes": "Slant Route requires Wholebody for hand keypoints 99 and 120.",
+      "added": "2026-04-11",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "training_performance_mode",
+      "label": "Performance Mode",
+      "tab": "Training Status",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "performance_mode",
+      "type": "text",
+      "default": "balanced",
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "direct_mapping",
+      "mmpose_category": "direct",
+      "rtmlib_reference": "Passed directly to rtmlib PoseTracker mode parameter. Controls which ONNX model weights are loaded.",
+      "description": "Speed/accuracy tradeoff. Performance=most accurate, Balanced=recommended, Lightweight=fastest.",
+      "notes": "Use Balanced for all standard route running nodes.",
+      "added": "2026-04-11",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "training_det_frequency",
+      "label": "Detection Frequency",
+      "tab": "Training Status",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "det_frequency",
+      "type": "integer",
+      "default": 7,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "direct_mapping",
+      "mmpose_category": "direct",
+      "rtmlib_reference": "Passed to rtmlib PoseTracker det_frequency parameter. Full YOLOX detection every N frames, tracks between.",
+      "description": "How often rtmlib runs full person detection vs tracking.",
+      "notes": "Default 7. Use 3-5 for clips under 5 seconds.",
+      "added": "2026-04-11",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "training_tracking",
+      "label": "Tracking",
+      "tab": "Training Status",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "tracking_enabled",
+      "type": "boolean",
+      "default": true,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "direct_mapping",
+      "mmpose_category": "direct",
+      "rtmlib_reference": "Passed to rtmlib PoseTracker tracking parameter. Must be False for Wholebody3d.",
+      "description": "Whether rtmlib tracks person identity between detection frames.",
+      "notes": "Auto-set to OFF when Wholebody3d selected.",
+      "added": "2026-04-11",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_name",
+      "label": "Badge Name",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].name",
+      "type": "text (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "ui",
+      "rtmlib_reference": null,
+      "description": "Athlete-facing badge title. e.g. 'Route Technician', 'Plant Foot Master'.",
+      "notes": "Stored in badges JSONB array on athlete_lab_nodes.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_icon",
+      "label": "Badge Icon",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].icon",
+      "type": "text (jsonb)",
+      "default": "🏆",
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "ui",
+      "rtmlib_reference": null,
+      "description": "Emoji or icon displayed alongside the badge on athlete profile and results screen.",
+      "notes": null,
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_description",
+      "label": "Badge Description",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].description",
+      "type": "text (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "ui",
+      "rtmlib_reference": null,
+      "description": "Short motivational line shown to athlete when they earn or view this badge.",
+      "notes": "Keep under 15 words.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_rarity",
+      "label": "Rarity / Tier",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].rarity",
+      "type": "text (jsonb)",
+      "default": "common",
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "ui",
+      "rtmlib_reference": null,
+      "description": "Difficulty tier affecting visual presentation. Options: common, rare, epic, legendary.",
+      "notes": "Common=grey, Rare=blue, Epic=purple, Legendary=amber/gold.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_condition_type",
+      "label": "Unlock Condition Type",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].condition_type",
+      "type": "text (jsonb)",
+      "default": "score_based",
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": null,
+      "description": "How the pipeline determines when to award this badge. Options: score_based, metric_based, streak_based, custom.",
+      "notes": "Evaluated by Edge Function after each analysis against athlete_lab_results.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_condition_threshold",
+      "label": "Condition Threshold",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].condition_threshold",
+      "type": "float (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": null,
+      "description": "The score or metric value threshold for unlocking this badge.",
+      "notes": "e.g. 90 for score_based, 45 for metric_based Break Angle.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_condition_count",
+      "label": "Required Count / Streak",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].condition_count",
+      "type": "integer (jsonb)",
+      "default": 1,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": null,
+      "description": "Number of analyses that must meet the condition. For streak_based, must be consecutive.",
+      "notes": "Default 1 (single achievement). Use 3-5 for rare/epic badges.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
+    {
+      "id": "badge_condition_metric_id",
+      "label": "Condition Metric",
+      "tab": "Badges",
+      "supabase_table": "athlete_lab_nodes",
+      "supabase_column": "badges[].condition_metric_id",
+      "type": "uuid (jsonb)",
+      "default": null,
+      "required_for_live": false,
+      "athletelab_status": "implemented",
+      "supabase_status": "column_exists",
+      "mmpose_status": "not_applicable",
+      "mmpose_category": "indirect",
+      "rtmlib_reference": null,
+      "description": "For metric_based conditions — which metric must meet the threshold.",
+      "notes": "Populated from node's key_metrics. Null for score_based and streak_based.",
+      "added": "2026-04-12",
+      "added_by": "iaawesmith"
+    },
     {
       "id": "enhancement_title",
       "label": "Enhancement Title",
@@ -1068,12 +1512,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Short descriptive name for the enhancement. Should be specific enough to understand at a glance.",
+      "description": "Short descriptive name for the enhancement.",
       "notes": "Stored in admin_enhancements table.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "enhancement_tab",
       "label": "Enhancement Tab",
@@ -1089,11 +1532,10 @@
       "mmpose_category": "ui",
       "rtmlib_reference": null,
       "description": "Which AthleteLab tab this enhancement applies to.",
-      "notes": "Used for filtering in the Enhancements tab.",
+      "notes": null,
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "enhancement_urgency",
       "label": "Urgency Level",
@@ -1109,11 +1551,10 @@
       "mmpose_category": "ui",
       "rtmlib_reference": null,
       "description": "Priority level: critical, high, medium, or future.",
-      "notes": "Critical = do immediately. Future = tracked but not scheduled.",
+      "notes": null,
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "enhancement_description",
       "label": "Description",
@@ -1133,7 +1574,6 @@
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "enhancement_reason",
       "label": "Reason for Enhancement",
@@ -1148,12 +1588,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Why this enhancement is needed — the specific gap or pain point it addresses.",
+      "description": "Why this enhancement is needed.",
       "notes": null,
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "enhancement_lovable_prompt",
       "label": "Lovable Prompt",
@@ -1168,12 +1607,11 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Optional Lovable prompt ready to paste when this enhancement is scheduled for build.",
-      "notes": "Copyable from the Enhancements tab with one click.",
+      "description": "Optional Lovable prompt ready to paste when enhancement is scheduled.",
+      "notes": "Copyable from Enhancements tab with one click.",
       "added": "2026-04-11",
       "added_by": "iaawesmith"
     },
-
     {
       "id": "enhancement_notes",
       "label": "Notes",
@@ -1188,7 +1626,7 @@
       "mmpose_status": "not_applicable",
       "mmpose_category": "ui",
       "rtmlib_reference": null,
-      "description": "Additional context, related discussions, or follow-up thoughts.",
+      "description": "Additional context or follow-up thoughts.",
       "notes": null,
       "added": "2026-04-11",
       "added_by": "iaawesmith"
@@ -1197,7 +1635,7 @@
   ],
 
   "summary": {
-    "total_fields": 58,
+    "total_fields": 84,
     "by_tab": {
       "Basics": 6,
       "Videos": 7,
@@ -1208,27 +1646,29 @@
       "Scoring": 3,
       "Errors": 4,
       "Reference": 4,
-      "Camera": 0,
-      "LLM Prompt": 1,
+      "Camera": 7,
+      "Checkpoints": 8,
+      "LLM Prompt": 4,
       "Training Status": 4,
+      "Badges": 8,
       "Admin Reference": 7
     },
     "by_athletelab_status": {
-      "implemented": 55,
-      "in_progress": 2,
-      "not_built": 1
+      "implemented": 84,
+      "in_progress": 0,
+      "not_built": 0
     },
     "by_supabase_status": {
-      "column_exists": 55,
-      "needs_migration": 1,
-      "missing": 2
+      "column_exists": 84,
+      "needs_migration": 0,
+      "missing": 0
     },
     "by_mmpose_status": {
-      "direct_mapping": 22,
-      "indirect_mapping": 13,
-      "not_applicable": 23
+      "direct_mapping": 26,
+      "indirect_mapping": 18,
+      "not_applicable": 40
     },
-    "required_for_live": 20,
-    "pipeline_critical": 22
+    "required_for_live": 22,
+    "pipeline_critical": 26
   }
 }
