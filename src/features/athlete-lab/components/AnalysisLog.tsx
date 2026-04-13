@@ -6,6 +6,7 @@ type CopyState = "idle" | "success" | "error";
 interface AnalysisLogProps {
   logData: AnalysisLogData | null | undefined;
   nodeName: string;
+  hasResult: boolean;
 }
 
 type LogStatus = "PASS" | "WARN" | "ERROR";
