@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
+import { PipelineSetupTab } from "./PipelineSetupTab";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "data_dictionary" | "enhancements";
+type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "pipeline_setup" | "enhancements" | "data_dictionary";
 
 interface ReferenceLink {
   id: string;
@@ -26,8 +27,9 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "node_builder", label: "NODE BUILDER" },
   { id: "architecture", label: "ARCHITECTURE" },
   { id: "links", label: "LINKS" },
-  { id: "data_dictionary", label: "DATA DICTIONARY" },
+  { id: "pipeline_setup", label: "PIPELINE SETUP" },
   { id: "enhancements", label: "ENHANCEMENTS" },
+  { id: "data_dictionary", label: "DATA DICTIONARY" },
 ];
 
 const PROMPT_TAB_CONFIG: Record<
@@ -415,13 +417,14 @@ export function AdminReferencePanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Content */}
-      <div className={`flex-1 overflow-y-auto p-6 mx-auto w-full ${activeTab === "data_dictionary" || activeTab === "enhancements" ? "max-w-6xl" : "max-w-4xl"}`}>
+      <div className={`flex-1 overflow-y-auto p-6 mx-auto w-full ${activeTab === "data_dictionary" || activeTab === "enhancements" || activeTab === "pipeline_setup" ? "max-w-6xl" : "max-w-4xl"}`}>
         {activeTab === "agent_briefing" && <PromptTab tabKey="agent_briefing" />}
         {activeTab === "node_builder" && <PromptTab tabKey="node_builder" />}
         {activeTab === "architecture" && <PromptTab tabKey="architecture" />}
         {activeTab === "links" && <LinksTab />}
-        {activeTab === "data_dictionary" && <DataDictionaryTab />}
+        {activeTab === "pipeline_setup" && <PipelineSetupTab />}
         {activeTab === "enhancements" && <EnhancementsTab />}
+        {activeTab === "data_dictionary" && <DataDictionaryTab />}
       </div>
     </div>
   );
