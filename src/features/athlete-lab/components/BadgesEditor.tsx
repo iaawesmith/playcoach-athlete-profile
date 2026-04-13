@@ -104,17 +104,26 @@ export function BadgesEditor({ badges, keyMetrics, onChange, onConfirmDelete }: 
 
   const rarityLabel = (r: string) => (r || "common").charAt(0).toUpperCase() + (r || "common").slice(1);
 
+  const formatOp = (op: string, th: number, b: Badge) => {
+    if (op === "+-") {
+      const tol = b.condition_count ?? 1;
+      return `± ${tol} of ${th}`;
+    }
+    return `${op} ${th}`;
+  };
+
   const conditionPreview = (b: Badge) => {
     const op = b.condition_operator || ">=";
     const th = b.condition_threshold ?? 90;
     const cnt = b.condition_count ?? 1;
-    if (b.condition_type === "score") return `Mastery Score ${op} ${th} on ${cnt} analysis${cnt > 1 ? "es" : ""}`;
+    if (b.condition_type === "score") return `Mastery Score ${formatOp(op, th, b)} on ${cnt} analysis${cnt > 1 ? "es" : ""}`;
     if (b.condition_type === "metric") {
       const m = keyMetrics.find((_m, idx) => _m.name === b.condition_metric_id || idx.toString() === b.condition_metric_id);
       const metricName = m?.name || b.condition_metric_id || "—";
+      if (op === "+-") return `${metricName} ± ${cnt} of ${th}`;
       return `${metricName} ${op} ${th} on ${cnt} analysis${cnt > 1 ? "es" : ""}`;
     }
-    if (b.condition_type === "streak") return `Mastery Score ${op} ${th} on ${cnt} consecutive analysis${cnt > 1 ? "es" : ""} in a row`;
+    if (b.condition_type === "streak") return `Mastery Score ${formatOp(op, th, b)} on ${cnt} consecutive analysis${cnt > 1 ? "es" : ""} in a row`;
     return b.condition_custom || b.condition || "Custom condition";
   };
 
