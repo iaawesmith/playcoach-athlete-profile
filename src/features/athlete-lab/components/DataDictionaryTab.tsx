@@ -336,6 +336,10 @@ export function DataDictionaryTab() {
             )}
             Refresh
           </button>
+          <button onClick={handleCopyAudit} className="h-8 px-3 rounded-full bg-surface-container border border-outline-variant/10 text-on-surface-variant font-black uppercase tracking-[0.2em] text-[10px] hover:bg-surface-container-high transition-all active:scale-95 flex items-center gap-1.5">
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{copied ? "check" : "content_copy"}</span>
+            {copied ? "✓ Copied for AI audit" : "Copy for AI Audit"}
+          </button>
         </div>
       </div>
 
