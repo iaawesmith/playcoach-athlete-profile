@@ -258,6 +258,21 @@ export function NodeReadinessBar({ node, onTabChange, onSetLive }: Props) {
 
         <button
           data-setlive
+          onClick={async (e) => {
+            e.stopPropagation();
+            const md = generateFullNodeMarkdown(node);
+            await navigator.clipboard.writeText(md);
+            toast.success("Node copied!");
+          }}
+          className="h-8 px-4 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all active:scale-95 shrink-0 border border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+          title="Copy full node configuration for AI review"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>file_copy</span>
+          Copy Node
+        </button>
+
+        <button
+          data-setlive
           disabled={score < 100}
           onClick={(e) => { e.stopPropagation(); onSetLive(); }}
           className={`h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all active:scale-95 shrink-0 ${
