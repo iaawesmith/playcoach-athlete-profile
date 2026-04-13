@@ -12,6 +12,7 @@ import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
+import { generateTabMarkdown } from "../utils/nodeExport";
 
 interface NodeEditorProps {
   node: TrainingNode;
@@ -524,6 +525,19 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                 >
                   133 Keypoints ↗
                 </a>
+              )}
+              {tab !== "test" && (
+                <button
+                  onClick={async () => {
+                    const md = generateTabMarkdown(draft, tab as any);
+                    await navigator.clipboard.writeText(md);
+                    toast.success(`Copied ${activeTab?.label} tab for AI`);
+                  }}
+                  title={`Copy ${activeTab?.label} tab for AI`}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 shrink-0 mt-0.5"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>content_copy</span>
+                </button>
               )}
               <button
                 onClick={() => setHelpOpen(true)}
