@@ -269,7 +269,9 @@ function generateTrainingStatus(node: TrainingNode): string {
   const metrics = node.key_metrics ?? [];
   const maxIdx = getMaxKeypointIndex(metrics);
   const derivedClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "N/A";
-  const configuredClass = node.solution_class || "NOT CONFIGURED — BLOCKING";
+  const rawClass = node.solution_class || "";
+  const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const configuredClass = rawClass ? capitalize(rawClass) : "NOT CONFIGURED — BLOCKING";
 
   let compatibility = "COMPATIBLE";
   if (!node.solution_class) {
@@ -279,11 +281,11 @@ function generateTrainingStatus(node: TrainingNode): string {
       const indices = m.keypoint_mapping?.keypoint_indices ?? [];
       if (node.solution_class === "body" && indices.some(i => i >= 17)) {
         const needed = indices.some(i => i >= 23) ? "Wholebody" : "Body_with_feet";
-        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 17))} which requires ${needed} but node is configured for ${node.solution_class}`;
+        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 17))} which requires ${needed} but node is configured for ${capitalize(node.solution_class!)}`;
         break;
       }
       if (node.solution_class === "body_with_feet" && indices.some(i => i >= 91)) {
-        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 91))} which requires Wholebody but node is configured for ${node.solution_class}`;
+        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 91))} which requires Wholebody but node is configured for ${capitalize(node.solution_class!)}`;
         break;
       }
     }
