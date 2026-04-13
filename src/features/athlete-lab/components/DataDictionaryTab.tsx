@@ -120,9 +120,11 @@ function generateAuditMarkdown(fields: DictionaryField[]): string {
   const withGaps = fields.filter(f => f.athletelab_status !== "implemented" || f.supabase_status !== "column_exists").length;
   const directCount = fields.filter(f => f.mmpose_status === "direct_mapping").length;
   const liveCount = fields.filter(f => f.required_for_live).length;
-  const pipelineCritical = fields
-    .filter(f => f.mmpose_status === "direct_mapping" && f.required_for_live)
-    .map(f => f.label)
+  const pipelineCriticalFields = fields.filter(f => f.mmpose_status === "direct_mapping" && f.required_for_live);
+  const labelCounts = new Map<string, number>();
+  pipelineCriticalFields.forEach(f => labelCounts.set(f.label, (labelCounts.get(f.label) || 0) + 1));
+  const pipelineCritical = pipelineCriticalFields
+    .map(f => (labelCounts.get(f.label) || 0) > 1 ? `[${f.tab}] ${f.label}` : f.label)
     .join(", ");
 
   return `# AthleteLab Data Dictionary — AI Audit Format
