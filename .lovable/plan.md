@@ -1,25 +1,20 @@
 
 
-## Plan: Add Readiness Score Tag to Node Sidebar
+## Fix: Emoji Picker Cut Off in Badges Tab
 
-### What changes
+The emoji picker dropdown is clipped because it's inside a card container with `overflow-hidden` or because the `right-0` alignment pushes it against the edge. The picker also uses a small `max-w-[280px]` / `max-h-[200px]` grid that gets cut off.
 
-**1. Export readiness helpers from `NodeReadinessBar.tsx`**
-- Export `computeCategories`, `computeScore`, and `scoreColor` so the sidebar can reuse the same scoring logic.
+### Changes (single file)
 
-**2. Update `NodeSidebar.tsx`**
-- Move the position tag (WR/QB/RB) closer to the node name — place it immediately after the name text instead of pushed to the right with `flex-1`.
-- Add a new readiness percentage pill after the position tag, right-aligned:
-  - Shows `73%` or `100%` etc.
-  - Green (`#22c55e`) background at 100%, amber (`#f59e0b`) at 60-99%, red (`#ef4444`) below 60% — matching the progress bar color logic.
-  - Small pill style matching the position tag aesthetic.
-- Layout becomes: `[status dot] [Node Name] [WR] ... [73%] [🗑]`
+**`src/features/athlete-lab/components/BadgesEditor.tsx`** — `renderEmojiPicker` function (lines 207-222):
 
-### Technical details
+1. Change the picker from `absolute` positioning to a **fixed portal-style overlay** approach, or simpler: use `left-0` instead of `right-0` so it opens toward the available space (left-aligned under the icon button).
 
-- Import `computeCategories`, `computeScore`, `scoreColor` from `NodeReadinessBar`.
-- Compute score per node inline using `useMemo` or direct call since nodes are already in memory.
-- The readiness pill uses the same `scoreColor()` function for background tint (at 20% opacity) and text color.
+2. Increase `max-h-[200px]` to `max-h-[280px]` so all 16 emojis are visible without scrolling (4 columns x 4 rows fits perfectly).
 
-No database changes. No new files. Two files modified.
+3. Add a click-outside listener using a backdrop overlay `div` so the picker closes when clicking elsewhere.
+
+4. The grid stays `grid-cols-4` with `w-9 h-9` buttons — all 16 emojis fit in 4 rows at the increased height.
+
+Result: the picker opens fully visible, left-aligned under the icon button, with all options showing without scroll.
 
