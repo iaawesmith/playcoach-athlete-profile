@@ -105,12 +105,48 @@ function MmposePill({ status, rtmlibRef }: { status: string; rtmlibRef: string |
 /*  DataDictionaryTab                                                  */
 /* ------------------------------------------------------------------ */
 
+function generateAuditMarkdown(fields: DictionaryField[]): string {
+  const now = new Date().toLocaleString();
+  const tabs = new Set(fields.map(f => f.tab));
+  const alMap: Record<string, string> = { implemented: "✅", in_progress: "⚠️", not_built: "❌" };
+  const sbMap: Record<string, string> = { column_exists: "✅", needs_migration: "⚠️", missing: "❌" };
+  const mmMap: Record<string, string> = { direct_mapping: "DIRECT", indirect_mapping: "INDIRECT", not_applicable: "N/A", llm_only: "LLM" };
+
+  const rows = fields.map(f =>
+    `| ${f.tab} | ${f.label} | ${f.supabase_table}.${f.supabase_column} | ${f.type} | ${alMap[f.athletelab_status] || "?"} | ${sbMap[f.supabase_status] || "?"} | ${mmMap[f.mmpose_status] || "?"} |`
+  ).join("\n");
+
+  const fullyClear = fields.filter(f => f.athletelab_status === "implemented" && f.supabase_status === "column_exists").length;
+  const withGaps = fields.filter(f => f.athletelab_status !== "implemented" || f.supabase_status !== "column_exists").length;
+  const directCount = fields.filter(f => f.mmpose_status === "direct_mapping").length;
+  const pipelineCritical = fields
+    .filter(f => f.mmpose_status === "direct_mapping" && f.required_for_live)
+    .map(f => f.label)
+    .join(", ");
+
+  return `# AthleteLab Data Dictionary — AI Audit Format
+# Generated: ${now}
+# Total: ${fields.length} fields across ${tabs.size} tabs
+
+| TAB | FIELD | SUPABASE PATH | TYPE | AL | SB | MMPOSE |
+|---|---|---|---|---|---|---|
+${rows}
+
+---
+
+SUMMARY: ${fields.length} fields | ${fullyClear} ✅✅ fully clear | ${withGaps} with gaps | ${directCount} direct MMPose connections
+
+PIPELINE CRITICAL: fields where mmpose=DIRECT and required_for_live=true: ${pipelineCritical || "none"}
+`;
+}
+
 export function DataDictionaryTab() {
   const [data, setData] = useState<DictionaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Filters
   const [tabFilter, setTabFilter] = useState("all");
@@ -207,6 +243,13 @@ export function DataDictionaryTab() {
 
   useEffect(() => { initialLoad(); }, [initialLoad]);
 
+  const handleCopyAudit = async () => {
+    const md = generateAuditMarkdown(fields);
+    await navigator.clipboard.writeText(md);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -292,6 +335,10 @@ export function DataDictionaryTab() {
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>refresh</span>
             )}
             Refresh
+          </button>
+          <button onClick={handleCopyAudit} className="h-8 px-3 rounded-full bg-surface-container border border-outline-variant/10 text-on-surface-variant font-black uppercase tracking-[0.2em] text-[10px] hover:bg-surface-container-high transition-all active:scale-95 flex items-center gap-1.5">
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{copied ? "check" : "content_copy"}</span>
+            {copied ? "✓ Copied for AI audit" : "Copy for AI Audit"}
           </button>
         </div>
       </div>
