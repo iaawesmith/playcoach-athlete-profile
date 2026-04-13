@@ -213,6 +213,8 @@ interface Props {
 }
 
 export function NodeReadinessBar({ node, onTabChange, onSetLive }: Props) {
+  const [copyState, setCopyState] = useState<"idle" | "success" | "error">("idle");
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [expanded, setExpanded] = useState(false);
 
   const categories = useMemo(() => computeCategories(node), [node]);

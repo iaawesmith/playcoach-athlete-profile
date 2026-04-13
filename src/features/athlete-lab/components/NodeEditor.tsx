@@ -14,6 +14,37 @@ import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
 import { generateTabMarkdown } from "../utils/nodeExport";
 
+type CopyState = "idle" | "success" | "error";
+
+function TabCopyButton({ onClick, title }: { onClick: () => Promise<void>; title: string }) {
+  const [state, setState] = useState<CopyState>("idle");
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleClick = async () => {
+    try {
+      await onClick();
+      setState("success");
+    } catch {
+      setState("error");
+    }
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setState("idle"), 2000);
+  };
+
+  const icon = state === "success" ? "check_circle" : state === "error" ? "error" : "content_copy";
+  const color = state === "success" ? "#22c55e" : state === "error" ? "#ef4444" : undefined;
+
+  return (
+    <button
+      onClick={handleClick}
+      title={state === "error" ? "Copy failed — check clipboard permissions" : title}
+      className="w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 shrink-0 mt-0.5"
+    >
+      <span className="material-symbols-outlined" style={{ fontSize: 14, color, transition: "color 0.2s" }}>{icon}</span>
+    </button>
+  );
+}
+
 interface NodeEditorProps {
   node: TrainingNode;
   onUpdated: (node: TrainingNode) => void;
