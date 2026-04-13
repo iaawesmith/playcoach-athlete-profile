@@ -27,8 +27,9 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "node_builder", label: "NODE BUILDER" },
   { id: "architecture", label: "ARCHITECTURE" },
   { id: "links", label: "LINKS" },
-  { id: "data_dictionary", label: "DATA DICTIONARY" },
+  { id: "pipeline_setup", label: "PIPELINE SETUP" },
   { id: "enhancements", label: "ENHANCEMENTS" },
+  { id: "data_dictionary", label: "DATA DICTIONARY" },
 ];
 
 const PROMPT_TAB_CONFIG: Record<
