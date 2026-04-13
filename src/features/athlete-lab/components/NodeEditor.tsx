@@ -1166,6 +1166,56 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
             <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec(""); setNewCameraAngle(""); setNewVideoType("both"); setNewIsReference(false); setAddAngleError(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
           </div>
         </div>
+      {/* Camera Angle Coverage */}
+      {(() => {
+        const configuredAngles = new Set(videos.map(v => v.camera_angle).filter(Boolean));
+        const angles = [
+          { key: "sideline", label: "Sideline" },
+          { key: "endzone", label: "Endzone" },
+          { key: "behind_qb", label: "Behind QB" },
+        ] as const;
+        return (
+          <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: '#131920' }}>
+            <span className={LABEL_CLASS}>Camera Coverage</span>
+            <div className="space-y-1">
+              {angles.map(a => (
+                <div key={a.key} className="flex items-center gap-2 text-xs">
+                  <span className={configuredAngles.has(a.key) ? "text-emerald-400" : "text-red-400"}>
+                    {configuredAngles.has(a.key) ? "✅" : "❌"}
+                  </span>
+                  <span className="text-on-surface-variant">{a.label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-on-surface-variant/50 text-[10px]">
+              Each camera angle needs its own Reference calibration for Distance and Velocity metrics.
+            </p>
+          </div>
+        );
+      })()}
+
+      {adding ? (
+        <div className={CARD_CLASS + " space-y-3"}>
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className={LABEL_CLASS}>Descriptive Label</label>
+              <SectionTooltip tip="The name shown to athletes and admins when this video appears in the training feed. Be specific — include the player name and what the clip demonstrates." />
+            </div>
+            <input className={INPUT_CLASS} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder='e.g. "Davante Adams - Slant Release Technique"' />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className={LABEL_CLASS}>Video URL</label>
+              <SectionTooltip tip="Paste a full YouTube URL. The video must be publicly accessible or unlisted. Private videos cannot be loaded." />
+            </div>
+            <input className={INPUT_CLASS} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+          </div>
+          {renderFormFields(newStartSec, setNewStartSec, newEndSec, setNewEndSec, newCameraAngle, setNewCameraAngle, newVideoType, setNewVideoType, newIsReference, setNewIsReference, addAngleError)}
+          <div className="flex gap-2">
+            <button onClick={handleAddWithValidation} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
+            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec(""); setNewCameraAngle(""); setNewVideoType("both"); setNewIsReference(false); setAddAngleError(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+          </div>
+        </div>
       ) : (
         <button onClick={() => setAdding(true)} className="w-full py-3 rounded-xl border border-dashed border-outline-variant/20 text-primary-container text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-container/40 transition-all" style={{ backgroundColor: '#131920' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span> Add Video
