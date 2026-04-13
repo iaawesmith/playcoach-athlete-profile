@@ -81,14 +81,33 @@ function generatePhases(node: TrainingNode): string {
   return out;
 }
 
+function formatMetricSummary(phaseId: string | null, metrics: KeyMetric[]): string {
+  if (!phaseId) return "";
+  const phaseMetrics = metrics.filter(m => m.keypoint_mapping?.phase_id === phaseId);
+  if (phaseMetrics.length === 0) return "";
+  const totalWeight = phaseMetrics.reduce((s, m) => s + m.weight, 0);
+  let names: string;
+  if (phaseMetrics.length === 1) {
+    names = phaseMetrics[0].name;
+  } else if (phaseMetrics.length === 2) {
+    names = `${phaseMetrics[0].name} and ${phaseMetrics[1].name}`;
+  } else {
+    names = phaseMetrics.slice(0, -1).map(m => m.name).join(", ") + ", and " + phaseMetrics[phaseMetrics.length - 1].name;
+  }
+  return `Metrics measured here: ${names} — ${totalWeight}% of total score`;
+}
+
 function generateMechanics(node: TrainingNode): string {
   const sections = parseMechanics(node.pro_mechanics);
   const phases = node.phase_breakdown ?? [];
+  const metrics = node.key_metrics ?? [];
   let out = `## Mechanics (${sections.length} sections)\n`;
   if (sections.length === 0) return out + "\nNo mechanics sections configured.";
   for (const sec of sections) {
     const phaseName = phases.find(p => p.id === sec.phase_id)?.phase ?? "Unlinked Phase";
     out += `\n### ${phaseName}\n${sec.content || "Not configured"}\n`;
+    const summary = formatMetricSummary(sec.phase_id, metrics);
+    if (summary) out += `${summary}\n`;
   }
   return out;
 }
