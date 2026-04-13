@@ -3,8 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
 import { PipelineSetupTab } from "./PipelineSetupTab";
-import { DataDictionaryTab } from "./DataDictionaryTab";
-import { EnhancementsTab } from "./EnhancementsTab";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
