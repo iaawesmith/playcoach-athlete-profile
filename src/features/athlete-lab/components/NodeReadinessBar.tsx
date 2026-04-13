@@ -21,7 +21,7 @@ interface ReadinessCategory {
   tooltip: string;
 }
 
-function computeCategories(node: TrainingNode): ReadinessCategory[] {
+export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   const categories: ReadinessCategory[] = [];
 
   // 1. METRICS & KEYPOINTS — 25%
@@ -188,7 +188,7 @@ function computeCategories(node: TrainingNode): ReadinessCategory[] {
   return categories;
 }
 
-function computeScore(categories: ReadinessCategory[]): number {
+export function computeScore(categories: ReadinessCategory[]): number {
   let total = 0;
   for (const cat of categories) {
     const blocking = cat.checks.filter(c => !c.warning);
@@ -199,7 +199,7 @@ function computeScore(categories: ReadinessCategory[]): number {
   return Math.round(total);
 }
 
-function scoreColor(score: number): string {
+export function scoreColor(score: number): string {
   if (score < 60) return "#ef4444"; // red
   if (score < 90) return "#f59e0b"; // amber
   return "#22c55e"; // green
