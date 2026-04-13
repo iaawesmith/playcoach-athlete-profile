@@ -288,6 +288,35 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx, ke
   const linkedPhase = phases.find(p => p.id === draft.phase_id);
   const phaseDeleted = draft.phase_id && !linkedPhase;
 
+  /** Keypoint indices suggested from metrics assigned to same phase */
+  const suggestedIndices = useMemo(() => {
+    if (!draft.phase_id) return [];
+    const indices = new Set<number>();
+    for (const m of keyMetrics) {
+      if (m.keypoint_mapping?.phase_id === draft.phase_id && m.keypoint_mapping.keypoint_indices) {
+        for (const i of m.keypoint_mapping.keypoint_indices) indices.add(i);
+      }
+    }
+    return Array.from(indices).sort((a, b) => a - b);
+  }, [draft.phase_id, keyMetrics]);
+
+  const handlePhaseChange = useCallback((newPhaseId: string | null) => {
+    if (!newPhaseId) {
+      onChange({ phase_id: null });
+      return;
+    }
+    // Collect keypoint indices from metrics assigned to this phase
+    const indices = new Set<number>();
+    for (const m of keyMetrics) {
+      if (m.keypoint_mapping?.phase_id === newPhaseId && m.keypoint_mapping.keypoint_indices) {
+        for (const i of m.keypoint_mapping.keypoint_indices) indices.add(i);
+      }
+    }
+    // Merge with existing selections
+    const merged = new Set([...draft.required_keypoint_indices, ...indices]);
+    onChange({ phase_id: newPhaseId, required_keypoint_indices: Array.from(merged) });
+  }, [keyMetrics, draft.required_keypoint_indices, onChange]);
+
   const confidenceColor = draft.confidence_threshold >= 0.70
     ? "text-primary-container"
     : draft.confidence_threshold >= 0.60
