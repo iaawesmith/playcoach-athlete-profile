@@ -1,29 +1,25 @@
 
 
-## Plan: Optimize Table Paste Support in Knowledge Base Editor
+## Plan: Add Readiness Score Tag to Node Sidebar
 
-### Problem
-When pasting a table from Claude, the HTML `<table>` structure is preserved by the paste handler, but there are no CSS rules for tables inside `.prose-admin`, so they render as unstyled text blobs on the white background.
+### What changes
 
-### Changes
+**1. Export readiness helpers from `NodeReadinessBar.tsx`**
+- Export `computeCategories`, `computeScore`, and `scoreColor` so the sidebar can reuse the same scoring logic.
 
-**1. Add table styles to `src/index.css` (inside `.prose-admin`)**
+**2. Update `NodeSidebar.tsx`**
+- Move the position tag (WR/QB/RB) closer to the node name — place it immediately after the name text instead of pushed to the right with `flex-1`.
+- Add a new readiness percentage pill after the position tag, right-aligned:
+  - Shows `73%` or `100%` etc.
+  - Green (`#22c55e`) background at 100%, amber (`#f59e0b`) at 60-99%, red (`#ef4444`) below 60% — matching the progress bar color logic.
+  - Small pill style matching the position tag aesthetic.
+- Layout becomes: `[status dot] [Node Name] [WR] ... [73%] [🗑]`
 
-Add rules for `table`, `th`, `td`, `thead`, `tbody`:
-- `table`: full width, border-collapse, bottom margin
-- `th`: bold, dark background (`#f3f4f6`), left-aligned, padding, bottom border
-- `td`: padding, bottom border (`#e5e7eb`), vertical-align top
-- `tr:last-child td`: no bottom border
+### Technical details
 
-This will make any pasted table render with clean light-grey header row, subtle row dividers, and proper cell padding — matching the look from the screenshot.
+- Import `computeCategories`, `computeScore`, `scoreColor` from `NodeReadinessBar`.
+- Compute score per node inline using `useMemo` or direct call since nodes are already in memory.
+- The readiness pill uses the same `scoreColor()` function for background tint (at 20% opacity) and text color.
 
-**2. Update paste handler in `HelpDrawer.tsx`**
-
-The current handler strips `style` and `class` from all elements. Tables from Claude may also carry `width` attributes or inline widths that cause layout issues. Add `width` to the list of stripped attributes so tables default to full-width via CSS.
-
-No other changes needed — the existing `text/html` paste path already preserves `<table>`, `<tr>`, `<th>`, `<td>` structure.
-
-### Files Modified
-- `src/index.css` — add `.prose-admin table/th/td` rules
-- `src/features/athlete-lab/components/HelpDrawer.tsx` — strip `width` attribute in paste handler
+No database changes. No new files. Two files modified.
 
