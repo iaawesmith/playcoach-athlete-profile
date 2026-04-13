@@ -256,7 +256,11 @@ function generateBadges(node: TrainingNode): string {
   let out = `## Badges (${badges.length} defined)\n`;
   for (const b of badges) {
     const metricName = b.condition_metric_id ? (metrics.find(m => m.name === b.condition_metric_id)?.name ?? b.condition_metric_id) : "N/A";
-    out += `\n### ${b.icon} ${b.name} — ${b.rarity}\nDescription: ${b.description || "Not configured"}\nCondition Type: ${condTypeMap[b.condition_type] ?? b.condition_type}\nThreshold: ${b.condition_threshold}\nRequired Count: ${b.condition_count} analyses\nMetric: ${metricName}\n`;
+    const op = (b as unknown as Record<string, unknown>).condition_operator as string | undefined;
+    const conditionLine = op === "+-"
+      ? `Condition: within ± ${b.condition_count} of ${b.condition_threshold}`
+      : `Threshold: ${b.condition_threshold}\nRequired Count: ${b.condition_count} analyses`;
+    out += `\n### ${b.icon} ${b.name} — ${b.rarity}\nDescription: ${b.description || "Not configured"}\nCondition Type: ${condTypeMap[b.condition_type] ?? b.condition_type}\n${conditionLine}\nMetric: ${metricName}\n`;
   }
   return out;
 }
