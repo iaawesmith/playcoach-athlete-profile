@@ -749,7 +749,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "checkpoints" && (
-          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} segmentationMethod={draft.segmentation_method ?? "proportional"} />
+          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} segmentationMethod={draft.segmentation_method ?? "proportional"} keyMetrics={draft.key_metrics} />
         )}
 
         {tab === "prompt" && (

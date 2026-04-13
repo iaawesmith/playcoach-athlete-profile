@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import type { Checkpoint, PhaseNote, PhaseTransitionRole } from "../types";
+import type { Checkpoint, PhaseNote, PhaseTransitionRole, KeyMetric } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
@@ -54,9 +54,10 @@ interface CheckpointsEditorProps {
   onConfirmDelete: ConfirmDeleteFn;
   phases: PhaseNote[];
   segmentationMethod: string;
+  keyMetrics: KeyMetric[];
 }
 
-export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phases, segmentationMethod }: CheckpointsEditorProps) {
+export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phases, segmentationMethod, keyMetrics }: CheckpointsEditorProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<Record<string, Checkpoint>>({});
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -231,6 +232,7 @@ export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phas
                 onCancel={() => cancelEdit(cp.id)}
                 phases={phases}
                 idx={idx}
+                keyMetrics={keyMetrics}
               />
             )}
           </div>
@@ -241,13 +243,14 @@ export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phas
 }
 
 /* ── Edit Form ── */
-function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx }: {
+function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx, keyMetrics }: {
   draft: Checkpoint;
   onChange: (partial: Partial<Checkpoint>) => void;
   onSave: () => void;
   onCancel: () => void;
   phases: PhaseNote[];
   idx: number;
+  keyMetrics: KeyMetric[];
 }) {
   const [activeGroupTab, setActiveGroupTab] = useState<string>("body");
 
@@ -284,6 +287,35 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx }: 
 
   const linkedPhase = phases.find(p => p.id === draft.phase_id);
   const phaseDeleted = draft.phase_id && !linkedPhase;
+
+  /** Keypoint indices suggested from metrics assigned to same phase */
+  const suggestedIndices = useMemo(() => {
+    if (!draft.phase_id) return [];
+    const indices = new Set<number>();
+    for (const m of keyMetrics) {
+      if (m.keypoint_mapping?.phase_id === draft.phase_id && m.keypoint_mapping.keypoint_indices) {
+        for (const i of m.keypoint_mapping.keypoint_indices) indices.add(i);
+      }
+    }
+    return Array.from(indices).sort((a, b) => a - b);
+  }, [draft.phase_id, keyMetrics]);
+
+  const handlePhaseChange = useCallback((newPhaseId: string | null) => {
+    if (!newPhaseId) {
+      onChange({ phase_id: null });
+      return;
+    }
+    // Collect keypoint indices from metrics assigned to this phase
+    const indices = new Set<number>();
+    for (const m of keyMetrics) {
+      if (m.keypoint_mapping?.phase_id === newPhaseId && m.keypoint_mapping.keypoint_indices) {
+        for (const i of m.keypoint_mapping.keypoint_indices) indices.add(i);
+      }
+    }
+    // Merge with existing selections
+    const merged = new Set([...draft.required_keypoint_indices, ...indices]);
+    onChange({ phase_id: newPhaseId, required_keypoint_indices: Array.from(merged) });
+  }, [keyMetrics, draft.required_keypoint_indices, onChange]);
 
   const confidenceColor = draft.confidence_threshold >= 0.70
     ? "text-primary-container"
@@ -328,7 +360,7 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx }: 
         <select
           className={INPUT_CLASS + " max-w-xs"}
           value={draft.phase_id ?? ""}
-          onChange={(e) => onChange({ phase_id: e.target.value || null })}
+          onChange={(e) => handlePhaseChange(e.target.value || null)}
           disabled={phases.length === 0}
         >
           {phases.length === 0 ? (
@@ -385,6 +417,14 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx }: 
           <label className={LABEL_CLASS}>Required Keypoints</label>
           <SectionTooltip tip="Which keypoints must be above the confidence threshold for this checkpoint to be considered valid. If any required keypoint falls below threshold, the checkpoint is flagged as undetectable for that frame." />
         </div>
+
+        {/* Auto-suggest label */}
+        {draft.phase_id && suggestedIndices.length > 0 && (
+          <p className="text-on-surface-variant/50 text-[10px] mb-2 italic">Auto-suggested from phase metrics — adjust as needed</p>
+        )}
+        {draft.phase_id && suggestedIndices.length === 0 && (
+          <p className="text-on-surface-variant/30 text-[10px] mb-2 italic">Assign metrics to this phase in the Metrics tab to get auto-suggestions</p>
+        )}
 
         {/* Group tabs */}
         <div className="flex gap-1 mb-3">
