@@ -200,19 +200,53 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string
   return md;
 }
 
-export function AnalysisLog({ logData, nodeName }: AnalysisLogProps) {
+export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) {
   const [expanded, setExpanded] = useState(false);
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const copyTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  if (!logData) {
+  const showEmptyState = !hasResult || !logData;
+
+  if (showEmptyState) {
     return (
-      <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-on-surface-variant/40" style={{ fontSize: 20 }}>description</span>
-          <span className="text-on-surface-variant text-xs">
-            Log data not available — Edge Function must return log_data in results payload.
+      <div className="bg-surface-container rounded-xl border border-white/5 overflow-hidden">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center gap-3 px-5 py-4 hover:bg-surface-container-high transition-colors text-left"
+        >
+          <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 14, transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+            expand_more
           </span>
+          <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 18 }}>description</span>
+          <span className="text-on-surface-variant/50 text-[10px] font-bold uppercase tracking-[0.3em] flex-1">
+            {hasResult ? "Analysis Log — Log data not available" : "Analysis Log — Waiting for analysis..."}
+          </span>
+        </button>
+        <div
+          className="overflow-hidden transition-all duration-300"
+          style={{ maxHeight: expanded ? "400px" : "0px", opacity: expanded ? 1 : 0 }}
+        >
+          <div className="px-5 pb-6 pt-2 flex flex-col items-center text-center space-y-4">
+            <span className="material-symbols-outlined text-on-surface-variant/20" style={{ fontSize: 40 }}>bar_chart</span>
+            <div>
+              <div className="text-on-surface-variant text-sm font-semibold mb-1">
+                {hasResult ? "Log data not available" : "No analysis run yet"}
+              </div>
+              <p className="text-on-surface-variant/60 text-xs max-w-md">
+                {hasResult
+                  ? "Edge Function must return log_data in results payload for the full pipeline log to appear here."
+                  : "Run a video above to see the full pipeline log here — including rtmlib output, metric calculations, confidence scores, error detection results, and Claude API details."}
+              </p>
+            </div>
+            <div className="space-y-2 w-full max-w-xs">
+              {["Pre-Flight Validation", "rtmlib Output", "Metric Calculations", "Error Detection", "Claude API"].map((label) => (
+                <div key={label} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-high/50">
+                  <span className="text-on-surface-variant/20 text-sm">○</span>
+                  <span className="text-on-surface-variant/30 text-[10px] font-semibold uppercase tracking-widest">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
