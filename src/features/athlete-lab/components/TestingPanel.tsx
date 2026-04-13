@@ -363,9 +363,6 @@ export function TestingPanel({ node }: TestingPanelProps) {
             <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{result.coachFeedback}</p>
           </div>
 
-          {/* Analysis Log */}
-          <AnalysisLog logData={result.log_data} nodeName={node.name} />
-
           {/* 6. Action Buttons */}
           <div className="flex gap-3">
             <button
@@ -378,6 +375,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
           </div>
         </div>
       )}
+
+      {/* Analysis Log — always visible */}
+      <AnalysisLog logData={result?.log_data} nodeName={node.name} hasResult={!!result} />
     </div>
   );
 }
