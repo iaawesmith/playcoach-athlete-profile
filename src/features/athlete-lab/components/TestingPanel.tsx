@@ -3,6 +3,7 @@ import type { TrainingNode, AnalysisResult } from "../types";
 import { runAnalysis } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { AnalysisLog } from "./AnalysisLog";
 
 interface TestingPanelProps {
   node: TrainingNode;
@@ -361,6 +362,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
             </h4>
             <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{result.coachFeedback}</p>
           </div>
+
+          {/* Analysis Log */}
+          <AnalysisLog logData={result.log_data} nodeName={node.name} />
 
           {/* 6. Action Buttons */}
           <div className="flex gap-3">

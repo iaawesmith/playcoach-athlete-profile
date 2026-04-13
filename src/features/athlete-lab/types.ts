@@ -166,6 +166,106 @@ export interface TrainingNode {
   updated_at: string;
 }
 
+export interface PreflightCheck {
+  name: string;
+  expected: string;
+  actual: string;
+  result: "PASS" | "WARN" | "FAIL";
+}
+
+export interface PhaseWindow {
+  phase: string;
+  start: number;
+  end: number;
+  frame_count: number;
+  percent: number;
+}
+
+export interface KeypointConfidence {
+  index: number;
+  name: string;
+  mean_confidence: number;
+  min_confidence: number;
+  min_frame: number;
+  frames_below: number;
+  total_frames: number;
+  percent_below: number;
+  status: "RELIABLE" | "MARGINAL" | "UNRELIABLE";
+}
+
+export interface MetricLogEntry {
+  name: string;
+  weight: number;
+  phase: string;
+  frames_evaluated: number;
+  frame_range: string;
+  keypoints: string;
+  calculation_type: string;
+  temporal_window: number;
+  extracted_values?: string;
+  calculated_result: string;
+  unit: string;
+  elite_target: string;
+  deviation: string;
+  raw_score: number;
+  weighted_contribution: string;
+  status: "SCORED" | "SKIPPED" | "FLAGGED";
+  skip_reason?: string;
+}
+
+export interface ErrorDetectionEntry {
+  name: string;
+  auto_detectable: boolean;
+  condition: string;
+  metric_value: string;
+  evaluation_expression: string;
+  triggered: boolean;
+}
+
+export interface AnalysisLogData {
+  timestamp?: string;
+  preflight: {
+    checks: PreflightCheck[];
+    pipeline_stopped?: boolean;
+    stop_reason?: string;
+  };
+  rtmlib?: {
+    solution_class?: string;
+    model?: string;
+    backend?: string;
+    total_frames?: number;
+    source_fps?: number;
+    processing_time_ms?: number;
+    phase_windows?: PhaseWindow[];
+    keypoint_confidence?: KeypointConfidence[];
+  };
+  metrics?: MetricLogEntry[];
+  aggregate?: {
+    mastery_score: number;
+    confidence_adjusted: boolean;
+    metrics_skipped: number;
+    metrics_total: number;
+  };
+  error_detection?: ErrorDetectionEntry[];
+  claude_api?: {
+    model?: string;
+    system_instructions_present?: boolean;
+    system_instructions_chars?: number;
+    variables_injected?: Array<{ name: string; value_summary: string; present: boolean }>;
+    missing_variables?: string[];
+    prompt_tokens?: number;
+    system_tokens?: number;
+    template_tokens?: number;
+    variable_tokens?: number;
+    response_tokens?: number;
+    total_tokens?: number;
+    word_count?: number;
+    target_words?: number;
+    truncated?: boolean;
+    status?: "COMPLETE" | "FAILED";
+  };
+}
+
 export interface AnalysisResult {
   overallScore: number;
   phaseBreakdown: Array<{ phase: string; score: number; feedback: string }>;
@@ -176,4 +276,5 @@ export interface AnalysisResult {
   confidence: number;
   eliteComparison: string;
   warnings: string[];
+  log_data?: AnalysisLogData;
 }
