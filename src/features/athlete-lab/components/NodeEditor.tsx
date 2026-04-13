@@ -1060,10 +1060,15 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
   return (
     <div className="space-y-4">
-      {/* Section label */}
-      <div className="flex items-center gap-1.5">
-        <label className={LABEL_CLASS}>Reference Videos</label>
-        <SectionTooltip tip="Add YouTube clips used for athlete education and pipeline calibration. Set start and end timestamps on any video used for analysis. Only one video can serve as the Reference — the elite example shown alongside athlete results." />
+      {/* Section label + count indicator */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <label className={LABEL_CLASS}>Reference Videos</label>
+          <SectionTooltip tip="Add YouTube clips used for athlete education and pipeline calibration. Set start and end timestamps on any video used for analysis. Only one video can serve as the Reference — the elite example shown alongside athlete results." />
+        </div>
+        <span className={`text-[10px] font-semibold uppercase tracking-widest ${videos.length >= 3 ? "text-emerald-400" : videos.length === 2 ? "text-amber-400" : "text-red-400"}`}>
+          {videos.length} of 3+ recommended
+        </span>
       </div>
 
       {videos.length === 0 && !adding && (
