@@ -289,6 +289,53 @@ export type Database = {
           },
         ]
       }
+      athlete_uploads: {
+        Row: {
+          athlete_id: string
+          camera_angle: string | null
+          created_at: string | null
+          end_seconds: number | null
+          id: string
+          node_id: string | null
+          node_version: number | null
+          start_seconds: number | null
+          status: string | null
+          video_url: string | null
+        }
+        Insert: {
+          athlete_id: string
+          camera_angle?: string | null
+          created_at?: string | null
+          end_seconds?: number | null
+          id?: string
+          node_id?: string | null
+          node_version?: number | null
+          start_seconds?: number | null
+          status?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          camera_angle?: string | null
+          created_at?: string | null
+          end_seconds?: number | null
+          id?: string
+          node_id?: string | null
+          node_version?: number | null
+          start_seconds?: number | null
+          status?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_uploads_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_lab_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
