@@ -112,18 +112,9 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   videoChecks.push({ label: "Reference video flagged", pass: hasRef || configuredVids.length === 0 });
   // Calibration check
   if (node.solution_class !== "wholebody3d") {
-    const usedAngles = new Set(configuredVids.map(v => v.camera_angle).filter(Boolean) as string[]);
     const cals = node.reference_calibrations ?? [];
-    let allCalibrated = true;
-    for (const angle of usedAngles) {
-      const cal = cals.find(c => c.camera_angle === angle);
-      if (!cal || !cal.reference_object_name || !cal.known_size_yards || !cal.pixels_per_yard) {
-        allCalibrated = false; break;
-      }
-    }
-    if (usedAngles.size > 0) {
-      videoChecks.push({ label: "Calibration set for all camera angles", pass: allCalibrated });
-    }
+    const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+    videoChecks.push({ label: "At least 1 camera angle calibrated", pass: hasAtLeastOne });
   } else {
     videoChecks.push({ label: "Reference not required — Wholebody3d node", pass: true, warning: true });
   }
