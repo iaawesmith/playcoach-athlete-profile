@@ -27,6 +27,8 @@ const TOOLTIPS = {
   phase: "Assigns this metric to a movement phase. The pipeline only evaluates this metric within the frame window belonging to the selected phase. Assigning the wrong phase produces scores calculated on the wrong frames.",
   keypointIndices: "Raw index numbers passed to the rtmlib pipeline. Auto-populated from your keypoint selection above. Verify these match your intended keypoints before going Live.",
   quickSelect: "Common football metric presets. Clicking a preset auto-populates the keypoint selector and calculation type. You can modify the selection after loading a preset.",
+  bilateralOverride: "Controls which side's keypoints are used for this metric. AUTO uses rtmlib confidence scores to determine the active side. When athlete provides route direction before uploading, AUTO is overridden by their input. Use FORCE LEFT or FORCE RIGHT only for drills that always run one direction.",
+  requiresCatch: "When ON, this metric is excluded from scoring when the athlete indicates no catch was made in the upload flow. Prevents incomplete reps from producing misleading scores on catch-dependent measurements.",
 };
 
 const CALC_OPTIONS: { value: CalculationType; label: string; desc: string }[] = [
