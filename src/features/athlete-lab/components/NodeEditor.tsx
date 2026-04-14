@@ -206,18 +206,10 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
 
   // Reference calibration checks (skip for wholebody3d)
   if (node.solution_class !== "wholebody3d") {
-    const usedAngles = new Set(
-      (node.elite_videos ?? []).map(v => v.camera_angle).filter(Boolean) as string[]
-    );
-    if (usedAngles.size > 0) {
-      const calibrations = node.reference_calibrations ?? [];
-      for (const angle of usedAngles) {
-        const cal = calibrations.find(c => c.camera_angle === angle);
-        if (!cal || !cal.reference_object_name || !cal.known_size_yards || !cal.pixels_per_yard) {
-          const angleLabel = angle === "behind_qb" ? "Behind QB" : angle.charAt(0).toUpperCase() + angle.slice(1);
-          issues.push({ label: "Reference", detail: `${angleLabel} camera angle has no calibration configured` });
-        }
-      }
+    const calibrations = node.reference_calibrations ?? [];
+    const hasAtLeastOne = calibrations.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+    if (!hasAtLeastOne) {
+      issues.push({ label: "Reference", detail: "At least one camera angle must be calibrated (pixels_per_yard set)" });
     }
   }
 
