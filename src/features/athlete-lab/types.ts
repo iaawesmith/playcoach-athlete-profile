@@ -117,8 +117,10 @@ export interface ReferenceCalibration {
   camera_angle: CameraAngle;
   reference_object_name: string;
   known_size_yards: number | null;
+  known_size_unit?: string;
   placement_instructions: string;
   pixels_per_yard: number | null;
+  filming_instructions?: string;
 }
 
 export interface ScoreBands {
