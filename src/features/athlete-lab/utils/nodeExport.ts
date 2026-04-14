@@ -165,25 +165,35 @@ function generateErrors(node: TrainingNode): string {
 }
 
 function generateReference(node: TrainingNode): string {
+  const ANGLES: Array<{ key: string; label: string }> = [
+    { key: "sideline", label: "Sideline" },
+    { key: "behind_qb", label: "Behind QB" },
+    { key: "endzone", label: "Endzone" },
+  ];
   const cals = node.reference_calibrations ?? [];
-  let out = `## Reference Calibrations\n\nCount: ${cals.length} camera angles calibrated\n`;
-  if (cals.length === 0) {
-    out += "\nNo calibrations configured.";
-  } else {
-    for (const cal of cals) {
-      const angleLabel = cal.camera_angle === "behind_qb" ? "Behind QB" : cal.camera_angle.charAt(0).toUpperCase() + cal.camera_angle.slice(1);
-      const knownSize = cal.known_size_yards != null ? `${cal.known_size_yards} yards` : "Not configured";
-      out += `\n### ${angleLabel}\nReference Object: ${cal.reference_object_name || "Not configured"}\nKnown Size: ${knownSize}\nPixels Per Yard: ${cal.pixels_per_yard ?? "NOT SET — BLOCKING"}\nPlacement Instructions: ${cal.placement_instructions?.trim() || "Not configured"}\n`;
-    }
-  }
+  const calibratedCount = ANGLES.filter(a => {
+    const c = cals.find(cl => cl.camera_angle === a.key);
+    return c && c.pixels_per_yard && c.pixels_per_yard > 0;
+  }).length;
+
   const fallbackMap: Record<string, string> = {
     pixel_warning: "Use pixel units with warning",
-    disable_distance_metrics: "Disable distance metrics",
-    estimate_using_field_lines: "Estimate using field lines",
+    disable_distance: "Disable distance metrics",
+    estimate_field_lines: "Estimate using field lines",
   };
   const rawFallback = node.reference_fallback_behavior ?? "pixel_warning";
   const fallbackLabel = fallbackMap[rawFallback] ?? rawFallback;
-  out += `\nFallback Behavior: ${fallbackLabel}\n\nFilming Instructions:\n${node.reference_filming_instructions?.trim() || "Not configured"}`;
+
+  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\n`;
+
+  for (const angle of ANGLES) {
+    const cal = cals.find(c => c.camera_angle === angle.key);
+    const calibrated = cal && cal.pixels_per_yard && cal.pixels_per_yard > 0;
+    const status = calibrated ? "✅ Calibrated" : "⬜ Not Calibrated";
+    const knownSize = cal?.known_size_yards != null ? `${cal.known_size_yards} ${cal.known_size_unit || "yards"}` : "Not set";
+    out += `\n### ${angle.label} ${status}\nReference Object: ${cal?.reference_object_name || "Not configured"}\nKnown Size: ${knownSize}\nPixels Per Yard: ${cal?.pixels_per_yard ?? "Not set"}\nPlacement Instructions: ${cal?.placement_instructions?.trim() || "Not configured"}\nFilming Instructions: ${cal?.filming_instructions?.trim() || "Not configured"}\n`;
+  }
+
   return out;
 }
 
