@@ -66,9 +66,19 @@ export async function setNodeStatus(id: string, status: NodeStatus): Promise<Tra
   return data as unknown as TrainingNode;
 }
 
-export async function runAnalysis(node: TrainingNode, videoDescription: string): Promise<AnalysisResult> {
+export interface AnalysisContext {
+  camera_angle: string;
+  people_in_video: string;
+  route_direction: string;
+  catch_included: boolean;
+  catch_status: string;
+  athlete_level: string;
+  focus_area: string;
+}
+
+export async function runAnalysis(node: TrainingNode, videoDescription: string, analysisContext?: AnalysisContext): Promise<AnalysisResult> {
   const { data, error } = await supabase.functions.invoke("athlete-lab-analyze", {
-    body: { node, videoDescription },
+    body: { node, videoDescription, analysis_context: analysisContext },
   });
 
   if (error) throw error;
