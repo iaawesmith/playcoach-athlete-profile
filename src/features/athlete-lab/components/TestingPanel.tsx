@@ -100,7 +100,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         videoDesc.trim(),
         finalVideoUrl ? `Video URL: ${finalVideoUrl}` : "",
       ].filter(Boolean).join("\n\n");
-      const res = await runAnalysis(node, description);
+      const res = await runAnalysis(node, description, contextEnabled ? buildContext() : undefined);
       setResult(res);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Analysis failed");
