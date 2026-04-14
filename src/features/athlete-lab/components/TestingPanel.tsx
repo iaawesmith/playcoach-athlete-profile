@@ -175,10 +175,10 @@ export function TestingPanel({ node }: TestingPanelProps) {
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Camera Angle</label>
               <RadioPills value={cameraAngle} onChange={setCameraAngle} options={[
-                { value: "sideline", label: "Sideline" },
-                { value: "behind_qb", label: "Behind QB" },
-                { value: "endzone", label: "Endzone" },
-                { value: "other", label: "Other" },
+                { value: "sideline" as const, label: "Sideline" },
+                { value: "behind_qb" as const, label: "Behind QB" },
+                { value: "endzone" as const, label: "Endzone" },
+                { value: "other" as const, label: "Other" },
               ]} />
               <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Reference calibration selection for distance metrics</p>
             </div>
@@ -187,9 +187,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">People in Video</label>
               <RadioPills value={peopleInVideo} onChange={setPeopleInVideo} options={[
-                { value: "solo", label: "Just Me" },
-                { value: "with_defender", label: "Me + Defender" },
-                { value: "multiple", label: "Multiple People" },
+                { value: "solo" as const, label: "Just Me" },
+                { value: "with_defender" as const, label: "Me + Defender" },
+                { value: "multiple" as const, label: "Multiple People" },
               ]} />
               <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Person locking strategy and detection frequency</p>
             </div>
@@ -198,9 +198,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Route Direction</label>
               <RadioPills value={routeDirection} onChange={setRouteDirection} options={[
-                { value: "left", label: "Left" },
-                { value: "right", label: "Right" },
-                { value: "both", label: "Both" },
+                { value: "left" as const, label: "Left" },
+                { value: "right" as const, label: "Right" },
+                { value: "both" as const, label: "Both" },
               ]} />
               <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Bilateral keypoint selection override</p>
             </div>
@@ -209,9 +209,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Clip Includes Catch?</label>
               <RadioPills value={catchStatus} onChange={setCatchStatus} options={[
-                { value: "yes", label: "Yes" },
-                { value: "no", label: "No" },
-                { value: "partial", label: "Partial" },
+                { value: "yes" as const, label: "Yes" },
+                { value: "no" as const, label: "No" },
+                { value: "partial" as const, label: "Partial" },
               ]} />
               <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Catch Efficiency and YAC Burst metric inclusion</p>
               {catchStatus === "no" && (
