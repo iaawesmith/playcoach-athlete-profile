@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import type { KeyMetric, KeypointMapping, CalculationType, BilateralMode, PhaseNote } from "../types";
+import type { KeyMetric, KeypointMapping, CalculationType, BilateralMode, BilateralOverride, PhaseNote } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
@@ -27,6 +27,8 @@ const TOOLTIPS = {
   phase: "Assigns this metric to a movement phase. The pipeline only evaluates this metric within the frame window belonging to the selected phase. Assigning the wrong phase produces scores calculated on the wrong frames.",
   keypointIndices: "Raw index numbers passed to the rtmlib pipeline. Auto-populated from your keypoint selection above. Verify these match your intended keypoints before going Live.",
   quickSelect: "Common football metric presets. Clicking a preset auto-populates the keypoint selector and calculation type. You can modify the selection after loading a preset.",
+  bilateralOverride: "Controls which side's keypoints are used for this metric. AUTO uses rtmlib confidence scores to determine the active side. When athlete provides route direction before uploading, AUTO is overridden by their input. Use FORCE LEFT or FORCE RIGHT only for drills that always run one direction.",
+  requiresCatch: "When ON, this metric is excluded from scoring when the athlete indicates no catch was made in the upload flow. Prevents incomplete reps from producing misleading scores on catch-dependent measurements.",
 };
 
 const CALC_OPTIONS: { value: CalculationType; label: string; desc: string }[] = [
@@ -52,6 +54,7 @@ function getDefaultMapping(): KeypointMapping {
     keypoint_indices: [],
     calculation_type: null,
     bilateral: "auto",
+    bilateral_override: "auto",
     confidence_threshold: 0.70,
     phase_id: null,
   };
@@ -101,7 +104,7 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  const defaultMetric: KeyMetric = { name: "", description: "", eliteTarget: "", unit: "", weight: 0, tolerance: null, temporal_window: 1, depends_on_metric_id: null, keypoint_mapping: null };
+  const defaultMetric: KeyMetric = { name: "", description: "", eliteTarget: "", unit: "", weight: 0, tolerance: null, temporal_window: 1, depends_on_metric_id: null, keypoint_mapping: null, requires_catch: false };
   const [draft, setDraft] = useState<KeyMetric>(defaultMetric);
   const [editDraft, setEditDraft] = useState<KeyMetric>(defaultMetric);
 
@@ -374,6 +377,33 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
         <div className={`overflow-hidden transition-all duration-200 ease-in-out ${mappingOpen ? "max-h-[3000px] opacity-100 mt-3" : "max-h-0 opacity-0"}`}>
           <KeypointMappingPanel km={km} setKm={setKm} phases={phases} metric={m} setMetric={setM} />
         </div>
+      </div>
+
+      {/* Requires Catch toggle */}
+      <div className="border-t border-white/[0.08] pt-3 mt-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className={LABEL_CLASS}>Requires Catch</span>
+            <SectionTooltip tip={TOOLTIPS.requiresCatch} />
+          </div>
+          <button
+            type="button"
+            onClick={() => setM({ ...m, requires_catch: !m.requires_catch })}
+            className={`w-11 h-6 rounded-full relative transition-colors ${
+              m.requires_catch ? "bg-primary-container" : "bg-surface-container-highest"
+            }`}
+          >
+            <span className={`block w-5 h-5 rounded-full bg-on-surface shadow-lg transition-transform absolute top-0.5 ${
+              m.requires_catch ? "translate-x-[22px]" : "translate-x-0.5"
+            }`} />
+          </button>
+        </div>
+        {m.requires_catch && (
+          <div className="mt-2 px-3 py-2 rounded-lg border border-amber-400/20 bg-amber-400/5 flex items-start gap-2">
+            <span className="material-symbols-outlined text-amber-400 shrink-0" style={{ fontSize: 16 }}>warning</span>
+            <span className="text-amber-400 text-[11px]">This metric will be excluded from analysis when athlete reports no catch.</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -684,6 +714,37 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
               />
             </label>
           ))}
+        </div>
+      </div>
+
+      {/* Direction Override */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className={LABEL_CLASS}>Direction Override</span>
+          <SectionTooltip tip={TOOLTIPS.bilateralOverride} />
+        </div>
+        <div className="flex gap-2">
+          {([
+            { value: "auto" as BilateralOverride, label: "AUTO" },
+            { value: "force_left" as BilateralOverride, label: "FORCE LEFT" },
+            { value: "force_right" as BilateralOverride, label: "FORCE RIGHT" },
+          ]).map(opt => {
+            const active = (km.bilateral_override ?? "auto") === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setKm({ ...km, bilateral_override: opt.value })}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                  active
+                    ? "bg-primary-container/20 text-primary-container border border-primary-container/30"
+                    : "bg-surface-container text-on-surface-variant/50 border border-outline-variant/20"
+                }`}
+              >
+                {active ? "● " : "○ "}{opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
