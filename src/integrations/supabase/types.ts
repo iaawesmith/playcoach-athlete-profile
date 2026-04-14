@@ -164,6 +164,7 @@ export type Database = {
           reference_filming_instructions: string
           reference_object: string
           score_bands: Json
+          scoring_renormalize_on_skip: boolean
           scoring_rules: string
           segmentation_method: string
           solution_class: string
@@ -203,6 +204,7 @@ export type Database = {
           reference_filming_instructions?: string
           reference_object?: string
           score_bands?: Json
+          scoring_renormalize_on_skip?: boolean
           scoring_rules?: string
           segmentation_method?: string
           solution_class?: string
@@ -242,6 +244,7 @@ export type Database = {
           reference_filming_instructions?: string
           reference_object?: string
           score_bands?: Json
+          scoring_renormalize_on_skip?: boolean
           scoring_rules?: string
           segmentation_method?: string
           solution_class?: string
