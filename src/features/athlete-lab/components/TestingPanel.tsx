@@ -156,7 +156,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         <div className="flex items-center justify-between p-5 pb-0">
           <div className="flex items-center gap-2">
             <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em]">Analysis Context</span>
-            <SectionTooltip content="Optional context that improves analysis accuracy by informing the Edge Function how to process the video. Used for testing — will be collected automatically from athlete onboarding and upload flow when the product launches." />
+            <SectionTooltip tip="Optional context that improves analysis accuracy by informing the Edge Function how to process the video. Used for testing — will be collected automatically from athlete onboarding and upload flow when the product launches." />
             <button onClick={copyContext} className="ml-2 text-on-surface-variant/40 hover:text-on-surface transition-colors" title="Copy context">
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{contextCopied ? "check" : "content_copy"}</span>
             </button>
