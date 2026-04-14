@@ -2568,6 +2568,42 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
         )}
       </div>
 
+      {/* ── SECTION 2.5: Renormalize Weights on Skip ── */}
+      <div className={CARD_CLASS + " space-y-4"}>
+        <div className="flex items-center gap-1.5">
+          <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>tune</span>
+            Renormalize Weights on Skip
+          </h4>
+          <SectionTooltip tip="When metrics are excluded from analysis (e.g. Catch Efficiency and YAC Burst when athlete reports no catch), this setting controls how the aggregate Mastery Score is calculated.\n\nON: Excluded metric weights are redistributed proportionally to remaining metrics. Score always totals out of 100.\n\nOFF: Aggregate score is capped at the total weight of included metrics. e.g. if 25% weight is excluded, maximum score is 75." />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onRenormalizeOnSkipChange(!renormalizeOnSkip)}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors ${renormalizeOnSkip ? "bg-primary-container" : "bg-outline-variant/40"}`}
+        >
+          <span className={`pointer-events-none block h-5 w-5 rounded-full bg-surface shadow-lg ring-0 transition-transform ${renormalizeOnSkip ? "translate-x-5" : "translate-x-0"}`} />
+        </button>
+
+        {renormalizeOnSkip ? (
+          <p className="text-on-surface-variant/70 text-xs leading-relaxed">
+            Score always out of 100 — excluded metric weights redistributed proportionally
+          </p>
+        ) : (
+          (() => {
+            const catchWeight = metrics.filter(m => m.requires_catch).reduce((s, m) => s + m.weight, 0);
+            const cappedAt = 100 - catchWeight;
+            return (
+              <p className="text-amber-400 text-xs leading-relaxed flex items-center gap-1.5">
+                <span className="material-symbols-outlined shrink-0" style={{ fontSize: 14 }}>warning</span>
+                Score capped at {cappedAt}% when catch metrics excluded — athletes cannot achieve 100 on incomplete reps
+              </p>
+            );
+          })()
+        )}
+      </div>
+
       {/* ── SECTION 3: Score Bands ── */}
       <div className="pt-2">
         <div className="flex items-center gap-3 mb-4">
