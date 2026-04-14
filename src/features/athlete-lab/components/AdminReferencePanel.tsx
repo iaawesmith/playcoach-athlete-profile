@@ -23,15 +23,35 @@ interface ReferenceLink {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "agent_briefing", label: "AGENT BRIEFING" },
-  { id: "node_builder", label: "NODE BUILDER" },
-  { id: "architecture", label: "ARCHITECTURE" },
-  { id: "links", label: "LINKS" },
-  { id: "pipeline_setup", label: "PIPELINE SETUP" },
-  { id: "implementation_docs", label: "IMPLEMENTATION DOCS" },
-  { id: "enhancements", label: "ENHANCEMENTS" },
-  { id: "data_dictionary", label: "DATA DICTIONARY" },
+const TAB_SECTIONS: { label: string; tabs: { id: TabId; label: string }[] }[] = [
+  {
+    label: "AGENT KNOWLEDGE",
+    tabs: [
+      { id: "agent_briefing", label: "AGENT BRIEFING" },
+      { id: "node_builder", label: "NODE BUILDER" },
+    ],
+  },
+  {
+    label: "SYSTEM REFERENCE",
+    tabs: [
+      { id: "architecture", label: "ARCHITECTURE" },
+      { id: "data_dictionary", label: "DATA DICTIONARY" },
+    ],
+  },
+  {
+    label: "PIPELINE BUILD",
+    tabs: [
+      { id: "pipeline_setup", label: "PIPELINE SETUP" },
+      { id: "implementation_docs", label: "IMPLEMENTATION DOCS" },
+    ],
+  },
+  {
+    label: "RESOURCES",
+    tabs: [
+      { id: "links", label: "LINKS" },
+      { id: "enhancements", label: "ENHANCEMENTS" },
+    ],
+  },
 ];
 
 const PROMPT_TAB_CONFIG: Record<
@@ -400,20 +420,27 @@ export function AdminReferencePanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Tab selector */}
-      <div className="px-6 pt-5 pb-2 max-w-4xl mx-auto w-full">
-        <div className="inline-flex bg-surface-container rounded-full p-1 border border-outline-variant/10 flex-wrap gap-0.5">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-full font-black uppercase tracking-[0.12em] text-[10px] transition-all ${
-                activeTab === tab.id
-                  ? "bg-primary-container text-[#00460a]"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              {tab.label}
-            </button>
+      <div className="px-6 pt-5 pb-2 max-w-6xl mx-auto w-full">
+        <div className="flex flex-wrap gap-6">
+          {TAB_SECTIONS.map((section) => (
+            <div key={section.label} className="flex flex-col gap-1.5">
+              <span className="text-on-surface-variant/50 text-[9px] font-semibold uppercase tracking-[0.3em] px-1">{section.label}</span>
+              <div className="inline-flex bg-surface-container rounded-full p-1 border border-outline-variant/10 gap-0.5">
+                {section.tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-4 py-2 rounded-full font-black uppercase tracking-[0.12em] text-[10px] transition-all ${
+                      activeTab === tab.id
+                        ? "bg-primary-container text-[#00460a]"
+                        : "text-on-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
