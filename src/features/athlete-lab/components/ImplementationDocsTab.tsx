@@ -79,16 +79,14 @@ export function ImplementationDocsTab() {
 
   const handleSave = async (doc: DocCard) => {
     setSavingId(doc.id);
-    const updates: Record<string, unknown> = {
-      content: editContent,
-      updated_at: new Date().toISOString(),
-    };
-    if (editTitle !== doc.title) updates.title = editTitle;
-    if (editSubtitle !== doc.subtitle) updates.subtitle = editSubtitle;
-
     await supabase
       .from("admin_implementation_docs")
-      .update(updates)
+      .update({
+        content: editContent,
+        title: editTitle,
+        subtitle: editSubtitle,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", doc.id);
 
     setDocs((prev) =>
