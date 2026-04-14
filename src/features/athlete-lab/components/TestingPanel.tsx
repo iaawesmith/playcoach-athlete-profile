@@ -1,12 +1,40 @@
 import { useState, useRef } from "react";
 import type { TrainingNode, AnalysisResult } from "../types";
 import { runAnalysis } from "@/services/athleteLab";
+import type { AnalysisContext } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { AnalysisLog } from "./AnalysisLog";
 
 interface TestingPanelProps {
   node: TrainingNode;
+}
+
+type CameraAngleOption = "sideline" | "behind_qb" | "endzone" | "other";
+type PeopleOption = "solo" | "with_defender" | "multiple";
+type RouteDirectionOption = "left" | "right" | "both";
+type CatchOption = "yes" | "no" | "partial";
+type AthleteLevelOption = "youth" | "high_school" | "college" | "professional";
+
+function RadioPills<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`h-8 px-4 rounded-full text-xs font-bold uppercase tracking-[0.15em] transition-all duration-150 active:scale-95 ${
+            value === opt.value
+              ? "kinetic-gradient text-[#00460a]"
+              : "bg-surface-container-high border border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:border-outline-variant/40"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function TestingPanel({ node }: TestingPanelProps) {
@@ -19,6 +47,16 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  // Analysis context state
+  const [contextEnabled, setContextEnabled] = useState(true);
+  const [cameraAngle, setCameraAngle] = useState<CameraAngleOption>("sideline");
+  const [peopleInVideo, setPeopleInVideo] = useState<PeopleOption>("solo");
+  const [routeDirection, setRouteDirection] = useState<RouteDirectionOption>("left");
+  const [catchStatus, setCatchStatus] = useState<CatchOption>("yes");
+  const [athleteLevel, setAthleteLevel] = useState<AthleteLevelOption>("high_school");
+  const [focusArea, setFocusArea] = useState("");
+  const [contextCopied, setContextCopied] = useState(false);
 
   const handleFileSelect = (file: File) => {
     setUploadedFile(file);
