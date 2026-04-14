@@ -1918,10 +1918,9 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   readiness.push({ label: "All videos have timestamps", ok: !hasVideos || allTimestamped, detail: allTimestamped ? "All set" : "Some missing", tab: "videos" });
 
   if (sc !== "wholebody3d") {
-    const usedAngles = new Set(node.elite_videos.map(v => v.camera_angle).filter(Boolean));
     const cals = node.reference_calibrations ?? [];
-    const allCalibrated = usedAngles.size === 0 || [...usedAngles].every(a => { const c = cals.find(cl => cl.camera_angle === a); return c && c.reference_object_name && c.known_size_yards && c.pixels_per_yard; });
-    readiness.push({ label: "Reference calibration configured", ok: allCalibrated, detail: allCalibrated ? "All angles calibrated" : "Some angles missing", tab: "reference" });
+    const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+    readiness.push({ label: "At least 1 camera angle calibrated", ok: hasAtLeastOne, detail: hasAtLeastOne ? "Calibrated" : "No angles calibrated", tab: "reference" });
   }
 
   readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
