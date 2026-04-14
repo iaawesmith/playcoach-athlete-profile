@@ -717,6 +717,37 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
         </div>
       </div>
 
+      {/* Direction Override */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className={LABEL_CLASS}>Direction Override</span>
+          <SectionTooltip tip={TOOLTIPS.bilateralOverride} />
+        </div>
+        <div className="flex gap-2">
+          {([
+            { value: "auto" as BilateralOverride, label: "AUTO" },
+            { value: "force_left" as BilateralOverride, label: "FORCE LEFT" },
+            { value: "force_right" as BilateralOverride, label: "FORCE RIGHT" },
+          ]).map(opt => {
+            const active = (km.bilateral_override ?? "auto") === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setKm({ ...km, bilateral_override: opt.value })}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                  active
+                    ? "bg-primary-container/20 text-primary-container border border-primary-container/30"
+                    : "bg-surface-container text-on-surface-variant/50 border border-outline-variant/20"
+                }`}
+              >
+                {active ? "● " : "○ "}{opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Confidence Threshold */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
