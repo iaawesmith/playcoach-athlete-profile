@@ -141,6 +141,9 @@ export type Database = {
           confidence_handling: string
           created_at: string
           det_frequency: number
+          det_frequency_defender: number
+          det_frequency_multiple: number
+          det_frequency_solo: number
           elite_videos: Json
           form_checkpoints: Json
           icon_url: string | null
@@ -181,6 +184,9 @@ export type Database = {
           confidence_handling?: string
           created_at?: string
           det_frequency?: number
+          det_frequency_defender?: number
+          det_frequency_multiple?: number
+          det_frequency_solo?: number
           elite_videos?: Json
           form_checkpoints?: Json
           icon_url?: string | null
@@ -221,6 +227,9 @@ export type Database = {
           confidence_handling?: string
           created_at?: string
           det_frequency?: number
+          det_frequency_defender?: number
+          det_frequency_multiple?: number
+          det_frequency_solo?: number
           elite_videos?: Json
           form_checkpoints?: Json
           icon_url?: string | null

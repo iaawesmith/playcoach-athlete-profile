@@ -390,6 +390,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         reference_fallback_behavior: draft.reference_fallback_behavior,
         performance_mode: draft.performance_mode,
         det_frequency: draft.det_frequency,
+        det_frequency_solo: draft.det_frequency_solo,
+        det_frequency_defender: draft.det_frequency_defender,
+        det_frequency_multiple: draft.det_frequency_multiple,
         tracking_enabled: draft.tracking_enabled,
       };
       if (shouldAutoDraft) {
@@ -797,6 +800,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             onSolutionClassChange={(v) => { updateWithCriticalTrack("solution_class", v); if (v === "wholebody3d") update("tracking_enabled", false); }}
             onPerformanceModeChange={(v) => updateWithCriticalTrack("performance_mode", v)}
             onDetFrequencyChange={(v) => updateWithCriticalTrack("det_frequency", v)}
+            onDetFrequencySoloChange={(v) => updateWithCriticalTrack("det_frequency_solo", v)}
+            onDetFrequencyDefenderChange={(v) => updateWithCriticalTrack("det_frequency_defender", v)}
+            onDetFrequencyMultipleChange={(v) => updateWithCriticalTrack("det_frequency_multiple", v)}
             onTrackingEnabledChange={(v) => updateWithCriticalTrack("tracking_enabled", v)}
             onNavigateTab={(t) => setTab(t)}
           />
@@ -1877,11 +1883,14 @@ function getSolutionClassWarnings(solutionClass: string, metrics: KeyMetric[], t
   return warnings;
 }
 
-function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeChange, onDetFrequencyChange, onTrackingEnabledChange, onNavigateTab }: {
+function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeChange, onDetFrequencyChange, onDetFrequencySoloChange, onDetFrequencyDefenderChange, onDetFrequencyMultipleChange, onTrackingEnabledChange, onNavigateTab }: {
   node: TrainingNode;
   onSolutionClassChange: (v: string) => void;
   onPerformanceModeChange: (v: PerformanceMode) => void;
   onDetFrequencyChange: (v: number) => void;
+  onDetFrequencySoloChange: (v: number) => void;
+  onDetFrequencyDefenderChange: (v: number) => void;
+  onDetFrequencyMultipleChange: (v: number) => void;
   onTrackingEnabledChange: (v: boolean) => void;
   onNavigateTab: (t: TabKey) => void;
 }) {
@@ -1889,6 +1898,9 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const sc = node.solution_class ?? "";
   const pm = node.performance_mode ?? "balanced";
   const df = node.det_frequency ?? 7;
+  const dfSolo = node.det_frequency_solo ?? 2;
+  const dfDefender = node.det_frequency_defender ?? 1;
+  const dfMultiple = node.det_frequency_multiple ?? 1;
   const te = node.tracking_enabled ?? true;
   const scWarnings = getSolutionClassWarnings(sc, node.key_metrics, te);
 
@@ -1932,11 +1944,32 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const scClassName = SOLUTION_CLASS_MAP[sc] ?? "Body";
   const pipelineCode = `from rtmlib import PoseTracker, ${scClassName}
 
+# Solo analysis (1 person in frame)
 pose_tracker = PoseTracker(
-    ${scClassName},           # solution_class
-    det_frequency=${df},     # det_frequency
-    tracking=${te ? "True" : "False"},     # tracking_enabled
-    mode='${pm}', # performance_mode
+    ${scClassName},
+    det_frequency=${dfSolo},  # solo
+    tracking=${te ? "True" : "False"},
+    mode='${pm}',
+    backend='onnxruntime',
+    device='cuda'
+)
+
+# With defender (2 people in frame)
+pose_tracker = PoseTracker(
+    ${scClassName},
+    det_frequency=${dfDefender},  # with_defender
+    tracking=${te ? "True" : "False"},
+    mode='${pm}',
+    backend='onnxruntime',
+    device='cuda'
+)
+
+# Multiple people in frame
+pose_tracker = PoseTracker(
+    ${scClassName},
+    det_frequency=${dfMultiple},  # multiple
+    tracking=${te ? "True" : "False"},
+    mode='${pm}',
     backend='onnxruntime',
     device='cuda'
 )`;
@@ -2012,19 +2045,32 @@ pose_tracker = PoseTracker(
         <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Detection Settings</div>
         <div className="border-t border-outline-variant/10 pt-5 space-y-6">
           <div>
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-1.5 mb-3">
               <label className={LABEL_CLASS}>Detection Frequency</label>
-              <SectionTooltip tip="How often rtmlib runs full YOLOX person detection vs tracking between detections. Lower = more accurate person tracking. Higher = faster processing. Passed directly to rtmlib PoseTracker as det_frequency parameter." />
+              <SectionTooltip tip="How often rtmlib runs full person detection vs tracking between detections. Lower number = more accurate but slower. The appropriate value depends on how many people are in the athlete's video — more people require more frequent detection to maintain accurate person tracking. These three values are selected automatically by the Edge Function based on the athlete's pre-upload input about people in video." />
             </div>
-            <input type="number" min={1} max={30} step={1} className={`${INPUT_CLASS} w-28`} value={df} onChange={(e) => onDetFrequencyChange(Math.max(1, Math.min(30, parseInt(e.target.value) || 7)))} />
-            <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Recommended: 3-5 for clips under 5 seconds. 7 (default) for standard clips. Higher values may cause tracking drift on fast movements.</p>
-            <div className="mt-3 flex items-center gap-3 text-[10px] text-on-surface-variant/50 uppercase tracking-widest">
-              <span>More Accurate</span>
-              <div className="flex-1 h-1.5 rounded-full relative" style={{ backgroundColor: '#0E1319' }}>
-                <div className="absolute top-0 left-0 h-full rounded-full bg-primary-container/40" style={{ width: `${((df - 1) / 29) * 100}%` }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary-container border-2 border-surface" style={{ left: `calc(${((df - 1) / 29) * 100}% - 6px)` }} />
-              </div>
-              <span>Faster</span>
+            <div className="space-y-4">
+              {([
+                { label: "Solo (1 person)", value: dfSolo, onChange: onDetFrequencySoloChange, helper: "Recommended 2 — captures fast break movements reliably", defaultVal: 2 },
+                { label: "With Defender (2 people)", value: dfDefender, onChange: onDetFrequencyDefenderChange, helper: "Recommended 1 — frequent detection prevents person ID swap during close coverage", defaultVal: 1 },
+                { label: "Multiple People", value: dfMultiple, onChange: onDetFrequencyMultipleChange, helper: "Recommended 1 — required for reliable tracking in crowded frame", defaultVal: 1 },
+              ] as const).map(scenario => (
+                <div key={scenario.label} className="flex items-start gap-4">
+                  <div className="w-48 shrink-0 pt-2.5">
+                    <span className="text-on-surface text-xs font-bold">{scenario.label}</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <input type="number" min={1} max={30} step={1} className={`${INPUT_CLASS} w-20 text-center`} value={scenario.value} onChange={(e) => scenario.onChange(Math.max(1, Math.min(30, parseInt(e.target.value) || scenario.defaultVal)))} />
+                      <span className="text-on-surface-variant/50 text-xs">frames</span>
+                    </div>
+                    <p className="text-on-surface-variant/50 text-[10px] mt-1">{scenario.helper}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
+              <p className="text-on-surface-variant/40 text-[10px]">Fallback: <span className="text-on-surface-variant/60 font-semibold">{df}</span> frames — used when no context is available (e.g. direct webhook without pre-upload context)</p>
             </div>
           </div>
 

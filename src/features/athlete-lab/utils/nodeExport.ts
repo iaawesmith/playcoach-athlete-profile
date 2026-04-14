@@ -309,11 +309,18 @@ function generateTrainingStatus(node: TrainingNode): string {
     }
   }
 
+  const dfSolo = node.det_frequency_solo ?? 2;
+  const dfDefender = node.det_frequency_defender ?? 1;
+  const dfMultiple = node.det_frequency_multiple ?? 1;
+  const dfFallback = node.det_frequency ?? 7;
+  const te = node.tracking_enabled ? "True" : "False";
+  const pmMode = node.performance_mode ?? "balanced";
+
   const pipelineRef = rawClass
-    ? `\n\nPipeline Reference (rtmlib instantiation):\n\`\`\`python\nfrom rtmlib import PoseTracker, ${configuredClass}\n\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${node.det_frequency ?? 1},\n    tracking=${node.tracking_enabled ? "True" : "False"},\n    mode='${node.performance_mode ?? "balanced"}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\`\`\``
+    ? `\n\nPipeline Reference (rtmlib instantiation):\n\`\`\`python\nfrom rtmlib import PoseTracker, ${configuredClass}\n\n# Solo analysis (1 person)\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${dfSolo},  # solo\n    tracking=${te},\n    mode='${pmMode}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\n# With defender (2 people)\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${dfDefender},  # with_defender\n    tracking=${te},\n    mode='${pmMode}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\n# Multiple people\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${dfMultiple},  # multiple\n    tracking=${te},\n    mode='${pmMode}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\`\`\``
     : "";
 
-  return `## Training Status\n\nSolution Class: ${configuredClass}\nPerformance Mode: ${node.performance_mode ?? "balanced"}\nDetection Frequency: every ${node.det_frequency ?? 1} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across all metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
+  return `## Training Status\n\nSolution Class: ${configuredClass}\nPerformance Mode: ${pmMode}\nDetection Frequency:\n  Solo: ${dfSolo} frames\n  With Defender: ${dfDefender} frames\n  Multiple People: ${dfMultiple} frames\n  Fallback: ${dfFallback} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across all metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
 }
 
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
