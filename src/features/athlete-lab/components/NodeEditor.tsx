@@ -206,18 +206,10 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
 
   // Reference calibration checks (skip for wholebody3d)
   if (node.solution_class !== "wholebody3d") {
-    const usedAngles = new Set(
-      (node.elite_videos ?? []).map(v => v.camera_angle).filter(Boolean) as string[]
-    );
-    if (usedAngles.size > 0) {
-      const calibrations = node.reference_calibrations ?? [];
-      for (const angle of usedAngles) {
-        const cal = calibrations.find(c => c.camera_angle === angle);
-        if (!cal || !cal.reference_object_name || !cal.known_size_yards || !cal.pixels_per_yard) {
-          const angleLabel = angle === "behind_qb" ? "Behind QB" : angle.charAt(0).toUpperCase() + angle.slice(1);
-          issues.push({ label: "Reference", detail: `${angleLabel} camera angle has no calibration configured` });
-        }
-      }
+    const calibrations = node.reference_calibrations ?? [];
+    const hasAtLeastOne = calibrations.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+    if (!hasAtLeastOne) {
+      issues.push({ label: "Reference", detail: "At least one camera angle must be calibrated (pixels_per_yard set)" });
     }
   }
 
@@ -1926,10 +1918,9 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   readiness.push({ label: "All videos have timestamps", ok: !hasVideos || allTimestamped, detail: allTimestamped ? "All set" : "Some missing", tab: "videos" });
 
   if (sc !== "wholebody3d") {
-    const usedAngles = new Set(node.elite_videos.map(v => v.camera_angle).filter(Boolean));
     const cals = node.reference_calibrations ?? [];
-    const allCalibrated = usedAngles.size === 0 || [...usedAngles].every(a => { const c = cals.find(cl => cl.camera_angle === a); return c && c.reference_object_name && c.known_size_yards && c.pixels_per_yard; });
-    readiness.push({ label: "Reference calibration configured", ok: allCalibrated, detail: allCalibrated ? "All angles calibrated" : "Some angles missing", tab: "reference" });
+    const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+    readiness.push({ label: "At least 1 camera angle calibrated", ok: hasAtLeastOne, detail: hasAtLeastOne ? "Calibrated" : "No angles calibrated", tab: "reference" });
   }
 
   readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
@@ -2117,6 +2108,21 @@ const REF_PRESETS: { label: string; sizeYards: number }[] = [
   { label: "Standard Cone", sizeYards: 0.5 },
 ];
 
+const DEFAULT_CALIBRATIONS: Record<CameraAngle, Partial<ReferenceCalibration>> = {
+  sideline: {},
+  behind_qb: {
+    reference_object_name: "Custom",
+    placement_instructions: "Position a cone or marker on the hash marks directly behind the line of scrimmage. Hash marks are visible from the behind QB angle and provide a consistent reference. Measure pixel distance between two consecutive hash marks.",
+    filming_instructions: "Film from directly behind the quarterback position, 5-8 yards behind the line of scrimmage at head height. The full route should be visible from snap to catch. Two hash marks must be visible in the frame for distance calibration.",
+  },
+  endzone: {
+    reference_object_name: "5-Yard Line Spacing",
+    known_size_yards: 5,
+    placement_instructions: "Film from the back of the endzone at field level. The 5-yard line markers are visible across the full width of the field from this angle and provide accurate horizontal scale calibration.",
+    filming_instructions: "Stand at the back of the endzone, centered on the field. Film at waist height. The full route must be visible from line of scrimmage to the catch point. Both sideline hash marks should be visible to establish field scale.",
+  },
+};
+
 function ReferenceCalibrationEditor({
   solutionClass,
   calibrations,
@@ -2125,7 +2131,6 @@ function ReferenceCalibrationEditor({
   onFilmingInstructionsChange,
   fallbackBehavior,
   onFallbackBehaviorChange,
-  eliteVideos,
 }: {
   solutionClass: string;
   calibrations: ReferenceCalibration[];
@@ -2136,6 +2141,8 @@ function ReferenceCalibrationEditor({
   onFallbackBehaviorChange: (v: ReferenceFallback) => void;
   eliteVideos: EliteVideo[];
 }) {
+  const [collapsed, setCollapsed] = useState<Set<CameraAngle>>(new Set(["behind_qb", "endzone"]));
+
   if (solutionClass === "wholebody3d") {
     return (
       <div className="rounded-xl border border-primary-container/30 p-5 flex items-start gap-3" style={{ backgroundColor: 'rgba(0,230,57,0.06)' }}>
@@ -2147,16 +2154,18 @@ function ReferenceCalibrationEditor({
     );
   }
 
-  const usedAngles = new Set(eliteVideos.map(v => v.camera_angle).filter(Boolean) as CameraAngle[]);
-  const anglesToShow = usedAngles.size > 0 ? CAMERA_ANGLES_LIST.filter(a => usedAngles.has(a)) : CAMERA_ANGLES_LIST;
-
   const getCalibration = (angle: CameraAngle): ReferenceCalibration => {
-    return calibrations.find(c => c.camera_angle === angle) ?? {
+    const existing = calibrations.find(c => c.camera_angle === angle);
+    if (existing) return existing;
+    const defaults = DEFAULT_CALIBRATIONS[angle];
+    return {
       camera_angle: angle,
-      reference_object_name: "",
-      known_size_yards: null,
-      placement_instructions: "",
+      reference_object_name: defaults.reference_object_name ?? "",
+      known_size_yards: defaults.known_size_yards ?? null,
+      known_size_unit: defaults.known_size_yards ? "yards" : undefined,
+      placement_instructions: defaults.placement_instructions ?? "",
       pixels_per_yard: null,
+      filming_instructions: defaults.filming_instructions ?? "",
     };
   };
 
@@ -2170,23 +2179,36 @@ function ReferenceCalibrationEditor({
 
   const isCalibrated = (angle: CameraAngle): boolean => {
     const c = getCalibration(angle);
-    return !!(c.reference_object_name && c.known_size_yards && c.pixels_per_yard);
+    return !!(c.pixels_per_yard && c.pixels_per_yard > 0);
   };
+
+  const toggleCollapse = (angle: CameraAngle) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(angle)) next.delete(angle);
+      else next.add(angle);
+      return next;
+    });
+  };
+
+  const calibratedCount = CAMERA_ANGLES_LIST.filter(a => isCalibrated(a)).length;
 
   const UNIT_OPTIONS = ["yards", "feet", "inches"] as const;
 
   return (
     <div className="space-y-6">
-      {usedAngles.size === 0 && (
-        <div className="rounded-xl border border-outline-variant/20 p-4 flex items-start gap-3" style={{ backgroundColor: '#1A2029' }}>
-          <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 18 }}>info</span>
-          <p className="text-on-surface-variant text-sm">Set camera angles in the Videos tab to see which calibrations are required.</p>
-        </div>
-      )}
+      {/* Summary */}
+      <div className="flex items-center justify-between">
+        <span className="text-on-surface-variant text-xs">
+          <span className="font-bold text-on-surface">{calibratedCount}</span> of 3 camera angles calibrated
+        </span>
+      </div>
 
-      {anglesToShow.map(angle => {
+      {CAMERA_ANGLES_LIST.map(angle => {
         const cal = getCalibration(angle);
         const calibrated = isCalibrated(angle);
+        const isCollapsed = collapsed.has(angle);
+
         return (
           <CalibrationCard
             key={angle}
@@ -2196,27 +2218,25 @@ function ReferenceCalibrationEditor({
             calibrated={calibrated}
             unitOptions={UNIT_OPTIONS}
             onUpdate={(patch) => updateCalibration(angle, patch)}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapse(angle)}
           />
         );
       })}
 
-      <div className="border-t border-outline-variant/10 pt-6">
-        <div className="flex items-center gap-1.5 mb-3">
-          <label className={LABEL_CLASS}>Athlete Filming Instructions</label>
-          <SectionTooltip tip="Shown to athletes in the upload flow before they film. Explain the full setup including reference object placement, camera position, and common mistakes." />
+      {/* Global fallback */}
+      <div className="pt-2">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-px flex-1 bg-outline-variant/20" />
+          <span className={`${LABEL_CLASS} shrink-0`}>Global Fallback</span>
+          <div className="h-px flex-1 bg-outline-variant/20" />
         </div>
-        <textarea
-          className={`${INPUT_CLASS} min-h-[120px] resize-y`}
-          value={filmingInstructions}
-          onChange={(e) => onFilmingInstructionsChange(e.target.value)}
-          placeholder="e.g. Before filming, place a standard cone at the line of scrimmage. Film from the sideline at least 10 yards away. The cone must be fully visible in the bottom of the frame throughout the rep."
-        />
       </div>
 
-      <div className="border-t border-outline-variant/10 pt-6">
+      <div>
         <div className="flex items-center gap-1.5 mb-4">
           <label className={LABEL_CLASS}>If No Reference Detected</label>
-          <SectionTooltip tip="What the pipeline does if it cannot find a reference object in the athlete's video. This affects all Distance and Velocity metrics." />
+          <SectionTooltip tip="What the pipeline does if it cannot find a reference object in the athlete's video. This applies to any angle that fails reference detection." />
         </div>
         <div className="space-y-3">
           {([
@@ -2241,15 +2261,17 @@ function ReferenceCalibrationEditor({
   );
 }
 
-function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, onUpdate }: {
+function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, onUpdate, isCollapsed, onToggleCollapse }: {
   angle: CameraAngle;
   label: string;
   calibration: ReferenceCalibration;
   calibrated: boolean;
   unitOptions: readonly string[];
   onUpdate: (patch: Partial<ReferenceCalibration>) => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
-  const [sizeUnit, setSizeUnit] = useState<string>("yards");
+  const [sizeUnit, setSizeUnit] = useState<string>(calibration.known_size_unit || "yards");
   const [displaySize, setDisplaySize] = useState<string>(calibration.known_size_yards?.toString() ?? "");
   const [selectedPreset, setSelectedPreset] = useState<string | null>(() => {
     const match = REF_PRESETS.find(p => p.label === calibration.reference_object_name);
@@ -2258,7 +2280,7 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
 
   useEffect(() => {
     setDisplaySize(calibration.known_size_yards?.toString() ?? "");
-    setSizeUnit("yards");
+    setSizeUnit(calibration.known_size_unit || "yards");
     const match = REF_PRESETS.find(p => p.label === calibration.reference_object_name);
     setSelectedPreset(match ? match.label : calibration.reference_object_name ? "custom" : null);
   }, [angle]);
@@ -2271,7 +2293,7 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
       return;
     }
     setSelectedPreset(preset.label);
-    onUpdate({ reference_object_name: preset.label, known_size_yards: preset.sizeYards });
+    onUpdate({ reference_object_name: preset.label, known_size_yards: preset.sizeYards, known_size_unit: "yards" });
     setDisplaySize(preset.sizeYards.toString());
     setSizeUnit("yards");
   };
@@ -2280,83 +2302,107 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
     setDisplaySize(raw);
     const num = parseFloat(raw);
     if (isNaN(num)) {
-      onUpdate({ known_size_yards: null });
+      onUpdate({ known_size_yards: null, known_size_unit: unit });
       return;
     }
     let yards = num;
     if (unit === "feet") yards = num / 3;
     if (unit === "inches") yards = num / 36;
-    onUpdate({ known_size_yards: parseFloat(yards.toFixed(4)) });
+    onUpdate({ known_size_yards: parseFloat(yards.toFixed(4)), known_size_unit: unit });
   };
 
   return (
     <div className={CARD_CLASS}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg">{label}</h3>
-        <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${calibrated ? 'text-primary-container' : 'text-amber-400'}`}>
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{calibrated ? 'check_circle' : 'warning'}</span>
-          {calibrated ? 'Calibrated' : 'Not configured'}
+      {/* Header row */}
+      <div className="flex items-center gap-3 cursor-pointer select-none" onClick={onToggleCollapse}>
+        <button className="text-on-surface-variant/50 hover:text-on-surface transition-colors shrink-0">
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+            {isCollapsed ? "chevron_right" : "expand_more"}
+          </span>
+        </button>
+        <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg flex-1">{label}</h3>
+        <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${calibrated ? 'text-primary-container' : 'text-on-surface-variant/50'}`}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{calibrated ? 'check_circle' : 'radio_button_unchecked'}</span>
+          {calibrated ? 'Calibrated' : 'Not Calibrated'}
         </span>
       </div>
 
-      <div className="mb-4">
-        <div className="flex items-center gap-1.5 mb-2">
-          <label className={LABEL_CLASS}>Reference Object</label>
-          <SectionTooltip tip="The physical object placed in frame that the pipeline uses to calculate the pixel-to-yard conversion ratio. Must be clearly visible in the video." />
-        </div>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {REF_PRESETS.map(p => (
-            <button key={p.label} type="button" onClick={() => applyPreset(p)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === p.label ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
-              style={selectedPreset === p.label ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
-              {p.label}
-            </button>
-          ))}
-          <button type="button" onClick={() => applyPreset(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === 'custom' ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
-            style={selectedPreset === 'custom' ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
-            Custom
-          </button>
-        </div>
-        {(selectedPreset === "custom" || (!selectedPreset && !REF_PRESETS.some(p => p.label === calibration.reference_object_name) && calibration.reference_object_name)) && (
-          <input className={INPUT_CLASS} value={calibration.reference_object_name} onChange={(e) => onUpdate({ reference_object_name: e.target.value })} placeholder="Enter custom reference object name" />
-        )}
-      </div>
+      {/* Collapsible content */}
+      {!isCollapsed && (
+        <div className="pt-3 space-y-4">
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Reference Object</label>
+              <SectionTooltip tip="The physical object placed in frame that the pipeline uses to calculate the pixel-to-yard conversion ratio. Must be clearly visible in the video." />
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {REF_PRESETS.map(p => (
+                <button key={p.label} type="button" onClick={() => applyPreset(p)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === p.label ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
+                  style={selectedPreset === p.label ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
+                  {p.label}
+                </button>
+              ))}
+              <button type="button" onClick={() => applyPreset(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === 'custom' ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
+                style={selectedPreset === 'custom' ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
+                Custom
+              </button>
+            </div>
+            {(selectedPreset === "custom" || (!selectedPreset && !REF_PRESETS.some(p => p.label === calibration.reference_object_name) && calibration.reference_object_name)) && (
+              <input className={INPUT_CLASS} value={calibration.reference_object_name} onChange={(e) => onUpdate({ reference_object_name: e.target.value })} placeholder="Enter custom reference object name" />
+            )}
+          </div>
 
-      <div className="mb-4">
-        <div className="flex items-center gap-1.5 mb-2">
-          <label className={LABEL_CLASS}>Known Real-World Size</label>
-          <SectionTooltip tip="The exact real-world measurement of the reference object. The pipeline divides the pixel measurement of this object by this value to get pixels-per-yard." />
-        </div>
-        <div className="flex gap-3">
-          <input type="number" step="0.01" className={`${INPUT_CLASS} w-[30%]`} value={displaySize} onChange={(e) => handleSizeChange(e.target.value, sizeUnit)} placeholder="e.g. 5" />
-          <select className={`${INPUT_CLASS} w-[25%]`} value={sizeUnit} onChange={(e) => { setSizeUnit(e.target.value); handleSizeChange(displaySize, e.target.value); }}>
-            {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-          </select>
-        </div>
-      </div>
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Known Real-World Size</label>
+              <SectionTooltip tip="The exact real-world measurement of the reference object. The pipeline divides the pixel measurement of this object by this value to get pixels-per-yard." />
+            </div>
+            <div className="flex gap-3">
+              <input type="number" step="0.01" className={`${INPUT_CLASS} w-[30%]`} value={displaySize} onChange={(e) => handleSizeChange(e.target.value, sizeUnit)} placeholder="e.g. 5" />
+              <select className={`${INPUT_CLASS} w-[25%]`} value={sizeUnit} onChange={(e) => { setSizeUnit(e.target.value); handleSizeChange(displaySize, e.target.value); }}>
+                {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
 
-      <div className="mb-4">
-        <div className="flex items-center gap-1.5 mb-2">
-          <label className={LABEL_CLASS}>Placement Instructions</label>
-          <SectionTooltip tip="Instructions shown to athletes in the upload flow explaining where to place this reference object. Be specific — vague instructions produce inconsistent calibration." />
-        </div>
-        <textarea
-          className={`${INPUT_CLASS} min-h-[80px] resize-y`}
-          value={calibration.placement_instructions}
-          onChange={(e) => onUpdate({ placement_instructions: e.target.value })}
-          placeholder="e.g. Place a standard cone at the line of scrimmage, clearly visible in the bottom third of the frame. The cone must be fully visible and upright."
-        />
-      </div>
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Placement Instructions</label>
+              <SectionTooltip tip="Instructions shown to athletes in the upload flow explaining where to place this reference object. Be specific — vague instructions produce inconsistent calibration." />
+            </div>
+            <textarea
+              className={`${INPUT_CLASS} min-h-[80px] resize-y`}
+              value={calibration.placement_instructions}
+              onChange={(e) => onUpdate({ placement_instructions: e.target.value })}
+              placeholder="e.g. Place a standard cone at the line of scrimmage, clearly visible in the bottom third of the frame."
+            />
+          </div>
 
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <label className={LABEL_CLASS}>Pixels Per Yard</label>
-          <SectionTooltip tip="Auto-calculated from test footage or set manually. This is the exact value the Edge Function uses to convert pixel distances to yards. Higher values = camera is closer to the field." />
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Pixels Per Yard</label>
+              <SectionTooltip tip="Auto-calculated from test footage or set manually. This is the exact value the Edge Function uses to convert pixel distances to yards. Higher values = camera is closer to the field." />
+            </div>
+            <input type="number" step="1" className={INPUT_CLASS} value={calibration.pixels_per_yard ?? ""} onChange={(e) => onUpdate({ pixels_per_yard: e.target.value ? parseFloat(e.target.value) : null })} placeholder="e.g. 142" />
+            <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Measure from a test clip: count pixels across your reference object, divide by its known size in yards.</p>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Athlete Filming Instructions</label>
+              <SectionTooltip tip="Shown to athletes in the upload flow before they film from this angle. Explain camera position, distance, and what must be visible in frame." />
+            </div>
+            <textarea
+              className={`${INPUT_CLASS} min-h-[100px] resize-y`}
+              value={calibration.filming_instructions ?? ""}
+              onChange={(e) => onUpdate({ filming_instructions: e.target.value })}
+              placeholder="e.g. Film from the sideline at least 10 yards away at waist height. The full route and reference object must be visible throughout the rep."
+            />
+          </div>
         </div>
-        <input type="number" step="1" className={INPUT_CLASS} value={calibration.pixels_per_yard ?? ""} onChange={(e) => onUpdate({ pixels_per_yard: e.target.value ? parseFloat(e.target.value) : null })} placeholder="e.g. 142" />
-        <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Measure from a test clip: count pixels across your reference object, divide by its known size in yards.</p>
-      </div>
+      )}
     </div>
   );
 }
