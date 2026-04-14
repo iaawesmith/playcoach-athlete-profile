@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ChecklistItem {
@@ -44,6 +44,9 @@ const PHASES: Phase[] = [
       { item_id: "preflight_validation", title: "Pre-flight validation implemented", description: "Check clip duration, resolution, and athlete frame size against camera_guidelines auto-reject conditions." },
       { item_id: "cloud_run_post", title: "Cloud Run POST implemented", description: "Send video_url + full node config to Cloud Run. Handle timeout and retry logic." },
       { item_id: "phase_windowing", title: "Phase frame windowing implemented", description: "Divide total frames by proportion_weight percentages. Apply frame_buffer overlap on boundaries." },
+      { item_id: "person_locking_implemented", title: "Person locking implemented", description: "When multiple people are detected in a frame, select the person with the largest bounding box area as the target athlete. Lock onto that person ID for all subsequent metric calculations in the clip. Prevents metrics from silently computing on a teammate or defender who enters frame." },
+      { item_id: "temporal_smoothing_implemented", title: "Temporal smoothing implemented", description: "Apply a moving average (window=3 frames minimum) to all keypoint coordinate timeseries before any metric calculation. Interpolate gaps where keypoint confidence falls below threshold using linear interpolation across adjacent good frames (max gap 5 frames). Critical for velocity and acceleration metrics — without smoothing, 2-5px jitter produces ~60-150px/second of false velocity signal. See MMPose audit in Architecture tab for full implementation spec." },
+      { item_id: "detection_frequency_tuned", title: "Detection frequency tuned for athletic movements", description: "Reduce det_frequency from 7 to 2 for all nodes. The slant route break occurs over 3-5 frames — det_frequency=7 means the critical break phase may receive stale bounding boxes, causing the pose estimator to receive poorly cropped input on the most important frames. For the Break phase specifically, consider det_frequency=1. See MMPose audit in Architecture tab." },
       { item_id: "metric_angle", title: "Metric calculation — Angle", description: "Geometric angle at vertex keypoint from 3 [x,y] coordinates." },
       { item_id: "metric_distance", title: "Metric calculation — Distance", description: "Euclidean pixel distance × pixels_per_yard conversion from reference_calibrations." },
       { item_id: "metric_velocity", title: "Metric calculation — Velocity", description: "Displacement per frame × fps. Temporal window minimum 3." },
@@ -82,11 +85,78 @@ interface CheckState {
   notes: string;
 }
 
+function generatePhaseCopy(phase: Phase, phaseIndex: number, state: Record<string, CheckState>): string {
+  const completed = phase.items.filter(i => state[i.item_id]?.completed).length;
+  const now = new Date().toLocaleString();
+  const lines: string[] = [];
+  lines.push(`# AthleteLab Pipeline Setup — Phase ${phaseIndex + 1}: ${phase.name}`);
+  lines.push(`# Copied: ${now}`);
+  lines.push(`# Progress: ${completed} of ${phase.items.length} complete`);
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push(`## ${phase.name}`);
+  lines.push("");
+  for (const item of phase.items) {
+    const s = state[item.item_id];
+    const done = s?.completed || false;
+    lines.push(`${done ? "✅" : "⬜"} ${item.title}`);
+    lines.push(`  Description: ${item.description}`);
+    lines.push(`  Status: ${done ? "Complete" : "Incomplete"}`);
+    if (s?.notes) {
+      lines.push(`  Notes: ${s.notes}`);
+    }
+    lines.push("");
+  }
+  lines.push("---");
+  lines.push("");
+  lines.push("PHASE SUMMARY:");
+  lines.push(`Complete: ${completed} of ${phase.items.length}`);
+  const remaining = phase.items.filter(i => !state[i.item_id]?.completed).map(i => i.title);
+  lines.push(`Remaining: ${remaining.length > 0 ? remaining.join(", ") : "None"}`);
+  return lines.join("\n");
+}
+
+function generateAllPhasesCopy(state: Record<string, CheckState>): string {
+  return PHASES.map((phase, i) => generatePhaseCopy(phase, i, state)).join("\n\n\n");
+}
+
+function AutoExpandTextarea({ value, onChange, onBlur, placeholder }: {
+  value: string;
+  onChange: (val: string) => void;
+  onBlur: () => void;
+  placeholder: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.style.height = Math.max(120, ref.current.scrollHeight) + "px";
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-[11px] font-mono leading-relaxed resize-y focus:outline-none focus:border-primary-container/30 transition-colors"
+      style={{ minHeight: 120 }}
+    />
+  );
+}
+
 export function PipelineSetupTab() {
   const [state, setState] = useState<Record<string, CheckState>>({});
   const [loading, setLoading] = useState(true);
   const [expandedPhases, setExpandedPhases] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
+  const [copiedPhase, setCopiedPhase] = useState<number | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("pipeline_setup_checklist").select("item_id, completed, completed_at, notes");
@@ -128,6 +198,24 @@ export function PipelineSetupTab() {
     } else {
       await supabase.from("pipeline_setup_checklist").insert({ item_id, completed: false, notes });
     }
+
+    setSavedNote(item_id);
+    setTimeout(() => setSavedNote(null), 1500);
+  };
+
+  const copyPhase = async (phaseIndex: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = generatePhaseCopy(PHASES[phaseIndex], phaseIndex, state);
+    await navigator.clipboard.writeText(text);
+    setCopiedPhase(phaseIndex);
+    setTimeout(() => setCopiedPhase(null), 2000);
+  };
+
+  const copyAll = async () => {
+    const text = generateAllPhasesCopy(state);
+    await navigator.clipboard.writeText(text);
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2000);
   };
 
   const completedCount = Object.values(state).filter((s) => s.completed).length;
@@ -158,7 +246,18 @@ export function PipelineSetupTab() {
           <span className="text-on-surface font-black uppercase tracking-[0.15em] text-xs">
             Pipeline Readiness: {completedCount} of {TOTAL_ITEMS} steps complete
           </span>
-          <span className="font-black text-sm" style={{ color: barColor }}>{pct}%</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={copyAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface-variant hover:text-on-surface"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 14, color: copiedAll ? "#22c55e" : undefined }}>
+                {copiedAll ? "check_circle" : "content_copy"}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-widest">{copiedAll ? "Copied" : "Copy All Phases"}</span>
+            </button>
+            <span className="font-black text-sm" style={{ color: barColor }}>{pct}%</span>
+          </div>
         </div>
         <div className="w-full h-3 bg-surface-container-lowest rounded-full overflow-hidden">
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: barColor }} />
@@ -188,6 +287,13 @@ export function PipelineSetupTab() {
                 {phaseComplete} of {phase.items.length} complete
               </span>
               <div className="flex-1" />
+              <span
+                className="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors"
+                style={{ fontSize: 16, color: copiedPhase === pi ? "#22c55e" : undefined }}
+                onClick={(e) => copyPhase(pi, e)}
+              >
+                {copiedPhase === pi ? "check_circle" : "content_copy"}
+              </span>
               <div className="w-24 h-2 bg-surface-container-lowest rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
@@ -243,14 +349,32 @@ export function PipelineSetupTab() {
 
                       {/* Notes */}
                       {notesOpen && (
-                        <div className="px-5 pb-3 pl-13">
-                          <textarea
+                        <div className="px-5 pb-4 ml-8">
+                          <p className="text-on-surface-variant font-black uppercase tracking-[0.15em] text-[9px] mb-2">
+                            Implementation Notes
+                          </p>
+                          <AutoExpandTextarea
                             value={s?.notes || ""}
-                            onChange={(e) => setState({ ...state, [item.item_id]: { ...s, completed: s?.completed || false, completed_at: s?.completed_at || null, notes: e.target.value } })}
-                            onBlur={(e) => saveNotes(item.item_id, e.target.value)}
-                            placeholder="Add implementation notes, links, or issues..."
-                            className="w-full min-h-[60px] bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-[11px] font-mono leading-relaxed resize-y focus:outline-none focus:border-primary-container/30 transition-colors ml-8"
+                            onChange={(val) => setState({ ...state, [item.item_id]: { ...s, completed: s?.completed || false, completed_at: s?.completed_at || null, notes: val } })}
+                            onBlur={() => {}}
+                            placeholder="Add implementation notes, prompts, links, or any context needed for this step..."
                           />
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-on-surface-variant/40 text-[9px] font-mono">
+                              {(s?.notes || "").length} characters
+                            </span>
+                            <button
+                              onClick={() => saveNotes(item.item_id, s?.notes || "")}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest transition-colors"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: 13, color: savedNote === item.item_id ? "#22c55e" : undefined }}>
+                                {savedNote === item.item_id ? "check" : "save"}
+                              </span>
+                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: savedNote === item.item_id ? "#22c55e" : undefined }}>
+                                {savedNote === item.item_id ? "Saved ✓" : "Save"}
+                              </span>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
