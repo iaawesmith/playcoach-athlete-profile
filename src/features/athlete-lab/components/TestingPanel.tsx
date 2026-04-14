@@ -125,10 +125,135 @@ export function TestingPanel({ node }: TestingPanelProps) {
     return "#ef4444";
   };
 
+  const buildContext = (): AnalysisContext => ({
+    camera_angle: cameraAngle,
+    people_in_video: peopleInVideo,
+    route_direction: routeDirection,
+    catch_included: catchStatus !== "no",
+    catch_status: catchStatus,
+    athlete_level: athleteLevel,
+    focus_area: focusArea.trim(),
+  });
+
+  const copyContext = () => {
+    const cameraLabel: Record<CameraAngleOption, string> = { sideline: "Sideline", behind_qb: "Behind QB", endzone: "Endzone", other: "Other" };
+    const peopleLabel: Record<PeopleOption, string> = { solo: "Just Me", with_defender: "Me + Defender", multiple: "Multiple People" };
+    const routeLabel: Record<RouteDirectionOption, string> = { left: "Left", right: "Right", both: "Both" };
+    const catchLabel: Record<CatchOption, string> = { yes: "Yes", no: "No", partial: "Partial" };
+    const levelLabel: Record<AthleteLevelOption, string> = { youth: "Youth (Under 14)", high_school: "High School", college: "College", professional: "Professional" };
+
+    const text = `# Analysis Context\nCamera Angle: ${cameraLabel[cameraAngle]}\nPeople in Video: ${peopleLabel[peopleInVideo]}\nRoute Direction: ${routeLabel[routeDirection]}\nCatch Included: ${catchLabel[catchStatus]}\nAthlete Level: ${levelLabel[athleteLevel]}\nFocus Area: ${focusArea.trim() || "Not specified"}`;
+    navigator.clipboard.writeText(text);
+    setContextCopied(true);
+    setTimeout(() => setContextCopied(false), 1500);
+  };
+
   return (
     <div className="space-y-6">
 
-      {/* Input Section */}
+      {/* Analysis Context Panel */}
+      <div className="bg-surface-container rounded-xl border border-white/5">
+        <div className="flex items-center justify-between p-5 pb-0">
+          <div className="flex items-center gap-2">
+            <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em]">Analysis Context</span>
+            <SectionTooltip content="Optional context that improves analysis accuracy by informing the Edge Function how to process the video. Used for testing — will be collected automatically from athlete onboarding and upload flow when the product launches." />
+            <button onClick={copyContext} className="ml-2 text-on-surface-variant/40 hover:text-on-surface transition-colors" title="Copy context">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{contextCopied ? "check" : "content_copy"}</span>
+            </button>
+          </div>
+          <button
+            onClick={() => setContextEnabled(!contextEnabled)}
+            className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${contextEnabled ? "bg-primary-container" : "bg-surface-container-highest"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${contextEnabled ? "translate-x-5" : ""}`} />
+          </button>
+        </div>
+
+        {contextEnabled && (
+          <div className="p-5 pt-4 space-y-4">
+            {/* Camera Angle */}
+            <div>
+              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Camera Angle</label>
+              <RadioPills value={cameraAngle} onChange={setCameraAngle} options={[
+                { value: "sideline", label: "Sideline" },
+                { value: "behind_qb", label: "Behind QB" },
+                { value: "endzone", label: "Endzone" },
+                { value: "other", label: "Other" },
+              ]} />
+              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Reference calibration selection for distance metrics</p>
+            </div>
+
+            {/* People in Video */}
+            <div>
+              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">People in Video</label>
+              <RadioPills value={peopleInVideo} onChange={setPeopleInVideo} options={[
+                { value: "solo", label: "Just Me" },
+                { value: "with_defender", label: "Me + Defender" },
+                { value: "multiple", label: "Multiple People" },
+              ]} />
+              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Person locking strategy and detection frequency</p>
+            </div>
+
+            {/* Route Direction */}
+            <div>
+              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Route Direction</label>
+              <RadioPills value={routeDirection} onChange={setRouteDirection} options={[
+                { value: "left", label: "Left" },
+                { value: "right", label: "Right" },
+                { value: "both", label: "Both" },
+              ]} />
+              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Bilateral keypoint selection override</p>
+            </div>
+
+            {/* Catch Included */}
+            <div>
+              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Clip Includes Catch?</label>
+              <RadioPills value={catchStatus} onChange={setCatchStatus} options={[
+                { value: "yes", label: "Yes" },
+                { value: "no", label: "No" },
+                { value: "partial", label: "Partial" },
+              ]} />
+              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Catch Efficiency and YAC Burst metric inclusion</p>
+              {catchStatus === "no" && (
+                <div className="mt-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-blue-300 text-xs">ℹ Catch Efficiency and YAC Burst will be excluded from scoring. Remaining metrics rescored to 100% if Renormalize is ON in Scoring tab.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Athlete Level */}
+            <div>
+              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Athlete Level</label>
+              <select
+                value={athleteLevel}
+                onChange={(e) => setAthleteLevel(e.target.value as AthleteLevelOption)}
+                className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary-container/50 transition-colors appearance-none"
+              >
+                <option value="youth">Youth (Under 14)</option>
+                <option value="high_school">High School</option>
+                <option value="college">College</option>
+                <option value="professional">Professional</option>
+              </select>
+              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: LLM feedback tone and vocabulary. Will be pulled from athlete profile when onboarding is implemented.</p>
+            </div>
+
+            {/* Focus Area */}
+            <div>
+              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Focus Area <span className="text-on-surface-variant/30">(Optional)</span></label>
+              <input
+                value={focusArea}
+                onChange={(e) => setFocusArea(e.target.value.slice(0, 100))}
+                placeholder="e.g. working on my break angle, trying to improve release speed"
+                className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors"
+              />
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-on-surface-variant/50 text-[10px]">Used by: Passed to Claude as additional coaching context</p>
+                <span className="text-on-surface-variant/30 text-[10px]">{focusArea.length}/100</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       <div className="bg-surface-container rounded-xl p-5 border border-white/5 space-y-4">
         {/* Video Upload */}
         <div>
