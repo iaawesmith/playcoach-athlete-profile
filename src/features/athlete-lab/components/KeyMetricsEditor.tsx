@@ -104,7 +104,7 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  const defaultMetric: KeyMetric = { name: "", description: "", eliteTarget: "", unit: "", weight: 0, tolerance: null, temporal_window: 1, depends_on_metric_id: null, keypoint_mapping: null };
+  const defaultMetric: KeyMetric = { name: "", description: "", eliteTarget: "", unit: "", weight: 0, tolerance: null, temporal_window: 1, depends_on_metric_id: null, keypoint_mapping: null, requires_catch: false };
   const [draft, setDraft] = useState<KeyMetric>(defaultMetric);
   const [editDraft, setEditDraft] = useState<KeyMetric>(defaultMetric);
 
