@@ -29,6 +29,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "architecture", label: "ARCHITECTURE" },
   { id: "links", label: "LINKS" },
   { id: "pipeline_setup", label: "PIPELINE SETUP" },
+  { id: "implementation_docs", label: "IMPLEMENTATION DOCS" },
   { id: "enhancements", label: "ENHANCEMENTS" },
   { id: "data_dictionary", label: "DATA DICTIONARY" },
 ];
