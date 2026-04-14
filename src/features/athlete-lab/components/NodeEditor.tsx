@@ -390,6 +390,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         reference_fallback_behavior: draft.reference_fallback_behavior,
         performance_mode: draft.performance_mode,
         det_frequency: draft.det_frequency,
+        det_frequency_solo: draft.det_frequency_solo,
+        det_frequency_defender: draft.det_frequency_defender,
+        det_frequency_multiple: draft.det_frequency_multiple,
         tracking_enabled: draft.tracking_enabled,
       };
       if (shouldAutoDraft) {
