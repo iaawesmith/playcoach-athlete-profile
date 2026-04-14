@@ -378,6 +378,33 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
           <KeypointMappingPanel km={km} setKm={setKm} phases={phases} metric={m} setMetric={setM} />
         </div>
       </div>
+
+      {/* Requires Catch toggle */}
+      <div className="border-t border-white/[0.08] pt-3 mt-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className={LABEL_CLASS}>Requires Catch</span>
+            <SectionTooltip tip={TOOLTIPS.requiresCatch} />
+          </div>
+          <button
+            type="button"
+            onClick={() => setM({ ...m, requires_catch: !m.requires_catch })}
+            className={`w-11 h-6 rounded-full relative transition-colors ${
+              m.requires_catch ? "bg-primary-container" : "bg-surface-container-highest"
+            }`}
+          >
+            <span className={`block w-5 h-5 rounded-full bg-on-surface shadow-lg transition-transform absolute top-0.5 ${
+              m.requires_catch ? "translate-x-[22px]" : "translate-x-0.5"
+            }`} />
+          </button>
+        </div>
+        {m.requires_catch && (
+          <div className="mt-2 px-3 py-2 rounded-lg border border-amber-400/20 bg-amber-400/5 flex items-start gap-2">
+            <span className="material-symbols-outlined text-amber-400 shrink-0" style={{ fontSize: 16 }}>warning</span>
+            <span className="text-amber-400 text-[11px]">This metric will be excluded from analysis when athlete reports no catch.</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
