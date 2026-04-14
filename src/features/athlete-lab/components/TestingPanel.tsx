@@ -174,7 +174,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             {/* Camera Angle */}
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Camera Angle</label>
-              <RadioPills value={cameraAngle} onChange={setCameraAngle} options={[
+              <RadioPills value={cameraAngle} onChange={(v) => setCameraAngle(v as CameraAngleOption)} options={[
                 { value: "sideline" as const, label: "Sideline" },
                 { value: "behind_qb" as const, label: "Behind QB" },
                 { value: "endzone" as const, label: "Endzone" },
@@ -186,7 +186,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             {/* People in Video */}
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">People in Video</label>
-              <RadioPills value={peopleInVideo} onChange={setPeopleInVideo} options={[
+              <RadioPills value={peopleInVideo} onChange={(v) => setPeopleInVideo(v as PeopleOption)} options={[
                 { value: "solo" as const, label: "Just Me" },
                 { value: "with_defender" as const, label: "Me + Defender" },
                 { value: "multiple" as const, label: "Multiple People" },
@@ -197,7 +197,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             {/* Route Direction */}
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Route Direction</label>
-              <RadioPills value={routeDirection} onChange={setRouteDirection} options={[
+              <RadioPills value={routeDirection} onChange={(v) => setRouteDirection(v as RouteDirectionOption)} options={[
                 { value: "left" as const, label: "Left" },
                 { value: "right" as const, label: "Right" },
                 { value: "both" as const, label: "Both" },
@@ -208,7 +208,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             {/* Catch Included */}
             <div>
               <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Clip Includes Catch?</label>
-              <RadioPills value={catchStatus} onChange={setCatchStatus} options={[
+              <RadioPills value={catchStatus} onChange={(v) => setCatchStatus(v as CatchOption)} options={[
                 { value: "yes" as const, label: "Yes" },
                 { value: "no" as const, label: "No" },
                 { value: "partial" as const, label: "Partial" },
