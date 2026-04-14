@@ -53,6 +53,36 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_implementation_docs: {
+        Row: {
+          content: string
+          created_at: string
+          display_order: number
+          id: string
+          subtitle: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          subtitle?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       admin_reference_cache: {
         Row: {
           cache_key: string

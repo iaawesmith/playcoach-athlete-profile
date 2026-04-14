@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
 import { PipelineSetupTab } from "./PipelineSetupTab";
+import { ImplementationDocsTab } from "./ImplementationDocsTab";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "pipeline_setup" | "enhancements" | "data_dictionary";
+type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "pipeline_setup" | "implementation_docs" | "enhancements" | "data_dictionary";
 
 interface ReferenceLink {
   id: string;
@@ -28,6 +29,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "architecture", label: "ARCHITECTURE" },
   { id: "links", label: "LINKS" },
   { id: "pipeline_setup", label: "PIPELINE SETUP" },
+  { id: "implementation_docs", label: "IMPLEMENTATION DOCS" },
   { id: "enhancements", label: "ENHANCEMENTS" },
   { id: "data_dictionary", label: "DATA DICTIONARY" },
 ];
@@ -417,12 +419,13 @@ export function AdminReferencePanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Content */}
-      <div className={`flex-1 overflow-y-auto p-6 mx-auto w-full ${activeTab === "data_dictionary" || activeTab === "enhancements" || activeTab === "pipeline_setup" ? "max-w-6xl" : "max-w-4xl"}`}>
+      <div className={`flex-1 overflow-y-auto p-6 mx-auto w-full ${activeTab === "data_dictionary" || activeTab === "enhancements" || activeTab === "pipeline_setup" || activeTab === "implementation_docs" ? "max-w-6xl" : "max-w-4xl"}`}>
         {activeTab === "agent_briefing" && <PromptTab tabKey="agent_briefing" />}
         {activeTab === "node_builder" && <PromptTab tabKey="node_builder" />}
         {activeTab === "architecture" && <PromptTab tabKey="architecture" />}
         {activeTab === "links" && <LinksTab />}
         {activeTab === "pipeline_setup" && <PipelineSetupTab />}
+        {activeTab === "implementation_docs" && <ImplementationDocsTab />}
         {activeTab === "enhancements" && <EnhancementsTab />}
         {activeTab === "data_dictionary" && <DataDictionaryTab />}
       </div>
