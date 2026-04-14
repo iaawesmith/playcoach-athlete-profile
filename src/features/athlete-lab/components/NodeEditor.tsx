@@ -2372,9 +2372,11 @@ interface ScoringEditorProps {
   onMinMetricsThresholdChange: (v: number) => void;
   scoreBands: ScoreBands;
   onScoreBandsChange: (v: ScoreBands) => void;
+  renormalizeOnSkip: boolean;
+  onRenormalizeOnSkipChange: (v: boolean) => void;
 }
 
-function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidenceHandling, onConfidenceHandlingChange, minMetricsThreshold, onMinMetricsThresholdChange, scoreBands, onScoreBandsChange }: ScoringEditorProps) {
+function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidenceHandling, onConfidenceHandlingChange, minMetricsThreshold, onMinMetricsThresholdChange, scoreBands, onScoreBandsChange, renormalizeOnSkip, onRenormalizeOnSkipChange }: ScoringEditorProps) {
   const [simValues, setSimValues] = useState<Record<string, number>>({});
 
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);

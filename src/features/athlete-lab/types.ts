@@ -165,6 +165,7 @@ export interface TrainingNode {
   reference_fallback_behavior: ReferenceFallback;
   performance_mode: PerformanceMode;
   det_frequency: number;
+  scoring_renormalize_on_skip: boolean;
   tracking_enabled: boolean;
   created_at: string;
   updated_at: string;
