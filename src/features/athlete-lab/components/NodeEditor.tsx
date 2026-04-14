@@ -391,6 +391,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         confidence_handling: draft.confidence_handling,
         min_metrics_threshold: draft.min_metrics_threshold,
         score_bands: draft.score_bands,
+        scoring_renormalize_on_skip: draft.scoring_renormalize_on_skip,
         solution_class: draft.solution_class,
         reference_calibrations: draft.reference_calibrations,
         reference_filming_instructions: draft.reference_filming_instructions,
@@ -741,6 +742,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             onMinMetricsThresholdChange={(v) => updateWithCriticalTrack("min_metrics_threshold", v)}
             scoreBands={draft.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" }}
             onScoreBandsChange={(v) => updateWithCriticalTrack("score_bands", v)}
+            renormalizeOnSkip={draft.scoring_renormalize_on_skip ?? true}
+            onRenormalizeOnSkipChange={(v) => updateWithCriticalTrack("scoring_renormalize_on_skip", v)}
           />
         )}
 
