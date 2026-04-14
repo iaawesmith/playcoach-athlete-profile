@@ -1023,7 +1023,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         <div>
           <div className="flex items-center gap-1.5 mb-2">
             <label className={LABEL_CLASS}>Video Type</label>
-            <SectionTooltip tip="Educational — shown to athletes as a learning example but not used in analysis calibration. Analysis — used by the pipeline as a reference for metric calibration. Both — serves both purposes." />
+            <SectionTooltip tip="Educational — shown to athletes in the training feed before they film. Teaches the skill and what to look for. Analysis — shown to athletes alongside their results as context. Not processed by rtmlib — for visual reference only. Both — shown in both the training feed and results screen." />
           </div>
           <div className="flex gap-1">
             {TYPE_OPTIONS.map((o) => (
@@ -1048,7 +1048,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
           <div>
             <div className="flex items-center gap-1.5">
               <label className={LABEL_CLASS}>Reference Video</label>
-              <SectionTooltip tip="The single video shown to athletes alongside their results as the elite performance benchmark. Only one video per node can be the Reference. Toggling this on will automatically remove it from any other video currently flagged as Reference." />
+              <SectionTooltip tip="Marks this as the elite benchmark video shown to athletes next to their results. One per node. Not processed by rtmlib — for athlete motivation and comparison only." />
             </div>
             <p className="text-on-surface-variant/50 text-[10px] mt-0.5">Shown to athletes as the elite example alongside their results. One per node.</p>
           </div>
