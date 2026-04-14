@@ -145,7 +145,13 @@ function generateMetrics(node: TrainingNode): string {
 
 function generateScoring(node: TrainingNode): string {
   const bands = node.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" };
-  return `## Scoring\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMin Metrics Threshold: ${node.min_metrics_threshold ?? 50}%\n\nScore Bands:\n  90-100: ${bands.elite}\n  75-89: ${bands.varsity}\n  60-74: ${bands.developing}\n  Below 60: ${bands.needs_work}`;
+  const renorm = node.scoring_renormalize_on_skip ?? true;
+  const catchWeight = node.key_metrics.filter(m => m.requires_catch).reduce((s, m) => s + m.weight, 0);
+  let renormLine = `Renormalize on Skip: ${renorm ? "Yes" : "No"}`;
+  if (!renorm) {
+    renormLine += `\nMax score when catch excluded: ${100 - catchWeight}%`;
+  }
+  return `## Scoring\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMin Metrics Threshold: ${node.min_metrics_threshold ?? 50}%\n${renormLine}\n\nScore Bands:\n  90-100: ${bands.elite}\n  75-89: ${bands.varsity}\n  60-74: ${bands.developing}\n  Below 60: ${bands.needs_work}`;
 }
 
 function generateErrors(node: TrainingNode): string {

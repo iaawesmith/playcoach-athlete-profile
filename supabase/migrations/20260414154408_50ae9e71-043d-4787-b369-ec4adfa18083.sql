@@ -1,0 +1,1 @@
+ALTER TABLE public.athlete_lab_nodes ADD COLUMN scoring_renormalize_on_skip boolean NOT NULL DEFAULT true;
