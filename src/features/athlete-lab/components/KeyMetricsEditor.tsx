@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import type { KeyMetric, KeypointMapping, CalculationType, BilateralMode, PhaseNote } from "../types";
+import type { KeyMetric, KeypointMapping, CalculationType, BilateralMode, BilateralOverride, PhaseNote } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
@@ -52,6 +52,7 @@ function getDefaultMapping(): KeypointMapping {
     keypoint_indices: [],
     calculation_type: null,
     bilateral: "auto",
+    bilateral_override: "auto",
     confidence_threshold: 0.70,
     phase_id: null,
   };
