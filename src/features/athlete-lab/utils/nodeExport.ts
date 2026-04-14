@@ -253,7 +253,9 @@ function generateCheckpoints(node: TrainingNode): string {
 function generatePrompt(node: TrainingNode): string {
   const toneMap: Record<string, string> = { encouraging: "Encouraging", direct: "Direct", technical: "Technical" };
   const template = node.llm_prompt_template ?? "";
-  const vars = Array.from(template.matchAll(/\{\{(.+?)\}\}/g)).map(m => m[1]);
+  const sysInstructions = node.llm_system_instructions ?? "";
+  const combinedText = template + "\n" + sysInstructions;
+  const vars = Array.from(new Set(Array.from(combinedText.matchAll(/\{\{(.+?)\}\}/g)).map(m => m[1])));
 
   const recommended = ["mastery_score", "metric_results", "phase_scores", "confidence_flags", "detected_errors", "athlete_name", "node_name", "athlete_level", "focus_area", "skipped_metrics"];
   const missing = recommended.filter(v => !vars.includes(v));
