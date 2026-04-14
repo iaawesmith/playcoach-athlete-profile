@@ -16,7 +16,7 @@ type RouteDirectionOption = "left" | "right" | "both";
 type CatchOption = "yes" | "no" | "partial";
 type AthleteLevelOption = "youth" | "high_school" | "college" | "professional";
 
-function RadioPills<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
+function RadioPills<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: readonly { value: T; label: string }[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map((opt) => (
