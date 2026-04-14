@@ -1,20 +1,32 @@
 
-Fix the Badges tab icon tray so it opens fully inside the visible form area instead of spilling off the right side.
 
-1. Update `src/features/athlete-lab/components/BadgesEditor.tsx` in `renderEmojiPicker`:
-   - Keep the trigger wrapper `relative`.
-   - Replace the current tray anchoring (`left-0`) with a leftward-opening position (`left-auto right-0`) so the panel expands back into the form.
-   - Add a small extra left nudge only if needed, since this icon field sits on the far-right side of the row.
+## Fix: Double Scrollbar on Reference, Training Status, and Scoring Tabs
 
-2. Keep the tray easy to use:
-   - Preserve the contained width/height behavior so the picker remains scrollable on smaller screens.
-   - Keep the click-outside backdrop and current z-index behavior.
+### Root Cause
 
-3. Verify only this bug is affected:
-   - Check both “new badge” and “edit badge” icon pickers.
-   - Confirm the full emoji grid is visible, no columns are cut off, and all options can be selected without horizontal clipping.
+The layout hierarchy is:
+```text
+AthleteLab (h-screen, overflow-hidden)
+  └─ flex container (flex-1, min-h-0)
+       └─ div.flex-1.min-w-0          ← NO height constraint, NO overflow control
+            └─ NodeEditor (flex-1, h-full, overflow-y-auto)  ← intended scroll container
+```
 
-Technical details
-- Root cause: the picker is still anchored from the trigger’s left edge, but the trigger lives near the editor’s right boundary.
-- Scope should stay to one file: `src/features/athlete-lab/components/BadgesEditor.tsx`.
-- No data, copy output, or badge logic changes.
+The intermediate wrapper div at line 94 in `AthleteLab.tsx` (`flex-1 min-w-0`) lacks `overflow-hidden` and an explicit height constraint. When tab content is tall enough, both this wrapper and the NodeEditor's `overflow-y-auto` div produce scrollbars.
+
+### Fix
+
+**File: `src/features/athlete-lab/AthleteLab.tsx` (line 94)**
+
+Add `overflow-hidden` to the wrapper div so only the NodeEditor's scroll container is active:
+
+```
+<div className="flex-1 min-w-0 overflow-hidden">
+```
+
+This single class addition ensures that only the inner `overflow-y-auto` on NodeEditor produces a scrollbar. The outer div clips instead of generating its own.
+
+### Why only some tabs
+
+Tabs with more content (Reference, Training Status, Scoring) push the content height past the viewport, triggering the second scrollbar on the wrapper. Shorter tabs don't overflow enough to make it visible.
+
