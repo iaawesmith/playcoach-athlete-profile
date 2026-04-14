@@ -419,12 +419,13 @@ export function AdminReferencePanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Content */}
-      <div className={`flex-1 overflow-y-auto p-6 mx-auto w-full ${activeTab === "data_dictionary" || activeTab === "enhancements" || activeTab === "pipeline_setup" ? "max-w-6xl" : "max-w-4xl"}`}>
+      <div className={`flex-1 overflow-y-auto p-6 mx-auto w-full ${activeTab === "data_dictionary" || activeTab === "enhancements" || activeTab === "pipeline_setup" || activeTab === "implementation_docs" ? "max-w-6xl" : "max-w-4xl"}`}>
         {activeTab === "agent_briefing" && <PromptTab tabKey="agent_briefing" />}
         {activeTab === "node_builder" && <PromptTab tabKey="node_builder" />}
         {activeTab === "architecture" && <PromptTab tabKey="architecture" />}
         {activeTab === "links" && <LinksTab />}
         {activeTab === "pipeline_setup" && <PipelineSetupTab />}
+        {activeTab === "implementation_docs" && <ImplementationDocsTab />}
         {activeTab === "enhancements" && <EnhancementsTab />}
         {activeTab === "data_dictionary" && <DataDictionaryTab />}
       </div>
