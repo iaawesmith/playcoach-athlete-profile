@@ -11,7 +11,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { node, videoDescription } = await req.json();
+    const { node, videoDescription, analysis_context } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -43,6 +43,19 @@ Rules:
 - The "warnings" array should flag issues like missing calibration reference, poor camera angle, or low-confidence estimates. Return empty array if no warnings.
 - Strengths should be 2-4 items, improvements should be 2-4 items.`;
 
+    // Build context-aware additions to user prompt
+    let contextBlock = "";
+    if (analysis_context) {
+      contextBlock = `\n\nANALYSIS CONTEXT (from athlete pre-upload):
+Camera Angle: ${analysis_context.camera_angle ?? "unknown"}
+People in Video: ${analysis_context.people_in_video ?? "unknown"}
+Route Direction: ${analysis_context.route_direction ?? "unknown"}
+Catch Included: ${analysis_context.catch_status ?? "unknown"}
+Athlete Level: ${analysis_context.athlete_level ?? "unknown"}
+Focus Area: ${analysis_context.focus_area || "Not specified"}
+`;
+    }
+
     const userPrompt = `TRAINING NODE CONFIGURATION:
 Name: ${node.name}
 Overview: ${node.overview}
@@ -56,7 +69,7 @@ LLM Prompt Template: ${node.llm_prompt_template}
 Elite Videos: ${JSON.stringify(node.elite_videos)}
 Camera Guidelines: ${node.camera_guidelines}
 Reference Object: ${node.reference_object}
-
+${contextBlock}
 ATHLETE PERFORMANCE DESCRIPTION:
 ${videoDescription}
 
