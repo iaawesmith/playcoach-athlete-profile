@@ -16,13 +16,7 @@ type RouteDirectionOption = "left" | "right" | "both";
 type CatchOption = "yes" | "no" | "partial";
 type AthleteLevelOption = "youth" | "high_school" | "college" | "professional";
 
-interface RadioPillsProps<T extends string> {
-  value: T;
-  onChange: (v: T) => void;
-  options: readonly { value: T; label: string }[];
-}
-
-function RadioPillsInner<T extends string>({ value, onChange, options }: RadioPillsProps<T>) {
+function RadioPills({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: readonly { value: string; label: string }[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map((opt) => (
@@ -42,9 +36,6 @@ function RadioPillsInner<T extends string>({ value, onChange, options }: RadioPi
     </div>
   );
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const RadioPills = RadioPillsInner as <T extends string>(props: RadioPillsProps<T>) => JSX.Element;
 
 export function TestingPanel({ node }: TestingPanelProps) {
   const [videoDesc, setVideoDesc] = useState("");
