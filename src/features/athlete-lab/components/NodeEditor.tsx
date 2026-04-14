@@ -1883,11 +1883,14 @@ function getSolutionClassWarnings(solutionClass: string, metrics: KeyMetric[], t
   return warnings;
 }
 
-function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeChange, onDetFrequencyChange, onTrackingEnabledChange, onNavigateTab }: {
+function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeChange, onDetFrequencyChange, onDetFrequencySoloChange, onDetFrequencyDefenderChange, onDetFrequencyMultipleChange, onTrackingEnabledChange, onNavigateTab }: {
   node: TrainingNode;
   onSolutionClassChange: (v: string) => void;
   onPerformanceModeChange: (v: PerformanceMode) => void;
   onDetFrequencyChange: (v: number) => void;
+  onDetFrequencySoloChange: (v: number) => void;
+  onDetFrequencyDefenderChange: (v: number) => void;
+  onDetFrequencyMultipleChange: (v: number) => void;
   onTrackingEnabledChange: (v: boolean) => void;
   onNavigateTab: (t: TabKey) => void;
 }) {
@@ -1895,6 +1898,9 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const sc = node.solution_class ?? "";
   const pm = node.performance_mode ?? "balanced";
   const df = node.det_frequency ?? 7;
+  const dfSolo = node.det_frequency_solo ?? 2;
+  const dfDefender = node.det_frequency_defender ?? 1;
+  const dfMultiple = node.det_frequency_multiple ?? 1;
   const te = node.tracking_enabled ?? true;
   const scWarnings = getSolutionClassWarnings(sc, node.key_metrics, te);
 
@@ -1938,11 +1944,32 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const scClassName = SOLUTION_CLASS_MAP[sc] ?? "Body";
   const pipelineCode = `from rtmlib import PoseTracker, ${scClassName}
 
+# Solo analysis (1 person in frame)
 pose_tracker = PoseTracker(
-    ${scClassName},           # solution_class
-    det_frequency=${df},     # det_frequency
-    tracking=${te ? "True" : "False"},     # tracking_enabled
-    mode='${pm}', # performance_mode
+    ${scClassName},
+    det_frequency=${dfSolo},  # solo
+    tracking=${te ? "True" : "False"},
+    mode='${pm}',
+    backend='onnxruntime',
+    device='cuda'
+)
+
+# With defender (2 people in frame)
+pose_tracker = PoseTracker(
+    ${scClassName},
+    det_frequency=${dfDefender},  # with_defender
+    tracking=${te ? "True" : "False"},
+    mode='${pm}',
+    backend='onnxruntime',
+    device='cuda'
+)
+
+# Multiple people in frame
+pose_tracker = PoseTracker(
+    ${scClassName},
+    det_frequency=${dfMultiple},  # multiple
+    tracking=${te ? "True" : "False"},
+    mode='${pm}',
     backend='onnxruntime',
     device='cuda'
 )`;
