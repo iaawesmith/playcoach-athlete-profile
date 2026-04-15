@@ -826,6 +826,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           knowledgeBase={draft.knowledge_base ?? {}}
           onKnowledgeBaseChange={(kb) => { update("knowledge_base", kb); }}
           nodeId={node.id}
+          onNodeSaved={(savedNode) => {
+            const updated = savedNode as TrainingNode;
+            setDraft((d) => ({ ...d, knowledge_base: updated.knowledge_base }));
+            onUpdated(updated);
+          }}
         />
         <ConfirmModal
           open={!!confirmModal}

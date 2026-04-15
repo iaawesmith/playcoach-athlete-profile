@@ -86,9 +86,10 @@ interface HelpDrawerProps {
   knowledgeBase: Record<string, KnowledgeSection[]>;
   onKnowledgeBaseChange: (kb: Record<string, KnowledgeSection[]>) => void;
   nodeId: string;
+  onNodeSaved?: (updatedNode: unknown) => void;
 }
 
-export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange, nodeId }: HelpDrawerProps) {
+export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange, nodeId, onNodeSaved }: HelpDrawerProps) {
   const sections = knowledgeBase[tabKey] ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -166,7 +167,8 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange,
     const updatedKb = { ...knowledgeBase, [tabKey]: updatedSections };
     onKnowledgeBaseChange(updatedKb);
     try {
-      await updateNode(nodeId, { knowledge_base: updatedKb });
+      const savedNode = await updateNode(nodeId, { knowledge_base: updatedKb });
+      onNodeSaved?.(savedNode);
       toast.success("Saved ✓");
     } catch {
       toast.error("Save failed — check connection");
