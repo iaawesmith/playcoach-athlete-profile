@@ -519,15 +519,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{t.icon}</span>
               {t.label}
             </button>
-            {t.key !== "test" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setHelpTabKey(t.key); setHelpOpen(true); }}
-                title={`Open knowledge base — ${t.label}`}
-                className="w-5 h-5 rounded-full flex items-center justify-center text-on-surface-variant/30 hover:text-on-surface-variant/70 transition-colors ml-0.5"
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>help_outline</span>
-              </button>
-            )}
           </div>
         ))}
       </div>
