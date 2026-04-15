@@ -104,14 +104,20 @@
 }
 
 /* Admin rich text editor */
-.prose-admin h3 { font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: #1a1a1a; }
-.prose-admin h4 { font-size: 0.875rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.25rem; color: #1a1a1a; }
-.prose-admin p { margin-bottom: 0.5rem; color: #333333; }
-.prose-admin ul, .prose-admin ol { padding-left: 1.25rem; margin-bottom: 0.5rem; color: #333333; }
+.prose-admin h1 { font-size: 1.5rem; font-weight: 800; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #1a1a1a; }
+.prose-admin h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #1a1a1a; }
+.prose-admin h3 { font-size: 1.05rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.4rem; color: #1a1a1a; }
+.prose-admin h4 { font-size: 0.9rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem; color: #1a1a1a; }
+.prose-admin p { margin-bottom: 0.5rem; color: #333333; font-weight: 400; }
+.prose-admin ul, .prose-admin ol { padding-left: 1.25rem; margin-bottom: 0.5rem; color: #333333; font-weight: 400; }
 .prose-admin ul { list-style-type: disc; }
 .prose-admin ol { list-style-type: decimal; }
-.prose-admin li { margin-bottom: 0.25rem; color: #333333; }
+.prose-admin li { margin-bottom: 0.25rem; color: #333333; font-weight: 400; }
 .prose-admin strong { color: #1a1a1a; font-weight: 700; }
+.prose-admin em { font-style: italic; }
+.prose-admin code { background: #f3f4f6; color: #d946ef; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; padding: 0.125rem 0.375rem; border-radius: 4px; }
+.prose-admin pre { background: #1e1e2e; color: #cdd6f4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; padding: 1rem; border-radius: 8px; margin-bottom: 0.75rem; overflow-x: auto; }
+.prose-admin pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
 .prose-admin hr { border: none; border-top: 1px solid #d1d5db; margin: 1rem 0; }
 .prose-admin table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
 .prose-admin th { background: #f3f4f6; font-weight: 700; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #d1d5db; color: #1a1a1a; font-size: 0.8125rem; }

@@ -1,6 +1,73 @@
 import { useState, useEffect, useRef, useCallback, type ClipboardEvent } from "react";
 import type { KnowledgeSection } from "../types";
 
+/** Lightweight markdown → HTML for plain-text pastes from Claude / ChatGPT */
+function markdownToHtml(md: string): string {
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let inList = false;
+  let inCode = false;
+  let codeLang = "";
+  const codeLines: string[] = [];
+
+  const flushList = () => { if (inList) { out.push("</ul>"); inList = false; } };
+
+  for (const raw of lines) {
+    // Fenced code block toggle
+    if (raw.trimStart().startsWith("```")) {
+      if (!inCode) {
+        flushList();
+        inCode = true;
+        codeLang = raw.trimStart().slice(3).trim();
+        codeLines.length = 0;
+      } else {
+        out.push(`<pre><code${codeLang ? ` class="language-${esc(codeLang)}"` : ""}>${codeLines.map(esc).join("\n")}</code></pre>`);
+        inCode = false;
+      }
+      continue;
+    }
+    if (inCode) { codeLines.push(raw); continue; }
+
+    const trimmed = raw.trim();
+    if (trimmed === "") { flushList(); out.push(""); continue; }
+
+    // Headings
+    const hMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (hMatch) {
+      flushList();
+      const level = hMatch[1].length;
+      out.push(`<h${level}>${inlineFormat(esc(hMatch[2]))}</h${level}>`);
+      continue;
+    }
+
+    // Unordered list
+    const liMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (liMatch) {
+      if (!inList) { out.push("<ul>"); inList = true; }
+      out.push(`<li>${inlineFormat(esc(liMatch[1]))}</li>`);
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(trimmed)) { flushList(); out.push("<hr>"); continue; }
+
+    // Paragraph
+    flushList();
+    out.push(`<p>${inlineFormat(esc(trimmed))}</p>`);
+  }
+  flushList();
+  if (inCode) { out.push(`<pre><code>${codeLines.map(esc).join("\n")}</code></pre>`); }
+  return out.join("\n");
+}
+
+function inlineFormat(s: string): string {
+  return s
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code>$1</code>");
+}
+
 interface TabDef {
   key: string;
   label: string;
