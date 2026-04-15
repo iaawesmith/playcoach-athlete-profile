@@ -305,6 +305,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [helpTabKey, setHelpTabKey] = useState<TabKey>("basics");
   const [statusModal, setStatusModal] = useState<"go-live" | "go-draft" | "blocking" | null>(null);
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
