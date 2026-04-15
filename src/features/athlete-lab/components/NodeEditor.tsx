@@ -834,6 +834,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           onTabChange={(key) => setHelpTabKey(key as TabKey)}
           knowledgeBase={draft.knowledge_base ?? {}}
           onKnowledgeBaseChange={(kb) => { update("knowledge_base", kb); }}
+          nodeId={node.id}
         />
         <ConfirmModal
           open={!!confirmModal}

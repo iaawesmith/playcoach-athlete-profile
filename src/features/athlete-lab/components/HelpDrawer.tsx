@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback, type ClipboardEvent } from "react";
 import type { KnowledgeSection } from "../types";
+import { updateNode } from "@/services/athleteLab";
+import { toast } from "sonner";
 
 /** Lightweight markdown → HTML for plain-text pastes from Claude / ChatGPT */
 function markdownToHtml(md: string): string {
@@ -83,9 +85,10 @@ interface HelpDrawerProps {
   onTabChange: (key: string) => void;
   knowledgeBase: Record<string, KnowledgeSection[]>;
   onKnowledgeBaseChange: (kb: Record<string, KnowledgeSection[]>) => void;
+  nodeId: string;
 }
 
-export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange }: HelpDrawerProps) {
+export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange, nodeId }: HelpDrawerProps) {
   const sections = knowledgeBase[tabKey] ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -156,10 +159,18 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange,
     }, 0);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selected) return;
     const html = editorRef.current?.innerHTML ?? "";
-    updateSections(sections.map((s) => s.id === selected.id ? { ...s, content: html } : s));
+    const updatedSections = sections.map((s) => s.id === selected.id ? { ...s, content: html } : s);
+    const updatedKb = { ...knowledgeBase, [tabKey]: updatedSections };
+    onKnowledgeBaseChange(updatedKb);
+    try {
+      await updateNode(nodeId, { knowledge_base: updatedKb });
+      toast.success("Saved ✓");
+    } catch {
+      toast.error("Save failed — check connection");
+    }
     setEditing(false);
   };
 
