@@ -1,32 +1,52 @@
 
 
-## Fix: Double Scrollbar on Reference, Training Status, and Scoring Tabs
+## Problem
 
-### Root Cause
+The Knowledge Base "Save" button in the HelpDrawer only saves the rich-text content back into the local React draft state (via `onKnowledgeBaseChange`). It never triggers a Supabase write. The content is only persisted if the admin separately clicks the main node "Save" button in the NodeEditor — which is not obvious and easy to forget. On page refresh, unsaved knowledge base content is lost.
 
-The layout hierarchy is:
-```text
-AthleteLab (h-screen, overflow-hidden)
-  └─ flex container (flex-1, min-h-0)
-       └─ div.flex-1.min-w-0          ← NO height constraint, NO overflow control
-            └─ NodeEditor (flex-1, h-full, overflow-y-auto)  ← intended scroll container
-```
+## Solution
 
-The intermediate wrapper div at line 94 in `AthleteLab.tsx` (`flex-1 min-w-0`) lacks `overflow-hidden` and an explicit height constraint. When tab content is tall enough, both this wrapper and the NodeEditor's `overflow-y-auto` div produce scrollbars.
+Make the HelpDrawer's Save button persist directly to Supabase by:
 
-### Fix
+1. **Pass `nodeId` as a new prop** to `HelpDrawer` from `NodeEditor`
+2. **Update `handleSave`** in `HelpDrawer` to:
+   - Save content into local state (existing behavior)
+   - Build the updated `knowledge_base` object
+   - Call `updateNode(nodeId, { knowledge_base: updatedKb })` to persist to Supabase
+   - Show "Saved ✓" toast on success, error toast on failure
+3. **Make `handleSave` async** to await the Supabase call
 
-**File: `src/features/athlete-lab/AthleteLab.tsx` (line 94)**
+## Technical Details
 
-Add `overflow-hidden` to the wrapper div so only the NodeEditor's scroll container is active:
+### File: `src/features/athlete-lab/components/HelpDrawer.tsx`
+- Add `nodeId: string` to `HelpDrawerProps`
+- Import `updateNode` from `@/services/athleteLab`
+- Import `toast` from `sonner`
+- Change `handleSave` to async:
+  ```typescript
+  const handleSave = async () => {
+    if (!selected) return;
+    const html = editorRef.current?.innerHTML ?? "";
+    const updatedSections = sections.map((s) => 
+      s.id === selected.id ? { ...s, content: html } : s
+    );
+    const updatedKb = { ...knowledgeBase, [tabKey]: updatedSections };
+    onKnowledgeBaseChange(updatedKb);
+    try {
+      await updateNode(nodeId, { knowledge_base: updatedKb });
+      toast.success("Saved ✓");
+    } catch {
+      toast.error("Save failed — check connection");
+    }
+    setEditing(false);
+  };
+  ```
 
-```
-<div className="flex-1 min-w-0 overflow-hidden">
-```
+### File: `src/features/athlete-lab/components/NodeEditor.tsx`
+- Pass `nodeId={node.id}` to the `HelpDrawer` component (line ~828)
 
-This single class addition ensures that only the inner `overflow-y-auto` on NodeEditor produces a scrollbar. The outer div clips instead of generating its own.
-
-### Why only some tabs
-
-Tabs with more content (Reference, Training Status, Scoring) push the content height past the viewport, triggering the second scrollbar on the wrapper. Shorter tabs don't overflow enough to make it visible.
+### No database changes needed
+- The `knowledge_base` column is JSONB with no size limit
+- RLS policy allows all access (public ALL)
+- The `updateNode` service function already handles the write correctly
 
