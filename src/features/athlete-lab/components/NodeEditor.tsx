@@ -507,18 +507,28 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
       {/* ── Tab row ── */}
       <div className="px-6 pt-3 pb-2 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 border-b border-outline-variant/10" style={{ backgroundColor: '#131920' }}>
         {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-3 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-[0.15em] flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 shrink-0 ${
-              tab === t.key
-                ? "bg-primary-container/15 text-primary-container border border-primary-container/30"
-                : "text-on-surface-variant hover:bg-surface-container border border-transparent"
-            }`}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{t.icon}</span>
-            {t.label}
-          </button>
+          <div key={t.key} className="flex items-center gap-0 shrink-0">
+            <button
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-[0.15em] flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 shrink-0 ${
+                tab === t.key
+                  ? "bg-primary-container/15 text-primary-container border border-primary-container/30"
+                  : "text-on-surface-variant hover:bg-surface-container border border-transparent"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{t.icon}</span>
+              {t.label}
+            </button>
+            {t.key !== "test" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setHelpTabKey(t.key); setHelpOpen(true); }}
+                title={`Open knowledge base — ${t.label}`}
+                className="w-5 h-5 rounded-full flex items-center justify-center text-on-surface-variant/30 hover:text-on-surface-variant/70 transition-colors ml-0.5"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>help_outline</span>
+              </button>
+            )}
+          </div>
         ))}
       </div>
 
