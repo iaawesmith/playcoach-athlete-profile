@@ -1,16 +1,24 @@
 import { useState, useEffect, useRef, useCallback, type ClipboardEvent } from "react";
 import type { KnowledgeSection } from "../types";
 
+interface TabDef {
+  key: string;
+  label: string;
+  icon: string;
+}
+
 interface HelpDrawerProps {
   open: boolean;
   onClose: () => void;
   tabKey: string;
   tabLabel: string;
+  tabs: TabDef[];
+  onTabChange: (key: string) => void;
   knowledgeBase: Record<string, KnowledgeSection[]>;
   onKnowledgeBaseChange: (kb: Record<string, KnowledgeSection[]>) => void;
 }
 
-export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onKnowledgeBaseChange }: HelpDrawerProps) {
+export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange }: HelpDrawerProps) {
   const sections = knowledgeBase[tabKey] ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -19,7 +27,6 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
   const editorRef = useRef<HTMLDivElement>(null);
   const renameRef = useRef<HTMLInputElement>(null);
 
-  // Select first section when opening or when tab changes
   useEffect(() => {
     if (open && sections.length > 0) {
       setSelectedId((prev) => {
@@ -127,33 +134,65 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
     }
   }, []);
 
+  const handleTabSwitch = (key: string) => {
+    onTabChange(key);
+    setEditing(false);
+  };
+
   if (!open) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      {/* Full-screen overlay */}
+      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="fixed inset-y-0 right-0 z-50 w-full flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in slide-in-from-right duration-300" style={{ maxWidth: 860, backgroundColor: '#111720' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
-          <div className="space-y-1">
-            <h2 className="text-on-surface font-black uppercase tracking-tighter text-base flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 20 }}>menu_book</span>
-              Knowledge Base — {tabLabel}
-            </h2>
-            <p className="text-[9px] text-on-surface-variant/50 uppercase tracking-[0.3em] font-medium">
-              Admin-only documentation — not visible to athletes
-            </p>
+      <div className="fixed inset-0 z-50 flex flex-col animate-in fade-in duration-200" style={{ backgroundColor: '#111720' }}>
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/5 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>arrow_back</span>
+            </button>
+            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 20 }}>menu_book</span>
+            <div>
+              <h2 className="text-on-surface font-black uppercase tracking-tighter text-base">
+                Knowledge Base
+              </h2>
+              <p className="text-[9px] text-on-surface-variant/50 uppercase tracking-[0.3em] font-medium">
+                Admin-only documentation — not visible to athletes
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors">
-            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
-          </button>
+        </div>
+
+        {/* Tab navigation row */}
+        <div className="px-5 pt-2 pb-1 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 border-b border-outline-variant/10" style={{ backgroundColor: '#131920' }}>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => handleTabSwitch(t.key)}
+              className={`px-3 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-[0.15em] flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 shrink-0 ${
+                tabKey === t.key
+                  ? "bg-primary-container/15 text-primary-container border border-primary-container/30"
+                  : "text-on-surface-variant hover:bg-surface-container border border-transparent"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Split body */}
         <div className="flex flex-1 min-h-0">
-          {/* Left sidebar — 30% */}
+          {/* Left sidebar */}
           <div className="w-[260px] min-w-[260px] flex flex-col border-r border-primary-container/15" style={{ backgroundColor: '#161C24' }}>
+            <div className="px-4 py-3 border-b border-white/5">
+              <h3 className="text-on-surface font-bold uppercase tracking-wide text-xs">{tabLabel}</h3>
+            </div>
             <div className="p-3">
               <button
                 onClick={handleAddSection}
@@ -191,7 +230,6 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
                     <span className="flex-1 text-on-surface text-xs font-medium truncate">{s.sectionTitle}</span>
                   )}
 
-                  {/* Actions */}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleRenameStart(s); }}
@@ -221,11 +259,10 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
             </div>
           </div>
 
-          {/* Right content — 70% */}
+          {/* Right content */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {selected ? (
               <>
-                {/* Section header */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-white/5 shrink-0">
                   <h3 className="text-on-surface font-bold uppercase tracking-wide text-sm truncate">{selected.sectionTitle}</h3>
                   <div className="flex items-center gap-2">
@@ -258,7 +295,6 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
                   </div>
                 </div>
 
-                {/* Toolbar */}
                 {editing && (
                   <div className="flex items-center gap-1 p-1.5 mx-5 mt-3 rounded-lg bg-surface-container-high border border-white/5">
                     <ToolbarBtn icon="format_bold" onClick={() => execCommand("bold")} title="Bold" />
@@ -275,7 +311,6 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, knowledgeBase, onK
                   </div>
                 )}
 
-                {/* Editor / Reader */}
                 <div className="flex-1 overflow-y-auto px-5 py-4">
                   {editing ? (
                     <div
