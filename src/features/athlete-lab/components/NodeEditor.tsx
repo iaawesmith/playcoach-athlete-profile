@@ -564,7 +564,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                 />
               )}
               <button
-                onClick={() => setHelpOpen(true)}
+                onClick={() => { setHelpTabKey(tab); setHelpOpen(true); }}
                 title="Open admin guidance for this tab"
                 className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-primary-foreground hover:brightness-110 transition-all active:scale-95 shrink-0 mt-0.5"
               >
@@ -818,8 +818,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         <HelpDrawer
           open={helpOpen}
           onClose={() => setHelpOpen(false)}
-          tabKey={tab}
-          tabLabel={TABS.find((t) => t.key === tab)?.label ?? tab}
+          tabKey={helpTabKey}
+          tabLabel={TABS.find((t) => t.key === helpTabKey)?.label ?? helpTabKey}
+          tabs={TABS.filter((t) => t.key !== "test")}
+          onTabChange={(key) => setHelpTabKey(key as TabKey)}
           knowledgeBase={draft.knowledge_base ?? {}}
           onKnowledgeBaseChange={(kb) => { update("knowledge_base", kb); }}
         />
