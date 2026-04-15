@@ -124,13 +124,8 @@ export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange,
       const cleanedHtml = doc.body.innerHTML;
       document.execCommand("insertHTML", false, cleanedHtml);
     } else if (plain) {
-      const escaped = plain
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\n\n/g, "</p><p>")
-        .replace(/\n/g, "<br>");
-      document.execCommand("insertHTML", false, `<p>${escaped}</p>`);
+      const converted = markdownToHtml(plain);
+      document.execCommand("insertHTML", false, converted);
     }
   }, []);
 
