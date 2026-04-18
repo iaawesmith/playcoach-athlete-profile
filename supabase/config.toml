@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.cfbd-api]
 verify_jwt = false
+
+[functions.analyze-athlete-video]
+verify_jwt = false
