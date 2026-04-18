@@ -1,35 +1,38 @@
 
-Diagnosis
 
-- The save call itself is already wired to the backend: `HelpDrawer` calls `updateNode(nodeId, { knowledge_base: updatedKb })`.
-- The likely failure is state sync after save, not the database write.
-- Right now `HelpDrawer` updates the database, but it does not push the returned saved node back up into the parent `AthleteLab` node list.
-- So when you navigate away from the node and come back, `NodeEditor` gets rebuilt from the old `selectedNode` prop in `AthleteLab`, which still contains the previous `knowledge_base`. That makes the saved content appear to disappear.
+## Deploy Edge Function: `analyze-athlete-video`
 
-Plan
+### What gets created
+A new Deno edge function at `supabase/functions/analyze-athlete-video/index.ts` containing the full pipeline orchestrator from the AthleteLab Implementation Docs card (`admin_implementation_docs` row id `64e190d0…`, ~27K chars / ~600 lines of TypeScript). The DB webhook trigger `trigger_analysis_on_upload` already exists and points at `/functions/v1/analyze-athlete-video`, so deploying this function activates the pipeline automatically.
 
-1. Update `HelpDrawer` so a successful save does two things:
-   - persists `knowledge_base` to `athlete_lab_nodes`
-   - returns the saved node upward through a new callback like `onNodeSaved(updatedNode)`
+### Function structure (from the doc)
+- `Deno.serve` entry point — receives webhook payload, runs 13-step pipeline, updates `athlete_uploads.status`
+- Helpers: `fetchNodeConfig`, `runPreflight`, `selectDetFrequency`, `selectCalibration`, `applyTemporalSmoothing`, `lockTargetPerson`, `buildPhaseWindows`, `calculateAllMetrics` (+ `calculateAngle`, `calculateDistance`, `calculateVelocity`, `calculateAcceleration`, `calculateFrameDelta`, `scoreMetric`, `checkConfidence`, `resolveBilateral`), `calculateAggregateScore`, `detectErrors`, `callClaude`, `writeResults`, `updateUploadStatus`, plus Claude prompt formatters
+- Uses `createClient` with `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (already configured)
 
-2. Update `NodeEditor` to pass its existing `onUpdated` handler into `HelpDrawer`, so the saved node replaces the stale one in the top-level `nodes` array.
+### Required secrets — action needed
+Two secrets referenced by the function are **not yet configured**:
+- `ANTHROPIC_API_KEY` — for the Claude API call (Step 11)
+- `RTMLIB_URL` — Cloud Run pose-detection service URL (Step 4)
 
-3. Also sync `NodeEditor`’s local `draft` from the saved response immediately after save, so the drawer and editor stay aligned without waiting for remounts.
+The function will deploy and the webhook will fire, but any upload analysis will fail at the Cloud Run / Claude step until these are added. I'll request both via the secrets flow right after deploying.
 
-4. Keep the current storage model for this feature in `athlete_lab_nodes.knowledge_base` since this knowledge base is node-specific.
+### Config
+- `verify_jwt = false` will be added to `supabase/config.toml` since the function is invoked by the DB webhook with a service-role bearer token, not an end-user JWT. The function trusts the webhook payload directly.
+- No CORS headers needed (server→server invocation only).
 
-5. Re-test the exact failure path:
-   - add/edit section content
-   - click Save
-   - switch to another node and back
-   - close and reopen the knowledge base
-   - refresh the page
-   - confirm the content still exists in all cases
+### What I will NOT change
+- No DB schema changes
+- No changes to the existing `trigger_analysis_on_upload` trigger
+- No changes to other edge functions, components, or UI
+- No README or test files
 
-Technical details
+### Verification after deploy
+1. Confirm function appears in the deployed-functions list
+2. Tail `analyze-athlete-video` logs to confirm cold start succeeds
+3. Note for the user: end-to-end pipeline test requires `ANTHROPIC_API_KEY` + `RTMLIB_URL` to be set first
 
-- Files to update:
-  - `src/features/athlete-lab/components/HelpDrawer.tsx`
-  - `src/features/athlete-lab/components/NodeEditor.tsx`
-- No database migration needed.
-- This does not look like an RLS issue; it looks like stale frontend state after a successful save.
+### Files touched
+- `supabase/functions/analyze-athlete-video/index.ts` (new)
+- `supabase/config.toml` (append `[functions.analyze-athlete-video]` block)
+
