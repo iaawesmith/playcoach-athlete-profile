@@ -295,29 +295,53 @@ export type Database = {
       }
       athlete_lab_results: {
         Row: {
+          aggregate_score: number | null
+          analyzed_at: string
+          athlete_id: string | null
+          confidence_flags: Json
           created_at: string
+          detected_errors: Json
+          feedback: string
           id: string
+          metric_results: Json
           node_id: string
           node_version: number
           overall_score: number | null
+          phase_scores: Json
           result_data: Json
           video_description: string
         }
         Insert: {
+          aggregate_score?: number | null
+          analyzed_at?: string
+          athlete_id?: string | null
+          confidence_flags?: Json
           created_at?: string
+          detected_errors?: Json
+          feedback?: string
           id?: string
+          metric_results?: Json
           node_id: string
           node_version?: number
           overall_score?: number | null
+          phase_scores?: Json
           result_data?: Json
           video_description?: string
         }
         Update: {
+          aggregate_score?: number | null
+          analyzed_at?: string
+          athlete_id?: string | null
+          confidence_flags?: Json
           created_at?: string
+          detected_errors?: Json
+          feedback?: string
           id?: string
+          metric_results?: Json
           node_id?: string
           node_version?: number
           overall_score?: number | null
+          phase_scores?: Json
           result_data?: Json
           video_description?: string
         }
