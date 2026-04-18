@@ -1,78 +1,66 @@
 
 
-## Plan: Align `athlete_lab_results` + verify service-role INSERT
+## Plan: End-to-End Phase 1 Pipeline Smoke Test
 
-### Migration (single SQL file)
+### What I'll execute (in order)
 
-**1. Add missing columns (additive, idempotent)**
+**1. Pre-flight check** — confirm a live node exists so the INSERT's subselect won't be NULL:
 ```sql
-alter table public.athlete_lab_results
-  add column if not exists athlete_id uuid,
-  add column if not exists aggregate_score integer,
-  add column if not exists phase_scores jsonb not null default '{}'::jsonb,
-  add column if not exists metric_results jsonb not null default '{}'::jsonb,
-  add column if not exists feedback text not null default '',
-  add column if not exists confidence_flags jsonb not null default '[]'::jsonb,
-  add column if not exists detected_errors jsonb not null default '[]'::jsonb,
-  add column if not exists analyzed_at timestamptz not null default now();
+select id, name, status from athlete_lab_nodes where status = 'live' limit 1;
 ```
-`athlete_id` stays nullable (table may already contain rows without it; spec's `not null` would fail). I'll note this for follow-up backfill.
+If zero live nodes, I'll stop and surface that — the test can't proceed without one.
 
-**2. Replace insecure RLS**
+**2. Capture baseline log marker** — note the current timestamp so I can isolate this run's logs from prior noise:
 ```sql
-drop policy if exists "Allow all access to athlete_lab_results" on public.athlete_lab_results;
-
-create policy "Service role can insert results"
-  on public.athlete_lab_results for insert to service_role with check (true);
-
-create policy "Service role can manage results"
-  on public.athlete_lab_results for all to service_role using (true) with check (true);
-
-create policy "Athletes can view their own results"
-  on public.athlete_lab_results for select to authenticated
-  using (auth.uid() = athlete_id);
+select now() as test_started_at;
 ```
 
-### Post-migration verification (per your addition)
+**3. Run the INSERT** exactly as specified:
+```sql
+insert into athlete_uploads (
+  athlete_id, node_id, node_version,
+  video_url, start_seconds, end_seconds,
+  camera_angle, status
+) values (
+  gen_random_uuid(),
+  (select id from athlete_lab_nodes where status = 'live' limit 1),
+  1,
+  'https://youtube.com/watch?v=Sz1G2wiyAIg',
+  6, 11,
+  'sideline',
+  'pending'
+)
+returning id, athlete_id, node_id, status, created_at;
+```
+Capture the returned `id` — that's the row I'll track.
 
-Once migration succeeds, I will:
+**4. Wait 30 seconds** for `trigger_analysis_on_upload` → `net.http_post` → edge function cold start → pipeline execution → status write-back.
 
-1. **Run a test INSERT** via `supabase--read_query`'s sibling write path (using a SQL execution that mirrors what the edge function does with its service-role client). The payload will match the `writeResults` shape from the edge function:
-   ```sql
-   insert into public.athlete_lab_results (
-     athlete_id, node_id, node_version,
-     aggregate_score, phase_scores, metric_results,
-     feedback, confidence_flags, detected_errors,
-     analyzed_at
-   ) values (
-     '00000000-0000-0000-0000-000000000001'::uuid,
-     (select id from public.athlete_lab_nodes limit 1),
-     1,
-     82,
-     '{"setup": 80, "execution": 85}'::jsonb,
-     '{"hip_angle": {"value": 142, "target": 145, "score": 88}}'::jsonb,
-     'Test feedback row — verifying service-role write path.',
-     '[]'::jsonb,
-     '[]'::jsonb,
-     now()
-   )
-   returning id, athlete_id, aggregate_score, analyzed_at;
-   ```
-2. **Show you the returned row** so you can confirm column shape and defaults.
-3. **Immediately delete it** by id:
-   ```sql
-   delete from public.athlete_lab_results where id = '<returned-id>';
-   ```
-4. **Confirm cleanup** with a `select count(*) where id = '<returned-id>'` returning 0.
+**5. Pull edge function logs** for `analyze-athlete-video` and surface the full output for this execution (filtered to recent entries near the test_started_at timestamp).
 
-Note on mechanics: migrations run as the migration role (superuser-equivalent), which also bypasses RLS just like service_role does. So the INSERT succeeding via SQL proves the column structure is correct and writes work; the new "Service role can insert results" policy is what unlocks the same operation when the edge function calls it through the PostgREST API. I'll call this out explicitly in the result.
+**6. Read final row state**:
+```sql
+select id, status, created_at
+from athlete_uploads
+where id = '<returned-id>';
+```
 
-### What I will NOT change
-- No drops/renames of existing columns (`video_description`, `overall_score`, `result_data` preserved)
-- No FK to `auth.users`
-- No edge function or UI changes
-- No other tables touched
+### Expected outcome (per spec)
+- INSERT returns one row, status `pending`
+- Logs show: webhook received → status `processing` → node config fetched → preflight OK → Cloud Run call attempted → fails because `RTMLIB_URL` is `pending_phase_2`
+- Final row status: `failed` (with error context wherever the function writes it — note: `athlete_uploads` has no `error_message` column, so the function likely only sets `status='failed'`; the actual error will live in the function logs, not the row)
+
+### What I'll NOT do
+- No code changes, no migrations, no cleanup of the test row (you can decide whether to keep or delete it after reviewing)
+- No changes to `RTMLIB_URL` — the placeholder failure IS the expected Phase 1 result
+- No retry logic or follow-up inserts
 
 ### Files touched
-- One new SQL migration
+None. This is purely a SQL + log-read execution; no migration or code edit is required.
+
+### Deliverables I'll show you
+1. The INSERT `RETURNING` row
+2. Full `analyze-athlete-video` log output for this execution
+3. The final `athlete_uploads` row state (status field)
+4. A short verdict: did each of the 6 expected steps occur?
 
