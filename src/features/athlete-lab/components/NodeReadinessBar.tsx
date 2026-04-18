@@ -277,20 +277,34 @@ export function NodeReadinessBar({ node, onTabChange, onSetLive }: Props) {
           {copyState === "success" ? "Copied!" : copyState === "error" ? "Failed" : "Copy Node"}
         </button>
 
-        <button
-          data-setlive
-          disabled={score < 100}
-          onClick={(e) => { e.stopPropagation(); onSetLive(); }}
-          className={`h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all active:scale-95 shrink-0 ${
-            score >= 100
-              ? "kinetic-gradient text-[#00460a] cursor-pointer hover:brightness-110"
-              : "bg-surface-container text-on-surface-variant/40 cursor-not-allowed"
-          }`}
-          title={score < 100 ? "Complete all readiness checks to go Live" : "Set this node to Live"}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>rocket_launch</span>
-          Set Live
-        </button>
+        {(() => {
+          const isLive = node.status === "live";
+          const disabled = !isLive && score < 100;
+          const label = isLive ? "Set to Draft" : "Set Live";
+          const icon = isLive ? "pause_circle" : "rocket_launch";
+          const tooltip = isLive
+            ? "Pause automatic analysis for new uploads"
+            : score < 100
+            ? "Complete all readiness checks to go Live"
+            : "Set this node to Live";
+          const className = isLive
+            ? "border border-outline-variant/30 bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high cursor-pointer"
+            : score >= 100
+            ? "kinetic-gradient text-[#00460a] cursor-pointer hover:brightness-110"
+            : "bg-surface-container text-on-surface-variant/40 cursor-not-allowed";
+          return (
+            <button
+              data-setlive
+              disabled={disabled}
+              onClick={(e) => { e.stopPropagation(); onSetLive(); }}
+              className={`h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all active:scale-95 shrink-0 ${className}`}
+              title={tooltip}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{icon}</span>
+              {label}
+            </button>
+          );
+        })()}
       </div>
 
       {/* Expanded panel */}
