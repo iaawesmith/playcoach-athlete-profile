@@ -6,10 +6,16 @@ const supabase = createClient(
 )
 
 Deno.serve(async (req) => {
-  const payload = await req.json()
-  const upload = payload.record
-  
+  let uploadId: string | null = null
+
   try {
+    const payload = await req.json()
+    const upload = payload.record
+    if (!upload?.id) {
+      throw new Error('Invalid webhook payload: missing record.id')
+    }
+    uploadId = upload.id
+
     // Update status to processing immediately
     await updateUploadStatus(upload.id, 'processing')
 
@@ -89,9 +95,28 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { status: 200 })
 
   } catch (error) {
-    console.error('Pipeline error:', error)
-    await updateUploadStatus(upload.id, 'failed', error.message)
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    const err = error as Error
+    console.error('Pipeline error:', {
+      uploadId,
+      message: err.message,
+      stack: err.stack,
+    })
+
+    if (uploadId) {
+      try {
+        await updateUploadStatus(uploadId, 'failed', err.message)
+      } catch (updateErr) {
+        console.error('Failed to mark upload as failed:', {
+          uploadId,
+          updateError: (updateErr as Error).message,
+        })
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ error: err.message, uploadId }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 })
 
@@ -776,10 +801,13 @@ async function writeResults(
 }
 
 async function updateUploadStatus(uploadId: string, status: string, error?: string) {
-  await supabase
+  const { error: dbError } = await supabase
     .from('athlete_uploads')
     .update({ status, ...(error ? { error_message: error } : {}) })
     .eq('id', uploadId)
+  if (dbError) {
+    console.error('updateUploadStatus DB error:', { uploadId, status, dbError: dbError.message })
+  }
 }
 
 
