@@ -699,6 +699,53 @@ async function callClaude(
   return data.content?.[0]?.text || ''
 }
 
+async function callCloudRun(payload: {
+  video_url: string
+  start_seconds: number
+  end_seconds: number
+  solution_class: string
+  performance_mode: string
+  det_frequency: number
+  tracking_enabled: boolean
+}): Promise<{
+  keypoints: number[][][]
+  scores: number[][][]
+  frame_count: number
+  fps: number
+}> {
+  const rtmlibUrl = Deno.env.get('RTMLIB_URL')
+  if (!rtmlibUrl) {
+    throw new Error('RTMLIB_URL not configured')
+  }
+
+  let response: Response
+  try {
+    response = await fetch(rtmlibUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch (err) {
+    throw new Error(
+      `Cloud Run fetch failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
+    )
+  }
+
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => '')
+    throw new Error(
+      `Cloud Run call failed: ${response.status} ${response.statusText} ` +
+      `(RTMLIB_URL: ${rtmlibUrl})${bodyText ? ` — ${bodyText.slice(0, 200)}` : ''}`
+    )
+  }
+
+  return await response.json() as {
+    keypoints: number[][][]
+    scores: number[][][]
+    frame_count: number
+    fps: number
+  }
+}
 
 async function writeResults(
   upload: any,
