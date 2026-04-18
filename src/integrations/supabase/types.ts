@@ -361,6 +361,7 @@ export type Database = {
           camera_angle: string | null
           created_at: string | null
           end_seconds: number | null
+          error_message: string | null
           id: string
           node_id: string | null
           node_version: number | null
@@ -373,6 +374,7 @@ export type Database = {
           camera_angle?: string | null
           created_at?: string | null
           end_seconds?: number | null
+          error_message?: string | null
           id?: string
           node_id?: string | null
           node_version?: number | null
@@ -385,6 +387,7 @@ export type Database = {
           camera_angle?: string | null
           created_at?: string | null
           end_seconds?: number | null
+          error_message?: string | null
           id?: string
           node_id?: string | null
           node_version?: number | null
