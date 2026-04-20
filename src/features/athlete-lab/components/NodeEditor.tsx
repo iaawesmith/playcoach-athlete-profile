@@ -1096,8 +1096,156 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
     handleEditSave(i);
   };
 
+  const idealCriteria = [
+    "Solo athlete (no defenders, no teammates)",
+    "Sideline camera angle",
+    "Full body visible at all times",
+    "Yard lines visible in frame (calibration)",
+    "Crisp plant-and-break footwork",
+    "Natural game speed (no slow-motion)",
+    "Neutral lighting and field conditions",
+    "5\u201310 second clip duration",
+    "HD quality (1080p or higher)",
+  ];
+
+  const avoidItems = [
+    "Game footage with defenders in frame",
+    "Behind-the-QB camera angle",
+    "Multiple players in frame",
+    "End-zone or elevated/drone angles",
+    "Partial body shots (head or legs cut off)",
+    "Low-light or night-game footage",
+    "Instructional overlays, arrows, or graphics",
+  ];
+
+  const diagnosticItems = [
+    "Keypoint detection quality (clean skeleton, no jitter or dropouts)",
+    "Field line detection succeeds (pixels-per-yard returned)",
+    "Phase segmentation accurate (start, transition, finish boundaries correct)",
+    "Metric values land in expected ranges",
+    "Aggregate score 85+ on the reference clip",
+  ];
+
+  const sourcingItems = [
+    "Position coach YouTube channels (Route Mechanic, QB Country, Footwork King, Coach Ballard)",
+    "College pro day and NFL Combine drill reels (NFL Network, school athletics channels)",
+    "Coaching clinic uploads (AFCA, Glazier Clinics)",
+    "Licensed platforms — Hudl Public Library, filter by drill name",
+    "Trusted skill coach Instagram reels (with permission)",
+  ];
+
   return (
     <div className="space-y-4">
+      {/* Reference Video Quality Guide — persistent callout */}
+      <div
+        className="rounded-xl border border-blue-500/30 border-l-4 border-l-blue-400 p-5"
+        style={{ backgroundColor: "#0f1e2e" }}
+      >
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-blue-300 mt-0.5" style={{ fontSize: 22, fontVariationSettings: "'FILL' 1" }}>
+            info
+          </span>
+          <div className="flex-1">
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-blue-200">
+              Reference Video Quality Guide
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-1">
+              Use this checklist every time you add or update a reference video.
+            </p>
+          </div>
+        </div>
+
+        {/* Two-column criteria grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <h4 className="text-[10px] font-semibold uppercase tracking-widest text-emerald-300 mb-2">
+              Ideal Criteria
+            </h4>
+            <ul className="space-y-1.5">
+              {idealCriteria.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-xs text-on-surface">
+                  <span className="material-symbols-outlined text-emerald-400 shrink-0" style={{ fontSize: 16 }}>
+                    check_circle
+                  </span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-[10px] font-semibold uppercase tracking-widest text-red-300 mb-2">
+              What to Avoid
+            </h4>
+            <ul className="space-y-1.5">
+              {avoidItems.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-xs text-on-surface">
+                  <span className="material-symbols-outlined text-red-400 shrink-0" style={{ fontSize: 16 }}>
+                    cancel
+                  </span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Why This Matters */}
+        <div className="border-t border-blue-500/20 mt-4 pt-4">
+          <h4 className="text-[10px] font-semibold uppercase tracking-widest text-blue-200">
+            Why This Matters
+          </h4>
+          <ul className="list-disc list-inside space-y-1 mt-2 text-xs text-on-surface-variant">
+            <li><span className="text-on-surface font-semibold">Teaches athletes</span> — elite example shown alongside their results so they see exactly what "great" looks like</li>
+            <li><span className="text-on-surface font-semibold">Teaches admins</span> — visual anchor reviewers compare uploads against when verifying analysis quality</li>
+            <li><span className="text-on-surface font-semibold">Sets the submission quality bar</span> — athletes naturally model their filming after the reference</li>
+            <li><span className="text-on-surface font-semibold">Validates the node itself</span> — the reference is the canary; if analysis fails on a perfect clip, the node is broken</li>
+          </ul>
+          <div className="flex items-start gap-2 mt-3 text-xs text-amber-300/90">
+            <span className="material-symbols-outlined shrink-0" style={{ fontSize: 14 }}>warning</span>
+            <span>A low-quality reference undermines the ability to distinguish a broken node from a bad athlete submission.</span>
+          </div>
+        </div>
+
+        {/* Using the Reference as a Diagnostic Tool */}
+        <div className="border-t border-blue-500/20 mt-4 pt-4">
+          <h4 className="text-[10px] font-semibold uppercase tracking-widest text-blue-200">
+            Using the Reference as a Diagnostic Tool
+          </h4>
+          <p className="text-xs text-on-surface-variant mt-1">
+            Before promoting this node to Live, verify against the reference:
+          </p>
+          <ul className="space-y-1.5 mt-2">
+            {diagnosticItems.map((item) => (
+              <li key={item} className="flex items-start gap-2 text-xs text-on-surface">
+                <span className="material-symbols-outlined text-blue-300/70 shrink-0" style={{ fontSize: 16 }}>
+                  check_box_outline_blank
+                </span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-start gap-2 mt-3 text-xs text-amber-300/90">
+            <span className="material-symbols-outlined shrink-0" style={{ fontSize: 14 }}>warning</span>
+            <span>If the reference fails, fix the node before promoting to Live.</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sourcing sub-card */}
+      <div className="rounded-lg border border-outline-variant/15 bg-surface-container p-4">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 16 }}>search</span>
+          <h4 className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+            Where to Find Good Reference Footage
+          </h4>
+        </div>
+        <ul className="list-disc list-inside space-y-1 mt-2 text-xs text-on-surface-variant">
+          {sourcingItems.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+
       {/* Section label + count indicator */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
