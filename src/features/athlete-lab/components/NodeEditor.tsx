@@ -847,7 +847,17 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
 /* ── Sub-editors ── */
 
+const VIDEO_GUIDE_STORAGE_KEY = "athleteLab.videoGuideExpanded";
+
 function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChange: (v: EliteVideo[]) => void }) {
+  const [guideExpanded, setGuideExpanded] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(VIDEO_GUIDE_STORAGE_KEY) === "true";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(VIDEO_GUIDE_STORAGE_KEY, String(guideExpanded));
+  }, [guideExpanded]);
   const [adding, setAdding] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newLabel, setNewLabel] = useState("");
