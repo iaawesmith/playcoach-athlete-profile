@@ -391,8 +391,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function calculateBodyBasedCalibration(
-  keypoints: number[][][],
-  scores: number[][][],
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
   athleteHeight: AthleteHeightMeasurement,
 ): BodyBasedCalibrationResult {
   const heightYards = convertHeightToYards(athleteHeight)
