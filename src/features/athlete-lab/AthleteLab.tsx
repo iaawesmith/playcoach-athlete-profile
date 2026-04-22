@@ -4,12 +4,14 @@ import { fetchNodes, createNode, deleteNode as deleteNodeApi } from "@/services/
 import { NodeSidebar } from "./components/NodeSidebar";
 import { NodeEditor } from "./components/NodeEditor";
 import { AdminReferencePanel } from "./components/AdminReferencePanel";
+import { ConfirmModal } from "./components/ConfirmModal";
 
 export function AthleteLab() {
   const [nodes, setNodes] = useState<TrainingNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAdminRef, setShowAdminRef] = useState(false);
+  const [pendingDeleteNode, setPendingDeleteNode] = useState<TrainingNode | null>(null);
 
   useEffect(() => {
     loadNodes();
@@ -43,12 +45,15 @@ export function AthleteLab() {
   const handleDelete = async (id: string) => {
     try {
       await deleteNodeApi(id);
-      setNodes((prev) => prev.filter((n) => n.id !== id));
+      const remainingNodes = nodes.filter((n) => n.id !== id);
+      setNodes(remainingNodes);
       if (selectedId === id) {
-        setSelectedId(nodes.find((n) => n.id !== id)?.id ?? null);
+        setSelectedId(remainingNodes[0]?.id ?? null);
       }
     } catch {
       // handle error
+    } finally {
+      setPendingDeleteNode(null);
     }
   };
 
@@ -81,6 +86,18 @@ export function AthleteLab() {
       </div>
 
       {showAdminRef && <AdminReferencePanel onClose={() => setShowAdminRef(false)} />}
+      <ConfirmModal
+        open={pendingDeleteNode !== null}
+        title="Delete Training Node?"
+        body={pendingDeleteNode ? `Are you sure you want to delete \"${pendingDeleteNode.name}\"? This will permanently remove this node and all of its saved configuration.` : ""}
+        confirmLabel="Delete Node"
+        onConfirm={() => {
+          if (pendingDeleteNode) {
+            void handleDelete(pendingDeleteNode.id);
+          }
+        }}
+        onCancel={() => setPendingDeleteNode(null)}
+      />
 
       <div className="flex flex-1 min-h-0">
         <NodeSidebar
@@ -88,7 +105,7 @@ export function AthleteLab() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           onAdd={handleAdd}
-          onDelete={handleDelete}
+          onRequestDelete={setPendingDeleteNode}
         />
 
         <div className="flex-1 min-w-0 overflow-hidden">
