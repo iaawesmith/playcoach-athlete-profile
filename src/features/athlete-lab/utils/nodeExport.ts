@@ -72,11 +72,11 @@ function generateOverview(node: TrainingNode): string {
 function generatePhases(node: TrainingNode): string {
   const phases = node.phase_breakdown ?? [];
   const seg = node.segmentation_method ?? "proportional";
-  const weightSum = phases.reduce((s, p) => s + (p.weight ?? 0), 0);
+  const weightSum = phases.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   const segLabel = seg === "proportional" ? "Proportional" : "Checkpoint-triggered";
   let out = `## Phases\n\nCount: ${phases.length} phases\nSegmentation Method: ${segLabel}\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\n`;
   phases.forEach((p, i) => {
-    out += `\n### Phase ${i + 1}: ${p.phase} — ${p.weight ?? 0}% of clip\nDescription: ${p.notes || "Not configured"}\nFrame Buffer: ${p.frame_buffer ?? 3} frames\n`;
+    out += `\n### Phase ${i + 1}: ${p.name} — ${p.proportion_weight ?? 0}% of clip\nDescription: ${p.description || "Not configured"}\nFrame Buffer: ${p.frame_buffer ?? 3} frames\n`;
   });
   return out;
 }
@@ -104,7 +104,7 @@ function generateMechanics(node: TrainingNode): string {
   let out = `## Mechanics (${sections.length} sections)\n`;
   if (sections.length === 0) return out + "\nNo mechanics sections configured.";
   for (const sec of sections) {
-    const phaseName = phases.find(p => p.id === sec.phase_id)?.phase ?? "Unlinked Phase";
+    const phaseName = phases.find(p => p.id === sec.phase_id)?.name ?? "Unlinked Phase";
     out += `\n### ${phaseName}\n${sec.content || "Not configured"}\n`;
     const summary = formatMetricSummary(sec.phase_id, metrics);
     if (summary) out += `${summary}\n`;
@@ -123,7 +123,7 @@ function generateMetrics(node: TrainingNode): string {
 
   metrics.forEach((m, i) => {
     const km = m.keypoint_mapping;
-    const phaseName = km?.phase_id ? (phases.find(p => p.id === km.phase_id)?.phase ?? "Unknown") : null;
+    const phaseName = km?.phase_id ? (phases.find(p => p.id === km.phase_id)?.name ?? "Unknown") : null;
     const phaseStatus = phaseName ? `${phaseName} ASSIGNED` : "MISSING";
 
     // Check mapping completeness
@@ -244,7 +244,7 @@ function generateCheckpoints(node: TrainingNode): string {
 
   let out = `## Checkpoints\n\nCount: ${cps.length} defined\nSegmentation Method: ${seg === "proportional" ? "Proportional" : "Checkpoint-triggered"}\n`;
   cps.forEach((cp, i) => {
-    const phaseName = cp.phase_id ? (phases.find(p => p.id === cp.phase_id)?.phase ?? "Unknown") : "Not assigned";
+    const phaseName = cp.phase_id ? (phases.find(p => p.id === cp.phase_id)?.name ?? "Unknown") : "Not assigned";
     out += `\n### Checkpoint ${i + 1}: ${cp.name} (Priority ${cp.priority})\nPhase: ${phaseName}\nTransition Role: ${cp.phase_transition_role}\nTrigger Condition: ${cp.trigger_condition || "Not configured"}\nRequired Keypoints: ${cp.required_keypoint_indices.join(", ")} — ${kpNames(cp.required_keypoint_indices)}\nConfidence Threshold: ${cp.confidence_threshold}\n`;
   });
   return out;

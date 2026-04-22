@@ -131,7 +131,7 @@ export function CheckpointsEditor({ checkpoints, onChange, onConfirmDelete, phas
 
   const phaseName = (phaseId: string | null) => {
     if (!phaseId) return null;
-    return phases.find(p => p.id === phaseId)?.phase || null;
+    return phases.find(p => p.id === phaseId)?.name || null;
   };
 
   return (
@@ -368,8 +368,8 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx, ke
           ) : (
             <>
               <option value="">Select a phase…</option>
-              {phases.filter(p => p.id && p.phase.trim()).map(p => (
-                <option key={p.id} value={p.id!}>{p.phase}</option>
+              {phases.filter(p => p.id && p.name.trim()).map(p => (
+                <option key={p.id} value={p.id!}>{p.name}</option>
               ))}
             </>
           )}

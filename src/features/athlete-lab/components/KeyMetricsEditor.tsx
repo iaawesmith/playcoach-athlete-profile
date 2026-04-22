@@ -359,7 +359,7 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
             <span className="text-primary-container/70 text-xs flex items-center gap-1.5">
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>
               <span className="font-semibold uppercase tracking-widest">
-                {km.calculation_type ? CALC_OPTIONS.find(c => c.value === km.calculation_type)?.label : ""} · Phase: {phases.find(p => p.id === km.phase_id)?.phase || "—"} · Keypoints: [{km.keypoint_indices.join(", ")}]
+                {km.calculation_type ? CALC_OPTIONS.find(c => c.value === km.calculation_type)?.label : ""} · Phase: {phases.find(p => p.id === km.phase_id)?.name || "—"} · Keypoints: [{km.keypoint_indices.join(", ")}]
               </span>
             </span>
           ) : (
@@ -792,7 +792,7 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
             >
               <option value="">Select a phase…</option>
               {phases.map(p => (
-                <option key={p.id} value={p.id}>{p.phase}</option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
             {km.phase_id && !phases.find(p => p.id === km.phase_id) && (
