@@ -351,6 +351,18 @@ function buildPhaseWindows(totalFrames: number, phaseBreakdown: any[]) {
     framePosition += phaseFrames
   }
 
+  logInfo('phase_windows_built', {
+    totalFrames,
+    phases: sortedPhases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      proportionWeight: phase.proportion_weight,
+      frameBuffer: phase.frame_buffer || 3,
+      start: windows[phase.id]?.start ?? null,
+      end: windows[phase.id]?.end ?? null,
+    })),
+  })
+
   return windows
 }
 
@@ -363,19 +375,30 @@ async function calculateAllMetrics(
   personIndex: number,
   calibration: any,
   context: any,
-  fps: number
+  fps: number,
+  uploadId?: string
 ) {
   const results: any[] = []
 
   for (const metric of metrics) {
+    const mapping = metric.keypoint_mapping
+    const metricContext = {
+      uploadId,
+      metricId: metric.id,
+      metricName: metric.name,
+      calculationType: mapping?.calculation_type || 'unknown',
+      phaseId: mapping?.phase_id || null,
+    }
+
     // Skip catch-dependent metrics if no catch
     if (metric.requires_catch && context.catch_included === false) {
+      logInfo('metric_skipped', { ...metricContext, reason: 'no_catch' })
       results.push({ ...metric, status: 'skipped', reason: 'no_catch' })
       continue
     }
 
-    const mapping = metric.keypoint_mapping
     if (!mapping?.keypoint_indices?.length) {
+      logWarn('metric_skipped', { ...metricContext, reason: 'no_keypoint_mapping' })
       results.push({ ...metric, status: 'skipped', reason: 'no_keypoint_mapping' })
       continue
     }
@@ -383,6 +406,7 @@ async function calculateAllMetrics(
     // Get phase frames
     const window = phaseWindows[mapping.phase_id]
     if (!window) {
+      logWarn('metric_skipped', { ...metricContext, reason: 'no_phase_window' })
       results.push({ ...metric, status: 'skipped', reason: 'no_phase_window' })
       continue
     }
@@ -393,6 +417,16 @@ async function calculateAllMetrics(
     // Extract phase keypoints
     const phaseFrames = keypoints.slice(window.start, window.end + 1)
     const phaseScores = scores.slice(window.start, window.end + 1)
+    logInfo('metric_window_selected', {
+      ...metricContext,
+      side,
+      windowStart: window.start,
+      windowEnd: window.end,
+      frameCount: phaseFrames.length,
+      keypointIndices: mapping.keypoint_indices,
+      temporalWindow: mapping.temporal_window || null,
+      confidenceThreshold: mapping.confidence_threshold || 0.7,
+    })
 
     // Check confidence
     const confidenceOk = checkConfidence(
@@ -401,59 +435,78 @@ async function calculateAllMetrics(
     )
 
     if (!confidenceOk) {
+      logWarn('metric_flagged', { ...metricContext, reason: 'low_confidence' })
       results.push({ ...metric, status: 'flagged', reason: 'low_confidence' })
       continue
     }
 
     // Calculate based on type
-    let value: number | null = null
+    let metricValue: MetricValueResult = { value: null, reason: 'unsupported_calculation_type' }
     
     switch (mapping.calculation_type) {
       case 'angle':
-        value = calculateAngle(phaseFrames, personIndex, mapping.keypoint_indices)
+        metricValue = calculateAngle(phaseFrames, personIndex, mapping.keypoint_indices)
         break
       case 'distance':
-        value = calculateDistance(
+        metricValue = calculateDistance(
           phaseFrames, personIndex, mapping.keypoint_indices,
           calibration?.pixels_per_yard
         )
         break
       case 'velocity':
-        value = calculateVelocity(
+        metricValue = calculateVelocity(
           phaseFrames, personIndex, mapping.keypoint_indices,
           mapping.temporal_window || 3, fps
         )
         break
       case 'acceleration':
-        value = calculateAcceleration(
+        metricValue = calculateAcceleration(
           phaseFrames, personIndex, mapping.keypoint_indices,
           mapping.temporal_window || 5, fps
         )
         break
       case 'frame_delta':
-        value = calculateFrameDelta(
+        metricValue = calculateFrameDelta(
           phaseFrames, personIndex, mapping.keypoint_indices,
           mapping.temporal_window || 10
         )
         break
     }
 
-    if (value === null) {
-      results.push({ ...metric, status: 'failed', reason: 'calculation_failed' })
+    if (metricValue.value === null) {
+      logWarn('metric_failed', {
+        ...metricContext,
+        reason: metricValue.reason || 'calculation_failed',
+        detail: metricValue.detail || null,
+      })
+      results.push({
+        ...metric,
+        status: 'failed',
+        reason: metricValue.reason || 'calculation_failed',
+        detail: metricValue.detail,
+      })
       continue
     }
 
     // Score the metric
-    const score = scoreMetric(value, metric.eliteTarget, mapping.tolerance)
+    const score = scoreMetric(metricValue.value, metric.eliteTarget, mapping.tolerance)
+    logInfo('metric_scored', {
+      ...metricContext,
+      value: metricValue.value,
+      eliteTarget: metric.eliteTarget,
+      tolerance: mapping.tolerance,
+      score,
+      detail: metricValue.detail || null,
+    })
 
     results.push({
       id: metric.id,
       name: metric.name,
       unit: metric.unit,
-      value: Math.round(value * 100) / 100,
+       value: Math.round(metricValue.value * 100) / 100,
       elite_target: metric.eliteTarget,
       tolerance: mapping.tolerance,
-      deviation: Math.abs(value - metric.eliteTarget),
+       deviation: Math.abs(metricValue.value - metric.eliteTarget),
       score,
       weight: metric.weight,
       status: 'scored'
