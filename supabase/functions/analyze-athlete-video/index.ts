@@ -1622,6 +1622,10 @@ async function callCloudRun(payload: {
   scores: VideoScores
   frame_count: number
   fps: number
+  pixelsPerYard?: number | null
+  pixels_per_yard?: number | null
+  calibrationConfidence?: string | null
+  calibration_confidence?: string | null
 }> {
   const rtmlibBase = Deno.env.get('RTMLIB_URL')?.trim() || RTMLIB_FALLBACK
   const normalizedBase = rtmlibBase.replace(/\/+$/, '')
@@ -1655,6 +1659,10 @@ async function callCloudRun(payload: {
     scores: VideoScores
     frame_count: number
     fps: number
+    pixelsPerYard?: number | null
+    pixels_per_yard?: number | null
+    calibrationConfidence?: string | null
+    calibration_confidence?: string | null
   }
 }
 
