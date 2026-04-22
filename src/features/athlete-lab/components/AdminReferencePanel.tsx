@@ -673,6 +673,7 @@ export function AdminReferencePanel({ onClose }: { onClose: () => void }) {
         {activeTab === "implementation_docs" && <ImplementationDocsTab />}
         {activeTab === "enhancements" && <EnhancementsTab />}
         {activeTab === "data_dictionary" && <DataDictionaryTab />}
+        {activeTab === "manual_test_upload" && <ManualTestUploadTab />}
       </div>
     </div>
   );
