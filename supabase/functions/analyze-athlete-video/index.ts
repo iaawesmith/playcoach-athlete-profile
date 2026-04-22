@@ -641,7 +641,7 @@ function calculateAngle(frames: VideoKeypoints, personIdx: number, indices: numb
 // DISTANCE: Euclidean pixel distance converted to yards
 function calculateDistance(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], pixelsPerYard: number
+  indices: number[], pixelsPerYard: number | null
 ): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
