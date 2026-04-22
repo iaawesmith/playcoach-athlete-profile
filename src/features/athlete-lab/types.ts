@@ -38,9 +38,10 @@ export interface CommonError {
 
 export interface PhaseNote {
   id?: string;
-  phase: string;
-  notes: string;
-  weight?: number;
+  name: string;
+  description: string;
+  sequence_order?: number;
+  proportion_weight?: number;
   frame_buffer?: number;
 }
 

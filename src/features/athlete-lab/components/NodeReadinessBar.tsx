@@ -85,7 +85,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   phaseChecks.push({ label: `${node.phase_breakdown.length} phases defined (min 4)`, pass: node.phase_breakdown.length >= 4 });
   const segMethod = node.segmentation_method ?? "proportional";
   if (segMethod === "proportional" && node.phase_breakdown.length > 0) {
-    const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.weight ?? 0), 0);
+    const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
     phaseChecks.push({ label: `Phase weights sum to ${phaseWeightSum}% (must be 100%)`, pass: phaseWeightSum === 100 });
   } else {
     phaseChecks.push({ label: "Phase weights sum to 100%", pass: true });
