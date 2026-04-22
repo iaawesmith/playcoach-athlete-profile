@@ -33,6 +33,34 @@ type CalibrationResolution = {
   calibrationSource: 'cloud_run_calibration' | 'node_reference_fallback' | 'missing_calibration'
 }
 
+type AthleteHeightMeasurement = {
+  value: number
+  unit: 'inches' | 'cm'
+}
+
+type BodyBasedCalibrationResult = {
+  pixelsPerYard: number | null
+  confidence: number
+  source: 'body_based'
+  method: string
+  details: {
+    hipWidthPixels: number
+    shoulderWidthPixels: number
+    framesUsed: number
+    expectedHipWidthYards: number
+    expectedShoulderWidthYards: number
+  }
+}
+
+type BodyMeasurementSample = {
+  frameIndex: number
+  hipWidthPixels: number | null
+  shoulderWidthPixels: number | null
+  hipPixelsPerYard: number | null
+  shoulderPixelsPerYard: number | null
+  averageConfidence: number
+}
+
 type ConfidenceDiagnostics = {
   total_frames_in_window: number
   total_keypoint_checks: number
@@ -330,6 +358,165 @@ function resolvePixelsPerYard(runtimeCalibration: CalibrationLike | null, nodeCa
   return {
     pixelsPerYard: null,
     calibrationSource: 'missing_calibration',
+  }
+}
+
+function convertHeightToYards(height: AthleteHeightMeasurement): number | null {
+  if (!Number.isFinite(height.value) || height.value <= 0) return null
+  return height.unit === 'cm' ? height.value / 91.44 : height.value / 36
+}
+
+function isValidPoint(point: Point | undefined): point is Point {
+  return Array.isArray(point) && point.length === 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])
+}
+
+function distanceBetweenPoints(a: Point, b: Point): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1])
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+function standardDeviation(values: number[]): number {
+  if (values.length <= 1) return 0
+  const mean = average(values)
+  const variance = average(values.map((value) => (value - mean) ** 2))
+  return Math.sqrt(variance)
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function calculateBodyBasedCalibration(
+  keypoints: number[][][],
+  scores: number[][][],
+  athleteHeight: AthleteHeightMeasurement,
+): BodyBasedCalibrationResult {
+  const heightYards = convertHeightToYards(athleteHeight)
+  const expectedHipWidthYards = heightYards ? heightYards * 0.191 : 0
+  const expectedShoulderWidthYards = heightYards ? heightYards * 0.259 : 0
+
+  if (!heightYards || expectedHipWidthYards <= 0 || expectedShoulderWidthYards <= 0) {
+    return {
+      pixelsPerYard: null,
+      confidence: 0,
+      source: 'body_based',
+      method: 'multi_frame_body_proportions_hips_shoulders',
+      details: {
+        hipWidthPixels: 0,
+        shoulderWidthPixels: 0,
+        framesUsed: 0,
+        expectedHipWidthYards,
+        expectedShoulderWidthYards,
+      },
+    }
+  }
+
+  const samples: BodyMeasurementSample[] = []
+
+  for (let frameIndex = 0; frameIndex < keypoints.length; frameIndex += 5) {
+    const frameKeypoints = keypoints[frameIndex]?.[0]
+    const frameScores = scores[frameIndex]?.[0]
+
+    if (!Array.isArray(frameKeypoints) || !Array.isArray(frameScores)) continue
+
+    const leftShoulder = frameKeypoints[5]
+    const rightShoulder = frameKeypoints[6]
+    const leftHip = frameKeypoints[11]
+    const rightHip = frameKeypoints[12]
+
+    const leftShoulderScore = frameScores[5]
+    const rightShoulderScore = frameScores[6]
+    const leftHipScore = frameScores[11]
+    const rightHipScore = frameScores[12]
+
+    const shoulderValid = isValidPoint(leftShoulder) && isValidPoint(rightShoulder)
+      && Number.isFinite(leftShoulderScore) && Number.isFinite(rightShoulderScore)
+    const hipValid = isValidPoint(leftHip) && isValidPoint(rightHip)
+      && Number.isFinite(leftHipScore) && Number.isFinite(rightHipScore)
+
+    if (!shoulderValid && !hipValid) continue
+
+    const shoulderWidthPixels = shoulderValid
+      ? distanceBetweenPoints(leftShoulder, rightShoulder)
+      : null
+    const hipWidthPixels = hipValid
+      ? distanceBetweenPoints(leftHip, rightHip)
+      : null
+
+    const shoulderPixelsPerYard = shoulderWidthPixels !== null
+      ? shoulderWidthPixels / expectedShoulderWidthYards
+      : null
+    const hipPixelsPerYard = hipWidthPixels !== null
+      ? hipWidthPixels / expectedHipWidthYards
+      : null
+
+    const confidenceInputs: number[] = []
+    if (shoulderValid) confidenceInputs.push(leftShoulderScore, rightShoulderScore)
+    if (hipValid) confidenceInputs.push(leftHipScore, rightHipScore)
+
+    samples.push({
+      frameIndex,
+      hipWidthPixels,
+      shoulderWidthPixels,
+      hipPixelsPerYard,
+      shoulderPixelsPerYard,
+      averageConfidence: average(confidenceInputs),
+    })
+  }
+
+  const hipWidths = samples
+    .map((sample) => sample.hipWidthPixels)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  const shoulderWidths = samples
+    .map((sample) => sample.shoulderWidthPixels)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  const perFrameEstimates = samples.flatMap((sample) => {
+    const estimates: number[] = []
+    if (typeof sample.hipPixelsPerYard === 'number' && Number.isFinite(sample.hipPixelsPerYard)) {
+      estimates.push(sample.hipPixelsPerYard)
+    }
+    if (typeof sample.shoulderPixelsPerYard === 'number' && Number.isFinite(sample.shoulderPixelsPerYard)) {
+      estimates.push(sample.shoulderPixelsPerYard)
+    }
+    return estimates
+  })
+
+  const rawPixelsPerYard = perFrameEstimates.length > 0 ? average(perFrameEstimates) : null
+  const averageKeypointConfidence = average(samples.map((sample) => sample.averageConfidence))
+  const estimateStdDev = standardDeviation(perFrameEstimates)
+  const estimateMean = rawPixelsPerYard ?? 0
+  const relativeVariance = estimateMean > 0 ? estimateStdDev / estimateMean : 1
+
+  let confidence = 1
+  confidence -= clamp(1 - averageKeypointConfidence, 0, 1) * 0.5
+  confidence -= clamp(relativeVariance, 0, 1) * 0.3
+
+  if (rawPixelsPerYard === null) {
+    confidence = 0
+  } else if (rawPixelsPerYard < 40) {
+    confidence -= clamp((40 - rawPixelsPerYard) / 40, 0, 1) * 0.2
+  } else if (rawPixelsPerYard > 150) {
+    confidence -= clamp((rawPixelsPerYard - 150) / 150, 0, 1) * 0.2
+  }
+
+  confidence = clamp(confidence, 0, 1)
+
+  return {
+    pixelsPerYard: confidence >= 0.3 ? rawPixelsPerYard : null,
+    confidence,
+    source: 'body_based',
+    method: 'multi_frame_body_proportions_hips_shoulders',
+    details: {
+      hipWidthPixels: average(hipWidths),
+      shoulderWidthPixels: average(shoulderWidths),
+      framesUsed: samples.length,
+      expectedHipWidthYards,
+      expectedShoulderWidthYards,
+    },
   }
 }
 
