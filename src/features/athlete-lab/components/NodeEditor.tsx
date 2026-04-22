@@ -2344,6 +2344,11 @@ pose_tracker = PoseTracker(
 
 const CAMERA_ANGLES_LIST: CameraAngle[] = ["sideline", "endzone", "behind_qb"];
 const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
+const CAMERA_ANGLE_STATUS_OPTIONS: Array<{ value: CameraAngleStatus; label: string; description: string }> = [
+  { value: "primary", label: "Primary", description: "Recommended angle for this skill. Use this when it delivers the cleanest metric coverage." },
+  { value: "supported", label: "Supported", description: "This angle works for the skill, but it is not the recommended setup." },
+  { value: "not_supported", label: "Not Supported", description: "Do not use this angle for this skill because the node’s metrics will not evaluate reliably." },
+];
 
 const REF_PRESETS: { label: string; sizeYards: number }[] = [
   { label: "5-Yard Line Spacing", sizeYards: 5 },
