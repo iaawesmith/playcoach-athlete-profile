@@ -20,17 +20,31 @@ type VideoScores = ScoreFrames[]
 type MetricValueResult = {
   value: number | null
   reason?: string
+  status?: 'skipped'
   detail?: JsonRecord
 }
 
-type CalibrationLike = {
+type CalibrationLike = JsonRecord & {
   camera_angle?: string | null
   pixels_per_yard?: number | null
+  pixelsPerYard?: number | null
 }
 
-type CalibrationResolution = {
+type ReferenceFallbackBehavior = 'pixel_warning' | 'disable_distance'
+
+type ResolvedCalibration = {
   pixelsPerYard: number | null
-  calibrationSource: 'cloud_run_calibration' | 'node_reference_fallback' | 'missing_calibration'
+  source: 'dynamic' | 'body_based' | 'static' | 'none'
+  confidence: number
+  reason: string
+  details: JsonRecord
+}
+
+type CloudRunCalibrationInput = JsonRecord & {
+  pixelsPerYard?: number | null
+  pixels_per_yard?: number | null
+  calibrationConfidence?: string | null
+  calibration_confidence?: string | null
 }
 
 type AthleteHeightMeasurement = {
@@ -141,7 +155,7 @@ Deno.serve(async (req) => {
     // STEP 3: Select analysis context settings
     const context = upload.analysis_context || {}
     const detFrequency = selectDetFrequency(nodeConfig, context.people_in_video)
-    const calibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
+    const staticCalibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
     logInfo('analysis_context_selected', {
       uploadId,
       peopleInVideo: context.people_in_video || 'unknown',
@@ -149,8 +163,8 @@ Deno.serve(async (req) => {
       cameraAngle: context.camera_angle || upload.camera_angle || 'unknown',
       catchIncluded: context.catch_included !== false,
       detFrequency,
-      hasCalibration: Boolean(calibration),
-      pixelsPerYard: calibration?.pixels_per_yard ?? null,
+      hasCalibration: Boolean(staticCalibration),
+      pixelsPerYard: staticCalibration?.pixels_per_yard ?? null,
     })
 
     // STEP 4: Call Cloud Run rtmlib service
@@ -187,6 +201,21 @@ Deno.serve(async (req) => {
       peopleInVideo: context.people_in_video || 'unknown',
     })
 
+    const trackedPersonFrames = isolateTrackedPersonFrames(
+      smoothedKeypoints,
+      smoothedScores,
+      targetPersonIndex
+    )
+
+    const resolvedCalibration = resolveCalibration(
+      rtmlibResult,
+      trackedPersonFrames.keypoints,
+      trackedPersonFrames.scores,
+      getAthleteHeightMeasurement(context),
+      nodeConfig,
+      context.camera_angle || upload.camera_angle || ''
+    )
+
     // STEP 7: Divide frames into phase windows
     const phaseWindows = buildPhaseWindows(
       rtmlibResult.frame_count,
@@ -200,7 +229,8 @@ Deno.serve(async (req) => {
       smoothedScores,
       phaseWindows,
       targetPersonIndex,
-      calibration,
+      resolvedCalibration,
+      (nodeConfig.reference_fallback_behavior as ReferenceFallbackBehavior | undefined) || 'pixel_warning',
       context,
       rtmlibResult.fps,
       uploadId
@@ -288,6 +318,7 @@ async function fetchNodeConfig(nodeId: string) {
       key_metrics,
       phase_breakdown,
       reference_calibrations,
+      reference_fallback_behavior,
       common_errors,
       form_checkpoints
     `)
@@ -332,33 +363,171 @@ function selectCalibration(nodeConfig: any, cameraAngle: string) {
   return match || calibrations[0] || null
 }
 
-function resolvePixelsPerYard(runtimeCalibration: CalibrationLike | null, nodeCalibration: CalibrationLike | null): CalibrationResolution {
-  const runtimePixelsPerYard = typeof runtimeCalibration?.pixels_per_yard === 'number' && runtimeCalibration.pixels_per_yard > 0
-    ? runtimeCalibration.pixels_per_yard
-    : null
+function getAthleteHeightMeasurement(context: JsonRecord): AthleteHeightMeasurement | undefined {
+  const athleteHeight = context.athlete_height
+  if (!athleteHeight || typeof athleteHeight !== 'object') return undefined
 
-  if (runtimePixelsPerYard !== null) {
-    return {
-      pixelsPerYard: runtimePixelsPerYard,
-      calibrationSource: 'cloud_run_calibration',
-    }
+  const heightRecord = athleteHeight as JsonRecord
+  const value = heightRecord.value
+  const unit = heightRecord.unit
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || (unit !== 'inches' && unit !== 'cm')) {
+    return undefined
   }
 
-  const fallbackPixelsPerYard = typeof nodeCalibration?.pixels_per_yard === 'number' && nodeCalibration.pixels_per_yard > 0
-    ? nodeCalibration.pixels_per_yard
-    : null
+  return { value, unit }
+}
 
-  if (fallbackPixelsPerYard !== null) {
-    return {
-      pixelsPerYard: fallbackPixelsPerYard,
-      calibrationSource: 'node_reference_fallback',
-    }
-  }
-
+function isolateTrackedPersonFrames(
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
+  personIndex: number,
+): { keypoints: VideoKeypoints; scores: VideoScores } {
   return {
-    pixelsPerYard: null,
-    calibrationSource: 'missing_calibration',
+    keypoints: keypoints.map((frame) => {
+      const person = frame?.[personIndex]
+      return person ? [person] : []
+    }),
+    scores: scores.map((frame) => {
+      const person = frame?.[personIndex]
+      return person ? [person] : []
+    }),
   }
+}
+
+function getPixelsPerYardValue(calibration: CalibrationLike | CloudRunCalibrationInput | null): number | null {
+  const camelValue = calibration?.pixelsPerYard
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue) && camelValue > 0) return camelValue
+
+  const snakeValue = calibration?.pixels_per_yard
+  if (typeof snakeValue === 'number' && Number.isFinite(snakeValue) && snakeValue > 0) return snakeValue
+
+  return null
+}
+
+function getCalibrationConfidenceLabel(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.calibrationConfidence
+  if (typeof camelValue === 'string' && camelValue.length > 0) return camelValue
+
+  const snakeValue = calibration.calibration_confidence
+  if (typeof snakeValue === 'string' && snakeValue.length > 0) return snakeValue
+
+  return null
+}
+
+function getCalibrationMetricDetail(calibration: ResolvedCalibration): JsonRecord {
+  return {
+    calibrationSource: calibration.source,
+    calibrationConfidence: calibration.confidence,
+    calibrationDetails: calibration.details,
+  }
+}
+
+function resolveCalibration(
+  cloudRunCalibration: CloudRunCalibrationInput,
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
+  athleteHeight: AthleteHeightMeasurement | undefined,
+  nodeConfig: any,
+  cameraAngle: string,
+): ResolvedCalibration {
+  const dynamicPixelsPerYard = getPixelsPerYardValue(cloudRunCalibration)
+  const dynamicConfidence = getCalibrationConfidenceLabel(cloudRunCalibration)
+
+  if (dynamicPixelsPerYard !== null && dynamicConfidence === 'dynamic') {
+    const resolved = {
+      pixelsPerYard: dynamicPixelsPerYard,
+      source: 'dynamic' as const,
+      confidence: 1,
+      reason: 'cloud_run_dynamic_calibration',
+      details: {
+        pixelsPerYard: dynamicPixelsPerYard,
+        calibrationConfidence: dynamicConfidence,
+      },
+    }
+    logInfo('calibration_resolved', resolved)
+    return resolved
+  }
+
+  const dynamicFailureReason = dynamicPixelsPerYard === null
+    ? 'dynamic_pixels_per_yard_unavailable'
+    : `dynamic_confidence_${dynamicConfidence || 'missing'}`
+
+  if (athleteHeight) {
+    logInfo('calibration_source_fallback', {
+      from: 'dynamic',
+      to: 'body_based',
+      reason: dynamicFailureReason,
+    })
+
+    const bodyBasedCalibration = calculateBodyBasedCalibration(keypoints, scores, athleteHeight)
+    if (bodyBasedCalibration.pixelsPerYard !== null && bodyBasedCalibration.confidence >= 0.3) {
+      const resolved = {
+        pixelsPerYard: bodyBasedCalibration.pixelsPerYard,
+        source: 'body_based' as const,
+        confidence: bodyBasedCalibration.confidence,
+        reason: 'body_based_calibration_accepted',
+        details: {
+          method: bodyBasedCalibration.method,
+          ...bodyBasedCalibration.details,
+        },
+      }
+      logInfo('calibration_resolved', resolved)
+      return resolved
+    }
+
+    logInfo('calibration_source_fallback', {
+      from: 'body_based',
+      to: 'static',
+      reason: bodyBasedCalibration.pixelsPerYard === null
+        ? 'body_based_confidence_below_threshold'
+        : 'body_based_calibration_unusable',
+    })
+  } else {
+    logInfo('calibration_source_fallback', {
+      from: 'dynamic',
+      to: 'static',
+      reason: `${dynamicFailureReason}_and_no_athlete_height`,
+    })
+  }
+
+  const staticCalibration = selectCalibration(nodeConfig, cameraAngle)
+  const staticPixelsPerYard = getPixelsPerYardValue(staticCalibration)
+  if (staticPixelsPerYard !== null) {
+    const resolved = {
+      pixelsPerYard: staticPixelsPerYard,
+      source: 'static' as const,
+      confidence: 0.45,
+      reason: 'node_reference_calibration',
+      details: {
+        cameraAngle,
+        matchedCalibration: staticCalibration ?? {},
+      },
+    }
+    logInfo('calibration_resolved', resolved)
+    return resolved
+  }
+
+  logInfo('calibration_source_fallback', {
+    from: athleteHeight ? 'static' : 'dynamic',
+    to: 'none',
+    reason: 'no_valid_static_calibration',
+  })
+
+  const resolved = {
+    pixelsPerYard: null,
+    source: 'none' as const,
+    confidence: 0,
+    reason: 'no_calibration_available',
+    details: {
+      dynamicFailureReason,
+      athleteHeightProvided: Boolean(athleteHeight),
+      staticCalibrationFound: Boolean(staticCalibration),
+      cameraAngle,
+    },
+  }
+  logInfo('calibration_resolved', resolved)
+  return resolved
 }
 
 function convertHeightToYards(height: AthleteHeightMeasurement): number | null {
@@ -628,7 +797,8 @@ async function calculateAllMetrics(
   scores: VideoScores,
   phaseWindows: Record<string, any>,
   personIndex: number,
-  calibration: any,
+  calibration: ResolvedCalibration,
+  fallbackBehavior: ReferenceFallbackBehavior,
   context: any,
   fps: number,
   uploadId?: string | null
@@ -704,8 +874,6 @@ async function calculateAllMetrics(
       continue
     }
 
-    const calibrationResolution = resolvePixelsPerYard(calibration, calibration)
-
     // Calculate based on type
     let metricValue: MetricValueResult = { value: null, reason: 'unsupported_calculation_type' }
     
@@ -716,19 +884,20 @@ async function calculateAllMetrics(
       case 'distance':
         metricValue = calculateDistance(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          calibrationResolution.pixelsPerYard
+          calibration,
+          fallbackBehavior
         )
         break
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 3, fps, calibrationResolution
+          mapping.temporal_window || 3, fps, calibration, fallbackBehavior
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 5, fps, calibrationResolution
+          mapping.temporal_window || 5, fps, calibration, fallbackBehavior
         )
         break
       case 'frame_delta':
@@ -737,6 +906,27 @@ async function calculateAllMetrics(
           mapping.temporal_window || 10
         )
         break
+    }
+
+    if (metricValue.status === 'skipped') {
+      logInfo('metric_skipped', {
+        ...metricContext,
+        reason: metricValue.reason || 'skipped',
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
+      })
+      results.push({
+        ...metric,
+        status: 'skipped',
+        reason: metricValue.reason || 'skipped',
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
+      })
+      continue
     }
 
     if (metricValue.value === null) {
@@ -828,7 +1018,7 @@ function calculateAngle(frames: VideoKeypoints, personIdx: number, indices: numb
 // DISTANCE: Euclidean pixel distance converted to yards
 function calculateDistance(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], pixelsPerYard: number | null
+  indices: number[], calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
 ): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
@@ -838,25 +1028,41 @@ function calculateDistance(
   if (!p1 || !p2) return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
 
   const pixelDist = Math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+  const calibrationDetail = getCalibrationMetricDetail(calibration)
   
-  if (!pixelsPerYard || pixelsPerYard <= 0) {
+  if (!calibration.pixelsPerYard || calibration.pixelsPerYard <= 0) {
+    if (fallbackBehavior === 'disable_distance') {
+      return {
+        value: null,
+        status: 'skipped',
+        reason: 'no_calibration_available',
+        detail: { midFrame, indices, pixelDistance: pixelDist, ...calibrationDetail },
+      }
+    }
+
     return {
       value: pixelDist,
       reason: 'missing_calibration',
-      detail: { midFrame, indices, pixelsPerYard: pixelsPerYard ?? null },
+      detail: {
+        midFrame,
+        indices,
+        pixelDistance: pixelDist,
+        warning: 'uncalibrated_pixel_value',
+        ...calibrationDetail,
+      },
     }
   }
   
   return {
-    value: pixelDist / pixelsPerYard,
-    detail: { midFrame, indices, pixelsPerYard },
+    value: pixelDist / calibration.pixelsPerYard,
+    detail: { midFrame, indices, pixelsPerYard: calibration.pixelsPerYard, ...calibrationDetail },
   }
 }
 
 // VELOCITY: displacement per frame × fps → mph
 function calculateVelocity(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], temporalWindow: number, fps: number, calibration: CalibrationResolution
+  indices: number[], temporalWindow: number, fps: number, calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
 ): MetricValueResult {
   const window = frames.slice(0, Math.min(temporalWindow, frames.length))
   if (window.length < 2) {
@@ -869,6 +1075,7 @@ function calculateVelocity(
 
   const velocities: number[] = []
   const rawPixelsPerSecond: number[] = []
+  const calibrationDetail = getCalibrationMetricDetail(calibration)
   
   for (let f = 1; f < window.length; f++) {
     const prev = window[f-1]?.[personIdx]
@@ -904,8 +1111,24 @@ function calculateVelocity(
   }
 
   if (velocities.length === 0) {
+    if (fallbackBehavior === 'disable_distance') {
+      return {
+        value: null,
+        status: 'skipped',
+        reason: 'no_calibration_available',
+        detail: {
+          temporalWindow,
+          indices,
+          personIdx,
+          sampleCount: rawPixelsPerSecond.length,
+          rawPixelsPerSecondAverage: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
+          ...calibrationDetail,
+        },
+      }
+    }
+
     return {
-      value: null,
+      value: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
       reason: 'missing_calibration',
       detail: {
         temporalWindow,
@@ -913,8 +1136,8 @@ function calculateVelocity(
         personIdx,
         sampleCount: rawPixelsPerSecond.length,
         rawPixelsPerSecondAverage: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
-        pixelsPerYard: calibration.pixelsPerYard,
-        calibrationSource: calibration.calibrationSource,
+        warning: 'uncalibrated_pixel_value',
+        ...calibrationDetail,
       },
     }
   }
@@ -928,8 +1151,8 @@ function calculateVelocity(
       sampleCount: velocities.length,
       fps,
       pixelsPerYard: calibration.pixelsPerYard,
-      calibrationSource: calibration.calibrationSource,
       rawPixelsPerSecondAverage,
+      ...calibrationDetail,
     },
   }
 }
@@ -937,7 +1160,7 @@ function calculateVelocity(
 // ACCELERATION: velocity delta over temporal window
 function calculateAcceleration(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], temporalWindow: number, fps: number, calibration: CalibrationResolution
+  indices: number[], temporalWindow: number, fps: number, calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
 ) : MetricValueResult {
   if (frames.length < temporalWindow) {
     return {
@@ -947,9 +1170,18 @@ function calculateAcceleration(
     }
   }
   
-  const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration)
-  const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration)
+  const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration, fallbackBehavior)
+  const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration, fallbackBehavior)
   
+  if (v1.status === 'skipped' || v2.status === 'skipped') {
+    return {
+      value: null,
+      status: 'skipped',
+      reason: 'no_calibration_available',
+      detail: { firstHalf: v1.detail, secondHalf: v2.detail, temporalWindow, ...getCalibrationMetricDetail(calibration) },
+    }
+  }
+
   if (v1.value === null || v2.value === null) {
     return {
       value: null,
@@ -967,9 +1199,9 @@ function calculateAcceleration(
       firstVelocity: v1.value,
       secondVelocity: v2.value,
       pixelsPerYard: calibration.pixelsPerYard,
-      calibrationSource: calibration.calibrationSource,
       firstVelocityDetail: v1.detail,
       secondVelocityDetail: v2.detail,
+      ...getCalibrationMetricDetail(calibration),
     },
   }
 }
@@ -1390,6 +1622,10 @@ async function callCloudRun(payload: {
   scores: VideoScores
   frame_count: number
   fps: number
+  pixelsPerYard?: number | null
+  pixels_per_yard?: number | null
+  calibrationConfidence?: string | null
+  calibration_confidence?: string | null
 }> {
   const rtmlibBase = Deno.env.get('RTMLIB_URL')?.trim() || RTMLIB_FALLBACK
   const normalizedBase = rtmlibBase.replace(/\/+$/, '')
@@ -1423,6 +1659,10 @@ async function callCloudRun(payload: {
     scores: VideoScores
     frame_count: number
     fps: number
+    pixelsPerYard?: number | null
+    pixels_per_yard?: number | null
+    calibrationConfidence?: string | null
+    calibration_confidence?: string | null
   }
 }
 
