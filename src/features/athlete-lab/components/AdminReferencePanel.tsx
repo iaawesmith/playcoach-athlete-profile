@@ -9,7 +9,7 @@ import { ImplementationDocsTab } from "./ImplementationDocsTab";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "pipeline_setup" | "implementation_docs" | "enhancements" | "data_dictionary";
+type TabId = "agent_briefing" | "node_builder" | "architecture" | "links" | "pipeline_setup" | "implementation_docs" | "enhancements" | "data_dictionary" | "manual_test_upload";
 
 interface ReferenceLink {
   id: string;
