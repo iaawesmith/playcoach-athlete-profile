@@ -302,7 +302,7 @@ async function calculateAllMetrics(
     }
 
     // Determine which side to use
-    const side = resolvebilateral(mapping, context.route_direction)
+    const side = resolveBilateral(mapping, context.route_direction)
 
     // Extract phase keypoints
     const phaseFrames = keypoints.slice(window.start, window.end + 1)
@@ -543,7 +543,7 @@ function checkConfidence(
   return totalChecks === 0 || (passedChecks / totalChecks) >= 0.6
 }
 
-function resolvebilderal(mapping: any, routeDirection: string): string {
+function resolveBilateral(mapping: any, routeDirection: string): string {
   if (mapping.bilateral_override && mapping.bilateral_override !== 'auto') {
     return mapping.bilateral_override
   }
