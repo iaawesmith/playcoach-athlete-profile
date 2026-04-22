@@ -518,13 +518,15 @@ async function calculateAllMetrics(
 
 // ANGLE: geometric angle at vertex (middle keypoint)
 // keypoints order: endpoint → vertex → endpoint
-function calculateAngle(frames: number[][][], personIdx: number, indices: number[]): number {
+function calculateAngle(frames: number[][][], personIdx: number, indices: number[]): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
-  if (!kps) return null
+   if (!kps) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
 
   const [p1, vertex, p2] = indices.map(i => kps[i])
-  if (!p1 || !vertex || !p2) return null
+   if (!p1 || !vertex || !p2) {
+    return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
+   }
 
   const v1 = [p1[0] - vertex[0], p1[1] - vertex[1]]
   const v2 = [p2[0] - vertex[0], p2[1] - vertex[1]]
@@ -533,39 +535,57 @@ function calculateAngle(frames: number[][][], personIdx: number, indices: number
   const mag1 = Math.sqrt(v1[0]**2 + v1[1]**2)
   const mag2 = Math.sqrt(v2[0]**2 + v2[1]**2)
   
-  if (mag1 === 0 || mag2 === 0) return null
+  if (mag1 === 0 || mag2 === 0) {
+    return { value: null, reason: 'zero_magnitude_angle', detail: { midFrame, indices } }
+  }
   
-  return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI)
+  return {
+    value: Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI),
+    detail: { midFrame, indices },
+  }
 }
 
 // DISTANCE: Euclidean pixel distance converted to yards
 function calculateDistance(
   frames: number[][][], personIdx: number,
   indices: number[], pixelsPerYard: number
-): number {
+): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
-  if (!kps) return null
+  if (!kps) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
 
   const [p1, p2] = indices.map(i => kps[i])
-  if (!p1 || !p2) return null
+  if (!p1 || !p2) return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
 
   const pixelDist = Math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
   
   if (!pixelsPerYard || pixelsPerYard <= 0) {
-    return pixelDist // Return pixel value with warning logged
+    return {
+      value: pixelDist,
+      reason: 'missing_calibration',
+      detail: { midFrame, indices, pixelsPerYard: pixelsPerYard ?? null },
+    }
   }
   
-  return pixelDist / pixelsPerYard
+  return {
+    value: pixelDist / pixelsPerYard,
+    detail: { midFrame, indices, pixelsPerYard },
+  }
 }
 
 // VELOCITY: displacement per frame × fps → mph
 function calculateVelocity(
   frames: number[][][], personIdx: number,
   indices: number[], temporalWindow: number, fps: number
-): number {
+): MetricValueResult {
   const window = frames.slice(0, Math.min(temporalWindow, frames.length))
-  if (window.length < 2) return null
+  if (window.length < 2) {
+    return {
+      value: null,
+      reason: 'insufficient_temporal_window',
+      detail: { requestedWindow: temporalWindow, actualWindow: window.length },
+    }
+  }
 
   const velocities: number[] = []
   
@@ -589,8 +609,17 @@ function calculateVelocity(
     velocities.push(pixelDisp * fps)
   }
 
-  if (velocities.length === 0) return null
-  return velocities.reduce((s, v) => s + v, 0) / velocities.length
+  if (velocities.length === 0) {
+    return {
+      value: null,
+      reason: 'no_velocity_samples',
+      detail: { temporalWindow, indices, personIdx },
+    }
+  }
+  return {
+    value: velocities.reduce((s, v) => s + v, 0) / velocities.length,
+    detail: { temporalWindow, indices, sampleCount: velocities.length, fps },
+  }
   // Note: This returns pixels/second — divide by pixelsPerYard × 2.045 for mph
   // Edge Function should apply calibration conversion here
 }
@@ -599,23 +628,38 @@ function calculateVelocity(
 function calculateAcceleration(
   frames: number[][][], personIdx: number,
   indices: number[], temporalWindow: number, fps: number
-): number {
-  if (frames.length < temporalWindow) return null
+) : MetricValueResult {
+  if (frames.length < temporalWindow) {
+    return {
+      value: null,
+      reason: 'insufficient_temporal_window',
+      detail: { temporalWindow, availableFrames: frames.length },
+    }
+  }
   
   const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps)
   const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps)
   
-  if (v1 === null || v2 === null) return null
+  if (v1.value === null || v2.value === null) {
+    return {
+      value: null,
+      reason: v1.reason || v2.reason || 'no_velocity_samples',
+      detail: { firstHalf: v1.detail, secondHalf: v2.detail, temporalWindow },
+    }
+  }
   
   const timeSeconds = (temporalWindow / 2) / fps
-  return (v2 - v1) / timeSeconds
+  return {
+    value: (v2.value - v1.value) / timeSeconds,
+    detail: { temporalWindow, timeSeconds, firstVelocity: v1.value, secondVelocity: v2.value },
+  }
 }
 
 // FRAME DELTA: frames between two keypoint events
 function calculateFrameDelta(
   frames: number[][][], personIdx: number,
   indices: number[], temporalWindow: number
-): number {
+): MetricValueResult {
   // Index 0 = anchor keypoint (e.g. Left Heel for heel plant)
   // Index 1 = event keypoint (e.g. Nose for head snap)
   
@@ -649,8 +693,24 @@ function calculateFrameDelta(
     }
   }
 
-  if (anchorFrame === null || eventFrame === null) return null
-  return eventFrame - anchorFrame
+  if (anchorFrame === null) {
+    return {
+      value: null,
+      reason: 'anchor_event_not_found',
+      detail: { temporalWindow, indices, personIdx },
+    }
+  }
+  if (eventFrame === null) {
+    return {
+      value: null,
+      reason: 'target_event_not_found',
+      detail: { temporalWindow, indices, personIdx, anchorFrame },
+    }
+  }
+  return {
+    value: eventFrame - anchorFrame,
+    detail: { temporalWindow, indices, personIdx, anchorFrame, eventFrame },
+  }
 }
 
 // HELPERS
