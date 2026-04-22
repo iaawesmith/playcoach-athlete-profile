@@ -404,6 +404,218 @@ function LinksTab() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  ManualTestUploadTab                                                */
+/* ------------------------------------------------------------------ */
+
+interface UploadResult {
+  path: string;
+  signedUrl: string;
+  expiresAt: string;
+  bucket: string;
+  sizeBytes: number;
+}
+
+function ManualTestUploadTab() {
+  const [path, setPath] = useState("test-clips/slant-route-reference-v1.mp4");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<UploadResult | null>(null);
+  const [copiedField, setCopiedField] = useState<"url" | "path" | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+    setError(null);
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("path", path.trim());
+
+      const { data, error: invokeError } = await supabase.functions.invoke(
+        "admin-test-upload",
+        { body: formData },
+      );
+
+      if (invokeError) {
+        setError(invokeError.message);
+      } else if (data?.error) {
+        setError(String(data.error));
+      } else if (data?.signedUrl) {
+        setResult(data as UploadResult);
+      } else {
+        setError("Unexpected response from server");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCopy = async (value: string, field: "url" | "path") => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch { /* silent */ }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const formatExpires = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-on-surface font-extrabold uppercase tracking-tight text-sm">Manual Test Upload</h2>
+        <p className="text-on-surface-variant text-xs mt-1">
+          Test utility — uploads a local .mp4 to the <span className="font-mono text-on-surface">athlete-videos</span> bucket and returns a 24-hour signed URL for Cloud Run testing.
+        </p>
+      </div>
+
+      {/* Warning callout */}
+      <div className="border border-amber-500/30 bg-amber-500/5 rounded-xl p-4 flex items-start gap-3">
+        <span className="material-symbols-outlined text-amber-300 mt-0.5" style={{ fontSize: 20 }}>warning</span>
+        <div className="text-amber-200/90 text-xs leading-relaxed">
+          <span className="font-black uppercase tracking-[0.15em] text-[10px] block mb-1">Test utility — not for production use</span>
+          Files uploaded here go to the destination path you specify and will overwrite anything already at that path. Use only for Cloud Run / pipeline testing.
+        </div>
+      </div>
+
+      {/* Destination path */}
+      <div>
+        <label className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Destination Path</label>
+        <input
+          value={path}
+          onChange={(e) => setPath(e.target.value)}
+          spellCheck={false}
+          className="mt-1 w-full h-10 bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 text-on-surface text-xs font-mono focus:outline-none focus:border-primary-container/30 transition-colors"
+        />
+        <p className="text-on-surface-variant/60 text-[10px] mt-1">Path inside the <span className="font-mono">athlete-videos</span> bucket.</p>
+      </div>
+
+      {/* File input */}
+      <div>
+        <label className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Video File (.mp4)</label>
+        <label className="mt-1 block bg-surface-container-lowest border border-dashed border-outline-variant/20 rounded-xl p-6 text-center cursor-pointer hover:border-primary-container/30 transition-colors">
+          <input
+            type="file"
+            accept="video/mp4,.mp4"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          {file ? (
+            <div className="flex flex-col items-center gap-1">
+              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 24 }}>video_file</span>
+              <span className="text-on-surface text-xs font-bold">{file.name}</span>
+              <span className="text-on-surface-variant text-[10px]">{formatSize(file.size)}</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1">
+              <span className="material-symbols-outlined text-on-surface-variant/60" style={{ fontSize: 24 }}>upload</span>
+              <span className="text-on-surface-variant text-xs">Click to choose a .mp4 file</span>
+            </div>
+          )}
+        </label>
+      </div>
+
+      {/* CTA */}
+      <button
+        onClick={handleUpload}
+        disabled={!file || uploading}
+        className="w-full h-11 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-[10px] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {uploading ? (
+          <>
+            <span className="w-3 h-3 rounded-full border-2 border-[#00460a] border-t-transparent animate-spin" />
+            Uploading…
+          </>
+        ) : (
+          "Upload and Generate Signed URL"
+        )}
+      </button>
+
+      {/* Error */}
+      {error && (
+        <div className="border border-red-500/30 bg-red-500/5 rounded-lg px-3 py-2 text-red-300 text-xs">
+          {error}
+        </div>
+      )}
+
+      {/* Result */}
+      {result && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center gap-2 text-primary-container text-[10px] font-black uppercase tracking-[0.2em]">
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>
+            Uploaded successfully · Expires {formatExpires(result.expiresAt)}
+          </div>
+
+          <div>
+            <label className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Signed URL (valid 24 hours)</label>
+            <div className="mt-1 flex gap-2">
+              <input
+                readOnly
+                value={result.signedUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 h-10 bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 text-on-surface text-xs font-mono focus:outline-none focus:border-primary-container/30 transition-colors"
+              />
+              <button
+                onClick={() => handleCopy(result.signedUrl, "url")}
+                className="h-10 px-4 rounded-full bg-surface-container border border-outline-variant/10 text-on-surface-variant font-black uppercase tracking-[0.2em] text-[10px] hover:bg-surface-container-high transition-all active:scale-95 shrink-0"
+              >
+                {copiedField === "url" ? "✓ Copied!" : "Copy URL"}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Storage Path</label>
+            <div className="mt-1 flex gap-2">
+              <input
+                readOnly
+                value={result.path}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 h-10 bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 text-on-surface text-xs font-mono focus:outline-none focus:border-primary-container/30 transition-colors"
+              />
+              <button
+                onClick={() => handleCopy(result.path, "path")}
+                className="h-10 px-4 rounded-full bg-surface-container border border-outline-variant/10 text-on-surface-variant font-black uppercase tracking-[0.2em] text-[10px] hover:bg-surface-container-high transition-all active:scale-95 shrink-0"
+              >
+                {copiedField === "path" ? "✓ Copied!" : "Copy Path"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  AdminReferencePanel                                                */
 /* ------------------------------------------------------------------ */
 
