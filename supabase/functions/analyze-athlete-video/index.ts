@@ -5,6 +5,9 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
+const RTMLIB_FALLBACK =
+  'https://rtmlib-service-874407535869.us-central1.run.app'
+
 Deno.serve(async (req) => {
   let uploadId: string | null = null
 
@@ -738,10 +741,11 @@ async function callCloudRun(payload: {
   frame_count: number
   fps: number
 }> {
-  const rtmlibUrl = Deno.env.get('RTMLIB_URL')
-  if (!rtmlibUrl) {
-    throw new Error('RTMLIB_URL not configured')
-  }
+  const rtmlibBase = Deno.env.get('RTMLIB_URL')?.trim() || RTMLIB_FALLBACK
+  const normalizedBase = rtmlibBase.replace(/\/+$/, '')
+  const rtmlibUrl = normalizedBase.endsWith('/analyze')
+    ? normalizedBase
+    : `${normalizedBase}/analyze`
 
   let response: Response
   try {
