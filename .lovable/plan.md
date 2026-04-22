@@ -1,113 +1,126 @@
 
-Increase the pipeline rerun wait window to 240 seconds, confirm the Edge Function is not imposing a shorter timeout, then rerun the same Slant Route end-to-end test and verify the full pipeline completes.
+Apply the three requested fixes in `supabase/functions/analyze-athlete-video/index.ts`, redeploy the function, then rerun the same Slant Route end-to-end test with a 240-second operational wait window and inspect the resulting logs and database rows.
 
 ### Confirmed audit results
 
-#### 1) Current Edge Function fetch timeout
-In `supabase/functions/analyze-athlete-video/index.ts`, `callCloudRun()` currently does:
+- `writeResults()` currently inserts:
+  - `node_version: upload.node_version`
+- `checkConfidence()` currently requires:
+  - `(passedChecks / totalChecks) >= 0.6`
+- `callClaude()` currently:
+  - builds the prompt
+  - sends it to Anthropic
+  - returns `data.content?.[0]?.text || ''`
+  - does not log prompt preview, raw response, or parse/JSON failure details
+- `callCloudRun()` still has no manual fetch timeout or `AbortController`
+- `supabase/config.toml` still has no explicit timeout override for `analyze-athlete-video`
+- The 240-second wait is an operational rerun budget, not a frontend code constant found in the repo
 
+### Code changes to make
+
+#### Fix 1 — node_version write-path
+In `writeResults()` change:
 ```ts
-response = await fetch(rtmlibUrl, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(payload),
-})
+node_version: upload.node_version,
+```
+to:
+```ts
+node_version: nodeConfig.node_version,
 ```
 
-Confirmed:
-- there is no `AbortController`
-- there is no custom fetch timeout
-- there is no shorter in-code timeout than 240 seconds
+Result:
+- the results row records the version of the node that actually executed analysis
 
-Conclusion:
-- the function code itself is not cutting the Cloud Run call off early
-
-#### 2) Current function config
-In `supabase/config.toml`, the `analyze-athlete-video` block currently has only:
-
-```toml
-[functions.analyze-athlete-video]
-verify_jwt = false
+#### Fix 2 — lower confidence pass ratio
+In `checkConfidence()` change:
+```ts
+return totalChecks === 0 || (passedChecks / totalChecks) >= 0.6
+```
+to:
+```ts
+return totalChecks === 0 || (passedChecks / totalChecks) >= 0.4
 ```
 
-Confirmed:
-- there is no explicit function timeout configured in the repo today
-- if the deployed backend has a runtime timeout under 240 seconds, it is coming from platform/runtime settings rather than this checked-in config
+Result:
+- metrics will pass confidence gating when at least 40% of keypoint checks meet threshold
 
-#### 3) Where the previous “120-second hang” came from
-I did not find a 120-second timeout constant in the codebase for the AthleteLab pipeline flow.
+#### Fix 3 — Claude diagnostic logging
+Enhance `callClaude()` with structured logs for:
+- prompt preview:
+  - first 500 chars
+  - prompt length
+  - node name / upload id if available
+- raw Claude HTTP outcome:
+  - response status
+  - response body text or parsed object
+- parse handling:
+  - explicit logging for invalid JSON / unexpected response structure
+- empty feedback cases:
+  - log when API succeeds but extracted text is empty
 
-Conclusion:
-- the 120-second limit appears to be from the operational test/polling workflow used during reruns, not from the checked-in frontend or Edge Function source
-- increasing the rerun wait window is still necessary, but that change is in the execution/test procedure rather than the React codebase
+Planned logging events:
+- `claude_request_prepared`
+- `claude_response_received`
+- `claude_response_parse_failed`
+- `claude_response_empty`
+- `claude_request_failed`
 
-### Execution plan
+Important detail:
+- keep logs structured and truncated so they are diagnostic without flooding excessively
+- use preview/truncation for the prompt rather than dumping unlimited text
 
-#### Step 1 — Confirm backend timeout ceiling before rerun
-Before running the test:
-- inspect the deployed `analyze-athlete-video` function settings/log behavior using backend tooling
-- verify the backend runtime allows at least 240 seconds for this execution
-- if the deployed function timeout is below 240 seconds, raise it to at least 240 seconds before testing
+### Deployment and test execution plan
 
-Target:
-- effective runtime budget must exceed the observed Cloud Run duration of ~121 seconds with safe buffer
+#### Step 1 — update and redeploy the edge function
+After editing `supabase/functions/analyze-athlete-video/index.ts`:
+- deploy `analyze-athlete-video`
+- keep existing function config unless deployment/runtime inspection proves a backend timeout change is required
 
-#### Step 2 — Keep `callCloudRun()` timeout-free unless audit proves otherwise
-Because the current code has no manual abort logic:
-- no fetch-timeout code change is expected unless a hidden runtime/platform issue is discovered
-- if a code-level timeout guard exists elsewhere at deploy/runtime level, align it to at least 240 seconds
+#### Step 2 — run the same end-to-end pipeline test
+Use the same test flow as the last rerun:
+- same live node
+- same reference video
+- same upload-triggered path
+- same 240-second wait budget
 
-#### Step 3 — Increase the pipeline test wait window to 240 seconds
-Update the rerun procedure so the test harness waits up to 240 seconds for completion instead of 120.
+#### Step 3 — collect the full execution evidence
+After rerun, pull:
+- full `analyze-athlete-video` logs for that run, including the new Claude diagnostic events
+- final `athlete_uploads` row
+- final `athlete_lab_results` row
 
-Scope of this step:
-- use the same operational test flow as before
-- do not change the node config, video, or metric logic
-- only extend the polling/wait budget so the run is not marked failed while Cloud Run is still processing
+### What to verify in the rerun
 
-#### Step 4 — Re-run the same end-to-end pipeline flow
-Run the same Slant Route test flow as before:
-- same node
-- same reference/test video
-- same analysis context / test setup
-- same upload-triggered pipeline path
-
-#### Step 5 — Verify logs for successful progression
-Inspect the full execution for:
+#### Pipeline progression
+Confirm logs show:
 - `pipeline_started`
 - `cloud_run_response_received`
 - `phase_windows_built`
 - `metric_window_selected`
 - `metric_scored`
+- `claude_response_received` / equivalent diagnostic event
 - `claude_feedback_received`
 - `results_written`
 - `pipeline_completed`
 
-Specific checks:
-- Cloud Run response arrives successfully after the longer wait
-- `phase_windows_built` contains real numeric frame ranges
-- all six metrics reach `metric_scored` with real values rather than skip/fail states
-- Claude feedback is generated
-- results write succeeds
-
-#### Step 6 — Verify database outcome
-Confirm the new run writes:
-- `athlete_lab_results.aggregate_score`
-- `athlete_lab_results.phase_scores`
-- `athlete_lab_results.metric_results`
-- `athlete_lab_results.feedback`
-- `athlete_lab_results.detected_errors`
-- `athlete_lab_results.confidence_flags`
-- `athlete_lab_results.analyzed_at`
-
-Also confirm:
+#### Database output
+Confirm:
 - `athlete_uploads.status = 'complete'`
+- `athlete_lab_results.node_version = nodeConfig.node_version`
+- `aggregate_score` is non-null
+- `phase_scores` is populated
+- `metric_results` contains materially more scored metrics than before
+- `feedback` contains real coaching text, not empty string
 
 ### Expected outcome
-After the longer wait window and timeout verification:
-- the test will no longer be declared stalled at ~120 seconds
-- Cloud Run will have enough time to return normally
-- normalized phase data should allow valid phase windows
-- all 6 metrics should compute with real values
-- Claude should return actual coaching feedback
-- the upload should finish as `complete`
+After these three fixes and the rerun:
+- at least 4–6 metrics should score successfully, depending on catch-related exclusions
+- aggregate score should be non-null and plausibly land in the expected range
+- phase scores should populate
+- Claude logging should make prompt/response behavior diagnosable
+- the stored results row should reflect the actual analyzed node version, not the upload-time version
+
+### Technical notes
+- No database migration is needed for these three fixes
+- No frontend code change is required for the 240-second wait unless you specifically want that surfaced in the UI later
+- If the rerun still produces empty Claude feedback after these logs are added, the next change should target Claude response extraction/format handling rather than blind prompt edits
