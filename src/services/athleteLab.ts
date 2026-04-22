@@ -74,6 +74,15 @@ export interface AnalysisContext {
   catch_status: string;
   athlete_level: string;
   focus_area: string;
+  athlete_height?: AthleteMeasurement;
+  athlete_wingspan?: AthleteMeasurement;
+}
+
+export type MeasurementUnit = "inches" | "cm";
+
+export interface AthleteMeasurement {
+  value: number;
+  unit: MeasurementUnit;
 }
 
 export async function runAnalysis(node: TrainingNode, videoDescription: string, analysisContext?: AnalysisContext): Promise<AnalysisResult> {
