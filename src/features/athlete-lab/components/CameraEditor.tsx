@@ -21,6 +21,7 @@ export interface CameraSettings {
   auto_reject_keypoint_confidence_low: boolean;
   auto_reject_keypoint_confidence_threshold: number;
   camera_filming_instructions: string;
+  skill_specific_filming_notes?: string;
 }
 
 const DEFAULT_SETTINGS: CameraSettings = {
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS: CameraSettings = {
   auto_reject_keypoint_confidence_low: true,
   auto_reject_keypoint_confidence_threshold: 0.65,
   camera_filming_instructions: "",
+  skill_specific_filming_notes: "",
 };
 
 export function parseCameraSettings(raw: string): CameraSettings {
@@ -47,7 +49,7 @@ export function parseCameraSettings(raw: string): CameraSettings {
   return { ...DEFAULT_SETTINGS };
 }
 
-function serializeCameraSettings(s: CameraSettings): string {
+export function serializeCameraSettings(s: CameraSettings): string {
   return JSON.stringify(s);
 }
 

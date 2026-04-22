@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode } from "../types";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
 import { ConfirmModal } from "./ConfirmModal";
-import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
+import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
@@ -763,8 +763,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             solutionClass={draft.solution_class ?? ""}
             calibrations={draft.reference_calibrations ?? []}
             onCalibrationsChange={(c) => update("reference_calibrations", c)}
-            filmingInstructions={draft.reference_filming_instructions ?? ""}
-            onFilmingInstructionsChange={(v) => update("reference_filming_instructions", v)}
+            skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
+            onSkillSpecificFilmingNotesChange={(v) => {
+              const settings = parseCameraSettings(draft.camera_guidelines);
+              update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
+            }}
+            genericFallbackInstructions={draft.reference_filming_instructions ?? ""}
+            onGenericFallbackInstructionsChange={(v) => update("reference_filming_instructions", v)}
             fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
             onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
             eliteVideos={draft.elite_videos ?? []}
@@ -2341,6 +2346,11 @@ pose_tracker = PoseTracker(
 
 const CAMERA_ANGLES_LIST: CameraAngle[] = ["sideline", "endzone", "behind_qb"];
 const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
+const CAMERA_ANGLE_STATUS_OPTIONS: Array<{ value: CameraAngleStatus; label: string; description: string }> = [
+  { value: "primary", label: "Primary", description: "Recommended angle for this skill. Use this when it delivers the cleanest metric coverage." },
+  { value: "supported", label: "Supported", description: "This angle works for the skill, but it is not the recommended setup." },
+  { value: "not_supported", label: "Not Supported", description: "Do not use this angle for this skill because the node’s metrics will not evaluate reliably." },
+];
 
 const REF_PRESETS: { label: string; sizeYards: number }[] = [
   { label: "5-Yard Line Spacing", sizeYards: 5 },
@@ -2367,16 +2377,20 @@ function ReferenceCalibrationEditor({
   solutionClass,
   calibrations,
   onCalibrationsChange,
-  filmingInstructions,
-  onFilmingInstructionsChange,
+  skillSpecificFilmingNotes,
+  onSkillSpecificFilmingNotesChange,
+  genericFallbackInstructions,
+  onGenericFallbackInstructionsChange,
   fallbackBehavior,
   onFallbackBehaviorChange,
 }: {
   solutionClass: string;
   calibrations: ReferenceCalibration[];
   onCalibrationsChange: (c: ReferenceCalibration[]) => void;
-  filmingInstructions: string;
-  onFilmingInstructionsChange: (v: string) => void;
+  skillSpecificFilmingNotes: string;
+  onSkillSpecificFilmingNotesChange: (v: string) => void;
+  genericFallbackInstructions: string;
+  onGenericFallbackInstructionsChange: (v: string) => void;
   fallbackBehavior: ReferenceFallback;
   onFallbackBehaviorChange: (v: ReferenceFallback) => void;
   eliteVideos: EliteVideo[];
@@ -2396,16 +2410,18 @@ function ReferenceCalibrationEditor({
 
   const getCalibration = (angle: CameraAngle): ReferenceCalibration => {
     const existing = calibrations.find(c => c.camera_angle === angle);
-    if (existing) return existing;
+    if (existing) return { status: "supported", calibration_notes: "", ...existing };
     const defaults = DEFAULT_CALIBRATIONS[angle];
     return {
       camera_angle: angle,
+      status: angle === "sideline" ? "primary" : "supported",
       reference_object_name: defaults.reference_object_name ?? "",
       known_size_yards: defaults.known_size_yards ?? null,
       known_size_unit: defaults.known_size_yards ? "yards" : undefined,
       placement_instructions: defaults.placement_instructions ?? "",
       pixels_per_yard: null,
       filming_instructions: defaults.filming_instructions ?? "",
+      calibration_notes: "",
     };
   };
 
@@ -2463,6 +2479,42 @@ function ReferenceCalibrationEditor({
           />
         );
       })}
+
+      <div className={CARD_CLASS}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label className={LABEL_CLASS}>Skill-Specific Filming Notes</label>
+            <SectionTooltip tip="Primary filming guidance for this node. These notes override the generic fallback instructions shown below." />
+          </div>
+          <p className="text-on-surface-variant text-xs leading-relaxed">
+            Use this field for skill-specific setup instructions. Keep shared infrastructure generic and put node-specific guidance here.
+          </p>
+          <textarea
+            className={`${INPUT_CLASS} min-h-[120px] resize-y`}
+            value={skillSpecificFilmingNotes}
+            onChange={(e) => onSkillSpecificFilmingNotesChange(e.target.value)}
+            placeholder="Add node-specific filming guidance that should take priority over any generic fallback copy."
+          />
+        </div>
+      </div>
+
+      <div className={CARD_CLASS}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label className={LABEL_CLASS}>Generic Fallback Filming Instructions</label>
+            <SectionTooltip tip="Shared fallback guidance that remains available when no node-specific notes have been provided. Node-specific notes should override this copy." />
+          </div>
+          <p className="text-on-surface-variant text-xs leading-relaxed">
+            Keep this generic. Do not move skill-specific instructions here.
+          </p>
+          <textarea
+            className={`${INPUT_CLASS} min-h-[100px] resize-y`}
+            value={genericFallbackInstructions}
+            onChange={(e) => onGenericFallbackInstructionsChange(e.target.value)}
+            placeholder="Add generic fallback filming guidance used across nodes when no skill-specific notes are set."
+          />
+        </div>
+      </div>
 
       {/* Global fallback */}
       <div className="pt-2">
@@ -2551,6 +2603,9 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
     onUpdate({ known_size_yards: parseFloat(yards.toFixed(4)), known_size_unit: unit });
   };
 
+  const status = calibration.status ?? (angle === "sideline" ? "primary" : "supported");
+  const statusMeta = CAMERA_ANGLE_STATUS_OPTIONS.find((option) => option.value === status) ?? CAMERA_ANGLE_STATUS_OPTIONS[1];
+
   return (
     <div className={CARD_CLASS}>
       {/* Header row */}
@@ -2560,7 +2615,15 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
             {isCollapsed ? "chevron_right" : "expand_more"}
           </span>
         </button>
-        <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg flex-1">{label}</h3>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg">{label}</h3>
+            <span className="rounded-full border border-outline-variant/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant">
+              {statusMeta.label}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">{statusMeta.description}</p>
+        </div>
         <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${calibrated ? 'text-primary-container' : 'text-on-surface-variant/50'}`}>
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{calibrated ? 'check_circle' : 'radio_button_unchecked'}</span>
           {calibrated ? 'Calibrated' : 'Not Calibrated'}
@@ -2570,6 +2633,29 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
       {/* Collapsible content */}
       {!isCollapsed && (
         <div className="pt-3 space-y-4">
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Angle Status</label>
+              <SectionTooltip tip="Set whether this camera angle is primary, supported, or not supported for this node. The cards stay generic; the status is configured per node." />
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {CAMERA_ANGLE_STATUS_OPTIONS.map((option) => {
+                const selected = status === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onUpdate({ status: option.value })}
+                    className={`rounded-xl border px-3 py-3 text-left transition-all active:scale-95 ${selected ? 'border-primary-container/40 bg-primary-container/10' : 'border-outline-variant/20 bg-surface-container-low'}`}
+                  >
+                    <div className="text-on-surface text-xs font-black uppercase tracking-[0.16em]">{option.label}</div>
+                    <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{option.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <label className={LABEL_CLASS}>Reference Object</label>
@@ -2631,14 +2717,30 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
 
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Athlete Filming Instructions</label>
-              <SectionTooltip tip="Shown to athletes in the upload flow before they film from this angle. Explain camera position, distance, and what must be visible in frame." />
+              <label className={LABEL_CLASS}>Generic Fallback Angle Instructions</label>
+              <SectionTooltip tip="Shared fallback instructions for this angle. Node-specific filming notes should override this copy when present." />
             </div>
+            <p className="text-on-surface-variant text-xs leading-relaxed mb-2">
+              Keep this reusable across skills. Use the node-level skill-specific notes field above for skill-specific direction.
+            </p>
             <textarea
               className={`${INPUT_CLASS} min-h-[100px] resize-y`}
               value={calibration.filming_instructions ?? ""}
               onChange={(e) => onUpdate({ filming_instructions: e.target.value })}
-              placeholder="e.g. Film from the sideline at least 10 yards away at waist height. The full route and reference object must be visible throughout the rep."
+              placeholder="Add generic fallback instructions for this camera angle."
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Calibration Notes</label>
+              <SectionTooltip tip="Optional node-specific guidance for this angle’s calibration setup. Use this for angle-specific reminders without changing the shared card structure." />
+            </div>
+            <textarea
+              className={`${INPUT_CLASS} min-h-[90px] resize-y`}
+              value={calibration.calibration_notes ?? ""}
+              onChange={(e) => onUpdate({ calibration_notes: e.target.value })}
+              placeholder="Add calibration notes specific to this node and camera angle."
             />
           </div>
         </div>

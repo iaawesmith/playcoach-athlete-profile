@@ -89,6 +89,7 @@ export interface Badge {
 
 export type CameraAngle = "sideline" | "endzone" | "behind_qb";
 export type VideoType = "educational" | "analysis" | "both";
+export type CameraAngleStatus = "primary" | "supported" | "not_supported";
 
 export interface EliteVideo {
   url: string;
@@ -116,12 +117,14 @@ export type ReferenceFallback = "pixel_warning" | "disable_distance" | "estimate
 
 export interface ReferenceCalibration {
   camera_angle: CameraAngle;
+  status?: CameraAngleStatus;
   reference_object_name: string;
   known_size_yards: number | null;
   known_size_unit?: string;
   placement_instructions: string;
   pixels_per_yard: number | null;
   filming_instructions?: string;
+  calibration_notes?: string;
 }
 
 export interface ScoreBands {
@@ -165,6 +168,7 @@ export interface TrainingNode {
   solution_class: string;
   reference_calibrations: ReferenceCalibration[];
   reference_filming_instructions: string;
+  skill_specific_filming_notes?: string;
   reference_fallback_behavior: ReferenceFallback;
   performance_mode: PerformanceMode;
   det_frequency: number;
