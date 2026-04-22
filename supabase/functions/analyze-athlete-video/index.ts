@@ -318,6 +318,7 @@ async function fetchNodeConfig(nodeId: string) {
       key_metrics,
       phase_breakdown,
       reference_calibrations,
+      reference_fallback_behavior,
       common_errors,
       form_checkpoints
     `)
