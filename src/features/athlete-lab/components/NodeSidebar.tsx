@@ -20,10 +20,10 @@ interface NodeSidebarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAdd: (position: NodePosition) => void;
-  onDelete: (id: string) => void;
+  onRequestDelete: (node: TrainingNode) => void;
 }
 
-export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: NodeSidebarProps) {
+export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onRequestDelete }: NodeSidebarProps) {
   const [posFilter, setPosFilter] = useState<"ALL" | NodePosition>("ALL");
   const [showPosPicker, setShowPosPicker] = useState(false);
 
@@ -138,7 +138,7 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onDelete }: No
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete(node.id);
+                onRequestDelete(node);
               }}
               className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-red-400 transition-opacity shrink-0"
               aria-label="Delete node"
