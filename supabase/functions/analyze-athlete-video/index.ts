@@ -9,6 +9,13 @@ const RTMLIB_FALLBACK =
   'https://rtmlib-service-874407535869.us-central1.run.app'
 
 type JsonRecord = Record<string, unknown>
+type Point = [number, number]
+type PersonKeypoints = Point[]
+type KeypointFrames = PersonKeypoints[]
+type VideoKeypoints = KeypointFrames[]
+type PersonScores = number[]
+type ScoreFrames = PersonScores[]
+type VideoScores = ScoreFrames[]
 
 type MetricValueResult = {
   value: number | null
@@ -24,7 +31,7 @@ function logWarn(event: string, details: JsonRecord = {}) {
   console.warn(JSON.stringify({ level: 'warn', event, ...details }))
 }
 
-function summarizePersonCount(keypoints: number[][][]): { firstFrame: number; maxAcrossFrames: number } {
+function summarizePersonCount(keypoints: VideoKeypoints): { firstFrame: number; maxAcrossFrames: number } {
   const firstFrame = keypoints[0]?.length || 0
   const maxAcrossFrames = keypoints.reduce((maxCount, frame) => {
     return Math.max(maxCount, frame?.length || 0)
@@ -271,7 +278,7 @@ function selectCalibration(nodeConfig: any, cameraAngle: string) {
 }
 
 
-function applyTemporalSmoothing(keypoints: number[][][], windowSize = 3): number[][][] {
+function applyTemporalSmoothing(keypoints: VideoKeypoints, windowSize = 3): VideoKeypoints {
   // keypoints shape: [frame][person][keypoint_index] = [x, y]
   const numFrames = keypoints.length
   if (numFrames < windowSize) return keypoints
@@ -303,7 +310,7 @@ function applyTemporalSmoothing(keypoints: number[][][], windowSize = 3): number
 
 
 function lockTargetPerson(
-  keypoints: number[][][],
+  keypoints: VideoKeypoints,
   peopleInVideo: string
 ): number {
   // Use first frame with most detections
@@ -369,14 +376,14 @@ function buildPhaseWindows(totalFrames: number, phaseBreakdown: any[]) {
 
 async function calculateAllMetrics(
   metrics: any[],
-  keypoints: number[][][],
-  scores: number[][][],
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
   phaseWindows: Record<string, any>,
   personIndex: number,
   calibration: any,
   context: any,
   fps: number,
-  uploadId?: string
+  uploadId?: string | null
 ) {
   const results: any[] = []
 
