@@ -8,6 +8,38 @@ const supabase = createClient(
 const RTMLIB_FALLBACK =
   'https://rtmlib-service-874407535869.us-central1.run.app'
 
+type JsonRecord = Record<string, unknown>
+type Point = [number, number]
+type PersonKeypoints = Point[]
+type KeypointFrames = PersonKeypoints[]
+type VideoKeypoints = KeypointFrames[]
+type PersonScores = number[]
+type ScoreFrames = PersonScores[]
+type VideoScores = ScoreFrames[]
+
+type MetricValueResult = {
+  value: number | null
+  reason?: string
+  detail?: JsonRecord
+}
+
+function logInfo(event: string, details: JsonRecord = {}) {
+  console.info(JSON.stringify({ level: 'info', event, ...details }))
+}
+
+function logWarn(event: string, details: JsonRecord = {}) {
+  console.warn(JSON.stringify({ level: 'warn', event, ...details }))
+}
+
+function summarizePersonCount(keypoints: VideoKeypoints): { firstFrame: number; maxAcrossFrames: number } {
+  const firstFrame = keypoints[0]?.length || 0
+  const maxAcrossFrames = keypoints.reduce((maxCount, frame) => {
+    return Math.max(maxCount, frame?.length || 0)
+  }, 0)
+
+  return { firstFrame, maxAcrossFrames }
+}
+
 Deno.serve(async (req) => {
   let uploadId: string | null = null
 
@@ -19,23 +51,52 @@ Deno.serve(async (req) => {
     }
     uploadId = upload.id
 
+    logInfo('pipeline_started', {
+      uploadId,
+      nodeId: upload.node_id,
+      athleteId: upload.athlete_id,
+      videoUrlPresent: Boolean(upload.video_url),
+      startSeconds: upload.start_seconds,
+      endSeconds: upload.end_seconds,
+    })
+
     // Update status to processing immediately
     await updateUploadStatus(upload.id, 'processing')
 
     // STEP 1: Fetch full node config
     const nodeConfig = await fetchNodeConfig(upload.node_id)
+    logInfo('node_config_loaded', {
+      uploadId,
+      nodeId: nodeConfig.id,
+      nodeName: nodeConfig.name,
+      nodeVersion: nodeConfig.node_version,
+      metricCount: Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics.length : 0,
+      phaseCount: Array.isArray(nodeConfig.phase_breakdown) ? nodeConfig.phase_breakdown.length : 0,
+    })
 
     // STEP 2: Pre-flight validation
     const preflightResult = await runPreflight(upload, nodeConfig)
     if (!preflightResult.passed) {
+      logWarn('preflight_failed', { uploadId, reason: preflightResult.reason })
       await updateUploadStatus(upload.id, 'failed', preflightResult.reason)
       return new Response(JSON.stringify({ error: preflightResult.reason }), { status: 400 })
     }
+    logInfo('preflight_passed', { uploadId })
 
     // STEP 3: Select analysis context settings
     const context = upload.analysis_context || {}
     const detFrequency = selectDetFrequency(nodeConfig, context.people_in_video)
     const calibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
+    logInfo('analysis_context_selected', {
+      uploadId,
+      peopleInVideo: context.people_in_video || 'unknown',
+      routeDirection: context.route_direction || 'unknown',
+      cameraAngle: context.camera_angle || upload.camera_angle || 'unknown',
+      catchIncluded: context.catch_included !== false,
+      detFrequency,
+      hasCalibration: Boolean(calibration),
+      pixelsPerYard: calibration?.pixels_per_yard ?? null,
+    })
 
     // STEP 4: Call Cloud Run rtmlib service
     const rtmlibResult = await callCloudRun({
@@ -47,6 +108,14 @@ Deno.serve(async (req) => {
       det_frequency: detFrequency,
       tracking_enabled: nodeConfig.tracking_enabled
     })
+    const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
+    logInfo('cloud_run_response_received', {
+      uploadId,
+      frameCount: rtmlibResult.frame_count,
+      fps: rtmlibResult.fps,
+      firstFramePersonCount: personCountSummary.firstFrame,
+      maxFramePersonCount: personCountSummary.maxAcrossFrames,
+    })
 
     // STEP 5: Apply temporal smoothing to keypoints
     const smoothedKeypoints = applyTemporalSmoothing(rtmlibResult.keypoints)
@@ -57,6 +126,11 @@ Deno.serve(async (req) => {
       rtmlibResult.keypoints,
       context.people_in_video
     )
+    logInfo('target_person_locked', {
+      uploadId,
+      targetPersonIndex,
+      peopleInVideo: context.people_in_video || 'unknown',
+    })
 
     // STEP 7: Divide frames into phase windows
     const phaseWindows = buildPhaseWindows(
@@ -73,8 +147,17 @@ Deno.serve(async (req) => {
       targetPersonIndex,
       calibration,
       context,
-      rtmlibResult.fps
+      rtmlibResult.fps,
+      uploadId
     )
+    logInfo('metric_calculation_complete', {
+      uploadId,
+      totalMetrics: metricResults.length,
+      scored: metricResults.filter((metric) => metric.status === 'scored').length,
+      flagged: metricResults.filter((metric) => metric.status === 'flagged').length,
+      skipped: metricResults.filter((metric) => metric.status === 'skipped').length,
+      failed: metricResults.filter((metric) => metric.status === 'failed').length,
+    })
 
     // STEP 9: Calculate aggregate score
     const scoreResult = calculateAggregateScore(
@@ -88,12 +171,22 @@ Deno.serve(async (req) => {
 
     // STEP 11: Call Claude API
     const feedback = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+    logInfo('claude_feedback_received', {
+      uploadId,
+      feedbackLength: feedback.length,
+    })
 
     // STEP 12: Write results
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback)
+    logInfo('results_written', {
+      uploadId,
+      aggregateScore: scoreResult.aggregate_score,
+      detectedErrors: errorResults.detected.length,
+    })
 
     // STEP 13: Update status to complete
     await updateUploadStatus(upload.id, 'complete')
+    logInfo('pipeline_completed', { uploadId, status: 'complete' })
 
     return new Response(JSON.stringify({ success: true }), { status: 200 })
 
@@ -185,7 +278,7 @@ function selectCalibration(nodeConfig: any, cameraAngle: string) {
 }
 
 
-function applyTemporalSmoothing(keypoints: number[][][], windowSize = 3): number[][][] {
+function applyTemporalSmoothing(keypoints: VideoKeypoints, windowSize = 3): VideoKeypoints {
   // keypoints shape: [frame][person][keypoint_index] = [x, y]
   const numFrames = keypoints.length
   if (numFrames < windowSize) return keypoints
@@ -217,7 +310,7 @@ function applyTemporalSmoothing(keypoints: number[][][], windowSize = 3): number
 
 
 function lockTargetPerson(
-  keypoints: number[][][],
+  keypoints: VideoKeypoints,
   peopleInVideo: string
 ): number {
   // Use first frame with most detections
@@ -265,31 +358,54 @@ function buildPhaseWindows(totalFrames: number, phaseBreakdown: any[]) {
     framePosition += phaseFrames
   }
 
+  logInfo('phase_windows_built', {
+    totalFrames,
+    phases: sortedPhases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      proportionWeight: phase.proportion_weight,
+      frameBuffer: phase.frame_buffer || 3,
+      start: windows[phase.id]?.start ?? null,
+      end: windows[phase.id]?.end ?? null,
+    })),
+  })
+
   return windows
 }
 
 
 async function calculateAllMetrics(
   metrics: any[],
-  keypoints: number[][][],
-  scores: number[][][],
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
   phaseWindows: Record<string, any>,
   personIndex: number,
   calibration: any,
   context: any,
-  fps: number
+  fps: number,
+  uploadId?: string | null
 ) {
   const results: any[] = []
 
   for (const metric of metrics) {
+    const mapping = metric.keypoint_mapping
+    const metricContext = {
+      uploadId,
+      metricId: metric.id,
+      metricName: metric.name,
+      calculationType: mapping?.calculation_type || 'unknown',
+      phaseId: mapping?.phase_id || null,
+    }
+
     // Skip catch-dependent metrics if no catch
     if (metric.requires_catch && context.catch_included === false) {
+      logInfo('metric_skipped', { ...metricContext, reason: 'no_catch' })
       results.push({ ...metric, status: 'skipped', reason: 'no_catch' })
       continue
     }
 
-    const mapping = metric.keypoint_mapping
     if (!mapping?.keypoint_indices?.length) {
+      logWarn('metric_skipped', { ...metricContext, reason: 'no_keypoint_mapping' })
       results.push({ ...metric, status: 'skipped', reason: 'no_keypoint_mapping' })
       continue
     }
@@ -297,6 +413,7 @@ async function calculateAllMetrics(
     // Get phase frames
     const window = phaseWindows[mapping.phase_id]
     if (!window) {
+      logWarn('metric_skipped', { ...metricContext, reason: 'no_phase_window' })
       results.push({ ...metric, status: 'skipped', reason: 'no_phase_window' })
       continue
     }
@@ -307,6 +424,16 @@ async function calculateAllMetrics(
     // Extract phase keypoints
     const phaseFrames = keypoints.slice(window.start, window.end + 1)
     const phaseScores = scores.slice(window.start, window.end + 1)
+    logInfo('metric_window_selected', {
+      ...metricContext,
+      side,
+      windowStart: window.start,
+      windowEnd: window.end,
+      frameCount: phaseFrames.length,
+      keypointIndices: mapping.keypoint_indices,
+      temporalWindow: mapping.temporal_window || null,
+      confidenceThreshold: mapping.confidence_threshold || 0.7,
+    })
 
     // Check confidence
     const confidenceOk = checkConfidence(
@@ -315,59 +442,78 @@ async function calculateAllMetrics(
     )
 
     if (!confidenceOk) {
+      logWarn('metric_flagged', { ...metricContext, reason: 'low_confidence' })
       results.push({ ...metric, status: 'flagged', reason: 'low_confidence' })
       continue
     }
 
     // Calculate based on type
-    let value: number | null = null
+    let metricValue: MetricValueResult = { value: null, reason: 'unsupported_calculation_type' }
     
     switch (mapping.calculation_type) {
       case 'angle':
-        value = calculateAngle(phaseFrames, personIndex, mapping.keypoint_indices)
+        metricValue = calculateAngle(phaseFrames, personIndex, mapping.keypoint_indices)
         break
       case 'distance':
-        value = calculateDistance(
+        metricValue = calculateDistance(
           phaseFrames, personIndex, mapping.keypoint_indices,
           calibration?.pixels_per_yard
         )
         break
       case 'velocity':
-        value = calculateVelocity(
+        metricValue = calculateVelocity(
           phaseFrames, personIndex, mapping.keypoint_indices,
           mapping.temporal_window || 3, fps
         )
         break
       case 'acceleration':
-        value = calculateAcceleration(
+        metricValue = calculateAcceleration(
           phaseFrames, personIndex, mapping.keypoint_indices,
           mapping.temporal_window || 5, fps
         )
         break
       case 'frame_delta':
-        value = calculateFrameDelta(
+        metricValue = calculateFrameDelta(
           phaseFrames, personIndex, mapping.keypoint_indices,
           mapping.temporal_window || 10
         )
         break
     }
 
-    if (value === null) {
-      results.push({ ...metric, status: 'failed', reason: 'calculation_failed' })
+    if (metricValue.value === null) {
+      logWarn('metric_failed', {
+        ...metricContext,
+        reason: metricValue.reason || 'calculation_failed',
+        detail: metricValue.detail || null,
+      })
+      results.push({
+        ...metric,
+        status: 'failed',
+        reason: metricValue.reason || 'calculation_failed',
+        detail: metricValue.detail,
+      })
       continue
     }
 
     // Score the metric
-    const score = scoreMetric(value, metric.eliteTarget, mapping.tolerance)
+    const score = scoreMetric(metricValue.value, metric.eliteTarget, mapping.tolerance)
+    logInfo('metric_scored', {
+      ...metricContext,
+      value: metricValue.value,
+      eliteTarget: metric.eliteTarget,
+      tolerance: mapping.tolerance,
+      score,
+      detail: metricValue.detail || null,
+    })
 
     results.push({
       id: metric.id,
       name: metric.name,
       unit: metric.unit,
-      value: Math.round(value * 100) / 100,
+       value: Math.round(metricValue.value * 100) / 100,
       elite_target: metric.eliteTarget,
       tolerance: mapping.tolerance,
-      deviation: Math.abs(value - metric.eliteTarget),
+       deviation: Math.abs(metricValue.value - metric.eliteTarget),
       score,
       weight: metric.weight,
       status: 'scored'
@@ -379,13 +525,15 @@ async function calculateAllMetrics(
 
 // ANGLE: geometric angle at vertex (middle keypoint)
 // keypoints order: endpoint → vertex → endpoint
-function calculateAngle(frames: number[][][], personIdx: number, indices: number[]): number {
+function calculateAngle(frames: VideoKeypoints, personIdx: number, indices: number[]): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
-  if (!kps) return null
+   if (!kps) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
 
   const [p1, vertex, p2] = indices.map(i => kps[i])
-  if (!p1 || !vertex || !p2) return null
+   if (!p1 || !vertex || !p2) {
+    return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
+   }
 
   const v1 = [p1[0] - vertex[0], p1[1] - vertex[1]]
   const v2 = [p2[0] - vertex[0], p2[1] - vertex[1]]
@@ -394,39 +542,57 @@ function calculateAngle(frames: number[][][], personIdx: number, indices: number
   const mag1 = Math.sqrt(v1[0]**2 + v1[1]**2)
   const mag2 = Math.sqrt(v2[0]**2 + v2[1]**2)
   
-  if (mag1 === 0 || mag2 === 0) return null
+  if (mag1 === 0 || mag2 === 0) {
+    return { value: null, reason: 'zero_magnitude_angle', detail: { midFrame, indices } }
+  }
   
-  return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI)
+  return {
+    value: Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI),
+    detail: { midFrame, indices },
+  }
 }
 
 // DISTANCE: Euclidean pixel distance converted to yards
 function calculateDistance(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], pixelsPerYard: number
-): number {
+): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
-  if (!kps) return null
+  if (!kps) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
 
   const [p1, p2] = indices.map(i => kps[i])
-  if (!p1 || !p2) return null
+  if (!p1 || !p2) return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
 
   const pixelDist = Math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
   
   if (!pixelsPerYard || pixelsPerYard <= 0) {
-    return pixelDist // Return pixel value with warning logged
+    return {
+      value: pixelDist,
+      reason: 'missing_calibration',
+      detail: { midFrame, indices, pixelsPerYard: pixelsPerYard ?? null },
+    }
   }
   
-  return pixelDist / pixelsPerYard
+  return {
+    value: pixelDist / pixelsPerYard,
+    detail: { midFrame, indices, pixelsPerYard },
+  }
 }
 
 // VELOCITY: displacement per frame × fps → mph
 function calculateVelocity(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], temporalWindow: number, fps: number
-): number {
+): MetricValueResult {
   const window = frames.slice(0, Math.min(temporalWindow, frames.length))
-  if (window.length < 2) return null
+  if (window.length < 2) {
+    return {
+      value: null,
+      reason: 'insufficient_temporal_window',
+      detail: { requestedWindow: temporalWindow, actualWindow: window.length },
+    }
+  }
 
   const velocities: number[] = []
   
@@ -450,33 +616,57 @@ function calculateVelocity(
     velocities.push(pixelDisp * fps)
   }
 
-  if (velocities.length === 0) return null
-  return velocities.reduce((s, v) => s + v, 0) / velocities.length
+  if (velocities.length === 0) {
+    return {
+      value: null,
+      reason: 'no_velocity_samples',
+      detail: { temporalWindow, indices, personIdx },
+    }
+  }
+  return {
+    value: velocities.reduce((s, v) => s + v, 0) / velocities.length,
+    detail: { temporalWindow, indices, sampleCount: velocities.length, fps },
+  }
   // Note: This returns pixels/second — divide by pixelsPerYard × 2.045 for mph
   // Edge Function should apply calibration conversion here
 }
 
 // ACCELERATION: velocity delta over temporal window
 function calculateAcceleration(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], temporalWindow: number, fps: number
-): number {
-  if (frames.length < temporalWindow) return null
+) : MetricValueResult {
+  if (frames.length < temporalWindow) {
+    return {
+      value: null,
+      reason: 'insufficient_temporal_window',
+      detail: { temporalWindow, availableFrames: frames.length },
+    }
+  }
   
   const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps)
   const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps)
   
-  if (v1 === null || v2 === null) return null
+  if (v1.value === null || v2.value === null) {
+    return {
+      value: null,
+      reason: v1.reason || v2.reason || 'no_velocity_samples',
+      detail: { firstHalf: v1.detail, secondHalf: v2.detail, temporalWindow },
+    }
+  }
   
   const timeSeconds = (temporalWindow / 2) / fps
-  return (v2 - v1) / timeSeconds
+  return {
+    value: (v2.value - v1.value) / timeSeconds,
+    detail: { temporalWindow, timeSeconds, firstVelocity: v1.value, secondVelocity: v2.value },
+  }
 }
 
 // FRAME DELTA: frames between two keypoint events
 function calculateFrameDelta(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], temporalWindow: number
-): number {
+): MetricValueResult {
   // Index 0 = anchor keypoint (e.g. Left Heel for heel plant)
   // Index 1 = event keypoint (e.g. Nose for head snap)
   
@@ -510,12 +700,28 @@ function calculateFrameDelta(
     }
   }
 
-  if (anchorFrame === null || eventFrame === null) return null
-  return eventFrame - anchorFrame
+  if (anchorFrame === null) {
+    return {
+      value: null,
+      reason: 'anchor_event_not_found',
+      detail: { temporalWindow, indices, personIdx },
+    }
+  }
+  if (eventFrame === null) {
+    return {
+      value: null,
+      reason: 'target_event_not_found',
+      detail: { temporalWindow, indices, personIdx, anchorFrame },
+    }
+  }
+  return {
+    value: eventFrame - anchorFrame,
+    detail: { temporalWindow, indices, personIdx, anchorFrame, eventFrame },
+  }
 }
 
 // HELPERS
-function getMidpoint(kps: number[][], indices: number[]): number[] | null {
+function getMidpoint(kps: PersonKeypoints, indices: number[]): Point | null {
   const points = indices.map(i => kps[i]).filter(p => p && p[0] > 0)
   if (points.length === 0) return null
   return [
@@ -525,7 +731,7 @@ function getMidpoint(kps: number[][], indices: number[]): number[] | null {
 }
 
 function checkConfidence(
-  frames: number[][][], scores: number[][][],
+  frames: VideoKeypoints, scores: VideoScores,
   personIdx: number, indices: number[], threshold: number
 ): boolean {
   let totalChecks = 0
@@ -736,8 +942,8 @@ async function callCloudRun(payload: {
   det_frequency: number
   tracking_enabled: boolean
 }): Promise<{
-  keypoints: number[][][]
-  scores: number[][][]
+  keypoints: VideoKeypoints
+  scores: VideoScores
   frame_count: number
   fps: number
 }> {
@@ -769,8 +975,8 @@ async function callCloudRun(payload: {
   }
 
   return await response.json() as {
-    keypoints: number[][][]
-    scores: number[][][]
+    keypoints: VideoKeypoints
+    scores: VideoScores
     frame_count: number
     fps: number
   }
