@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode } from "../types";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
@@ -388,6 +388,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         solution_class: draft.solution_class,
         reference_calibrations: draft.reference_calibrations,
         reference_filming_instructions: draft.reference_filming_instructions,
+        skill_specific_filming_notes: draft.skill_specific_filming_notes,
         reference_fallback_behavior: draft.reference_fallback_behavior,
         performance_mode: draft.performance_mode,
         det_frequency: draft.det_frequency,
@@ -763,8 +764,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             solutionClass={draft.solution_class ?? ""}
             calibrations={draft.reference_calibrations ?? []}
             onCalibrationsChange={(c) => update("reference_calibrations", c)}
-            filmingInstructions={draft.reference_filming_instructions ?? ""}
-            onFilmingInstructionsChange={(v) => update("reference_filming_instructions", v)}
+            skillSpecificFilmingNotes={draft.skill_specific_filming_notes ?? ""}
+            onSkillSpecificFilmingNotesChange={(v) => update("skill_specific_filming_notes" as keyof TrainingNode, v as never)}
+            genericFallbackInstructions={draft.reference_filming_instructions ?? ""}
+            onGenericFallbackInstructionsChange={(v) => update("reference_filming_instructions", v)}
             fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
             onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
             eliteVideos={draft.elite_videos ?? []}
