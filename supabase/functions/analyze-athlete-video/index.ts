@@ -20,17 +20,31 @@ type VideoScores = ScoreFrames[]
 type MetricValueResult = {
   value: number | null
   reason?: string
+  status?: 'skipped'
   detail?: JsonRecord
 }
 
-type CalibrationLike = {
+type CalibrationLike = JsonRecord & {
   camera_angle?: string | null
   pixels_per_yard?: number | null
+  pixelsPerYard?: number | null
 }
 
-type CalibrationResolution = {
+type ReferenceFallbackBehavior = 'pixel_warning' | 'disable_distance'
+
+type ResolvedCalibration = {
   pixelsPerYard: number | null
-  calibrationSource: 'cloud_run_calibration' | 'node_reference_fallback' | 'missing_calibration'
+  source: 'dynamic' | 'body_based' | 'static' | 'none'
+  confidence: number
+  reason: string
+  details: JsonRecord
+}
+
+type CloudRunCalibrationInput = JsonRecord & {
+  pixelsPerYard?: number | null
+  pixels_per_yard?: number | null
+  calibrationConfidence?: string | null
+  calibration_confidence?: string | null
 }
 
 type AthleteHeightMeasurement = {
