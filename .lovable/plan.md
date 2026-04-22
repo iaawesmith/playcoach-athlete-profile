@@ -1,112 +1,80 @@
 
-## Plan: Add a runtime-safe RTMLIB fallback in `analyze-athlete-video`, then rerun the pipeline test
+Fix the `resolveBilateral` function-name mismatch in `supabase/functions/analyze-athlete-video/index.ts`, then redeploy and rerun the same end-to-end pipeline test.
 
-### Code change to apply
-Update `supabase/functions/analyze-athlete-video/index.ts` inside `callCloudRun()` so the function no longer hard-fails when `RTMLIB_URL` is missing in runtime.
+### Confirmed occurrences found
+In `supabase/functions/analyze-athlete-video/index.ts` I found this mismatch:
 
-### Proposed patch
+1. Call site
 ```ts
-const RTMLIB_FALLBACK =
-  'https://rtmlib-service-874407535869.us-central1.run.app'
+const side = resolvebilateral(mapping, context.route_direction)
+```
+Location: around line 305
 
-async function callCloudRun(payload: {
-  video_url: string
-  start_seconds: number
-  end_seconds: number
-  solution_class: string
-  performance_mode: string
-  det_frequency: number
-  tracking_enabled: boolean
-}): Promise<{
-  keypoints: number[][][]
-  scores: number[][][]
-  frame_count: number
-  fps: number
-}> {
-  const rtmlibBase = Deno.env.get('RTMLIB_URL')?.trim() || RTMLIB_FALLBACK
-  const rtmlibUrl = rtmlibBase.replace(/\/+$/, '').endsWith('/analyze')
-    ? rtmlibBase.replace(/\/+$/, '')
-    : `${rtmlibBase.replace(/\/+$/, '')}/analyze`
+2. Function definition
+```ts
+function resolvebilderal(mapping: any, routeDirection: string): string {
+```
+Location: around line 546
 
-  let response: Response
-  try {
-    response = await fetch(rtmlibUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-  } catch (err) {
-    throw new Error(
-      `Cloud Run fetch failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
-    )
-  }
+### Proposed normalization
+Rename both of those to the same camelCase identifier:
 
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => '')
-    throw new Error(
-      `Cloud Run call failed: ${response.status} ${response.statusText} ` +
-      `(RTMLIB_URL: ${rtmlibUrl})${bodyText ? ` — ${bodyText.slice(0, 200)}` : ''}`
-    )
-  }
-
-  return await response.json() as {
-    keypoints: number[][][]
-    scores: number[][][]
-    frame_count: number
-    fps: number
-  }
-}
+```ts
+resolveBilateral
 ```
 
-### What this fixes
-- If the runtime secret is missing or resolves empty, the function uses the hardcoded base URL.
-- If the secret is set to the root service URL, the function appends `/analyze`.
-- If the secret is already set to the full `/analyze` URL, the function keeps it unchanged.
-- Error logs will continue to print the exact normalized URL actually used at runtime.
+### Proposed code fixes
+Apply these exact changes in `supabase/functions/analyze-athlete-video/index.ts`:
 
-### Implementation notes
-- Remove the current hard failure:
-  ```ts
-  if (!rtmlibUrl) {
-    throw new Error('RTMLIB_URL not configured')
-  }
-  ```
-- Keep the rest of the pipeline unchanged.
-- No database changes.
-- No config changes in `supabase/config.toml`.
-- No changes to `admin-test-upload`.
+1. Update the call site:
+```ts
+const side = resolveBilateral(mapping, context.route_direction)
+```
 
-### Deploy/verification sequence
-1. Apply the above change to `supabase/functions/analyze-athlete-video/index.ts`.
-2. Deploy the updated edge function.
-3. Re-run the same end-to-end test flow:
-   - confirm one live node exists
+2. Update the function definition:
+```ts
+function resolveBilateral(mapping: any, routeDirection: string): string {
+```
+
+### Additional typo scan result
+I scanned the function definitions in this file and did not find another confirmed function-name mismatch of the same kind. The only clearly broken callable-name typo currently visible is:
+
+- `resolvebilderal` vs `resolvebilateral`
+
+I will still do a careful pass during implementation for any other definition/call-site spelling mismatches before deploying, but based on the current read-only inspection, this is the only confirmed one.
+
+### Notes from the current file
+- The failure matches the code state exactly: the function is defined with the misspelled name `resolvebilderal`, while the metric calculation path calls `resolvebilateral`.
+- The `side` value is currently assigned but not used later in the shown metric logic. Even so, the undefined function reference still crashes execution before metric processing can continue.
+
+### Deployment plan
+1. Edit `supabase/functions/analyze-athlete-video/index.ts`
+2. Rename the definition to `resolveBilateral`
+3. Rename every call site in the file to `resolveBilateral`
+4. Do one more file-wide scan for near-duplicate function names before deploy
+5. Redeploy the updated edge function
+6. Re-run the same pipeline verification flow:
+   - confirm a live node exists
    - confirm the reference video exists
    - generate a fresh signed URL
    - insert a new `athlete_uploads` test row
-   - wait 120 seconds
+   - wait for processing
    - pull `analyze-athlete-video` logs
    - inspect final `athlete_uploads` row
-   - inspect resulting `athlete_lab_results` row
-4. Report the 10-step verdict again.
+   - inspect the resulting `athlete_lab_results` row
 
-### Success criteria
-A successful rerun should show:
-1. insert succeeds
-2. webhook fires
-3. edge function starts
-4. node config fetched
-5. preflight passes
-6. Cloud Run call succeeds using a normalized URL ending in `/analyze`
-7. metrics calculated
-8. Claude feedback generated
-9. results written
-10. `athlete_uploads.status = 'complete'`
+### Expected outcome
+After this fix, the pipeline should progress past the previous `resolvebilateral is not defined` failure and continue into:
+1. metric calculation
+2. Claude feedback generation
+3. results write
+4. final upload status update to `complete`
 
-### Primary diagnostic to report
-The most important log evidence will be the runtime URL shown in the function logs:
-- if it shows `.../analyze`, the normalization/fallback worked
-- if it still fails, the error message will show the exact URL used, which narrows the next blocker immediately
+### Success criteria to verify after redeploy
+- No `ReferenceError` for `resolvebilateral` / `resolvebilderal`
+- Cloud Run still succeeds using the normalized `/analyze` URL path
+- `athlete_lab_results` receives a new row
+- `athlete_uploads.status = 'complete'`
 
-### Files touched
+### File to change
 - `supabase/functions/analyze-athlete-video/index.ts`
