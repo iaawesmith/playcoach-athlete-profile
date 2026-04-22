@@ -1108,7 +1108,9 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
   const idealCriteria = [
     "Solo athlete (no defenders, no teammates)",
-    "Sideline camera angle",
+    "Camera positioned to capture the athlete's face, chest, and hands at the route's critical moment",
+    "Simple rule: film from the side you'll be facing when you make your cut or decision.",
+    "Examples — inside break (slant, post): sideline opposite the break; outside break (out, corner): sideline the break goes toward; face-the-QB routes (curl, hook, comeback): either sideline works",
     "Full body visible at all times",
     "Yard lines visible in frame (calibration)",
     "Crisp plant-and-break footwork",
@@ -1120,7 +1122,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
   const avoidItems = [
     "Game footage with defenders in frame",
-    "Behind-the-QB camera angle",
+    "Camera angle that shows the athlete's back during the critical moment of the route",
     "Multiple players in frame",
     "End-zone or elevated/drone angles",
     "Partial body shots (head or legs cut off)",
@@ -1166,7 +1168,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
               Reference Video Quality Guide
             </h3>
             <p className="text-xs text-on-surface-variant mt-1 leading-snug">
-              Solo athlete, sideline angle, full-body visibility, yard lines visible — click to expand checklist
+              Solo athlete, critical-moment visibility, full-body framing, yard lines visible — click to expand checklist
             </p>
           </div>
           <span
@@ -1210,6 +1212,9 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                     </li>
                   ))}
                 </ul>
+                <p className="mt-3 text-xs leading-snug text-on-surface-variant">
+                  If the camera sees the athlete's back during the break, catch, or decision point, key metrics cannot be measured reliably.
+                </p>
               </div>
             </div>
 
@@ -1223,6 +1228,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                 <li><span className="text-on-surface font-semibold">Teaches admins</span> — visual anchor reviewers compare uploads against when verifying analysis quality</li>
                 <li><span className="text-on-surface font-semibold">Sets the submission quality bar</span> — athletes naturally model their filming after the reference</li>
                 <li><span className="text-on-surface font-semibold">Validates the node itself</span> — the reference is the canary; if analysis fails on a perfect clip, the node is broken</li>
+                <li><span className="text-on-surface font-semibold">Protects metric visibility</span> — pose estimation requires specific body keypoints (face, shoulders, hips, hands, feet) to be visible during the moments being measured. When the athlete's body blocks these keypoints during a turn or rotation, the model can't evaluate those metrics reliably. Filming from the correct side ensures every metric on the node can be measured.</li>
               </ul>
               <div className="flex items-start gap-2 mt-3 text-xs text-amber-300/90">
                 <span className="material-symbols-outlined shrink-0" style={{ fontSize: 14 }}>warning</span>
