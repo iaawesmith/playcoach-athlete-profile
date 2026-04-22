@@ -168,6 +168,7 @@ export interface TrainingNode {
   solution_class: string;
   reference_calibrations: ReferenceCalibration[];
   reference_filming_instructions: string;
+  skill_specific_filming_notes?: string;
   reference_fallback_behavior: ReferenceFallback;
   performance_mode: PerformanceMode;
   det_frequency: number;
