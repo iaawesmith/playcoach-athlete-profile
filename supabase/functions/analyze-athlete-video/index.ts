@@ -797,7 +797,8 @@ async function calculateAllMetrics(
   scores: VideoScores,
   phaseWindows: Record<string, any>,
   personIndex: number,
-  calibration: any,
+  calibration: ResolvedCalibration,
+  fallbackBehavior: ReferenceFallbackBehavior,
   context: any,
   fps: number,
   uploadId?: string | null
@@ -873,8 +874,6 @@ async function calculateAllMetrics(
       continue
     }
 
-    const calibrationResolution = resolvePixelsPerYard(calibration, calibration)
-
     // Calculate based on type
     let metricValue: MetricValueResult = { value: null, reason: 'unsupported_calculation_type' }
     
@@ -885,19 +884,20 @@ async function calculateAllMetrics(
       case 'distance':
         metricValue = calculateDistance(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          calibrationResolution.pixelsPerYard
+          calibration,
+          fallbackBehavior
         )
         break
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 3, fps, calibrationResolution
+          mapping.temporal_window || 3, fps, calibration, fallbackBehavior
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 5, fps, calibrationResolution
+          mapping.temporal_window || 5, fps, calibration, fallbackBehavior
         )
         break
       case 'frame_delta':
@@ -906,6 +906,27 @@ async function calculateAllMetrics(
           mapping.temporal_window || 10
         )
         break
+    }
+
+    if (metricValue.status === 'skipped') {
+      logInfo('metric_skipped', {
+        ...metricContext,
+        reason: metricValue.reason || 'skipped',
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
+      })
+      results.push({
+        ...metric,
+        status: 'skipped',
+        reason: metricValue.reason || 'skipped',
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
+      })
+      continue
     }
 
     if (metricValue.value === null) {
@@ -997,7 +1018,7 @@ function calculateAngle(frames: VideoKeypoints, personIdx: number, indices: numb
 // DISTANCE: Euclidean pixel distance converted to yards
 function calculateDistance(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], pixelsPerYard: number | null
+  indices: number[], calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
 ): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
@@ -1007,25 +1028,41 @@ function calculateDistance(
   if (!p1 || !p2) return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
 
   const pixelDist = Math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+  const calibrationDetail = getCalibrationMetricDetail(calibration)
   
-  if (!pixelsPerYard || pixelsPerYard <= 0) {
+  if (!calibration.pixelsPerYard || calibration.pixelsPerYard <= 0) {
+    if (fallbackBehavior === 'disable_distance') {
+      return {
+        value: null,
+        status: 'skipped',
+        reason: 'no_calibration_available',
+        detail: { midFrame, indices, pixelDistance: pixelDist, ...calibrationDetail },
+      }
+    }
+
     return {
       value: pixelDist,
       reason: 'missing_calibration',
-      detail: { midFrame, indices, pixelsPerYard: pixelsPerYard ?? null },
+      detail: {
+        midFrame,
+        indices,
+        pixelDistance: pixelDist,
+        warning: 'uncalibrated_pixel_value',
+        ...calibrationDetail,
+      },
     }
   }
   
   return {
-    value: pixelDist / pixelsPerYard,
-    detail: { midFrame, indices, pixelsPerYard },
+    value: pixelDist / calibration.pixelsPerYard,
+    detail: { midFrame, indices, pixelsPerYard: calibration.pixelsPerYard, ...calibrationDetail },
   }
 }
 
 // VELOCITY: displacement per frame × fps → mph
 function calculateVelocity(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], temporalWindow: number, fps: number, calibration: CalibrationResolution
+  indices: number[], temporalWindow: number, fps: number, calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
 ): MetricValueResult {
   const window = frames.slice(0, Math.min(temporalWindow, frames.length))
   if (window.length < 2) {
@@ -1038,6 +1075,7 @@ function calculateVelocity(
 
   const velocities: number[] = []
   const rawPixelsPerSecond: number[] = []
+  const calibrationDetail = getCalibrationMetricDetail(calibration)
   
   for (let f = 1; f < window.length; f++) {
     const prev = window[f-1]?.[personIdx]
@@ -1073,8 +1111,24 @@ function calculateVelocity(
   }
 
   if (velocities.length === 0) {
+    if (fallbackBehavior === 'disable_distance') {
+      return {
+        value: null,
+        status: 'skipped',
+        reason: 'no_calibration_available',
+        detail: {
+          temporalWindow,
+          indices,
+          personIdx,
+          sampleCount: rawPixelsPerSecond.length,
+          rawPixelsPerSecondAverage: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
+          ...calibrationDetail,
+        },
+      }
+    }
+
     return {
-      value: null,
+      value: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
       reason: 'missing_calibration',
       detail: {
         temporalWindow,
@@ -1082,8 +1136,8 @@ function calculateVelocity(
         personIdx,
         sampleCount: rawPixelsPerSecond.length,
         rawPixelsPerSecondAverage: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
-        pixelsPerYard: calibration.pixelsPerYard,
-        calibrationSource: calibration.calibrationSource,
+        warning: 'uncalibrated_pixel_value',
+        ...calibrationDetail,
       },
     }
   }
@@ -1097,8 +1151,8 @@ function calculateVelocity(
       sampleCount: velocities.length,
       fps,
       pixelsPerYard: calibration.pixelsPerYard,
-      calibrationSource: calibration.calibrationSource,
       rawPixelsPerSecondAverage,
+      ...calibrationDetail,
     },
   }
 }
@@ -1106,7 +1160,7 @@ function calculateVelocity(
 // ACCELERATION: velocity delta over temporal window
 function calculateAcceleration(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], temporalWindow: number, fps: number, calibration: CalibrationResolution
+  indices: number[], temporalWindow: number, fps: number, calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
 ) : MetricValueResult {
   if (frames.length < temporalWindow) {
     return {
@@ -1116,9 +1170,18 @@ function calculateAcceleration(
     }
   }
   
-  const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration)
-  const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration)
+  const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration, fallbackBehavior)
+  const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration, fallbackBehavior)
   
+  if (v1.status === 'skipped' || v2.status === 'skipped') {
+    return {
+      value: null,
+      status: 'skipped',
+      reason: 'no_calibration_available',
+      detail: { firstHalf: v1.detail, secondHalf: v2.detail, temporalWindow, ...getCalibrationMetricDetail(calibration) },
+    }
+  }
+
   if (v1.value === null || v2.value === null) {
     return {
       value: null,
@@ -1136,9 +1199,9 @@ function calculateAcceleration(
       firstVelocity: v1.value,
       secondVelocity: v2.value,
       pixelsPerYard: calibration.pixelsPerYard,
-      calibrationSource: calibration.calibrationSource,
       firstVelocityDetail: v1.detail,
       secondVelocityDetail: v2.detail,
+      ...getCalibrationMetricDetail(calibration),
     },
   }
 }
