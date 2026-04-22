@@ -357,6 +357,7 @@ export type Database = {
       }
       athlete_uploads: {
         Row: {
+          analysis_context: Json
           athlete_id: string
           camera_angle: string | null
           created_at: string | null
@@ -370,6 +371,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          analysis_context?: Json
           athlete_id: string
           camera_angle?: string | null
           created_at?: string | null
@@ -383,6 +385,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          analysis_context?: Json
           athlete_id?: string
           camera_angle?: string | null
           created_at?: string | null
