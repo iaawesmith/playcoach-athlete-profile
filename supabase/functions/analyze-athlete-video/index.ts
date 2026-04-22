@@ -23,6 +23,33 @@ type MetricValueResult = {
   detail?: JsonRecord
 }
 
+type CalibrationLike = {
+  camera_angle?: string | null
+  pixels_per_yard?: number | null
+}
+
+type CalibrationResolution = {
+  pixelsPerYard: number | null
+  calibrationSource: 'cloud_run_calibration' | 'node_reference_fallback' | 'missing_calibration'
+}
+
+type ConfidenceDiagnostics = {
+  total_frames_in_window: number
+  total_keypoint_checks: number
+  passed_checks: number
+  pass_ratio: number
+  threshold: number
+  confidence_threshold: number
+  per_keypoint_avg_confidence: Record<string, number>
+  lowest_confidence_keypoint: number | null
+  frames_with_missing_keypoints: number
+}
+
+type ConfidenceCheckResult = {
+  passed: boolean
+  diagnostics: ConfidenceDiagnostics
+}
+
 function logInfo(event: string, details: JsonRecord = {}) {
   console.info(JSON.stringify({ level: 'info', event, ...details }))
 }
@@ -275,6 +302,40 @@ function selectCalibration(nodeConfig: any, cameraAngle: string) {
     (c: any) => c.camera_angle?.toLowerCase() === cameraAngle?.toLowerCase()
   )
   return match || calibrations[0] || null
+}
+
+function resolvePixelsPerYard(runtimeCalibration: CalibrationLike | null, nodeCalibration: CalibrationLike | null): CalibrationResolution {
+  const runtimePixelsPerYard = typeof runtimeCalibration?.pixels_per_yard === 'number' && runtimeCalibration.pixels_per_yard > 0
+    ? runtimeCalibration.pixels_per_yard
+    : null
+
+  if (runtimePixelsPerYard !== null) {
+    return {
+      pixelsPerYard: runtimePixelsPerYard,
+      calibrationSource: 'cloud_run_calibration',
+    }
+  }
+
+  const fallbackPixelsPerYard = typeof nodeCalibration?.pixels_per_yard === 'number' && nodeCalibration.pixels_per_yard > 0
+    ? nodeCalibration.pixels_per_yard
+    : null
+
+  if (fallbackPixelsPerYard !== null) {
+    return {
+      pixelsPerYard: fallbackPixelsPerYard,
+      calibrationSource: 'node_reference_fallback',
+    }
+  }
+
+  return {
+    pixelsPerYard: null,
+    calibrationSource: 'missing_calibration',
+  }
+}
+
+function pixelsPerSecondToMph(pixelsPerSecond: number, pixelsPerYard: number | null): number | null {
+  if (!pixelsPerYard || pixelsPerYard <= 0) return null
+  return (pixelsPerSecond * 2.045) / pixelsPerYard
 }
 
 
