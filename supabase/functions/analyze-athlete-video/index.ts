@@ -497,16 +497,27 @@ async function calculateAllMetrics(
     })
 
     // Check confidence
-    const confidenceOk = checkConfidence(
+    const confidenceCheck = checkConfidence(
       phaseFrames, phaseScores, personIndex,
-      mapping.keypoint_indices, mapping.confidence_threshold || 0.70
+      mapping.keypoint_indices, metric.name, mapping.confidence_threshold || 0.70
     )
 
-    if (!confidenceOk) {
-      logWarn('metric_flagged', { ...metricContext, reason: 'low_confidence' })
-      results.push({ ...metric, status: 'flagged', reason: 'low_confidence' })
+    if (!confidenceCheck.passed) {
+      logWarn('metric_flagged', {
+        ...metricContext,
+        reason: 'low_confidence',
+        confidenceDiagnostics: confidenceCheck.diagnostics,
+      })
+      results.push({
+        ...metric,
+        status: 'flagged',
+        reason: 'low_confidence',
+        detail: { confidenceDiagnostics: confidenceCheck.diagnostics },
+      })
       continue
     }
+
+    const calibrationResolution = resolvePixelsPerYard(calibration, calibration)
 
     // Calculate based on type
     let metricValue: MetricValueResult = { value: null, reason: 'unsupported_calculation_type' }
@@ -518,19 +529,19 @@ async function calculateAllMetrics(
       case 'distance':
         metricValue = calculateDistance(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          calibration?.pixels_per_yard
+          calibrationResolution.pixelsPerYard
         )
         break
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 3, fps
+          mapping.temporal_window || 3, fps, calibrationResolution
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 5, fps
+          mapping.temporal_window || 5, fps, calibrationResolution
         )
         break
       case 'frame_delta':
@@ -545,39 +556,53 @@ async function calculateAllMetrics(
       logWarn('metric_failed', {
         ...metricContext,
         reason: metricValue.reason || 'calculation_failed',
-        detail: metricValue.detail || null,
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
       })
       results.push({
         ...metric,
         status: 'failed',
         reason: metricValue.reason || 'calculation_failed',
-        detail: metricValue.detail,
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
       })
       continue
     }
 
     // Score the metric
-    const score = scoreMetric(metricValue.value, metric.eliteTarget, mapping.tolerance)
+    const score = scoreMetric(metricValue.value, metric.eliteTarget, metric.tolerance)
     logInfo('metric_scored', {
       ...metricContext,
       value: metricValue.value,
       eliteTarget: metric.eliteTarget,
-      tolerance: mapping.tolerance,
+      tolerance: metric.tolerance,
       score,
-      detail: metricValue.detail || null,
+      detail: {
+        ...(metricValue.detail || {}),
+        confidenceDiagnostics: confidenceCheck.diagnostics,
+      },
     })
 
     results.push({
       id: metric.id,
       name: metric.name,
       unit: metric.unit,
-       value: Math.round(metricValue.value * 100) / 100,
+      value: Math.round(metricValue.value * 100) / 100,
       elite_target: metric.eliteTarget,
-      tolerance: mapping.tolerance,
-       deviation: Math.abs(metricValue.value - metric.eliteTarget),
+      tolerance: metric.tolerance,
+      deviation: Math.abs(metricValue.value - metric.eliteTarget),
       score,
       weight: metric.weight,
-      status: 'scored'
+      status: 'scored',
+      detail: {
+        ...(metricValue.detail || {}),
+        confidenceDiagnostics: confidenceCheck.diagnostics,
+      },
+      keypoint_mapping: metric.keypoint_mapping,
     })
   }
 
