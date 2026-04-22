@@ -52,6 +52,12 @@ const TAB_SECTIONS: { label: string; tabs: { id: TabId; label: string }[] }[] = 
       { id: "enhancements", label: "ENHANCEMENTS" },
     ],
   },
+  {
+    label: "TESTING",
+    tabs: [
+      { id: "manual_test_upload", label: "MANUAL TEST UPLOAD" },
+    ],
+  },
 ];
 
 const PROMPT_TAB_CONFIG: Record<
