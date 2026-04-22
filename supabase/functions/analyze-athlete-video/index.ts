@@ -942,8 +942,8 @@ async function callCloudRun(payload: {
   det_frequency: number
   tracking_enabled: boolean
 }): Promise<{
-  keypoints: number[][][]
-  scores: number[][][]
+  keypoints: VideoKeypoints
+  scores: VideoScores
   frame_count: number
   fps: number
 }> {
@@ -975,8 +975,8 @@ async function callCloudRun(payload: {
   }
 
   return await response.json() as {
-    keypoints: number[][][]
-    scores: number[][][]
+    keypoints: VideoKeypoints
+    scores: VideoScores
     frame_count: number
     fps: number
   }
