@@ -7,6 +7,7 @@ import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
 import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
+import { parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
@@ -2375,16 +2376,20 @@ function ReferenceCalibrationEditor({
   solutionClass,
   calibrations,
   onCalibrationsChange,
-  filmingInstructions,
-  onFilmingInstructionsChange,
+  skillSpecificFilmingNotes,
+  onSkillSpecificFilmingNotesChange,
+  genericFallbackInstructions,
+  onGenericFallbackInstructionsChange,
   fallbackBehavior,
   onFallbackBehaviorChange,
 }: {
   solutionClass: string;
   calibrations: ReferenceCalibration[];
   onCalibrationsChange: (c: ReferenceCalibration[]) => void;
-  filmingInstructions: string;
-  onFilmingInstructionsChange: (v: string) => void;
+  skillSpecificFilmingNotes: string;
+  onSkillSpecificFilmingNotesChange: (v: string) => void;
+  genericFallbackInstructions: string;
+  onGenericFallbackInstructionsChange: (v: string) => void;
   fallbackBehavior: ReferenceFallback;
   onFallbackBehaviorChange: (v: ReferenceFallback) => void;
   eliteVideos: EliteVideo[];
