@@ -525,7 +525,7 @@ async function calculateAllMetrics(
 
 // ANGLE: geometric angle at vertex (middle keypoint)
 // keypoints order: endpoint → vertex → endpoint
-function calculateAngle(frames: number[][][], personIdx: number, indices: number[]): MetricValueResult {
+function calculateAngle(frames: VideoKeypoints, personIdx: number, indices: number[]): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
    if (!kps) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
@@ -554,7 +554,7 @@ function calculateAngle(frames: number[][][], personIdx: number, indices: number
 
 // DISTANCE: Euclidean pixel distance converted to yards
 function calculateDistance(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], pixelsPerYard: number
 ): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
@@ -582,7 +582,7 @@ function calculateDistance(
 
 // VELOCITY: displacement per frame × fps → mph
 function calculateVelocity(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], temporalWindow: number, fps: number
 ): MetricValueResult {
   const window = frames.slice(0, Math.min(temporalWindow, frames.length))
@@ -633,7 +633,7 @@ function calculateVelocity(
 
 // ACCELERATION: velocity delta over temporal window
 function calculateAcceleration(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], temporalWindow: number, fps: number
 ) : MetricValueResult {
   if (frames.length < temporalWindow) {
@@ -664,7 +664,7 @@ function calculateAcceleration(
 
 // FRAME DELTA: frames between two keypoint events
 function calculateFrameDelta(
-  frames: number[][][], personIdx: number,
+  frames: VideoKeypoints, personIdx: number,
   indices: number[], temporalWindow: number
 ): MetricValueResult {
   // Index 0 = anchor keypoint (e.g. Left Heel for heel plant)
@@ -721,7 +721,7 @@ function calculateFrameDelta(
 }
 
 // HELPERS
-function getMidpoint(kps: number[][], indices: number[]): number[] | null {
+function getMidpoint(kps: PersonKeypoints, indices: number[]): Point | null {
   const points = indices.map(i => kps[i]).filter(p => p && p[0] > 0)
   if (points.length === 0) return null
   return [
@@ -731,7 +731,7 @@ function getMidpoint(kps: number[][], indices: number[]): number[] | null {
 }
 
 function checkConfidence(
-  frames: number[][][], scores: number[][][],
+  frames: VideoKeypoints, scores: VideoScores,
   personIdx: number, indices: number[], threshold: number
 ): boolean {
   let totalChecks = 0
