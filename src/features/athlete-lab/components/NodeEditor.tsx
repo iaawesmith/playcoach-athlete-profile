@@ -6,8 +6,7 @@ import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
 import { ConfirmModal } from "./ConfirmModal";
-import { CameraEditor, checkCameraCompleteness } from "./CameraEditor";
-import { parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
+import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
@@ -389,7 +388,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         solution_class: draft.solution_class,
         reference_calibrations: draft.reference_calibrations,
         reference_filming_instructions: draft.reference_filming_instructions,
-        skill_specific_filming_notes: draft.skill_specific_filming_notes,
         reference_fallback_behavior: draft.reference_fallback_behavior,
         performance_mode: draft.performance_mode,
         det_frequency: draft.det_frequency,
@@ -765,8 +763,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             solutionClass={draft.solution_class ?? ""}
             calibrations={draft.reference_calibrations ?? []}
             onCalibrationsChange={(c) => update("reference_calibrations", c)}
-            skillSpecificFilmingNotes={draft.skill_specific_filming_notes ?? ""}
-            onSkillSpecificFilmingNotesChange={(v) => update("skill_specific_filming_notes" as keyof TrainingNode, v as never)}
+            skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
+            onSkillSpecificFilmingNotesChange={(v) => {
+              const settings = parseCameraSettings(draft.camera_guidelines);
+              update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
+            }}
             genericFallbackInstructions={draft.reference_filming_instructions ?? ""}
             onGenericFallbackInstructionsChange={(v) => update("reference_filming_instructions", v)}
             fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
