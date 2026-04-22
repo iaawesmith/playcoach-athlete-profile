@@ -1,94 +1,85 @@
 
 
-## Plan: Convert Reference Video Quality Guide to collapsible expander
+## Plan: "Manual Test Upload" tool in Admin Reference
 
-### Where
-Single-file edit: `src/features/athlete-lab/components/NodeEditor.tsx`, inside `EliteVideosEditor`. The existing callout block (the entire blue-bordered guide + the "Sourcing Ideal References" sub-card below it) gets wrapped in a collapsible container. All inner content stays byte-identical.
+### Where it lives
+New tab in `AdminReferencePanel.tsx` under a new section group **"TESTING"**, tab id `manual_test_upload`, label `MANUAL TEST UPLOAD`. Tab order: appended after the existing "RESOURCES" group so it doesn't disrupt the current layout.
 
-### Visual design — collapsed (default)
+### Why an edge function (not direct client upload)
+The `athlete-videos` bucket is **private**. A direct browser upload would require either making the bucket public (security regression) or adding RLS policies for unauthenticated inserts (also bad). The clean pattern: a small edge function uses the **service role key** to upload + sign. The browser just POSTs the file bytes.
+
+### New edge function: `admin-test-upload`
+Path: `supabase/functions/admin-test-upload/index.ts`. Default `verify_jwt = false` (this is an internal admin-only test utility behind the Admin Reference portal).
+
+Behavior:
+1. Accept `multipart/form-data` POST with one field `file` (the .mp4) and one field `path` (defaults to `test-clips/slant-route-reference-v1.mp4`).
+2. Validate: file present, size ≤ 200MB, content-type starts with `video/`.
+3. Upload to `athlete-videos` bucket at the given path with `upsert: true` (so re-uploads of the same test clip overwrite cleanly).
+4. Generate a signed URL valid for **24 hours** (`createSignedUrl(path, 86400)`).
+5. Return JSON: `{ path, signedUrl, expiresAt }`.
+6. Standard `corsHeaders` on every response (success + error).
+
+### UI panel (`ManualTestUploadTab` inside `AdminReferencePanel.tsx`)
+
+Visual layout:
 
 ```text
-┌─ Videos tab ───────────────────────────────────────────────────────┐
-│                                                                     │
-│  ┌─ COLLAPSED HEADER (bg #0f1e2e, border-l-4 #3b82f6, p-3) ──────┐│
-│  │ ◉ info   REFERENCE VIDEO QUALITY GUIDE                    ▾   ││
-│  │          Solo athlete, sideline angle, full-body visibility,   ││
-│  │          yard lines visible — click to expand checklist        ││
-│  └────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  Reference Videos                          3 of 3+ recommended    │
-│  └ video list / empty state / Add Video button (visible above fold)│
-└────────────────────────────────────────────────────────────────────┘
+┌─ MANUAL TEST UPLOAD ───────────────────────────────────────────┐
+│  Test utility — uploads a local .mp4 to athlete-videos and     │
+│  returns a 24-hour signed URL for Cloud Run testing.           │
+│                                                                 │
+│  ┌─ AMBER WARNING CALLOUT ─────────────────────────────────┐  │
+│  │ ⚠ This is a test utility, not for production use.       │  │
+│  │   Files uploaded here go to a fixed test path and may   │  │
+│  │   be overwritten on subsequent uploads.                 │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  DESTINATION PATH                                              │
+│  [ test-clips/slant-route-reference-v1.mp4 ]  (editable)       │
+│                                                                 │
+│  VIDEO FILE (.mp4)                                             │
+│  ┌───────────────────────────────────────────────────────┐    │
+│  │  ⬆ Drop a .mp4 file here, or click to choose          │    │
+│  │  Selected: slant-route-reference-v1.mp4 (3.4 MB)      │    │
+│  └───────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  [ UPLOAD AND GENERATE SIGNED URL ]  (kinetic-gradient CTA)    │
+│                                                                 │
+│  ─── after success ─────────────────────────────────────────── │
+│  ✓ Uploaded successfully · Expires Apr 23, 2026 3:42 PM        │
+│                                                                 │
+│  SIGNED URL (valid 24 hours)                                   │
+│  [ https://nwgljkjckcizbrpbqsro.supabase.co/storage/v1/...  ] │
+│  [ COPY URL ]                                                  │
+│                                                                 │
+│  STORAGE PATH                                                  │
+│  [ test-clips/slant-route-reference-v1.mp4 ]  [ COPY PATH ]    │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-### Visual design — expanded
+### Component behavior
+- File input: hidden `<input type="file" accept="video/mp4,.mp4">`, triggered by a styled drop-zone button. Show selected filename + size.
+- Path field: pre-filled with `test-clips/slant-route-reference-v1.mp4`, editable in case the admin wants a different path.
+- Upload button: disabled until a file is selected. Shows `UPLOADING…` with a small spinner during the request.
+- Calls the edge function via `supabase.functions.invoke("admin-test-upload", { body: formData })`.
+- On success: render the signed URL in a read-only `<input>` styled like the other inputs in the portal, plus a `COPY URL` button using `navigator.clipboard.writeText`. Same pattern for the path. Show `✓ COPIED!` 2-second confirmation, matching the existing Copy button pattern in `PromptTab`.
+- On error: show a red inline error row beneath the CTA with the server message.
 
-```text
-┌─ Videos tab ───────────────────────────────────────────────────────┐
-│  ┌─ EXPANDED HEADER (same styling, chevron rotated 180°) ────────┐│
-│  │ ◉ info   REFERENCE VIDEO QUALITY GUIDE                    ▴   ││
-│  │          Solo athlete, sideline angle, full-body visibility,   ││
-│  │          yard lines visible — click to expand checklist        ││
-│  │ ───────────────────────────────────────────────────────────── ││
-│  │  [existing Ideal Criteria + Avoid two-column grid]             ││
-│  │  [existing Why This Matters section]                           ││
-│  │  [existing Using the Reference as a Diagnostic Tool section]   ││
-│  └────────────────────────────────────────────────────────────────┘│
-│  ┌─ Sourcing Ideal References muted sub-card (existing) ─────────┐│
-│  │ ◉ search  WHERE TO FIND GOOD REFERENCE FOOTAGE                 ││
-│  │   • position coach YouTube channels … etc                      ││
-│  └────────────────────────────────────────────────────────────────┘│
-│  Reference Videos …                                                │
-└────────────────────────────────────────────────────────────────────┘
-```
+### Styling
+Reuses existing portal tokens — `bg-surface-container`, `border-outline-variant/10`, `kinetic-gradient text-[#00460a]`, `text-[10px] font-black uppercase tracking-[0.2em]`, `rounded-full` CTAs, `rounded-xl` cards. Amber warning callout: `border border-amber-500/30 bg-amber-500/5 text-amber-200/90` with `warning` Material Symbol — matches the warning style we recently used in the Videos tab guide.
 
-Both the main guide AND the sourcing sub-card are hidden when collapsed — they are paired content and should appear/hide together.
+### Files touched / created
+- **NEW** `supabase/functions/admin-test-upload/index.ts` — ~70 lines. CORS, multipart parse, validate, upload via service role, signed URL, return JSON.
+- **MODIFIED** `src/features/athlete-lab/components/AdminReferencePanel.tsx` — add `TESTING` section to `TAB_SECTIONS`, add `manual_test_upload` to `TabId`, add `ManualTestUploadTab` component (~120 lines) inline, render it in the tab switch.
 
-### Interaction
-- Entire header row (icon + title + subtitle + chevron) is a single `<button>` — clickable across the full width for an easy hit target.
-- Chevron: Material Symbol `expand_more`, 20px, `text-blue-300/70`, rotates 180° on expand via `transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`.
-- `aria-expanded` on the button, `aria-controls` pointing at the content region.
-- Hover: header background lightens slightly via `hover:bg-blue-500/5`.
-
-### State persistence
-Implemented — low cost. New local state inside `EliteVideosEditor`:
-
-```ts
-const STORAGE_KEY = 'athleteLab.videoGuideExpanded';
-const [guideExpanded, setGuideExpanded] = useState<boolean>(() => {
-  if (typeof window === 'undefined') return false;
-  return window.localStorage.getItem(STORAGE_KEY) === 'true';
-});
-useEffect(() => {
-  window.localStorage.setItem(STORAGE_KEY, String(guideExpanded));
-}, [guideExpanded]);
-```
-
-Default: collapsed (`false`). If an admin expands it, that preference sticks across sessions and across nodes. Single global key — admin-level pref, not per-node, since the guide content is identical for every node.
-
-### Style spec (collapsed header)
-- Same outer container as today: `rounded-xl border border-blue-500/30 border-l-4 border-l-blue-400`, `style={{ backgroundColor: '#0f1e2e' }}`
-- Reduced padding when collapsed: `p-3` (vs current `p-5`) — keeps it compact (one icon + two text lines = ~64px tall total)
-- Header `<button>` layout: `flex items-start gap-3 w-full text-left`
-- Title row: `info` icon (20px, `text-blue-300`) + `REFERENCE VIDEO QUALITY GUIDE` (`text-[11px] font-bold uppercase tracking-widest text-blue-200`) on one line, chevron pushed right with `ml-auto`
-- Subtitle: new wording — `Solo athlete, sideline angle, full-body visibility, yard lines visible — click to expand checklist` (`text-xs text-on-surface-variant mt-1 leading-snug`)
-
-### Style spec (expanded)
-- Padding becomes `p-5` (current value) so the inner sections breathe
-- A `border-t border-blue-500/20 mt-4 pt-4` separator above the expanded content area (visually splits header from the checklist content)
-- All four inner sections (Ideal/Avoid two-column, Why This Matters, Diagnostic Tool) render inside the conditional block exactly as they do today — zero content changes
-- "Sourcing Ideal References" sub-card moves inside the same conditional so it shows/hides with the main guide
-
-### What I will NOT do
-- No content changes to any of the four inner sections or the sourcing sub-card
-- No new components or files — everything stays inline in `EliteVideosEditor`
-- No animation library — pure CSS transition on the chevron only; the content reveal is instant (no height animation, which always janks with variable content)
-- No changes to other tabs, the video list, the add/edit flow, or the empty state
-- No keyboard shortcut binding (just standard button semantics + `aria-expanded`)
-
-### Files touched
-- `src/features/athlete-lab/components/NodeEditor.tsx` — wrap the existing callout + sourcing card in a collapsible structure, add ~15 lines of state/effect, update the header markup; replace `p-5` with conditional `p-3`/`p-5`. Net diff ~40 lines.
+### Out of scope
+- No changes to the `athlete-videos` bucket configuration, RLS, or policies — bucket stays private.
+- No DB tables, migrations, or new secrets — `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_URL` are already configured.
+- No changes to other tabs in the portal.
+- No changes to the existing analysis pipeline or `analyze-athlete-video` flow.
 
 ### Risks
-None meaningful. Pure presentational + a single localStorage read/write that gracefully no-ops in SSR-style environments via the `typeof window` guard.
+- **Edge function file-size limits**: Supabase edge functions have a request body limit (~6MB by default for some configurations, larger via streaming). For a 4-second 1080p clip this is comfortably fine (typically 2–8MB). If the admin later tries a much larger file, the function returns a clear 413-style error.
+- **Service role exposure**: Confined to the edge function (server-side only, never returned to the client). The client only sees the resulting signed URL.
+- **Overwrite by design**: `upsert: true` means re-uploading to the same path replaces the previous file. This is the intended behavior for an iterating test utility, and it's called out in the warning callout.
 
