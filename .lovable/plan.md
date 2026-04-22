@@ -1,65 +1,135 @@
 
-Update the Reference Video Quality Guide in `src/features/athlete-lab/components/NodeEditor.tsx` so the Videos tab guidance is route-agnostic and scales beyond Slant Route.
+Build the camera-angle infrastructure around the existing per-node `reference_calibrations` and `reference_fallback_behavior` model, so each node can express angle support, skill-specific filming notes, and per-angle calibration guidance without hardcoding skill text into shared UI.
 
-### Scope
-Modify only the guide copy inside the collapsible “Reference Video Quality Guide” block:
-- `idealCriteria`
-- `avoidItems`
-- the “Why This Matters” bullet list
-- the short collapsed summary line if needed so it matches the new universal framing
+### What will be built
 
-### Planned content changes
+1. Extend the node data model used by AthleteLab admin:
+   - Add a per-angle `status` field to each reference calibration entry with values:
+     - `primary`
+     - `supported`
+     - `not_supported`
+   - Add a per-angle free-text `calibration_notes` field on each reference calibration entry
+   - Add a node-level free-text field for `skill_specific_filming_notes`
 
-#### 1) Replace the slant-specific camera-angle guidance in “Ideal Criteria”
-Swap the current generic/slant-oriented camera-angle item with this universal rule:
+2. Update the Reference/Camera admin UI so:
+   - Each camera angle card shows and edits its own support status
+   - Each camera angle card includes a node-specific calibration notes textarea
+   - The node has a dedicated skill-specific filming notes field
+   - Existing shared/default angle instructions remain available only as generic fallback content, clearly labeled as overridden by node-specific notes when present
 
-```text
-Camera positioned to capture the athlete's face, chest, and hands at the route's critical moment
-```
+3. Update fallback behavior handling:
+   - Confirmed current state: `reference_fallback_behavior` is already per-node, not global
+   - Change the existing Slant node from `pixel_warning` to `disable_distance`
+   - Keep the infrastructure per-node so future nodes can choose their own fallback behavior independently
 
-Add the route-agnostic filming rule and examples directly in the guide so admins understand how to apply it across different node types:
+4. Update downstream consumers so the new fields are preserved and visible wherever node configuration is summarized/exported.
 
-```text
-Simple rule: film from the side you'll be facing when you make your cut or decision.
-```
+### Current state confirmed
 
-Examples to include:
-- Routes that break inside (slant, post): film from the sideline opposite the break direction
-- Routes that break outside (out, corner): film from the sideline the break goes toward
-- Routes where you face the QB after the break (curl, hook, comeback): either sideline works
+- Camera-angle calibration is already stored per node in `athlete_lab_nodes.reference_calibrations` (JSON), one object per angle.
+- Fallback behavior is already per node via `reference_fallback_behavior`.
+- The current Slant node is set to `pixel_warning`.
+- The current UI uses:
+  - `reference_filming_instructions` at node level
+  - `filming_instructions` inside each angle calibration
+  - `camera_guidelines` JSON for camera-tab filming instructions
+- Some generic/shared defaults are currently embedded in `NodeEditor.tsx`, especially for endzone and behind-QB cards.
 
-#### 2) Replace the slant-specific warning in “What to Avoid”
-Update the warning copy to this universal rule:
+### Implementation approach
 
-```text
-Camera angle that shows the athlete's back during the critical moment of the route
-```
+#### 1) Extend the frontend types to support scalable per-angle metadata
+Update the AthleteLab TypeScript types so each calibration entry can carry:
+- `status`
+- `calibration_notes`
 
-Add the explanatory line under that section:
+Add a node-level field for:
+- `skill_specific_filming_notes`
 
-```text
-If the camera sees the athlete's back during the break, catch, or decision point, key metrics cannot be measured reliably.
-```
+Because `reference_calibrations` is already JSON-backed, this can be introduced without changing database schema structure.
 
-#### 3) Add a 5th point to “Why This Matters”
-Append this new bullet after the existing four points:
+#### 2) Reframe the Reference tab around node-specific overrides
+Update `ReferenceCalibrationEditor` in `NodeEditor.tsx` so each angle card includes:
+- Support status selector/badge
+- Existing calibration fields
+- New calibration notes textarea
+- Existing per-angle filming instructions textarea, relabeled so admins understand it is generic fallback unless node-specific notes are provided elsewhere
 
-```text
-Pose estimation requires specific body keypoints (face, shoulders, hips, hands, feet) to be visible during the moments being measured. When the athlete's body blocks these keypoints during a turn or rotation, the model can't evaluate those metrics reliably. Filming from the correct side ensures every metric on the node can be measured.
-```
+The cards remain skill-agnostic in layout and labels. Only admin-entered text becomes skill-specific.
 
-### Implementation notes
-- Keep the existing visual structure, icons, spacing, and collapsible behavior unchanged.
-- Preserve the current editorial tone and AthleteLab styling.
-- Keep the guidance applicable to all current and future skill nodes, not just route-running.
-- If the new examples are too long for the current list format, convert that one item into a short primary rule plus nested example lines without changing the rest of the component’s layout.
+#### 3) Move skill-specific filming guidance into a dedicated node field
+Add a dedicated node-level textarea for `Skill-Specific Filming Notes` in the admin flow and use it as the primary editable source of skill guidance.
 
-### Validation after implementation
-Once the current pipeline test is finished and this is queued for execution, verify:
-- no remaining slant-specific “strong-side / weak-side” wording appears in the guide
-- the new rule reads clearly in both collapsed and expanded states
-- the examples fit cleanly at desktop and tablet widths without overflowing
-- the message now works for inside-break, outside-break, and face-the-QB route families
+Planned behavior:
+- If node-specific filming notes exist, they are treated as the primary instructions
+- Existing shared/generic card copy is preserved as fallback only
+- No existing note content is deleted during this pass
 
-### Expected outcome
-The Videos tab guidance will shift from slant-specific camera instructions to a universal “film from the side the athlete will face at the critical moment” rule, making the Reference Video Quality Guide reusable across all route types and future skill nodes.
+This preserves current content while enabling gradual migration by admins.
+
+#### 4) Clarify generic fallback copy
+Where the UI currently shows baked-in angle guidance, revise labels/help text so it reads as generic fallback guidance rather than skill-specific truth.
+
+Examples of wording changes:
+- “Generic fallback instructions”
+- “Node-specific notes override this guidance”
+
+No skill-specific examples or route language will be added to shared infrastructure.
+
+#### 5) Update exports/derived summaries
+Update the node export/summary logic so it includes:
+- angle support status
+- calibration notes
+- node-level skill-specific filming notes
+- fallback behavior
+
+This keeps docs/export output aligned with the new admin model.
+
+#### 6) Apply the fallback-behavior data change
+Since fallback behavior is confirmed per-node, update only the Slant node’s `reference_fallback_behavior` from:
+- `pixel_warning` → `disable_distance`
+
+This is a data/config update, not a schema change.
+
+### Files likely to change
+
+- `src/features/athlete-lab/types.ts`
+- `src/features/athlete-lab/components/NodeEditor.tsx`
+- `src/features/athlete-lab/components/CameraEditor.tsx`
+- `src/features/athlete-lab/utils/nodeExport.ts`
+- `src/services/athleteLab.ts` only if helper typing needs adjustment
+- one backend data update for the existing Slant node record
+
+### Validation plan
+
+After implementation, verify:
+
+1. Per-angle status
+   - Each of the three angle cards can be set independently to Primary / Supported / Not Supported
+   - Status persists per node
+
+2. Node-level filming notes
+   - A dedicated skill-specific notes field exists
+   - Existing content is not removed
+   - Shared/generic copy is clearly marked as fallback
+
+3. Per-angle calibration notes
+   - Each angle card accepts its own free-text notes
+   - Notes persist and appear in export/summary output
+
+4. Fallback behavior
+   - The UI still reflects fallback behavior per node
+   - Slant node now reads `Disable Distance Metrics`
+
+5. No forbidden regressions
+   - No skill-specific text is hardcoded into shared infrastructure
+   - No existing content is deleted before migration
+   - Card layout remains reusable for future nodes and future skills
+
+### Technical notes
+
+- No table migration is required for the new angle metadata if it is stored inside the existing `reference_calibrations` JSON structure and a new node-level text field is mapped onto existing node JSON/text storage.
+- A schema migration is only necessary if you want `skill_specific_filming_notes` as a dedicated database column instead of storing it within existing node text/JSON fields.
+- The safer first implementation is:
+  - keep per-angle additions inside `reference_calibrations`
+  - map the new node-level filming-notes UI onto existing node-level filming guidance storage
+  - preserve backward compatibility for existing nodes with missing new fields
