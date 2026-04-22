@@ -2602,6 +2602,9 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
     onUpdate({ known_size_yards: parseFloat(yards.toFixed(4)), known_size_unit: unit });
   };
 
+  const status = calibration.status ?? (angle === "sideline" ? "primary" : "supported");
+  const statusMeta = CAMERA_ANGLE_STATUS_OPTIONS.find((option) => option.value === status) ?? CAMERA_ANGLE_STATUS_OPTIONS[1];
+
   return (
     <div className={CARD_CLASS}>
       {/* Header row */}
@@ -2611,7 +2614,15 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
             {isCollapsed ? "chevron_right" : "expand_more"}
           </span>
         </button>
-        <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg flex-1">{label}</h3>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg">{label}</h3>
+            <span className="rounded-full border border-outline-variant/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant">
+              {statusMeta.label}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">{statusMeta.description}</p>
+        </div>
         <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${calibrated ? 'text-primary-container' : 'text-on-surface-variant/50'}`}>
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{calibrated ? 'check_circle' : 'radio_button_unchecked'}</span>
           {calibrated ? 'Calibrated' : 'Not Calibrated'}
@@ -2621,6 +2632,29 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
       {/* Collapsible content */}
       {!isCollapsed && (
         <div className="pt-3 space-y-4">
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Angle Status</label>
+              <SectionTooltip tip="Set whether this camera angle is primary, supported, or not supported for this node. The cards stay generic; the status is configured per node." />
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {CAMERA_ANGLE_STATUS_OPTIONS.map((option) => {
+                const selected = status === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onUpdate({ status: option.value })}
+                    className={`rounded-xl border px-3 py-3 text-left transition-all active:scale-95 ${selected ? 'border-primary-container/40 bg-primary-container/10' : 'border-outline-variant/20 bg-surface-container-low'}`}
+                  >
+                    <div className="text-on-surface text-xs font-black uppercase tracking-[0.16em]">{option.label}</div>
+                    <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{option.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <label className={LABEL_CLASS}>Reference Object</label>
@@ -2682,14 +2716,30 @@ function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, o
 
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Athlete Filming Instructions</label>
-              <SectionTooltip tip="Shown to athletes in the upload flow before they film from this angle. Explain camera position, distance, and what must be visible in frame." />
+              <label className={LABEL_CLASS}>Generic Fallback Angle Instructions</label>
+              <SectionTooltip tip="Shared fallback instructions for this angle. Node-specific filming notes should override this copy when present." />
             </div>
+            <p className="text-on-surface-variant text-xs leading-relaxed mb-2">
+              Keep this reusable across skills. Use the node-level skill-specific notes field above for skill-specific direction.
+            </p>
             <textarea
               className={`${INPUT_CLASS} min-h-[100px] resize-y`}
               value={calibration.filming_instructions ?? ""}
               onChange={(e) => onUpdate({ filming_instructions: e.target.value })}
-              placeholder="e.g. Film from the sideline at least 10 yards away at waist height. The full route and reference object must be visible throughout the rep."
+              placeholder="Add generic fallback instructions for this camera angle."
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className={LABEL_CLASS}>Calibration Notes</label>
+              <SectionTooltip tip="Optional node-specific guidance for this angle’s calibration setup. Use this for angle-specific reminders without changing the shared card structure." />
+            </div>
+            <textarea
+              className={`${INPUT_CLASS} min-h-[90px] resize-y`}
+              value={calibration.calibration_notes ?? ""}
+              onChange={(e) => onUpdate({ calibration_notes: e.target.value })}
+              placeholder="Add calibration notes specific to this node and camera angle."
             />
           </div>
         </div>
