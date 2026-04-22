@@ -23,6 +23,33 @@ type MetricValueResult = {
   detail?: JsonRecord
 }
 
+type CalibrationLike = {
+  camera_angle?: string | null
+  pixels_per_yard?: number | null
+}
+
+type CalibrationResolution = {
+  pixelsPerYard: number | null
+  calibrationSource: 'cloud_run_calibration' | 'node_reference_fallback' | 'missing_calibration'
+}
+
+type ConfidenceDiagnostics = {
+  total_frames_in_window: number
+  total_keypoint_checks: number
+  passed_checks: number
+  pass_ratio: number
+  threshold: number
+  confidence_threshold: number
+  per_keypoint_avg_confidence: Record<string, number>
+  lowest_confidence_keypoint: number | null
+  frames_with_missing_keypoints: number
+}
+
+type ConfidenceCheckResult = {
+  passed: boolean
+  diagnostics: ConfidenceDiagnostics
+}
+
 function logInfo(event: string, details: JsonRecord = {}) {
   console.info(JSON.stringify({ level: 'info', event, ...details }))
 }
@@ -277,6 +304,40 @@ function selectCalibration(nodeConfig: any, cameraAngle: string) {
   return match || calibrations[0] || null
 }
 
+function resolvePixelsPerYard(runtimeCalibration: CalibrationLike | null, nodeCalibration: CalibrationLike | null): CalibrationResolution {
+  const runtimePixelsPerYard = typeof runtimeCalibration?.pixels_per_yard === 'number' && runtimeCalibration.pixels_per_yard > 0
+    ? runtimeCalibration.pixels_per_yard
+    : null
+
+  if (runtimePixelsPerYard !== null) {
+    return {
+      pixelsPerYard: runtimePixelsPerYard,
+      calibrationSource: 'cloud_run_calibration',
+    }
+  }
+
+  const fallbackPixelsPerYard = typeof nodeCalibration?.pixels_per_yard === 'number' && nodeCalibration.pixels_per_yard > 0
+    ? nodeCalibration.pixels_per_yard
+    : null
+
+  if (fallbackPixelsPerYard !== null) {
+    return {
+      pixelsPerYard: fallbackPixelsPerYard,
+      calibrationSource: 'node_reference_fallback',
+    }
+  }
+
+  return {
+    pixelsPerYard: null,
+    calibrationSource: 'missing_calibration',
+  }
+}
+
+function pixelsPerSecondToMph(pixelsPerSecond: number, pixelsPerYard: number | null): number | null {
+  if (!pixelsPerYard || pixelsPerYard <= 0) return null
+  return (pixelsPerSecond * 2.045) / pixelsPerYard
+}
+
 
 function applyTemporalSmoothing(keypoints: VideoKeypoints, windowSize = 3): VideoKeypoints {
   // keypoints shape: [frame][person][keypoint_index] = [x, y]
@@ -436,16 +497,27 @@ async function calculateAllMetrics(
     })
 
     // Check confidence
-    const confidenceOk = checkConfidence(
+    const confidenceCheck = checkConfidence(
       phaseFrames, phaseScores, personIndex,
-      mapping.keypoint_indices, mapping.confidence_threshold || 0.70
+      mapping.keypoint_indices, metric.name, mapping.confidence_threshold || 0.70
     )
 
-    if (!confidenceOk) {
-      logWarn('metric_flagged', { ...metricContext, reason: 'low_confidence' })
-      results.push({ ...metric, status: 'flagged', reason: 'low_confidence' })
+    if (!confidenceCheck.passed) {
+      logWarn('metric_flagged', {
+        ...metricContext,
+        reason: 'low_confidence',
+        confidenceDiagnostics: confidenceCheck.diagnostics,
+      })
+      results.push({
+        ...metric,
+        status: 'flagged',
+        reason: 'low_confidence',
+        detail: { confidenceDiagnostics: confidenceCheck.diagnostics },
+      })
       continue
     }
+
+    const calibrationResolution = resolvePixelsPerYard(calibration, calibration)
 
     // Calculate based on type
     let metricValue: MetricValueResult = { value: null, reason: 'unsupported_calculation_type' }
@@ -457,19 +529,19 @@ async function calculateAllMetrics(
       case 'distance':
         metricValue = calculateDistance(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          calibration?.pixels_per_yard
+          calibrationResolution.pixelsPerYard
         )
         break
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 3, fps
+          mapping.temporal_window || 3, fps, calibrationResolution
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
           phaseFrames, personIndex, mapping.keypoint_indices,
-          mapping.temporal_window || 5, fps
+          mapping.temporal_window || 5, fps, calibrationResolution
         )
         break
       case 'frame_delta':
@@ -484,39 +556,53 @@ async function calculateAllMetrics(
       logWarn('metric_failed', {
         ...metricContext,
         reason: metricValue.reason || 'calculation_failed',
-        detail: metricValue.detail || null,
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
       })
       results.push({
         ...metric,
         status: 'failed',
         reason: metricValue.reason || 'calculation_failed',
-        detail: metricValue.detail,
+        detail: {
+          ...(metricValue.detail || {}),
+          confidenceDiagnostics: confidenceCheck.diagnostics,
+        },
       })
       continue
     }
 
     // Score the metric
-    const score = scoreMetric(metricValue.value, metric.eliteTarget, mapping.tolerance)
+    const score = scoreMetric(metricValue.value, metric.eliteTarget, metric.tolerance)
     logInfo('metric_scored', {
       ...metricContext,
       value: metricValue.value,
       eliteTarget: metric.eliteTarget,
-      tolerance: mapping.tolerance,
+      tolerance: metric.tolerance,
       score,
-      detail: metricValue.detail || null,
+      detail: {
+        ...(metricValue.detail || {}),
+        confidenceDiagnostics: confidenceCheck.diagnostics,
+      },
     })
 
     results.push({
       id: metric.id,
       name: metric.name,
       unit: metric.unit,
-       value: Math.round(metricValue.value * 100) / 100,
+      value: Math.round(metricValue.value * 100) / 100,
       elite_target: metric.eliteTarget,
-      tolerance: mapping.tolerance,
-       deviation: Math.abs(metricValue.value - metric.eliteTarget),
+      tolerance: metric.tolerance,
+      deviation: Math.abs(metricValue.value - metric.eliteTarget),
       score,
       weight: metric.weight,
-      status: 'scored'
+      status: 'scored',
+      detail: {
+        ...(metricValue.detail || {}),
+        confidenceDiagnostics: confidenceCheck.diagnostics,
+      },
+      keypoint_mapping: metric.keypoint_mapping,
     })
   }
 
@@ -555,7 +641,7 @@ function calculateAngle(frames: VideoKeypoints, personIdx: number, indices: numb
 // DISTANCE: Euclidean pixel distance converted to yards
 function calculateDistance(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], pixelsPerYard: number
+  indices: number[], pixelsPerYard: number | null
 ): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
   const kps = frames[midFrame]?.[personIdx]
@@ -583,7 +669,7 @@ function calculateDistance(
 // VELOCITY: displacement per frame × fps → mph
 function calculateVelocity(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], temporalWindow: number, fps: number
+  indices: number[], temporalWindow: number, fps: number, calibration: CalibrationResolution
 ): MetricValueResult {
   const window = frames.slice(0, Math.min(temporalWindow, frames.length))
   if (window.length < 2) {
@@ -595,6 +681,7 @@ function calculateVelocity(
   }
 
   const velocities: number[] = []
+  const rawPixelsPerSecond: number[] = []
   
   for (let f = 1; f < window.length; f++) {
     const prev = window[f-1]?.[personIdx]
@@ -613,28 +700,57 @@ function calculateVelocity(
     // pixels/frame × fps = pixels/second
     // pixels/second ÷ pixelsPerYard = yards/second
     // yards/second × 3600/1760 = mph (approx 2.045)
-    velocities.push(pixelDisp * fps)
+    const pixelsPerSecond = pixelDisp * fps
+    rawPixelsPerSecond.push(pixelsPerSecond)
+    const mph = pixelsPerSecondToMph(pixelsPerSecond, calibration.pixelsPerYard)
+    if (mph !== null) {
+      velocities.push(mph)
+    }
   }
 
-  if (velocities.length === 0) {
+  if (rawPixelsPerSecond.length === 0) {
     return {
       value: null,
       reason: 'no_velocity_samples',
       detail: { temporalWindow, indices, personIdx },
     }
   }
+
+  if (velocities.length === 0) {
+    return {
+      value: null,
+      reason: 'missing_calibration',
+      detail: {
+        temporalWindow,
+        indices,
+        personIdx,
+        sampleCount: rawPixelsPerSecond.length,
+        rawPixelsPerSecondAverage: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
+        pixelsPerYard: calibration.pixelsPerYard,
+        calibrationSource: calibration.calibrationSource,
+      },
+    }
+  }
+
+  const rawPixelsPerSecondAverage = rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length
   return {
     value: velocities.reduce((s, v) => s + v, 0) / velocities.length,
-    detail: { temporalWindow, indices, sampleCount: velocities.length, fps },
+    detail: {
+      temporalWindow,
+      indices,
+      sampleCount: velocities.length,
+      fps,
+      pixelsPerYard: calibration.pixelsPerYard,
+      calibrationSource: calibration.calibrationSource,
+      rawPixelsPerSecondAverage,
+    },
   }
-  // Note: This returns pixels/second — divide by pixelsPerYard × 2.045 for mph
-  // Edge Function should apply calibration conversion here
 }
 
 // ACCELERATION: velocity delta over temporal window
 function calculateAcceleration(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], temporalWindow: number, fps: number
+  indices: number[], temporalWindow: number, fps: number, calibration: CalibrationResolution
 ) : MetricValueResult {
   if (frames.length < temporalWindow) {
     return {
@@ -644,8 +760,8 @@ function calculateAcceleration(
     }
   }
   
-  const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps)
-  const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps)
+  const v1 = calculateVelocity(frames.slice(0, Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration)
+  const v2 = calculateVelocity(frames.slice(Math.floor(temporalWindow/2)), personIdx, indices, 3, fps, calibration)
   
   if (v1.value === null || v2.value === null) {
     return {
@@ -658,7 +774,16 @@ function calculateAcceleration(
   const timeSeconds = (temporalWindow / 2) / fps
   return {
     value: (v2.value - v1.value) / timeSeconds,
-    detail: { temporalWindow, timeSeconds, firstVelocity: v1.value, secondVelocity: v2.value },
+    detail: {
+      temporalWindow,
+      timeSeconds,
+      firstVelocity: v1.value,
+      secondVelocity: v2.value,
+      pixelsPerYard: calibration.pixelsPerYard,
+      calibrationSource: calibration.calibrationSource,
+      firstVelocityDetail: v1.detail,
+      secondVelocityDetail: v2.detail,
+    },
   }
 }
 
@@ -732,21 +857,83 @@ function getMidpoint(kps: PersonKeypoints, indices: number[]): Point | null {
 
 function checkConfidence(
   frames: VideoKeypoints, scores: VideoScores,
-  personIdx: number, indices: number[], threshold: number
-): boolean {
+  personIdx: number, indices: number[], metricName: string, threshold: number
+): ConfidenceCheckResult {
   let totalChecks = 0
   let passedChecks = 0
-  
-  for (const frameScores of scores) {
-    const personScores = frameScores[personIdx]
-    if (!personScores) continue
-    for (const idx of indices) {
-      totalChecks++
-      if ((personScores[idx] || 0) >= threshold) passedChecks++
-    }
+  let framesWithMissingKeypoints = 0
+  const perKeypointTotals: Record<number, number> = {}
+  const perKeypointCounts: Record<number, number> = {}
+
+  for (const index of indices) {
+    perKeypointTotals[index] = 0
+    perKeypointCounts[index] = 0
   }
   
-  return totalChecks === 0 || (passedChecks / totalChecks) >= 0.4
+  for (let frameIndex = 0; frameIndex < scores.length; frameIndex++) {
+    const frameScores = scores[frameIndex]
+    const personScores = frameScores[personIdx]
+    const frameKeypoints = frames[frameIndex]?.[personIdx]
+    let frameMissingKeypoint = false
+
+    if (!personScores || !frameKeypoints) {
+      framesWithMissingKeypoints++
+      continue
+    }
+
+    for (const idx of indices) {
+      totalChecks++
+      const score = personScores[idx] || 0
+      const keypoint = frameKeypoints[idx]
+      perKeypointTotals[idx] += score
+      perKeypointCounts[idx] += 1
+
+      if (!keypoint || keypoint[0] == null || keypoint[1] == null) {
+        frameMissingKeypoint = true
+      }
+
+      if (score >= threshold) passedChecks++
+    }
+
+    if (frameMissingKeypoint) {
+      framesWithMissingKeypoints++
+    }
+  }
+
+  const perKeypointAvgConfidence = Object.fromEntries(
+    Object.entries(perKeypointTotals).map(([idx, total]) => {
+      const count = perKeypointCounts[Number(idx)] || 0
+      return [idx, count > 0 ? total / count : 0]
+    })
+  ) as Record<string, number>
+
+  const lowestConfidenceEntry = Object.entries(perKeypointAvgConfidence).reduce<[string, number] | null>((lowest, entry) => {
+    if (!lowest || entry[1] < lowest[1]) return [entry[0], entry[1]]
+    return lowest
+  }, null)
+
+  const passRatio = totalChecks === 0 ? 1 : passedChecks / totalChecks
+  const diagnostics: ConfidenceDiagnostics = {
+    total_frames_in_window: frames.length,
+    total_keypoint_checks: totalChecks,
+    passed_checks: passedChecks,
+    pass_ratio: passRatio,
+    threshold: 0.4,
+    confidence_threshold: threshold,
+    per_keypoint_avg_confidence: perKeypointAvgConfidence,
+    lowest_confidence_keypoint: lowestConfidenceEntry ? Number(lowestConfidenceEntry[0]) : null,
+    frames_with_missing_keypoints: framesWithMissingKeypoints,
+  }
+
+  logInfo('metric_confidence_evaluated', {
+    metric_name: metricName,
+    ...diagnostics,
+  })
+
+  return {
+    passed: passRatio >= 0.4,
+    diagnostics,
+  }
 }
 
 function resolveBilateral(mapping: any, routeDirection: string): string {
