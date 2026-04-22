@@ -2409,16 +2409,18 @@ function ReferenceCalibrationEditor({
 
   const getCalibration = (angle: CameraAngle): ReferenceCalibration => {
     const existing = calibrations.find(c => c.camera_angle === angle);
-    if (existing) return existing;
+    if (existing) return { status: "supported", calibration_notes: "", ...existing };
     const defaults = DEFAULT_CALIBRATIONS[angle];
     return {
       camera_angle: angle,
+      status: angle === "sideline" ? "primary" : "supported",
       reference_object_name: defaults.reference_object_name ?? "",
       known_size_yards: defaults.known_size_yards ?? null,
       known_size_unit: defaults.known_size_yards ? "yards" : undefined,
       placement_instructions: defaults.placement_instructions ?? "",
       pixels_per_yard: null,
       filming_instructions: defaults.filming_instructions ?? "",
+      calibration_notes: "",
     };
   };
 
@@ -2476,6 +2478,42 @@ function ReferenceCalibrationEditor({
           />
         );
       })}
+
+      <div className={CARD_CLASS}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label className={LABEL_CLASS}>Skill-Specific Filming Notes</label>
+            <SectionTooltip tip="Primary filming guidance for this node. These notes override the generic fallback instructions shown below." />
+          </div>
+          <p className="text-on-surface-variant text-xs leading-relaxed">
+            Use this field for skill-specific setup instructions. Keep shared infrastructure generic and put node-specific guidance here.
+          </p>
+          <textarea
+            className={`${INPUT_CLASS} min-h-[120px] resize-y`}
+            value={skillSpecificFilmingNotes}
+            onChange={(e) => onSkillSpecificFilmingNotesChange(e.target.value)}
+            placeholder="Add node-specific filming guidance that should take priority over any generic fallback copy."
+          />
+        </div>
+      </div>
+
+      <div className={CARD_CLASS}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label className={LABEL_CLASS}>Generic Fallback Filming Instructions</label>
+            <SectionTooltip tip="Shared fallback guidance that remains available when no node-specific notes have been provided. Node-specific notes should override this copy." />
+          </div>
+          <p className="text-on-surface-variant text-xs leading-relaxed">
+            Keep this generic. Do not move skill-specific instructions here.
+          </p>
+          <textarea
+            className={`${INPUT_CLASS} min-h-[100px] resize-y`}
+            value={genericFallbackInstructions}
+            onChange={(e) => onGenericFallbackInstructionsChange(e.target.value)}
+            placeholder="Add generic fallback filming guidance used across nodes when no skill-specific notes are set."
+          />
+        </div>
+      </div>
 
       {/* Global fallback */}
       <div className="pt-2">
