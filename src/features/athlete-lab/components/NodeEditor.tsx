@@ -198,7 +198,7 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
   // Phase proportion weights must sum to 100 (only when using proportional segmentation)
   const segMethod = node.segmentation_method ?? "proportional";
   if (segMethod === "proportional" && node.phase_breakdown.length > 0) {
-    const totalWeight = node.phase_breakdown.reduce((s, p) => s + (p.weight ?? 0), 0);
+    const totalWeight = node.phase_breakdown.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
     if (totalWeight !== 100) {
       issues.push({ label: "Phases", detail: `Phase proportions must sum to 100% (currently ${totalWeight}%)` });
     }
@@ -1612,8 +1612,8 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  const [addDraft, setAddDraft] = useState<PhaseNote>({ id: crypto.randomUUID(), phase: "", notes: "", weight: 0 });
-  const [editDraft, setEditDraft] = useState<PhaseNote>({ id: "", phase: "", notes: "", weight: 0 });
+  const [addDraft, setAddDraft] = useState<PhaseNote>({ id: crypto.randomUUID(), name: "", description: "", proportion_weight: 0, sequence_order: phases.length + 1, frame_buffer: 3 });
+  const [editDraft, setEditDraft] = useState<PhaseNote>({ id: "", name: "", description: "", proportion_weight: 0, sequence_order: 1, frame_buffer: 3 });
 
   const handleDragStart = (idx: number) => { setDragIdx(idx); };
   const handleDragOver = (e: React.DragEvent, idx: number) => {
@@ -1622,7 +1622,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
     const next = [...phases];
     const [moved] = next.splice(dragIdx, 1);
     next.splice(idx, 0, moved);
-    onChange(next);
+    onChange(next.map((phase, order) => ({ ...phase, sequence_order: order + 1 })));
     setDragIdx(idx);
   };
   const handleDragEnd = () => { setDragIdx(null); };
@@ -1635,18 +1635,18 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
 
   const saveEdit = (i: number) => {
     const n = [...phases];
-    n[i] = ensureId(editDraft);
+    n[i] = { ...ensureId(editDraft), sequence_order: i + 1 };
     onChange(n);
     setEditIdx(null);
   };
 
   const handleAdd = () => {
-    onChange([...phases, ensureId(addDraft)]);
-    setAddDraft({ id: crypto.randomUUID(), phase: "", notes: "", weight: 0 });
+    onChange([...phases, { ...ensureId(addDraft), sequence_order: phases.length + 1 }]);
+    setAddDraft({ id: crypto.randomUUID(), name: "", description: "", proportion_weight: 0, sequence_order: phases.length + 2, frame_buffer: 3 });
     setAdding(false);
   };
 
-  const totalWeight = phases.reduce((s, p) => s + (p.weight ?? 0), 0);
+  const totalWeight = phases.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   const remaining = 100 - totalWeight;
   const isProportional = segmentationMethod === "proportional";
 
@@ -1658,7 +1658,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
             <label className={LABEL_CLASS}>Phase Name</label>
             <SectionTooltip tip="The name of this movement phase. Must be unique within this node. This name is used across Mechanics, Metrics, and the analysis pipeline — keep it short and descriptive." />
           </div>
-          <input className={INPUT_CLASS} value={p.phase} onChange={(e) => setP({ ...p, phase: e.target.value })} placeholder="e.g. Release" />
+          <input className={INPUT_CLASS} value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="e.g. Release" />
         </div>
         {isProportional && (
           <div className="w-24">
@@ -1667,7 +1667,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
               <SectionTooltip tip="The percentage of the video clip this phase occupies. All phases must sum to 100%." />
             </div>
             <div className="relative">
-              <input type="number" min={1} max={99} step={1} className={`${INPUT_CLASS} !pr-7 !text-right w-full`} value={p.weight != null && p.weight > 0 ? p.weight : ""} onChange={(e) => { const raw = e.target.value; const val = raw === "" ? 0 : Math.min(99, Math.max(0, Math.round(Number(raw)))); setP({ ...p, weight: val }); }} placeholder="—" />
+              <input type="number" min={1} max={99} step={1} className={`${INPUT_CLASS} !pr-7 !text-right w-full`} value={p.proportion_weight != null && p.proportion_weight > 0 ? p.proportion_weight : ""} onChange={(e) => { const raw = e.target.value; const val = raw === "" ? 0 : Math.min(99, Math.max(0, Math.round(Number(raw)))); setP({ ...p, proportion_weight: val }); }} placeholder="—" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xs">%</span>
             </div>
           </div>
@@ -1678,7 +1678,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
           <label className={LABEL_CLASS}>Phase Description</label>
           <SectionTooltip tip="A brief coaching description of what happens in this phase. Used as context by the AI feedback engine." />
         </div>
-        <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.notes} onChange={(e) => setP({ ...p, notes: e.target.value })} placeholder="e.g. Athlete pushes off the line with initial burst..." />
+        <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} placeholder="e.g. Athlete pushes off the line with initial burst..." />
       </div>
       <div>
         <div className="flex items-center gap-1 mb-2">
@@ -1746,14 +1746,14 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>drag_indicator</span>
                 </span>
                 <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center shrink-0">{i + 1}</span>
-                <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{p.phase || "Untitled Phase"}</p>
-                {isProportional && <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{p.weight ?? 0}%</span>}
+                 <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{p.name || "Untitled Phase"}</p>
+                 {isProportional && <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{p.proportion_weight ?? 0}%</span>}
                 <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{p.frame_buffer ?? 3} frames</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
                   </button>
-                  <button onClick={() => { const phaseName = p.phase || `Phase ${i + 1}`; onConfirmDelete({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i)); setEditIdx(null); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
+                   <button onClick={() => { const phaseName = p.name || `Phase ${i + 1}`; onConfirmDelete({ title: "Delete Phase?", body: `Deleting ${phaseName} will remove it from the pipeline and unlink any Mechanics sections connected to it. This cannot be undone.`, confirmLabel: "Delete Phase", onConfirm: () => { onChange(phases.filter((_, j) => j !== i).map((phase, order) => ({ ...phase, sequence_order: order + 1 }))); setEditIdx(null); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
                   </button>
                 </div>
@@ -1769,7 +1769,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
           {renderFields(addDraft, setAddDraft)}
           <div className="flex gap-2 pt-2">
             <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setAddDraft({ id: crypto.randomUUID(), phase: "", notes: "", weight: 0 }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+             <button onClick={() => { setAdding(false); setAddDraft({ id: crypto.randomUUID(), name: "", description: "", proportion_weight: 0, sequence_order: phases.length + 1, frame_buffer: 3 }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
           </div>
         </div>
       ) : (
