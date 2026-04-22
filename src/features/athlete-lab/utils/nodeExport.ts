@@ -190,8 +190,9 @@ function generateReference(node: TrainingNode): string {
     const cal = cals.find(c => c.camera_angle === angle.key);
     const calibrated = cal && cal.pixels_per_yard && cal.pixels_per_yard > 0;
     const status = calibrated ? "✅ Calibrated" : "⬜ Not Calibrated";
+    const supportStatus = cal?.status ? cal.status.replace(/_/g, " ") : "supported";
     const knownSize = cal?.known_size_yards != null ? `${cal.known_size_yards} ${cal.known_size_unit || "yards"}` : "Not set";
-    out += `\n### ${angle.label} ${status}\nReference Object: ${cal?.reference_object_name || "Not configured"}\nKnown Size: ${knownSize}\nPixels Per Yard: ${cal?.pixels_per_yard ?? "Not set"}\nPlacement Instructions: ${cal?.placement_instructions?.trim() || "Not configured"}\nFilming Instructions: ${cal?.filming_instructions?.trim() || "Not configured"}\n`;
+    out += `\n### ${angle.label} ${status}\nSupport Status: ${supportStatus}\nReference Object: ${cal?.reference_object_name || "Not configured"}\nKnown Size: ${knownSize}\nPixels Per Yard: ${cal?.pixels_per_yard ?? "Not set"}\nPlacement Instructions: ${cal?.placement_instructions?.trim() || "Not configured"}\nGeneric Fallback Angle Instructions: ${cal?.filming_instructions?.trim() || "Not configured"}\nCalibration Notes: ${cal?.calibration_notes?.trim() || "Not configured"}\n`;
   }
 
   return out;
@@ -229,7 +230,7 @@ function generateCamera(node: TrainingNode): string {
     }
   }
 
-  out += `\nAthlete Filming Instructions:\n${cam.camera_filming_instructions?.trim() || "Not configured"}`;
+  out += `\nSkill-Specific Filming Notes:\n${cam.skill_specific_filming_notes?.trim() || "Not configured"}\n\nGeneric Camera Fallback Instructions:\n${cam.camera_filming_instructions?.trim() || "Not configured"}`;
   return out;
 }
 
