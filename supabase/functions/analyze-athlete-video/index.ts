@@ -746,7 +746,7 @@ function checkConfidence(
     }
   }
   
-  return totalChecks === 0 || (passedChecks / totalChecks) >= 0.6
+  return totalChecks === 0 || (passedChecks / totalChecks) >= 0.4
 }
 
 function resolveBilateral(mapping: any, routeDirection: string): string {
@@ -914,23 +914,93 @@ async function callClaude(
     prompt = prompt.replaceAll(`{{${key}}}`, value as string)
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500,
-      system: nodeConfig.llm_system_instructions || '',
-      messages: [{ role: 'user', content: prompt }]
-    })
+  logInfo('claude_request_prepared', {
+    uploadId: upload.id,
+    nodeId: nodeConfig.id,
+    nodeName: nodeConfig.name,
+    promptLength: prompt.length,
+    promptPreview: prompt.slice(0, 500),
   })
 
-  const data = await response.json()
-  return data.content?.[0]?.text || ''
+  let response: Response
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500,
+        system: nodeConfig.llm_system_instructions || '',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    })
+  } catch (error) {
+    logWarn('claude_request_failed', {
+      uploadId: upload.id,
+      nodeId: nodeConfig.id,
+      nodeName: nodeConfig.name,
+      error: (error as Error).message,
+    })
+    throw error
+  }
+
+  const rawResponseText = await response.text()
+  logInfo('claude_response_received', {
+    uploadId: upload.id,
+    nodeId: nodeConfig.id,
+    nodeName: nodeConfig.name,
+    status: response.status,
+    ok: response.ok,
+    rawResponse: rawResponseText.slice(0, 4000),
+    rawResponseLength: rawResponseText.length,
+  })
+
+  let data: Record<string, unknown>
+  try {
+    data = JSON.parse(rawResponseText) as Record<string, unknown>
+  } catch (error) {
+    logWarn('claude_response_parse_failed', {
+      uploadId: upload.id,
+      nodeId: nodeConfig.id,
+      nodeName: nodeConfig.name,
+      error: (error as Error).message,
+      rawResponse: rawResponseText.slice(0, 4000),
+    })
+    throw new Error(`Claude response parse failed: ${(error as Error).message}`)
+  }
+
+  if (!response.ok) {
+    logWarn('claude_request_failed', {
+      uploadId: upload.id,
+      nodeId: nodeConfig.id,
+      nodeName: nodeConfig.name,
+      status: response.status,
+      rawResponse: rawResponseText.slice(0, 4000),
+    })
+    throw new Error(`Claude request failed: ${response.status}`)
+  }
+
+  const content = Array.isArray(data.content) ? data.content : []
+  const firstBlock = content[0]
+  const feedback =
+    firstBlock && typeof firstBlock === 'object' && typeof (firstBlock as { text?: unknown }).text === 'string'
+      ? (firstBlock as { text: string }).text
+      : ''
+
+  if (!feedback) {
+    logWarn('claude_response_empty', {
+      uploadId: upload.id,
+      nodeId: nodeConfig.id,
+      nodeName: nodeConfig.name,
+      rawResponse: rawResponseText.slice(0, 4000),
+    })
+  }
+
+  return feedback
 }
 
 async function callCloudRun(payload: {
@@ -995,7 +1065,7 @@ async function writeResults(
     .insert({
       athlete_id: upload.athlete_id,
       node_id: upload.node_id,
-      node_version: upload.node_version,
+      node_version: nodeConfig.node_version,
       aggregate_score: scoreResult.aggregate_score,
       phase_scores: scoreResult.phase_scores,
       metric_results: metricResults,
