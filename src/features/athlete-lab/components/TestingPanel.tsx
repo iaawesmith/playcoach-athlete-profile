@@ -15,6 +15,7 @@ type PeopleOption = "solo" | "with_defender" | "multiple";
 type RouteDirectionOption = "left" | "right" | "both";
 type CatchOption = "yes" | "no" | "partial";
 type AthleteLevelOption = "youth" | "high_school" | "college" | "professional";
+type MeasurementUnit = "inches" | "cm";
 
 function RadioPills({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: readonly { value: string; label: string }[] }) {
   return (
@@ -56,6 +57,10 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [catchStatus, setCatchStatus] = useState<CatchOption>("yes");
   const [athleteLevel, setAthleteLevel] = useState<AthleteLevelOption>("high_school");
   const [focusArea, setFocusArea] = useState("");
+  const [athleteHeight, setAthleteHeight] = useState("");
+  const [athleteHeightUnit, setAthleteHeightUnit] = useState<MeasurementUnit>("inches");
+  const [athleteWingspan, setAthleteWingspan] = useState("");
+  const [athleteWingspanUnit, setAthleteWingspanUnit] = useState<MeasurementUnit>("inches");
   const [contextCopied, setContextCopied] = useState(false);
 
   const handleFileSelect = (file: File) => {
@@ -125,15 +130,34 @@ export function TestingPanel({ node }: TestingPanelProps) {
     return "#ef4444";
   };
 
-  const buildContext = (): AnalysisContext => ({
-    camera_angle: cameraAngle,
-    people_in_video: peopleInVideo,
-    route_direction: routeDirection,
-    catch_included: catchStatus !== "no",
-    catch_status: catchStatus,
-    athlete_level: athleteLevel,
-    focus_area: focusArea.trim(),
-  });
+  const buildContext = (): AnalysisContext => {
+    const parsedHeight = athleteHeight.trim() ? Number(athleteHeight) : Number.NaN;
+    const parsedWingspan = athleteWingspan.trim() ? Number(athleteWingspan) : Number.NaN;
+
+    // Temporary per-test inputs for admin workflows.
+    // When athlete onboarding is built, these values should auto-populate from the athlete profile.
+    return {
+      camera_angle: cameraAngle,
+      people_in_video: peopleInVideo,
+      route_direction: routeDirection,
+      catch_included: catchStatus !== "no",
+      catch_status: catchStatus,
+      athlete_level: athleteLevel,
+      focus_area: focusArea.trim(),
+      ...(Number.isFinite(parsedHeight) ? {
+        athlete_height: {
+          value: parsedHeight,
+          unit: athleteHeightUnit,
+        },
+      } : {}),
+      ...(Number.isFinite(parsedWingspan) ? {
+        athlete_wingspan: {
+          value: parsedWingspan,
+          unit: athleteWingspanUnit,
+        },
+      } : {}),
+    };
+  };
 
   const copyContext = () => {
     const cameraLabel: Record<CameraAngleOption, string> = { sideline: "Sideline", behind_qb: "Behind QB", endzone: "Endzone", other: "Other" };
@@ -142,7 +166,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     const catchLabel: Record<CatchOption, string> = { yes: "Yes", no: "No", partial: "Partial" };
     const levelLabel: Record<AthleteLevelOption, string> = { youth: "Youth (Under 14)", high_school: "High School", college: "College", professional: "Professional" };
 
-    const text = `# Analysis Context\nCamera Angle: ${cameraLabel[cameraAngle]}\nPeople in Video: ${peopleLabel[peopleInVideo]}\nRoute Direction: ${routeLabel[routeDirection]}\nCatch Included: ${catchLabel[catchStatus]}\nAthlete Level: ${levelLabel[athleteLevel]}\nFocus Area: ${focusArea.trim() || "Not specified"}`;
+    const text = `# Analysis Context\nCamera Angle: ${cameraLabel[cameraAngle]}\nPeople in Video: ${peopleLabel[peopleInVideo]}\nRoute Direction: ${routeLabel[routeDirection]}\nCatch Included: ${catchLabel[catchStatus]}\nAthlete Level: ${levelLabel[athleteLevel]}\nAthlete Height: ${athleteHeight.trim() ? `${athleteHeight.trim()} ${athleteHeightUnit}` : "Not provided"}\nAthlete Wingspan: ${athleteWingspan.trim() ? `${athleteWingspan.trim()} ${athleteWingspanUnit}` : "Not provided"}\nFocus Area: ${focusArea.trim() || "Not specified"}`;
     navigator.clipboard.writeText(text);
     setContextCopied(true);
     setTimeout(() => setContextCopied(false), 1500);
@@ -249,6 +273,63 @@ export function TestingPanel({ node }: TestingPanelProps) {
               <div className="flex items-center justify-between mt-1.5">
                 <p className="text-on-surface-variant/50 text-[10px]">Used by: Passed to Claude as additional coaching context</p>
                 <span className="text-on-surface-variant/30 text-[10px]">{focusArea.length}/100</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl bg-surface-container-high/60 p-4">
+              <div>
+                <p className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em]">Body Calibration</p>
+                <p className="mt-1 text-on-surface-variant/50 text-[10px]">If both fields are left blank, body-based calibration is unavailable for this test.</p>
+              </div>
+
+              <div>
+                <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Athlete Height</label>
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.1"
+                    value={athleteHeight}
+                    onChange={(e) => setAthleteHeight(e.target.value)}
+                    placeholder="70"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors"
+                  />
+                  <select
+                    value={athleteHeightUnit}
+                    onChange={(e) => setAthleteHeightUnit(e.target.value as MeasurementUnit)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary-container/50 transition-colors appearance-none"
+                  >
+                    <option value="inches">Inches</option>
+                    <option value="cm">CM</option>
+                  </select>
+                </div>
+                <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Future body-based calibration for distance metrics.</p>
+              </div>
+
+              <div>
+                <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Athlete Wingspan <span className="text-on-surface-variant/30">(Optional)</span></label>
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.1"
+                    value={athleteWingspan}
+                    onChange={(e) => setAthleteWingspan(e.target.value)}
+                    placeholder="72"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors"
+                  />
+                  <select
+                    value={athleteWingspanUnit}
+                    onChange={(e) => setAthleteWingspanUnit(e.target.value as MeasurementUnit)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary-container/50 transition-colors appearance-none"
+                  >
+                    <option value="inches">Inches</option>
+                    <option value="cm">CM</option>
+                  </select>
+                </div>
+                <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Optional precision boost for future body-based calibration.</p>
               </div>
             </div>
           </div>
