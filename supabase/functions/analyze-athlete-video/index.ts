@@ -932,7 +932,7 @@ async function callClaude(
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500,
         system: nodeConfig.llm_system_instructions || '',
         messages: [{ role: 'user', content: prompt }]
