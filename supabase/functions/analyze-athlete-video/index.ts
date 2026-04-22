@@ -8,6 +8,31 @@ const supabase = createClient(
 const RTMLIB_FALLBACK =
   'https://rtmlib-service-874407535869.us-central1.run.app'
 
+type JsonRecord = Record<string, unknown>
+
+type MetricValueResult = {
+  value: number | null
+  reason?: string
+  detail?: JsonRecord
+}
+
+function logInfo(event: string, details: JsonRecord = {}) {
+  console.info(JSON.stringify({ level: 'info', event, ...details }))
+}
+
+function logWarn(event: string, details: JsonRecord = {}) {
+  console.warn(JSON.stringify({ level: 'warn', event, ...details }))
+}
+
+function summarizePersonCount(keypoints: number[][][]): { firstFrame: number; maxAcrossFrames: number } {
+  const firstFrame = keypoints[0]?.length || 0
+  const maxAcrossFrames = keypoints.reduce((maxCount, frame) => {
+    return Math.max(maxCount, frame?.length || 0)
+  }, 0)
+
+  return { firstFrame, maxAcrossFrames }
+}
+
 Deno.serve(async (req) => {
   let uploadId: string | null = null
 
@@ -19,23 +44,52 @@ Deno.serve(async (req) => {
     }
     uploadId = upload.id
 
+    logInfo('pipeline_started', {
+      uploadId,
+      nodeId: upload.node_id,
+      athleteId: upload.athlete_id,
+      videoUrlPresent: Boolean(upload.video_url),
+      startSeconds: upload.start_seconds,
+      endSeconds: upload.end_seconds,
+    })
+
     // Update status to processing immediately
     await updateUploadStatus(upload.id, 'processing')
 
     // STEP 1: Fetch full node config
     const nodeConfig = await fetchNodeConfig(upload.node_id)
+    logInfo('node_config_loaded', {
+      uploadId,
+      nodeId: nodeConfig.id,
+      nodeName: nodeConfig.name,
+      nodeVersion: nodeConfig.node_version,
+      metricCount: Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics.length : 0,
+      phaseCount: Array.isArray(nodeConfig.phase_breakdown) ? nodeConfig.phase_breakdown.length : 0,
+    })
 
     // STEP 2: Pre-flight validation
     const preflightResult = await runPreflight(upload, nodeConfig)
     if (!preflightResult.passed) {
+      logWarn('preflight_failed', { uploadId, reason: preflightResult.reason })
       await updateUploadStatus(upload.id, 'failed', preflightResult.reason)
       return new Response(JSON.stringify({ error: preflightResult.reason }), { status: 400 })
     }
+    logInfo('preflight_passed', { uploadId })
 
     // STEP 3: Select analysis context settings
     const context = upload.analysis_context || {}
     const detFrequency = selectDetFrequency(nodeConfig, context.people_in_video)
     const calibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
+    logInfo('analysis_context_selected', {
+      uploadId,
+      peopleInVideo: context.people_in_video || 'unknown',
+      routeDirection: context.route_direction || 'unknown',
+      cameraAngle: context.camera_angle || upload.camera_angle || 'unknown',
+      catchIncluded: context.catch_included !== false,
+      detFrequency,
+      hasCalibration: Boolean(calibration),
+      pixelsPerYard: calibration?.pixels_per_yard ?? null,
+    })
 
     // STEP 4: Call Cloud Run rtmlib service
     const rtmlibResult = await callCloudRun({
@@ -47,6 +101,14 @@ Deno.serve(async (req) => {
       det_frequency: detFrequency,
       tracking_enabled: nodeConfig.tracking_enabled
     })
+    const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
+    logInfo('cloud_run_response_received', {
+      uploadId,
+      frameCount: rtmlibResult.frame_count,
+      fps: rtmlibResult.fps,
+      firstFramePersonCount: personCountSummary.firstFrame,
+      maxFramePersonCount: personCountSummary.maxAcrossFrames,
+    })
 
     // STEP 5: Apply temporal smoothing to keypoints
     const smoothedKeypoints = applyTemporalSmoothing(rtmlibResult.keypoints)
@@ -57,6 +119,11 @@ Deno.serve(async (req) => {
       rtmlibResult.keypoints,
       context.people_in_video
     )
+    logInfo('target_person_locked', {
+      uploadId,
+      targetPersonIndex,
+      peopleInVideo: context.people_in_video || 'unknown',
+    })
 
     // STEP 7: Divide frames into phase windows
     const phaseWindows = buildPhaseWindows(
@@ -73,8 +140,17 @@ Deno.serve(async (req) => {
       targetPersonIndex,
       calibration,
       context,
-      rtmlibResult.fps
+      rtmlibResult.fps,
+      uploadId
     )
+    logInfo('metric_calculation_complete', {
+      uploadId,
+      totalMetrics: metricResults.length,
+      scored: metricResults.filter((metric) => metric.status === 'scored').length,
+      flagged: metricResults.filter((metric) => metric.status === 'flagged').length,
+      skipped: metricResults.filter((metric) => metric.status === 'skipped').length,
+      failed: metricResults.filter((metric) => metric.status === 'failed').length,
+    })
 
     // STEP 9: Calculate aggregate score
     const scoreResult = calculateAggregateScore(
@@ -88,12 +164,22 @@ Deno.serve(async (req) => {
 
     // STEP 11: Call Claude API
     const feedback = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+    logInfo('claude_feedback_received', {
+      uploadId,
+      feedbackLength: feedback.length,
+    })
 
     // STEP 12: Write results
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback)
+    logInfo('results_written', {
+      uploadId,
+      aggregateScore: scoreResult.aggregate_score,
+      detectedErrors: errorResults.detected.length,
+    })
 
     // STEP 13: Update status to complete
     await updateUploadStatus(upload.id, 'complete')
+    logInfo('pipeline_completed', { uploadId, status: 'complete' })
 
     return new Response(JSON.stringify({ success: true }), { status: 200 })
 
