@@ -1900,7 +1900,7 @@ function MechanicsEditor({ value, onChange, phases, metrics, onConfirmDelete }: 
   const getPhaseNameById = (phaseId: string | null): string | null => {
     if (!phaseId) return null;
     const phase = phases.find(p => p.id === phaseId);
-    return phase ? phase.phase : null;
+    return phase ? phase.name : null;
   };
 
   return (
@@ -1950,11 +1950,11 @@ function MechanicsEditor({ value, onChange, phases, metrics, onConfirmDelete }: 
                     onChange={(e) => linkSection(idx, e.target.value)}
                   >
                     <option value="" disabled>Select a phase…</option>
-                    {phases.filter(p => p.id && p.phase.trim()).map(p => {
+                    {phases.filter(p => p.id && p.name.trim()).map(p => {
                       const alreadyLinked = linkedPhaseIds.has(p.id!);
                       return (
                         <option key={p.id} value={p.id!} disabled={alreadyLinked}>
-                          {p.phase}{alreadyLinked ? " (already linked)" : ""}
+                          {p.name}{alreadyLinked ? " (already linked)" : ""}
                         </option>
                       );
                     })}
@@ -1962,7 +1962,7 @@ function MechanicsEditor({ value, onChange, phases, metrics, onConfirmDelete }: 
                 )}
               </div>
 
-              <button onClick={() => { const linkedPhase = phases.find(p => p.id === sec.phase_id); const secName = linkedPhase?.phase || `Section ${idx + 1}`; onConfirmDelete({ title: "Delete Mechanics Section?", body: `Deleting ${secName} will remove all coaching cues in this section. This cannot be undone.`, confirmLabel: "Delete Section", onConfirm: () => { removeSection(idx); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
+               <button onClick={() => { const linkedPhase = phases.find(p => p.id === sec.phase_id); const secName = linkedPhase?.name || `Section ${idx + 1}`; onConfirmDelete({ title: "Delete Mechanics Section?", body: `Deleting ${secName} will remove all coaching cues in this section. This cannot be undone.`, confirmLabel: "Delete Section", onConfirm: () => { removeSection(idx); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
               </button>
             </div>
@@ -2105,7 +2105,7 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
 
   readiness.push({ label: "At least 4 phases defined", ok: node.phase_breakdown.length >= 4, detail: `${node.phase_breakdown.length} phases`, tab: "phases" });
   const segMethod = node.segmentation_method ?? "proportional";
-  const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.weight ?? 0), 0);
+  const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   readiness.push({ label: "Phase weights sum to 100%", ok: segMethod !== "proportional" || phaseWeightSum === 100, detail: segMethod === "proportional" ? `${phaseWeightSum}%` : "N/A (checkpoint)", tab: "phases" });
 
   const hasVideos = node.elite_videos.some(v => v.url?.trim());
