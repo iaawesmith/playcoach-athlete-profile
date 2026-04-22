@@ -363,33 +363,171 @@ function selectCalibration(nodeConfig: any, cameraAngle: string) {
   return match || calibrations[0] || null
 }
 
-function resolvePixelsPerYard(runtimeCalibration: CalibrationLike | null, nodeCalibration: CalibrationLike | null): CalibrationResolution {
-  const runtimePixelsPerYard = typeof runtimeCalibration?.pixels_per_yard === 'number' && runtimeCalibration.pixels_per_yard > 0
-    ? runtimeCalibration.pixels_per_yard
-    : null
+function getAthleteHeightMeasurement(context: JsonRecord): AthleteHeightMeasurement | undefined {
+  const athleteHeight = context.athlete_height
+  if (!athleteHeight || typeof athleteHeight !== 'object') return undefined
 
-  if (runtimePixelsPerYard !== null) {
-    return {
-      pixelsPerYard: runtimePixelsPerYard,
-      calibrationSource: 'cloud_run_calibration',
-    }
+  const heightRecord = athleteHeight as JsonRecord
+  const value = heightRecord.value
+  const unit = heightRecord.unit
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || (unit !== 'inches' && unit !== 'cm')) {
+    return undefined
   }
 
-  const fallbackPixelsPerYard = typeof nodeCalibration?.pixels_per_yard === 'number' && nodeCalibration.pixels_per_yard > 0
-    ? nodeCalibration.pixels_per_yard
-    : null
+  return { value, unit }
+}
 
-  if (fallbackPixelsPerYard !== null) {
-    return {
-      pixelsPerYard: fallbackPixelsPerYard,
-      calibrationSource: 'node_reference_fallback',
-    }
-  }
-
+function isolateTrackedPersonFrames(
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
+  personIndex: number,
+): { keypoints: VideoKeypoints; scores: VideoScores } {
   return {
-    pixelsPerYard: null,
-    calibrationSource: 'missing_calibration',
+    keypoints: keypoints.map((frame) => {
+      const person = frame?.[personIndex]
+      return person ? [person] : []
+    }),
+    scores: scores.map((frame) => {
+      const person = frame?.[personIndex]
+      return person ? [person] : []
+    }),
   }
+}
+
+function getPixelsPerYardValue(calibration: CalibrationLike | CloudRunCalibrationInput | null): number | null {
+  const camelValue = calibration?.pixelsPerYard
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue) && camelValue > 0) return camelValue
+
+  const snakeValue = calibration?.pixels_per_yard
+  if (typeof snakeValue === 'number' && Number.isFinite(snakeValue) && snakeValue > 0) return snakeValue
+
+  return null
+}
+
+function getCalibrationConfidenceLabel(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.calibrationConfidence
+  if (typeof camelValue === 'string' && camelValue.length > 0) return camelValue
+
+  const snakeValue = calibration.calibration_confidence
+  if (typeof snakeValue === 'string' && snakeValue.length > 0) return snakeValue
+
+  return null
+}
+
+function getCalibrationMetricDetail(calibration: ResolvedCalibration): JsonRecord {
+  return {
+    calibrationSource: calibration.source,
+    calibrationConfidence: calibration.confidence,
+    calibrationDetails: calibration.details,
+  }
+}
+
+function resolveCalibration(
+  cloudRunCalibration: CloudRunCalibrationInput,
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
+  athleteHeight: AthleteHeightMeasurement | undefined,
+  nodeConfig: any,
+  cameraAngle: string,
+): ResolvedCalibration {
+  const dynamicPixelsPerYard = getPixelsPerYardValue(cloudRunCalibration)
+  const dynamicConfidence = getCalibrationConfidenceLabel(cloudRunCalibration)
+
+  if (dynamicPixelsPerYard !== null && dynamicConfidence === 'dynamic') {
+    const resolved = {
+      pixelsPerYard: dynamicPixelsPerYard,
+      source: 'dynamic' as const,
+      confidence: 1,
+      reason: 'cloud_run_dynamic_calibration',
+      details: {
+        pixelsPerYard: dynamicPixelsPerYard,
+        calibrationConfidence: dynamicConfidence,
+      },
+    }
+    logInfo('calibration_resolved', resolved)
+    return resolved
+  }
+
+  const dynamicFailureReason = dynamicPixelsPerYard === null
+    ? 'dynamic_pixels_per_yard_unavailable'
+    : `dynamic_confidence_${dynamicConfidence || 'missing'}`
+
+  if (athleteHeight) {
+    logInfo('calibration_source_fallback', {
+      from: 'dynamic',
+      to: 'body_based',
+      reason: dynamicFailureReason,
+    })
+
+    const bodyBasedCalibration = calculateBodyBasedCalibration(keypoints, scores, athleteHeight)
+    if (bodyBasedCalibration.pixelsPerYard !== null && bodyBasedCalibration.confidence >= 0.3) {
+      const resolved = {
+        pixelsPerYard: bodyBasedCalibration.pixelsPerYard,
+        source: 'body_based' as const,
+        confidence: bodyBasedCalibration.confidence,
+        reason: 'body_based_calibration_accepted',
+        details: {
+          method: bodyBasedCalibration.method,
+          ...bodyBasedCalibration.details,
+        },
+      }
+      logInfo('calibration_resolved', resolved)
+      return resolved
+    }
+
+    logInfo('calibration_source_fallback', {
+      from: 'body_based',
+      to: 'static',
+      reason: bodyBasedCalibration.pixelsPerYard === null
+        ? 'body_based_confidence_below_threshold'
+        : 'body_based_calibration_unusable',
+    })
+  } else {
+    logInfo('calibration_source_fallback', {
+      from: 'dynamic',
+      to: 'static',
+      reason: `${dynamicFailureReason}_and_no_athlete_height`,
+    })
+  }
+
+  const staticCalibration = selectCalibration(nodeConfig, cameraAngle)
+  const staticPixelsPerYard = getPixelsPerYardValue(staticCalibration)
+  if (staticPixelsPerYard !== null) {
+    const resolved = {
+      pixelsPerYard: staticPixelsPerYard,
+      source: 'static' as const,
+      confidence: 0.45,
+      reason: 'node_reference_calibration',
+      details: {
+        cameraAngle,
+        matchedCalibration: staticCalibration ?? {},
+      },
+    }
+    logInfo('calibration_resolved', resolved)
+    return resolved
+  }
+
+  logInfo('calibration_source_fallback', {
+    from: athleteHeight ? 'static' : 'dynamic',
+    to: 'none',
+    reason: 'no_valid_static_calibration',
+  })
+
+  const resolved = {
+    pixelsPerYard: null,
+    source: 'none' as const,
+    confidence: 0,
+    reason: 'no_calibration_available',
+    details: {
+      dynamicFailureReason,
+      athleteHeightProvided: Boolean(athleteHeight),
+      staticCalibrationFound: Boolean(staticCalibration),
+      cameraAngle,
+    },
+  }
+  logInfo('calibration_resolved', resolved)
+  return resolved
 }
 
 function convertHeightToYards(height: AthleteHeightMeasurement): number | null {
