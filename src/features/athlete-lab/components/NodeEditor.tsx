@@ -2395,6 +2395,10 @@ function ReferenceCalibrationEditor({
   eliteVideos: EliteVideo[];
 }) {
   const [collapsed, setCollapsed] = useState<Set<CameraAngle>>(new Set(["behind_qb", "endzone"]));
+  const fallbackNotes = useMemo(() => {
+    const parsed = parseCameraSettings(JSON.stringify({ skill_specific_filming_notes: skillSpecificFilmingNotes }));
+    return parsed.skill_specific_filming_notes ?? "";
+  }, [skillSpecificFilmingNotes]);
 
   if (solutionClass === "wholebody3d") {
     return (
@@ -2490,7 +2494,7 @@ function ReferenceCalibrationEditor({
           </p>
           <textarea
             className={`${INPUT_CLASS} min-h-[120px] resize-y`}
-            value={skillSpecificFilmingNotes}
+            value={fallbackNotes || skillSpecificFilmingNotes}
             onChange={(e) => onSkillSpecificFilmingNotesChange(e.target.value)}
             placeholder="Add node-specific filming guidance that should take priority over any generic fallback copy."
           />
