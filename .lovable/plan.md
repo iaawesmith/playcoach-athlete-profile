@@ -1,126 +1,88 @@
 
-Apply the three requested fixes in `supabase/functions/analyze-athlete-video/index.ts`, redeploy the function, then rerun the same Slant Route end-to-end test with a 240-second operational wait window and inspect the resulting logs and database rows.
+Update the Claude model alias in `supabase/functions/analyze-athlete-video/index.ts`, redeploy the function, then rerun the same Slant Route end-to-end pipeline and verify Claude feedback now completes successfully.
 
-### Confirmed audit results
+### Confirmed code audit results
 
-- `writeResults()` currently inserts:
-  - `node_version: upload.node_version`
-- `checkConfidence()` currently requires:
-  - `(passedChecks / totalChecks) >= 0.6`
-- `callClaude()` currently:
-  - builds the prompt
-  - sends it to Anthropic
-  - returns `data.content?.[0]?.text || ''`
-  - does not log prompt preview, raw response, or parse/JSON failure details
-- `callCloudRun()` still has no manual fetch timeout or `AbortController`
-- `supabase/config.toml` still has no explicit timeout override for `analyze-athlete-video`
-- The 240-second wait is an operational rerun budget, not a frontend code constant found in the repo
+- In `callClaude()` the request body currently sends:
+  ```ts
+  model: 'claude-sonnet-4-20250514'
+  ```
+- The Claude diagnostic logging added earlier is already present, including:
+  - `claude_request_prepared`
+  - `claude_response_received`
+  - `claude_response_parse_failed`
+  - `claude_request_failed`
+  - `claude_response_empty`
+- `supabase/config.toml` contains:
+  ```toml
+  [functions.analyze-athlete-video]
+  verify_jwt = false
+  ```
+  and no repo-level timeout override.
+- `TestingPanel.tsx` does not contain a hardcoded 120s/240s pipeline timeout; the longer wait is an operational rerun budget, not a UI constant.
 
-### Code changes to make
+### Exact code change
 
-#### Fix 1 — node_version write-path
-In `writeResults()` change:
+In `supabase/functions/analyze-athlete-video/index.ts`, inside `callClaude()`, change:
+
 ```ts
-node_version: upload.node_version,
+model: 'claude-sonnet-4-20250514'
 ```
+
 to:
+
 ```ts
-node_version: nodeConfig.node_version,
+model: 'claude-sonnet-4-5'
 ```
 
 Result:
-- the results row records the version of the node that actually executed analysis
+- the function uses Anthropic’s current Sonnet 4.5 alias instead of the outdated date-stamped identifier that is returning 404
 
-#### Fix 2 — lower confidence pass ratio
-In `checkConfidence()` change:
-```ts
-return totalChecks === 0 || (passedChecks / totalChecks) >= 0.6
-```
-to:
-```ts
-return totalChecks === 0 || (passedChecks / totalChecks) >= 0.4
-```
+### Deployment and verification plan
 
-Result:
-- metrics will pass confidence gating when at least 40% of keypoint checks meet threshold
+#### Step 1 — apply the model ID fix
+Update only the Claude model identifier in `callClaude()` and leave the existing request/diagnostic logging intact.
 
-#### Fix 3 — Claude diagnostic logging
-Enhance `callClaude()` with structured logs for:
-- prompt preview:
-  - first 500 chars
-  - prompt length
-  - node name / upload id if available
-- raw Claude HTTP outcome:
-  - response status
-  - response body text or parsed object
-- parse handling:
-  - explicit logging for invalid JSON / unexpected response structure
-- empty feedback cases:
-  - log when API succeeds but extracted text is empty
+#### Step 2 — redeploy `analyze-athlete-video`
+Redeploy the edge function so the alias change is live.
 
-Planned logging events:
-- `claude_request_prepared`
-- `claude_response_received`
-- `claude_response_parse_failed`
-- `claude_response_empty`
-- `claude_request_failed`
-
-Important detail:
-- keep logs structured and truncated so they are diagnostic without flooding excessively
-- use preview/truncation for the prompt rather than dumping unlimited text
-
-### Deployment and test execution plan
-
-#### Step 1 — update and redeploy the edge function
-After editing `supabase/functions/analyze-athlete-video/index.ts`:
-- deploy `analyze-athlete-video`
-- keep existing function config unless deployment/runtime inspection proves a backend timeout change is required
-
-#### Step 2 — run the same end-to-end pipeline test
-Use the same test flow as the last rerun:
+#### Step 3 — rerun the same end-to-end test flow
+Run the same Slant Route pipeline flow as before:
 - same live node
 - same reference video
 - same upload-triggered path
-- same 240-second wait budget
+- same 240-second operational wait budget
 
-#### Step 3 — collect the full execution evidence
-After rerun, pull:
-- full `analyze-athlete-video` logs for that run, including the new Claude diagnostic events
-- final `athlete_uploads` row
-- final `athlete_lab_results` row
-
-### What to verify in the rerun
-
-#### Pipeline progression
-Confirm logs show:
+#### Step 4 — inspect logs for Claude success
+Pull the full `analyze-athlete-video` logs for that rerun and verify:
 - `pipeline_started`
 - `cloud_run_response_received`
 - `phase_windows_built`
-- `metric_window_selected`
 - `metric_scored`
-- `claude_response_received` / equivalent diagnostic event
-- `claude_feedback_received`
-- `results_written`
-- `pipeline_completed`
+- `claude_request_prepared`
+- `claude_response_received`
 
-#### Database output
-Confirm:
+Specific Claude checks:
+- `claude_response_received.status = 200`
+- raw response body contains real Claude content rather than 404 error JSON
+- no `claude_request_failed` due to invalid model
+- no empty-feedback path unless the response body itself is malformed
+
+#### Step 5 — verify database rows
+Read the final rows for the rerun and confirm:
 - `athlete_uploads.status = 'complete'`
-- `athlete_lab_results.node_version = nodeConfig.node_version`
-- `aggregate_score` is non-null
-- `phase_scores` is populated
-- `metric_results` contains materially more scored metrics than before
-- `feedback` contains real coaching text, not empty string
+- `athlete_lab_results.aggregate_score` is non-null
+- `athlete_lab_results.phase_scores` is populated
+- `athlete_lab_results.metric_results` is populated
+- `athlete_lab_results.feedback` contains actual coaching text
+- `athlete_lab_results.node_version` still reflects the analyzed node version
 
 ### Expected outcome
-After these three fixes and the rerun:
-- at least 4–6 metrics should score successfully, depending on catch-related exclusions
-- aggregate score should be non-null and plausibly land in the expected range
-- phase scores should populate
-- Claude logging should make prompt/response behavior diagnosable
-- the stored results row should reflect the actual analyzed node version, not the upload-time version
+After the alias update:
+- Claude should stop returning 404 for the model
+- `claude_response_received` should show HTTP 200
+- feedback should contain real coaching text
+- the final `athlete_lab_results` row should be complete with score, phase breakdown, metric results, and feedback
 
-### Technical notes
-- No database migration is needed for these three fixes
-- No frontend code change is required for the 240-second wait unless you specifically want that surfaced in the UI later
-- If the rerun still produces empty Claude feedback after these logs are added, the next change should target Claude response extraction/format handling rather than blind prompt edits
+### Technical note
+No database migration is needed for this fix. This is a single edge-function code update plus redeploy/rerun verification.
