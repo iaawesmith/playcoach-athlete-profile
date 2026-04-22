@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.analyze-athlete-video]
 verify_jwt = false
+
+[functions.admin-test-upload]
+verify_jwt = false
