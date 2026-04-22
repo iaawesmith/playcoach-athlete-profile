@@ -1,106 +1,112 @@
 
-## Plan: Force-refresh `RTMLIB_URL`, then rerun the Phase 2 pipeline test
+## Plan: Add a runtime-safe RTMLIB fallback in `analyze-athlete-video`, then rerun the pipeline test
 
-### Change to apply
-Delete and recreate the same runtime secret with the full endpoint path:
+### Code change to apply
+Update `supabase/functions/analyze-athlete-video/index.ts` inside `callCloudRun()` so the function no longer hard-fails when `RTMLIB_URL` is missing in runtime.
 
-| Secret | Action | Value |
-|---|---|---|
-| `RTMLIB_URL` | delete, then recreate | `https://rtmlib-service-874407535869.us-central1.run.app/analyze` |
-
-### Why this plan fits the failure
-`analyze-athlete-video` reads `RTMLIB_URL` directly and includes the runtime value in its Cloud Run error text:
-
+### Proposed patch
 ```ts
-const rtmlibUrl = Deno.env.get('RTMLIB_URL')
-response = await fetch(rtmlibUrl, ...)
-throw new Error(`Cloud Run call failed: ... (RTMLIB_URL: ${rtmlibUrl}) ...`)
+const RTMLIB_FALLBACK =
+  'https://rtmlib-service-874407535869.us-central1.run.app'
+
+async function callCloudRun(payload: {
+  video_url: string
+  start_seconds: number
+  end_seconds: number
+  solution_class: string
+  performance_mode: string
+  det_frequency: number
+  tracking_enabled: boolean
+}): Promise<{
+  keypoints: number[][][]
+  scores: number[][][]
+  frame_count: number
+  fps: number
+}> {
+  const rtmlibBase = Deno.env.get('RTMLIB_URL')?.trim() || RTMLIB_FALLBACK
+  const rtmlibUrl = rtmlibBase.replace(/\/+$/, '').endsWith('/analyze')
+    ? rtmlibBase.replace(/\/+$/, '')
+    : `${rtmlibBase.replace(/\/+$/, '')}/analyze`
+
+  let response: Response
+  try {
+    response = await fetch(rtmlibUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch (err) {
+    throw new Error(
+      `Cloud Run fetch failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
+    )
+  }
+
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => '')
+    throw new Error(
+      `Cloud Run call failed: ${response.status} ${response.statusText} ` +
+      `(RTMLIB_URL: ${rtmlibUrl})${bodyText ? ` — ${bodyText.slice(0, 200)}` : ''}`
+    )
+  }
+
+  return await response.json() as {
+    keypoints: number[][][]
+    scores: number[][][]
+    frame_count: number
+    fps: number
+  }
+}
 ```
 
-That means the next run’s logs are the authoritative proof of which secret value the function actually used at runtime.
+### What this fixes
+- If the runtime secret is missing or resolves empty, the function uses the hardcoded base URL.
+- If the secret is set to the root service URL, the function appends `/analyze`.
+- If the secret is already set to the full `/analyze` URL, the function keeps it unchanged.
+- Error logs will continue to print the exact normalized URL actually used at runtime.
 
-### Execution order
+### Implementation notes
+- Remove the current hard failure:
+  ```ts
+  if (!rtmlibUrl) {
+    throw new Error('RTMLIB_URL not configured')
+  }
+  ```
+- Keep the rest of the pipeline unchanged.
+- No database changes.
+- No config changes in `supabase/config.toml`.
+- No changes to `admin-test-upload`.
 
-1. **Read current secret if possible**
-   - Use every available secret-inspection mechanism.
-   - If the tooling exposes only names/metadata, report clearly that the value is hidden and cannot be read directly.
-   - If available, capture whether metadata includes presence only or any timestamp.
+### Deploy/verification sequence
+1. Apply the above change to `supabase/functions/analyze-athlete-video/index.ts`.
+2. Deploy the updated edge function.
+3. Re-run the same end-to-end test flow:
+   - confirm one live node exists
+   - confirm the reference video exists
+   - generate a fresh signed URL
+   - insert a new `athlete_uploads` test row
+   - wait 120 seconds
+   - pull `analyze-athlete-video` logs
+   - inspect final `athlete_uploads` row
+   - inspect resulting `athlete_lab_results` row
+4. Report the 10-step verdict again.
 
-2. **Delete `RTMLIB_URL`**
-   - Remove the existing runtime secret entirely.
-   - No other secrets touched.
-
-3. **Recreate `RTMLIB_URL`**
-   - Set it to:
-     `https://rtmlib-service-874407535869.us-central1.run.app/analyze`
-
-4. **Confirm presence**
-   - Verify the secret now appears in the runtime secret list.
-   - If values remain hidden, confirm presence only.
-
-5. **Wait 30 seconds**
-   - Allow backend secret propagation before invoking anything.
-
-6. **Re-run the end-to-end pipeline test**
-   - Confirm one live node exists:
-     `select id, name, status from athlete_lab_nodes where status = 'live' limit 1;`
-   - Confirm the reference video still exists in storage at:
-     `athlete-videos / test-clips/slant-route-reference-v1.mp4`
-   - Generate a fresh 24-hour signed URL for that object.
-   - Capture:
-     `select now() as test_started_at;`
-   - Insert a new `athlete_uploads` test row with the signed URL.
-   - Wait 120 seconds for the full pipeline.
-   - Pull full `analyze-athlete-video` logs for the execution window.
-   - Read the final `athlete_uploads` row.
-   - Read the latest `athlete_lab_results` row for that athlete.
-
-### Primary diagnostic to confirm propagation
-The most important log line is the Cloud Run call line or error line containing:
-
-```text
-RTMLIB_URL: ...
-```
-
-Interpretation:
-- If logs show `...run.app/analyze` → the new secret propagated to runtime.
-- If logs still show `...run.app` without `/analyze` → the runtime is still using the old value and this should be escalated as a backend propagation issue.
-
-### What I will report back
-- Step 1 secret-read result:
-  - actual value, if readable, or
-  - presence-only confirmation if hidden
-- Confirmation that delete + recreate completed
-- Confirmation that the secret is present afterward
-- Step 5 `INSERT RETURNING` row
-- Full edge function log output for this execution window
-- Final `athlete_uploads` row state
-- The `athlete_lab_results` row, if written
-- A 10-step verdict table covering:
-  1. insert succeeds  
-  2. webhook fires  
-  3. edge function starts  
-  4. node config fetched  
-  5. preflight passes  
-  6. Cloud Run called successfully  
-  7. metrics calculated  
-  8. Claude feedback generated  
-  9. results written  
-  10. upload status updated to `complete`
-
-### Expected success signal
+### Success criteria
 A successful rerun should show:
-- runtime logs referencing `RTMLIB_URL: https://rtmlib-service-874407535869.us-central1.run.app/analyze`
-- no 404 from Cloud Run
-- a written `athlete_lab_results` row
-- `athlete_uploads.status = 'complete'`
+1. insert succeeds
+2. webhook fires
+3. edge function starts
+4. node config fetched
+5. preflight passes
+6. Cloud Run call succeeds using a normalized URL ending in `/analyze`
+7. metrics calculated
+8. Claude feedback generated
+9. results written
+10. `athlete_uploads.status = 'complete'`
 
-### Scope guardrails
-- No code changes
-- No schema or migration changes
-- No bucket/config changes
-- No extra experiments beyond the delete/recreate, wait, and single rerun
-- No cleanup of the inserted test row afterward
+### Primary diagnostic to report
+The most important log evidence will be the runtime URL shown in the function logs:
+- if it shows `.../analyze`, the normalization/fallback worked
+- if it still fails, the error message will show the exact URL used, which narrows the next blocker immediately
 
 ### Files touched
-None. Secret-only change plus runtime test execution.
+- `supabase/functions/analyze-athlete-video/index.ts`
