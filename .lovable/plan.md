@@ -1,193 +1,93 @@
 
-Wire a single per-analysis calibration resolver into `supabase/functions/analyze-athlete-video/index.ts` so distance-based metrics use the best available source in this order: dynamic field-line detection, body-based fallback, static node fallback, then none.
+Manually validate the calibration resolver end-to-end by creating a fresh upload, but first address a backend blocker that prevents the requested `analysis_context` payload from flowing through the normal webhook path.
 
-### What will be built
+### What I found
 
-1. Add a new unified calibration resolver
-   - Create `resolveCalibration(...)` near the existing calibration helpers
-   - Input:
-     - Cloud Run calibration fields
-     - keypoints and scores
-     - optional `athleteHeight` from `upload.analysis_context`
-     - node config
-     - active camera angle
-   - Output:
-     - `pixelsPerYard`
-     - `source: "dynamic" | "body_based" | "static" | "none"`
-     - numeric `confidence`
-     - structured `details`
+- The analysis pipeline code in `supabase/functions/analyze-athlete-video/index.ts` expects `upload.analysis_context`.
+- The live `public.athlete_uploads` table currently does **not** have an `analysis_context` column.
+- Because of that, the exact test you requested cannot run through the normal insert/webhook flow yet: the upload row has nowhere to store `athlete_height`, so body-based calibration cannot be triggered from a real upload record.
+- I also confirmed the Slant node exists and is live:
+  - `id: 75ed4b18-8a22-440e-9a23-b86204956056`
+  - `node_version: 4`
+  - `reference_fallback_behavior: pixel_warning`
+  - sideline static calibration currently has `pixels_per_yard: 80`
 
-2. Replace the old two-source resolver path
-   - Retire usage of `resolvePixelsPerYard(...)`
-   - Preserve existing static calibration lookup via `reference_calibrations`
-   - Add support for the new middle tier using the already-built `calculateBodyBasedCalibration(...)`
+### Current implementation mismatch to verify during execution
 
-3. Resolve calibration once in the main pipeline
-   - After Cloud Run returns and once the active camera angle / analysis context are known, call `resolveCalibration(...)` one time
-   - Pass the resolved calibration object into `calculateAllMetrics(...)`
-   - Do not resolve calibration separately per metric
-
-4. Update calibration-dependent metric calculators
-   - Change `calculateDistance(...)`, `calculateVelocity(...)`, and `calculateAcceleration(...)` to accept the resolved calibration object instead of only a raw `pixelsPerYard`
-   - Apply node `reference_fallback_behavior` rules when calibration source is `"none"`:
-     - `disable_distance` → metric becomes skipped with reason `no_calibration_available`
-     - `pixel_warning` → return raw pixel-based value with a warning flag for backward compatibility
-
-5. Add calibration metadata to metric results
-   - Ensure every distance/velocity/acceleration result includes:
-     - `calibrationSource`
-     - `calibrationConfidence`
-     - `calibrationDetails`
-   - Include this metadata in scored, failed, skipped, and warning-bearing outcomes so debugging remains consistent
-
-6. Add structured calibration logs
-   - `calibration_resolved`
-     - source
-     - confidence
-     - pixelsPerYard
-     - reason chosen
-   - `calibration_source_fallback`
-     - which higher-priority source was attempted
-     - why it was rejected
-     - which lower-priority source was selected next
-
-### Files to update
-
-- `supabase/functions/analyze-athlete-video/index.ts`
-
-### Implementation details
-
-#### 1) Expand runtime calibration types
-Update internal types so the edge function can represent:
-- Cloud Run calibration input:
-  - `pixelsPerYard` or `pixels_per_yard`
+There is also a likely metadata inconsistency in the deployed function:
+- the new resolver code writes metric detail as:
+  - `calibrationSource`
   - `calibrationConfidence`
-- Resolved calibration output:
-  - `pixelsPerYard`
-  - `source`
-  - `confidence`
-  - `details`
+  - `calibrationDetails`
+- but recent stored `metric_results` still show older detail like `calibrationSource: "cloud_run_calibration"` on some metrics and missing the new structured fields on others
 
-Also expand the typed Cloud Run response to include the dynamic calibration fields already returned by the service, without changing the service itself.
+That means the deployed behavior should be verified carefully after the test run.
 
-#### 2) Include missing node config needed for fallback behavior
-`fetchNodeConfig(...)` currently selects `reference_calibrations` but not `reference_fallback_behavior`.
+### Execution plan
 
-Update the select list so the resolver and metric layer can honor:
-- `pixel_warning`
-- `disable_distance`
+1. Fix the upload schema so analysis context can be stored
+   - Add `analysis_context jsonb` to `public.athlete_uploads`
+   - Keep all existing rows compatible by making it nullable or defaulting to `{}`
 
-#### 3) Resolve dynamic → body-based → static → none
-Inside `resolveCalibration(...)`:
+2. Generate a fresh 24-hour signed URL for the reference clip
+   - Reuse `athlete-videos/test-clips/slant-route-reference-v1.mp4`
+   - Produce a new signed URL for `video_url`
 
-- **Dynamic**
-  - Use Cloud Run only if:
-    - `pixelsPerYard` is a valid positive number
-    - `calibrationConfidence === "dynamic"`
-  - Return:
-    - `source: "dynamic"`
-    - `confidence: 1` or a mapped high-confidence numeric value
-    - `details` containing the raw Cloud Run calibration payload
+3. Insert the test upload row
+   - Use the Slant node ID you provided
+   - Include:
+     - `camera_angle: "sideline"`
+     - `node_version`
+     - `video_url`
+     - `analysis_context` with `athlete_height`
+   - Trigger analysis through the existing normal insert/webhook flow
 
-- **Body-based**
-  - Only attempt if athlete height exists
-  - Call existing `calculateBodyBasedCalibration(...)`
-  - Accept only when returned confidence is `>= 0.3`
-  - Return:
-    - `source: "body_based"`
-    - helper confidence
-    - helper details and method
+4. Wait for pipeline completion
+   - Poll `athlete_uploads` until the row reaches `complete` or `failed`
+   - Allow up to the requested 240 seconds
 
-- **Static**
-  - Match `nodeConfig.reference_calibrations` by `cameraAngle`
-  - Use a valid positive `pixels_per_yard`
-  - Return:
-    - `source: "static"`
-    - a conservative numeric confidence
-    - details with matched camera angle and static calibration record
-
-- **None**
-  - If nothing resolves:
-    - `pixelsPerYard: null`
-    - `source: "none"`
-    - `confidence: 0`
-    - `details` describing why dynamic/body/static were unavailable
-
-#### 4) Keep body-based helper unchanged while using the correct tracked athlete
-The existing body-based helper samples person index `0`.
-
-To avoid modifying that helper while still respecting the locked target athlete, normalize the selected tracked person into a single-person frame set before calling `calculateBodyBasedCalibration(...)`. That lets the current helper stay unchanged while measuring the intended athlete rather than whichever person happened to be first in the frame.
-
-#### 5) Update metric calculation flow
-Refactor `calculateAllMetrics(...)` to receive:
-- `resolvedCalibration`
-- node `reference_fallback_behavior`
-
-Then pass the full calibration object into:
-- `calculateDistance(...)`
-- `calculateVelocity(...)`
-- `calculateAcceleration(...)`
-
-These functions should:
-- use `resolvedCalibration.pixelsPerYard` when available
-- append calibration metadata to `detail`
-- return structured outcomes for missing calibration according to fallback behavior
-
-#### 6) Support skipped vs warning outcomes cleanly
-The current metric pipeline treats `value === null` as failed. That is not sufficient for the new rules.
-
-Refine the metric-result contract so calibration-dependent calculators can intentionally return:
-- skipped + `no_calibration_available`
-- scored/flagged with warning metadata for raw-pixel fallback
-- failed only for true calculation errors
-
-This lets `disable_distance` produce a real skipped metric instead of being misclassified as failed.
-
-#### 7) Preserve backward compatibility for pixel warning mode
-When `reference_fallback_behavior === "pixel_warning"` and no calibration resolves:
-- distance/velocity/acceleration should still emit a numeric value derived from raw pixels
-- mark the result clearly in `detail`, for example:
-  - `warning: "uncalibrated_pixel_value"`
-  - `calibrationSource: "none"`
-  - `calibrationConfidence: 0`
-
-This keeps the current unsafe fallback available while making it explicit in result metadata and logs.
-
-### Validation after implementation
-
-Verify these scenarios in the deployed function:
-
-1. Dynamic calibration present and marked `"dynamic"`
-   - resolver selects dynamic
-   - logs `calibration_resolved` with source `dynamic`
-
-2. Dynamic missing, athlete height present, body-based confidence `>= 0.3`
-   - resolver selects body-based
-   - metric details include body-based calibration metadata
-
-3. Dynamic missing, no athlete height, static camera-angle calibration available
-   - resolver selects static
-   - behavior matches previous static fallback path
-
-4. No dynamic, no valid body-based result, no static match
-   - resolver returns `source: "none"`
-   - `disable_distance` metrics are skipped with `no_calibration_available`
-   - `pixel_warning` metrics return raw pixel-based values with warning metadata
-
-5. Metric result payloads
-   - every calibration-using metric includes:
+5. Return the full inspection output
+   - Final `athlete_uploads` row:
+     - `id`
+     - `status`
+     - `error_message`
+   - Matching `athlete_lab_results` row:
+     - `id`
+     - `node_version`
+     - `athlete_id`
+     - `aggregate_score`
+     - full `phase_scores`
+     - all metric entries in `metric_results`
+   - For each metric, explicitly surface:
      - `calibrationSource`
      - `calibrationConfidence`
      - `calibrationDetails`
+     - `pixelsPerYard`
+     - raw pixel value where present
+   - Retrieve the run’s `calibration_resolved` log event if available
 
-6. Structured logs
-   - fallback transitions emit `calibration_source_fallback`
-   - final chosen source emits `calibration_resolved`
+### Technical details
 
-### Technical notes
+Files/systems involved once execution is allowed:
+- Database schema: `public.athlete_uploads`
+- Runtime function: `supabase/functions/analyze-athlete-video/index.ts`
+- Signed URL generation path already exists conceptually via storage signed URLs for `athlete-videos`
 
-- No database changes are required
-- No UI changes are required
-- No Cloud Run changes are required
-- The existing `calculateBodyBasedCalibration(...)` helper remains untouched
-- Metric targets and Claude prompts remain unchanged
+### Expected validation outcomes
+
+After the schema blocker is removed and the test is run:
+- If Cloud Run dynamic calibration succeeds, metrics should report `dynamic`
+- If dynamic fails and `athlete_height` is present, the resolver should choose `body_based` when confidence is `>= 0.3`
+- If height is absent or body-based confidence is too low, sideline static fallback should resolve to the node’s configured `pixels_per_yard: 80`
+- The returned metric detail should reveal whether the deployed function is actually emitting the new structured calibration metadata consistently
+
+### Why this needs approval
+
+This task requires capabilities unavailable in the current read-only mode:
+- database/schema change or at minimum a writable insert path
+- signed URL generation
+- inserting a live upload row
+- waiting/polling the pipeline
+- fetching result rows after execution
+
+Once approved in writable mode, I can run the full test and return the exact output you asked for.
