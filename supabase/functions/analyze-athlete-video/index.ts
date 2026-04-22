@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
     // STEP 3: Select analysis context settings
     const context = upload.analysis_context || {}
     const detFrequency = selectDetFrequency(nodeConfig, context.people_in_video)
-    const calibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
+    const staticCalibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
     logInfo('analysis_context_selected', {
       uploadId,
       peopleInVideo: context.people_in_video || 'unknown',
@@ -163,8 +163,8 @@ Deno.serve(async (req) => {
       cameraAngle: context.camera_angle || upload.camera_angle || 'unknown',
       catchIncluded: context.catch_included !== false,
       detFrequency,
-      hasCalibration: Boolean(calibration),
-      pixelsPerYard: calibration?.pixels_per_yard ?? null,
+      hasCalibration: Boolean(staticCalibration),
+      pixelsPerYard: staticCalibration?.pixels_per_yard ?? null,
     })
 
     // STEP 4: Call Cloud Run rtmlib service
@@ -201,6 +201,21 @@ Deno.serve(async (req) => {
       peopleInVideo: context.people_in_video || 'unknown',
     })
 
+    const trackedPersonFrames = isolateTrackedPersonFrames(
+      smoothedKeypoints,
+      smoothedScores,
+      targetPersonIndex
+    )
+
+    const resolvedCalibration = resolveCalibration(
+      rtmlibResult,
+      trackedPersonFrames.keypoints,
+      trackedPersonFrames.scores,
+      getAthleteHeightMeasurement(context),
+      nodeConfig,
+      context.camera_angle || upload.camera_angle || ''
+    )
+
     // STEP 7: Divide frames into phase windows
     const phaseWindows = buildPhaseWindows(
       rtmlibResult.frame_count,
@@ -214,7 +229,8 @@ Deno.serve(async (req) => {
       smoothedScores,
       phaseWindows,
       targetPersonIndex,
-      calibration,
+      resolvedCalibration,
+      (nodeConfig.reference_fallback_behavior as ReferenceFallbackBehavior | undefined) || 'pixel_warning',
       context,
       rtmlibResult.fps,
       uploadId
