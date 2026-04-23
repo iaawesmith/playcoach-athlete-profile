@@ -94,6 +94,36 @@ type ConfidenceCheckResult = {
 
 type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
 
+type UploadLike = {
+  id: string
+  athlete_id: string
+  node_id: string
+  node_version: number
+  video_url: string
+  start_seconds: number
+  end_seconds: number
+  camera_angle?: string | null
+  analysis_context?: JsonRecord
+}
+
+type CloudRunProgressUpdate = {
+  message?: string
+  frame?: number
+  total_frames?: number
+  detection_every_n?: number
+}
+
+type CloudRunResponse = {
+  keypoints: VideoKeypoints
+  scores: VideoScores
+  frame_count: number
+  fps: number
+  pixelsPerYard?: number | null
+  pixels_per_yard?: number | null
+  calibrationConfidence?: string | null
+  calibration_confidence?: string | null
+}
+
 function createCancellationError(uploadId: string): PipelineCancellationError {
   const error = new Error(`Upload ${uploadId} was cancelled`) as PipelineCancellationError
   error.code = 'UPLOAD_CANCELLED'
@@ -106,6 +136,18 @@ function logInfo(event: string, details: JsonRecord = {}) {
 
 function logWarn(event: string, details: JsonRecord = {}) {
   console.warn(JSON.stringify({ level: 'warn', event, ...details }))
+}
+
+function buildProgressMessage(message: string, details: JsonRecord = {}): string {
+  const frame = typeof details.frame === 'number' && Number.isFinite(details.frame) ? details.frame : null
+  const totalFrames = typeof details.totalFrames === 'number' && Number.isFinite(details.totalFrames) ? details.totalFrames : null
+  const detectionEveryN = typeof details.detectionEveryN === 'number' && Number.isFinite(details.detectionEveryN) ? details.detectionEveryN : null
+
+  if (frame !== null && totalFrames !== null && detectionEveryN !== null) {
+    return `${message} (${Math.round(frame)}/${Math.round(totalFrames)} · detection every ${Math.round(detectionEveryN)} frames)`
+  }
+
+  return message
 }
 
 function summarizePersonCount(keypoints: VideoKeypoints): { firstFrame: number; maxAcrossFrames: number } {
@@ -138,10 +180,11 @@ Deno.serve(async (req) => {
     })
 
     // Update status to processing immediately
-    await updateUploadStatus(upload.id, 'processing')
+    await updateUploadStatus(upload.id, 'processing', undefined, 'Downloading video from storage...')
     await ensureNotCancelled(upload.id)
 
     // STEP 1: Fetch full node config
+    await setUploadProgress(upload.id, 'Loading analysis node configuration...')
     const nodeConfig = await fetchNodeConfig(upload.node_id)
     logInfo('node_config_loaded', {
       uploadId,
@@ -153,6 +196,7 @@ Deno.serve(async (req) => {
     })
 
     // STEP 2: Pre-flight validation
+    await setUploadProgress(upload.id, 'Validating clip window and pipeline settings...')
     const preflightResult = await runPreflight(upload, nodeConfig)
     if (!preflightResult.passed) {
       logWarn('preflight_failed', { uploadId, reason: preflightResult.reason })
@@ -163,6 +207,7 @@ Deno.serve(async (req) => {
     await ensureNotCancelled(upload.id)
 
     // STEP 3: Select analysis context settings
+    await setUploadProgress(upload.id, 'Preparing route analysis context...')
     const context = upload.analysis_context || {}
     const detFrequency = selectDetFrequency(nodeConfig, context.people_in_video)
     const staticCalibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
@@ -177,9 +222,14 @@ Deno.serve(async (req) => {
       pixelsPerYard: staticCalibration?.pixels_per_yard ?? null,
     })
 
-    // STEP 4: Call Cloud Run rtmlib service
+    // STEP 4: Prepare video and call Cloud Run rtmlib service
+    await setUploadProgress(upload.id, 'Downloading video from storage...')
+    const preparedVideo = await prepareVideoForCloudRun(upload as UploadLike)
+    await ensureNotCancelled(upload.id)
+    await setUploadProgress(upload.id, 'Loading RTMW model...')
     const rtmlibResult = await callCloudRun({
-      video_url: upload.video_url,
+      uploadId: upload.id,
+      video_url: preparedVideo.videoUrl,
       start_seconds: upload.start_seconds,
       end_seconds: upload.end_seconds,
       solution_class: nodeConfig.solution_class,
@@ -198,10 +248,12 @@ Deno.serve(async (req) => {
     await ensureNotCancelled(upload.id)
 
     // STEP 5: Apply temporal smoothing to keypoints
+    await setUploadProgress(upload.id, 'Applying temporal smoothing to tracked keypoints...')
     const smoothedKeypoints = applyTemporalSmoothing(rtmlibResult.keypoints)
     const smoothedScores = rtmlibResult.scores
 
     // STEP 6: Lock onto target person
+    await setUploadProgress(upload.id, 'Locking onto the athlete in frame...')
     const targetPersonIndex = lockTargetPerson(
       rtmlibResult.keypoints,
       context.people_in_video
@@ -218,6 +270,7 @@ Deno.serve(async (req) => {
       targetPersonIndex
     )
 
+    await setUploadProgress(upload.id, 'Running dynamic calibration...')
     const resolvedCalibration = resolveCalibration(
       rtmlibResult,
       trackedPersonFrames.keypoints,
@@ -228,12 +281,14 @@ Deno.serve(async (req) => {
     )
 
     // STEP 7: Divide frames into phase windows
+    await setUploadProgress(upload.id, 'Segmenting the rep into route phases...')
     const phaseWindows = buildPhaseWindows(
       rtmlibResult.frame_count,
       nodeConfig.phase_breakdown
     )
 
     // STEP 8: Calculate all metrics
+    await setUploadProgress(upload.id, 'Calculating metrics...')
     const metricResults = await calculateAllMetrics(
       nodeConfig.key_metrics,
       smoothedKeypoints,
@@ -257,6 +312,7 @@ Deno.serve(async (req) => {
     await ensureNotCancelled(upload.id)
 
     // STEP 9: Calculate aggregate score
+    await setUploadProgress(upload.id, 'Scoring the full rep...')
     const scoreResult = calculateAggregateScore(
       metricResults,
       nodeConfig,
@@ -264,10 +320,12 @@ Deno.serve(async (req) => {
     )
 
     // STEP 10: Error auto-detection
+    await setUploadProgress(upload.id, 'Checking for common route errors...')
     const errorResults = detectErrors(nodeConfig.common_errors, metricResults)
 
     // STEP 11: Call Claude API
     await ensureNotCancelled(upload.id)
+    await setUploadProgress(upload.id, 'Generating coaching feedback...')
     const feedback = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
     logInfo('claude_feedback_received', {
       uploadId,
@@ -276,6 +334,7 @@ Deno.serve(async (req) => {
 
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
+    await setUploadProgress(upload.id, 'Writing analysis results...')
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback)
     logInfo('results_written', {
       uploadId,
@@ -284,7 +343,7 @@ Deno.serve(async (req) => {
     })
 
     // STEP 13: Update status to complete
-    await updateUploadStatus(upload.id, 'complete')
+    await updateUploadStatus(upload.id, 'complete', undefined, 'Analysis complete')
     logInfo('pipeline_completed', { uploadId, status: 'complete' })
 
     return new Response(JSON.stringify({ success: true }), { status: 200 })
@@ -305,7 +364,7 @@ Deno.serve(async (req) => {
 
     if (uploadId) {
       try {
-        await updateUploadStatus(uploadId, 'failed', err.message)
+        await updateUploadStatus(uploadId, 'failed', err.message, 'Analysis failed.')
       } catch (updateErr) {
         console.error('Failed to mark upload as failed:', {
           uploadId,
@@ -1548,6 +1607,16 @@ async function callClaude(
     promptPreview: prompt.slice(0, 500),
   })
 
+  const requestPayload = {
+    video_url: payload.video_url,
+    start_seconds: payload.start_seconds,
+    end_seconds: payload.end_seconds,
+    solution_class: payload.solution_class,
+    performance_mode: payload.performance_mode,
+    det_frequency: payload.det_frequency,
+    tracking_enabled: payload.tracking_enabled,
+  }
+
   let response: Response
   try {
     response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1629,7 +1698,71 @@ async function callClaude(
   return feedback
 }
 
+
+async function prepareVideoForCloudRun(upload: UploadLike): Promise<{ videoUrl: string }> {
+  const sourceUrl = typeof upload.video_url === 'string' ? upload.video_url.trim() : ''
+  if (!sourceUrl) {
+    throw new Error('Upload is missing a source video URL.')
+  }
+
+  await setUploadProgress(upload.id, 'Decimating video to 30 fps...')
+  logInfo('video_decimation_started', { uploadId: upload.id, sourceUrlPresent: true, targetFps: 30 })
+
+  const response = await fetch(sourceUrl)
+  if (!response.ok) {
+    throw new Error(`Failed to download source video: ${response.status} ${response.statusText}`)
+  }
+
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  const tempDir = await Deno.makeTempDir({ prefix: 'analysis-video-' })
+  const inputPath = `${tempDir}/input.mp4`
+  const outputPath = `${tempDir}/decimated-30fps.mp4`
+  await Deno.writeFile(inputPath, bytes)
+
+  try {
+    const ffmpeg = new Deno.Command('ffmpeg', {
+      args: ['-y', '-i', inputPath, '-r', '30', '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-movflags', '+faststart', outputPath],
+      stdout: 'piped',
+      stderr: 'piped',
+    })
+
+    const result = await ffmpeg.output()
+    if (result.code !== 0) {
+      const stderr = new TextDecoder().decode(result.stderr).slice(0, 400)
+      throw new Error(`FFmpeg failed while preparing video (${stderr || 'unknown error'})`)
+    }
+
+    const fileBytes = await Deno.readFile(outputPath)
+    const targetPath = `test-clips/decimated/${upload.id}-30fps.mp4`
+
+    const { error: uploadError } = await supabase.storage
+      .from('athlete-videos')
+      .upload(targetPath, fileBytes, {
+        upsert: true,
+        contentType: 'video/mp4',
+      })
+
+    if (uploadError) {
+      throw new Error(`Failed to store 30 fps video: ${uploadError.message}`)
+    }
+
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from('athlete-videos')
+      .createSignedUrl(targetPath, 60 * 60)
+
+    if (signedError || !signedData?.signedUrl) {
+      throw new Error(signedError?.message || 'Failed to sign 30 fps video URL.')
+    }
+
+    logInfo('video_decimation_complete', { uploadId: upload.id, targetFps: 30, targetPath })
+    return { videoUrl: signedData.signedUrl }
+  } finally {
+    await Deno.remove(tempDir, { recursive: true }).catch(() => undefined)
+  }
+}
+
 async function callCloudRun(payload: {
+  uploadId: string
   video_url: string
   start_seconds: number
   end_seconds: number
@@ -1637,21 +1770,22 @@ async function callCloudRun(payload: {
   performance_mode: string
   det_frequency: number
   tracking_enabled: boolean
-}): Promise<{
-  keypoints: VideoKeypoints
-  scores: VideoScores
-  frame_count: number
-  fps: number
-  pixelsPerYard?: number | null
-  pixels_per_yard?: number | null
-  calibrationConfidence?: string | null
-  calibration_confidence?: string | null
-}> {
+}): Promise<CloudRunResponse> {
   const rtmlibBase = Deno.env.get('RTMLIB_URL')?.trim() || RTMLIB_FALLBACK
   const normalizedBase = rtmlibBase.replace(/\/+$/, '')
   const rtmlibUrl = normalizedBase.endsWith('/analyze')
     ? normalizedBase
     : `${normalizedBase}/analyze`
+
+  const requestPayload = {
+    video_url: payload.video_url,
+    start_seconds: payload.start_seconds,
+    end_seconds: payload.end_seconds,
+    solution_class: payload.solution_class,
+    performance_mode: payload.performance_mode,
+    det_frequency: payload.det_frequency,
+    tracking_enabled: payload.tracking_enabled,
+  }
 
   let response: Response
   try {
@@ -1674,16 +1808,23 @@ async function callCloudRun(payload: {
     )
   }
 
-  return await response.json() as {
-    keypoints: VideoKeypoints
-    scores: VideoScores
-    frame_count: number
-    fps: number
-    pixelsPerYard?: number | null
-    pixels_per_yard?: number | null
-    calibrationConfidence?: string | null
-    calibration_confidence?: string | null
+  const result = await response.json() as CloudRunResponse & { progress_updates?: CloudRunProgressUpdate[] }
+
+  if (Array.isArray(result.progress_updates)) {
+    const lastProgress = result.progress_updates[result.progress_updates.length - 1]
+    if (lastProgress?.message) {
+      await setUploadProgress(
+        payload.uploadId,
+        buildProgressMessage(lastProgress.message, {
+          frame: lastProgress.frame,
+          totalFrames: lastProgress.total_frames,
+          detectionEveryN: lastProgress.detection_every_n,
+        }),
+      )
+    }
   }
+
+  return result
 }
 
 async function writeResults(
@@ -1731,13 +1872,29 @@ async function ensureNotCancelled(uploadId: string) {
   }
 }
 
-async function updateUploadStatus(uploadId: string, status: string, error?: string) {
+async function updateUploadStatus(uploadId: string, status: string, error?: string, progressMessage?: string) {
+  const updates: JsonRecord = { status }
+
+  if (error !== undefined) updates.error_message = error
+  if (progressMessage !== undefined) updates.progress_message = progressMessage
+
   const { error: dbError } = await supabase
     .from('athlete_uploads')
-    .update({ status, ...(error ? { error_message: error } : {}) })
+    .update(updates)
     .eq('id', uploadId)
   if (dbError) {
     console.error('updateUploadStatus DB error:', { uploadId, status, dbError: dbError.message })
+  }
+}
+
+async function setUploadProgress(uploadId: string, message: string) {
+  const { error: dbError } = await supabase
+    .from('athlete_uploads')
+    .update({ progress_message: message })
+    .eq('id', uploadId)
+
+  if (dbError) {
+    console.error('setUploadProgress DB error:', { uploadId, message, dbError: dbError.message })
   }
 }
 
