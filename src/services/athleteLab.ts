@@ -130,6 +130,7 @@ type UploadHistoryRow = {
   created_at: string | null;
   status: string | null;
   error_message: string | null;
+  progress_message?: string | null;
   athlete_lab_nodes?: { name: string | null } | null;
 };
 
@@ -248,6 +249,7 @@ function normalizeUploadSnapshot(value: unknown): PipelineUploadSnapshot | null 
     id,
     status: (typeof record.status === "string" ? record.status : "pending") as PipelineUploadStatus,
     error_message: typeof record.error_message === "string" ? record.error_message : null,
+    progress_message: typeof record.progress_message === "string" ? record.progress_message : null,
     created_at: typeof record.created_at === "string" ? record.created_at : null,
     video_url: typeof record.video_url === "string" ? record.video_url : null,
     node_id: typeof record.node_id === "string" ? record.node_id : null,
