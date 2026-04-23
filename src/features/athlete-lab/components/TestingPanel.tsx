@@ -369,6 +369,26 @@ export function TestingPanel({ node }: TestingPanelProps) {
         ? "text-destructive-foreground"
         : "text-on-surface";
 
+  const progressMessage = activeUpload?.progress_message?.trim() || "";
+  const displayProgressMessage = progressMessage || (
+    runStage === "uploading"
+      ? "Uploading test clip..."
+      : runStage === "queued"
+        ? "Queued for analysis..."
+        : runStage === "processing"
+          ? "Preparing the production pipeline..."
+          : runStage === "fetching_results"
+            ? "Loading the completed analysis package..."
+            : ""
+  );
+  const progressSegments = [
+    runStage !== "idle",
+    ["queued", "processing", "fetching_results", "complete", "cancelled"].includes(runStage),
+    ["processing", "fetching_results", "complete", "cancelled"].includes(runStage),
+    ["fetching_results", "complete"].includes(runStage),
+    runStage === "complete",
+  ];
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-white/5 bg-surface-container">
@@ -617,6 +637,25 @@ export function TestingPanel({ node }: TestingPanelProps) {
               </div>
             )}
           </div>
+          {displayProgressMessage && (
+            <div className="mt-4 space-y-3">
+              <div className="flex gap-1">
+                {progressSegments.map((filled, index) => (
+                  <span
+                    key={`progress-segment-${index}`}
+                    className={cn(
+                      "h-1.5 flex-1 rounded-full bg-surface-container-lowest transition-colors",
+                      filled && "bg-primary-container",
+                    )}
+                  />
+                ))}
+              </div>
+              <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3">
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-on-surface-variant/70">Latest Progress</p>
+                <p className="mt-1 text-sm text-on-surface">{displayProgressMessage}</p>
+              </div>
+            </div>
+          )}
           {runStage === "timed_out" && (
             <p className="mt-3 text-xs text-yellow-200">Polling gave up after 240 seconds. This does not mean the pipeline failed — the job may still complete and appear in results later.</p>
           )}
