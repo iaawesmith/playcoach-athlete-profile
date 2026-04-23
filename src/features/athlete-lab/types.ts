@@ -293,3 +293,76 @@ export interface AnalysisResult {
   warnings: string[];
   log_data?: AnalysisLogData;
 }
+
+export type PipelineUploadStatus = "pending" | "processing" | "complete" | "failed";
+
+export type PipelineRunStage =
+  | "idle"
+  | "uploading"
+  | "queued"
+  | "processing"
+  | "fetching_results"
+  | "complete"
+  | "failed"
+  | "timed_out";
+
+export type PipelineMetricStatus = "scored" | "flagged" | "skipped" | "failed";
+
+export interface PipelinePhaseScore {
+  id: string;
+  name: string;
+  score: number;
+}
+
+export interface PipelineConfidenceFlag {
+  metric: string;
+  reason: string;
+  [key: string]: unknown;
+}
+
+export interface PipelineMetricResult {
+  name: string;
+  unit: string;
+  value: number | null;
+  elite_target: string;
+  tolerance?: number | null;
+  deviation?: number | null;
+  score?: number | null;
+  weight: number;
+  status: PipelineMetricStatus;
+  reason?: string;
+  detail?: Record<string, unknown>;
+  phase_id?: string | null;
+  phase_name?: string | null;
+  calculation_type?: string | null;
+}
+
+export interface PipelineUploadSnapshot {
+  id: string;
+  status: PipelineUploadStatus;
+  error_message: string | null;
+  created_at: string | null;
+  video_url: string | null;
+  node_id: string | null;
+  node_version: number | null;
+  camera_angle: string | null;
+  start_seconds: number | null;
+  end_seconds: number | null;
+  analysis_context: Record<string, unknown>;
+}
+
+export interface PipelineAnalysisResult {
+  uploadId: string;
+  resultId: string | null;
+  uploadStatus: PipelineUploadStatus;
+  aggregateScore: number | null;
+  phaseScores: Record<string, number>;
+  phaseBreakdown: PipelinePhaseScore[];
+  metricResults: PipelineMetricResult[];
+  confidenceFlags: PipelineConfidenceFlag[];
+  detectedErrors: Array<Record<string, unknown>>;
+  feedback: string;
+  analyzedAt: string | null;
+  errorMessage: string | null;
+  log_data?: AnalysisLogData;
+}

@@ -309,6 +309,7 @@ export type Database = {
           overall_score: number | null
           phase_scores: Json
           result_data: Json
+          upload_id: string | null
           video_description: string
         }
         Insert: {
@@ -326,6 +327,7 @@ export type Database = {
           overall_score?: number | null
           phase_scores?: Json
           result_data?: Json
+          upload_id?: string | null
           video_description?: string
         }
         Update: {
@@ -343,6 +345,7 @@ export type Database = {
           overall_score?: number | null
           phase_scores?: Json
           result_data?: Json
+          upload_id?: string | null
           video_description?: string
         }
         Relationships: [
@@ -351,6 +354,13 @@ export type Database = {
             columns: ["node_id"]
             isOneToOne: false
             referencedRelation: "athlete_lab_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_lab_results_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_uploads"
             referencedColumns: ["id"]
           },
         ]

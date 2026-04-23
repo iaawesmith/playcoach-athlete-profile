@@ -1677,6 +1677,7 @@ async function writeResults(
   const { error } = await supabase
     .from('athlete_lab_results')
     .insert({
+      upload_id: upload.id,
       athlete_id: upload.athlete_id,
       node_id: upload.node_id,
       node_version: nodeConfig.node_version,
