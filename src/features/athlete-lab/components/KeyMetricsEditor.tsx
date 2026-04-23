@@ -40,9 +40,15 @@ const CALC_OPTIONS: { value: CalculationType; label: string; desc: string }[] = 
 ];
 
 const BILATERAL_OPTIONS: { value: BilateralMode; label: string }[] = [
-  { value: "auto", label: "Auto-detect (recommended)" },
-  { value: "left", label: "Left side only" },
-  { value: "right", label: "Right side only" },
+  { value: "auto", label: "Node Default (Auto)" },
+  { value: "left", label: "Node Default (Left)" },
+  { value: "right", label: "Node Default (Right)" },
+];
+
+const BILATERAL_OVERRIDE_OPTIONS: { value: BilateralOverride; label: string; description: string }[] = [
+  { value: "auto", label: "Auto (confidence)", description: "Uses the metric/node setting, then route direction, then confidence-based side choice." },
+  { value: "force_left", label: "Force Left", description: "Always uses the derived left-side indices for this metric." },
+  { value: "force_right", label: "Force Right", description: "Always uses the derived right-side indices for this metric." },
 ];
 
 const GROUP_NAMES: Record<string, string> = { body: "BODY", feet: "FEET", hands: "HANDS", face: "FACE" };
@@ -770,7 +776,7 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
       {/* Bilateral */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Bilateral</span>
+          <span className={LABEL_CLASS}>Node Default</span>
           <SectionTooltip tip={TOOLTIPS.bilateral} />
         </div>
         <div className="space-y-1.5">
@@ -797,32 +803,30 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
       {/* Direction Override */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Direction Override</span>
+          <span className={LABEL_CLASS}>Metric Bilateral Control</span>
           <SectionTooltip tip={TOOLTIPS.bilateralOverride} />
         </div>
-        <div className="flex gap-2">
-          {([
-            { value: "auto" as BilateralOverride, label: "AUTO" },
-            { value: "force_left" as BilateralOverride, label: "FORCE LEFT" },
-            { value: "force_right" as BilateralOverride, label: "FORCE RIGHT" },
-          ]).map(opt => {
+        <div className="grid gap-2 md:grid-cols-3">
+          {BILATERAL_OVERRIDE_OPTIONS.map(opt => {
             const active = (km.bilateral_override ?? "auto") === opt.value;
             return (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => setKm({ ...km, bilateral_override: opt.value })}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                className={`rounded-xl border px-3 py-2 text-left transition-all ${
                   active
-                    ? "bg-primary-container/20 text-primary-container border border-primary-container/30"
-                    : "bg-surface-container text-on-surface-variant/50 border border-outline-variant/20"
+                    ? "bg-primary-container/20 text-primary-container border-primary-container/30"
+                    : "bg-surface-container text-on-surface-variant/70 border-outline-variant/20"
                 }`}
               >
-                {active ? "● " : "○ "}{opt.label}
+                <p className="text-[10px] font-bold uppercase tracking-widest">{opt.label}</p>
+                <p className="mt-1 text-[10px] leading-relaxed">{opt.description}</p>
               </button>
             );
           })}
         </div>
+        <p className="text-on-surface-variant/50 text-[10px] mt-2">Derived left/right indices above show exactly what the pipeline may use for this metric.</p>
       </div>
 
       {/* Confidence Threshold */}
