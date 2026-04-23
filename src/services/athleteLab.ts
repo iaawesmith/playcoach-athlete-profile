@@ -111,9 +111,7 @@ export async function runAnalysis(node: TrainingNode, videoDescription: string, 
   return data as AnalysisResult;
 }
 
-const TEST_VIDEO_BUCKET = "athlete-videos";
 const TEST_VIDEO_FOLDER = "test-clips";
-const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 240_000;
 
