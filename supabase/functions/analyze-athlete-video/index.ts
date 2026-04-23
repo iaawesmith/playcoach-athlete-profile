@@ -386,7 +386,8 @@ Deno.serve(async (req) => {
     // STEP 3: Select analysis context settings
     await setUploadProgress(upload.id, 'Preparing route analysis context...')
     const context = upload.analysis_context || {}
-    const detFrequency = selectDetFrequency(nodeConfig, context.people_in_video)
+    const detFrequencySelection = resolveDetectionFrequency(nodeConfig, context)
+    const detFrequency = detFrequencySelection.value
     const staticCalibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
     logInfo('analysis_context_selected', {
       uploadId,
@@ -397,6 +398,15 @@ Deno.serve(async (req) => {
       detFrequency,
       hasCalibration: Boolean(staticCalibration),
       pixelsPerYard: staticCalibration?.pixels_per_yard ?? null,
+    })
+    logInfo('detection_frequency_selected', {
+      uploadId,
+      scenario: detFrequencySelection.scenario,
+      baseScenarioValue: detFrequencySelection.baseValue,
+      breakOverrideValue: detFrequencySelection.breakOverrideValue,
+      breakOverrideApplied: detFrequencySelection.breakOverrideApplied,
+      detFrequency,
+      message: `Detection frequency set to ${detFrequency} for this run (${detFrequencySelection.scenario})`,
     })
 
     // STEP 4: Call Cloud Run rtmlib service with the uploaded video URL
@@ -812,12 +822,88 @@ function buildErrorDetectionLog(errors: any[], metricResults: any[], errorResult
 }
 
 
-function selectDetFrequency(nodeConfig: any, peopleInVideo: string): number {
-  switch (peopleInVideo) {
-    case 'with_defender': return nodeConfig.det_frequency_defender || 1
-    case 'multiple': return nodeConfig.det_frequency_multiple || 1
+function clampDetFrequency(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.max(1, Math.round(value))
+}
+
+function normalizePeopleInVideo(peopleInVideo: unknown): 'solo' | 'with_defender' | 'multiple' {
+  if (typeof peopleInVideo === 'string') {
+    const normalized = peopleInVideo.trim().toLowerCase()
+    if (normalized === 'with_defender') return 'with_defender'
+    if (normalized === 'multiple') return 'multiple'
+    if (normalized === 'solo' || normalized === 'unknown' || normalized.length === 0) return 'solo'
+  }
+
+  if (typeof peopleInVideo === 'number' && Number.isFinite(peopleInVideo)) {
+    if (peopleInVideo <= 1) return 'solo'
+    if (peopleInVideo === 2) return 'with_defender'
+    if (peopleInVideo > 2) return 'multiple'
+  }
+
+  return 'solo'
+}
+
+function getScenarioDetFrequency(nodeConfig: any, scenario: 'solo' | 'with_defender' | 'multiple'): number {
+  const nested = typeof nodeConfig?.detection_frequency === 'object' && nodeConfig?.detection_frequency !== null
+    ? nodeConfig.detection_frequency
+    : null
+
+  switch (scenario) {
+    case 'with_defender':
+      return clampDetFrequency(
+        nodeConfig?.det_frequency_defender ?? nested?.with_defender,
+        1,
+      )
+    case 'multiple':
+      return clampDetFrequency(
+        nodeConfig?.det_frequency_multiple ?? nested?.multiple,
+        1,
+      )
     case 'solo':
-    default: return nodeConfig.det_frequency_solo || 2
+    default:
+      return clampDetFrequency(
+        nodeConfig?.det_frequency_solo ?? nested?.solo ?? nodeConfig?.det_frequency,
+        2,
+      )
+  }
+}
+
+function resolveBreakPhaseDetFrequency(phaseBreakdown: unknown): number | null {
+  if (!Array.isArray(phaseBreakdown)) return null
+
+  const breakPhase = phaseBreakdown.find((phase) => {
+    if (!phase || typeof phase !== 'object') return false
+    const name = typeof (phase as JsonRecord).name === 'string' ? (phase as JsonRecord).name.trim().toLowerCase() : ''
+    return name === 'break'
+  }) as JsonRecord | undefined
+
+  if (!breakPhase) return null
+
+  return clampDetFrequency(
+    breakPhase.det_frequency ?? breakPhase.detection_frequency,
+    NaN,
+  )
+}
+
+function resolveDetectionFrequency(nodeConfig: any, context: JsonRecord): {
+  scenario: 'solo' | 'with_defender' | 'multiple'
+  baseValue: number
+  breakOverrideValue: number | null
+  breakOverrideApplied: boolean
+  value: number
+} {
+  const scenario = normalizePeopleInVideo(context.people_in_video)
+  const baseValue = getScenarioDetFrequency(nodeConfig, scenario)
+  const breakOverrideValue = resolveBreakPhaseDetFrequency(nodeConfig?.phase_breakdown)
+  const value = breakOverrideValue !== null ? Math.min(baseValue, breakOverrideValue) : baseValue
+
+  return {
+    scenario,
+    baseValue,
+    breakOverrideValue,
+    breakOverrideApplied: breakOverrideValue !== null && value !== baseValue,
+    value,
   }
 }
 
