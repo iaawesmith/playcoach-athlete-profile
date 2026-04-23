@@ -376,6 +376,7 @@ export type Database = {
           id: string
           node_id: string | null
           node_version: number | null
+          progress_message: string | null
           start_seconds: number | null
           status: string | null
           video_url: string | null
@@ -390,6 +391,7 @@ export type Database = {
           id?: string
           node_id?: string | null
           node_version?: number | null
+          progress_message?: string | null
           start_seconds?: number | null
           status?: string | null
           video_url?: string | null
@@ -404,6 +406,7 @@ export type Database = {
           id?: string
           node_id?: string | null
           node_version?: number | null
+          progress_message?: string | null
           start_seconds?: number | null
           status?: string | null
           video_url?: string | null
