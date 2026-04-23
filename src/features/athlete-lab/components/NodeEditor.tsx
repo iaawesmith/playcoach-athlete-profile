@@ -768,7 +768,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} />
+          <ActiveMetricsSection
+            allMetrics={draft.key_metrics}
+            onChange={(m) => updateWithCriticalTrack("key_metrics", m)}
+            onConfirmDelete={(opts) => setConfirmModal(opts)}
+            phases={draft.phase_breakdown}
+          />
         )}
 
         {tab === "scoring" && (
