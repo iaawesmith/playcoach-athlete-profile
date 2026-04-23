@@ -81,8 +81,9 @@ Deno.serve(async (req) => {
       analysis_context: context,
       status: "pending",
       error_message: null,
+      progress_message: "Queued for analysis...",
     })
-    .select("id, status, error_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
+    .select("id, status, error_message, progress_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
     .single();
 
   if (error || !data) {

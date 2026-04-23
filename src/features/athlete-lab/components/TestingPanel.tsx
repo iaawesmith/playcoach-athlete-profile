@@ -252,6 +252,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       const cancelledUpload = await cancelRunAnalysis(activeUpload.id);
       setActiveUpload(cancelledUpload);
       setResult(null);
+      setError(null);
       setRunStage("cancelled");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Cancel failed");
@@ -369,6 +370,26 @@ export function TestingPanel({ node }: TestingPanelProps) {
         ? "text-destructive-foreground"
         : "text-on-surface";
 
+  const progressMessage = activeUpload?.progress_message?.trim() || "";
+  const displayProgressMessage = progressMessage || (
+    runStage === "uploading"
+      ? "Uploading test clip..."
+      : runStage === "queued"
+        ? "Queued for analysis..."
+        : runStage === "processing"
+          ? "Preparing the production pipeline..."
+          : runStage === "fetching_results"
+            ? "Loading the completed analysis package..."
+            : ""
+  );
+  const progressSegments = [
+    runStage !== "idle",
+    ["queued", "processing", "fetching_results", "complete", "cancelled"].includes(runStage),
+    ["processing", "fetching_results", "complete", "cancelled"].includes(runStage),
+    ["fetching_results", "complete"].includes(runStage),
+    runStage === "complete",
+  ];
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-white/5 bg-surface-container">
@@ -437,8 +458,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
               ]} />
               <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Catch-dependent metrics stay aligned with the real scoring rules.</p>
               {catchStatus === "no" && (
-                <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
-                  <p className="text-xs text-yellow-200">Catch Efficiency and YAC Burst will be excluded when the run reaches metric scoring.</p>
+                <div className="mt-2 rounded-lg border border-outline-variant/10 bg-surface-container-high px-3 py-2">
+                  <p className="text-xs text-on-surface-variant">Catch Efficiency and YAC Burst will be excluded when the run reaches metric scoring.</p>
                 </div>
               )}
             </div>
@@ -617,8 +638,27 @@ export function TestingPanel({ node }: TestingPanelProps) {
               </div>
             )}
           </div>
+          {displayProgressMessage && (
+            <div className="mt-4 space-y-3">
+              <div className="flex gap-1">
+                {progressSegments.map((filled, index) => (
+                  <span
+                    key={`progress-segment-${index}`}
+                    className={cn(
+                      "h-1.5 flex-1 rounded-full bg-surface-container-lowest transition-colors",
+                      filled && "bg-primary-container",
+                    )}
+                  />
+                ))}
+              </div>
+              <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3">
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-on-surface-variant/70">Latest Progress</p>
+                <p className="mt-1 text-sm text-on-surface">{displayProgressMessage}</p>
+              </div>
+            </div>
+          )}
           {runStage === "timed_out" && (
-            <p className="mt-3 text-xs text-yellow-200">Polling gave up after 240 seconds. This does not mean the pipeline failed — the job may still complete and appear in results later.</p>
+            <p className="mt-3 text-xs text-on-surface-variant">Polling gave up after 240 seconds. This does not mean the pipeline failed — the job may still complete and appear in results later.</p>
           )}
           {runStage === "cancelled" && (
             <p className="mt-3 text-xs text-on-surface-variant">This run was cancelled before completion. No final analysis results will be written for this upload.</p>
