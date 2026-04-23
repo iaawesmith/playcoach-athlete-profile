@@ -181,6 +181,7 @@ export interface SubmittedAnalysisJob {
   upload: PipelineUploadSnapshot;
   videoUrl: string;
   storagePath: string | null;
+  preparationNote?: string;
 }
 
 export interface PollPipelineOptions {
@@ -244,9 +245,11 @@ function getSupportedRecordingMimeType(): string | null {
   if (typeof MediaRecorder === "undefined") return null;
 
   const candidates = [
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
-    "video/webm",
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4;codecs=avc1.4D401E,mp4a.40.2",
+    "video/mp4;codecs=h264,aac",
+    "video/mp4;codecs=h264",
+    "video/mp4",
   ];
 
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
@@ -267,7 +270,7 @@ async function prepareVideoForUpload(
     return {
       file,
       wasPrepared: false,
-      note: "Browser video compression is not supported here, so the original clip will be uploaded.",
+      note: "Video will be processed as-is.",
     };
   }
 
@@ -276,7 +279,7 @@ async function prepareVideoForUpload(
     return {
       file,
       wasPrepared: false,
-      note: "This browser cannot record a compressed 30 fps clip, so the original video will be uploaded.",
+      note: "Video will be processed as-is.",
     };
   }
 
@@ -305,7 +308,7 @@ async function prepareVideoForUpload(
       return {
         file,
         wasPrepared: false,
-        note: "Video compression could not start in this browser, so the original file will be uploaded.",
+        note: "Video will be processed as-is.",
       };
     }
 
@@ -358,19 +361,26 @@ async function prepareVideoForUpload(
 
     ensureNotAborted(options.signal);
 
-    const processedBlob = new Blob(chunks, { type: mimeType });
+    const processedBlob = new Blob(chunks, { type: "video/mp4" });
     if (processedBlob.size === 0) {
       return {
         file,
         wasPrepared: false,
-        note: "Video compression returned an empty file, so the original clip will be uploaded.",
+        note: "Video will be processed as-is.",
+      };
+    }
+
+    if (processedBlob.type !== "video/mp4") {
+      return {
+        file,
+        wasPrepared: false,
+        note: "Video will be processed as-is.",
       };
     }
 
     const baseName = file.name.replace(/\.[^.]+$/, "");
-    const outputExtension = mimeType.includes("webm") ? "webm" : getFileExtension(file.name);
-    const processedFile = new File([processedBlob], `${baseName}-30fps.${outputExtension}`, {
-      type: mimeType,
+    const processedFile = new File([processedBlob], `${baseName}-30fps.mp4`, {
+      type: "video/mp4",
       lastModified: Date.now(),
     });
 
@@ -383,7 +393,7 @@ async function prepareVideoForUpload(
     return {
       file,
       wasPrepared: false,
-      note: "30 fps compression was skipped for this clip, so the original video will be uploaded.",
+      note: "Video will be processed as-is.",
     };
   } finally {
     URL.revokeObjectURL(objectUrl);
