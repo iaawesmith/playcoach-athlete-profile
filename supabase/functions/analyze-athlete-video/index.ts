@@ -448,6 +448,8 @@ Deno.serve(async (req) => {
       total_frames: rtmlibResult.frame_count,
       source_fps: rtmlibResult.fps,
       keypoint_confidence: summarizeKeypointConfidence(rtmlibResult.scores),
+      calibration_source: getCalibrationSourceLabel(rtmlibResult) ?? undefined,
+      pixels_per_yard: getPixelsPerYardValue(rtmlibResult) ?? undefined,
     }
     const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
     logInfo('cloud_run_response_received', {
@@ -456,6 +458,9 @@ Deno.serve(async (req) => {
       fps: rtmlibResult.fps,
       firstFramePersonCount: personCountSummary.firstFrame,
       maxFramePersonCount: personCountSummary.maxAcrossFrames,
+      calibrationSource: getCalibrationSourceLabel(rtmlibResult),
+      pixelsPerYard: getPixelsPerYardValue(rtmlibResult),
+      goodLinePairs: getGoodLinePairsValue(rtmlibResult),
     })
     await ensureNotCancelled(upload.id)
 
