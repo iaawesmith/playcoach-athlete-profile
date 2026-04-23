@@ -1,97 +1,261 @@
 
-Run a focused three-video validation suite for the live Slant node using the exact URLs you provide, without making any non-critical changes.
+Implement the Auto-Zoom + Smart Cropping feature entirely inside the external `playcoach-rtmlib-service`, centered on `main.py`, with the following refinements added before build.
 
-## Validation scope
+## Scope
 
-### 1. Use the Testing Panel with matched analysis context per clip
-For each supplied video URL, run the Slant node from `/athlete-lab` using the existing Testing Panel and capture:
-- upload ID / result ID
-- stage and progress messages shown in the UI
-- total elapsed analysis time
-- final result payload, confidence flags, Pose Quality Audit, and raw analysis log
+Primary target:
+- `playcoach-rtmlib-service/main.py`
 
-Planned run setup:
-- **Left-break slant**: `route_direction = left`, good-quality sideline/perpendicular, solo, catch as appropriate
-- **Right-break slant**: `route_direction = right`, same quality conditions
-- **Marginal backyard clip**: real wide / lower-confidence setup with body dimensions included if useful for calibration fallback testing
+Optional helper extraction only if that repo already uses helpers:
+- `playcoach-rtmlib-service/preprocessing.py`
+- `playcoach-rtmlib-service/calibration.py`
 
-### 2. Validate bilateral auto-detect behavior on the left-break clip
-Confirm from logs and result behavior that:
-- bilateral selection resolves correctly for left-side metrics
-- the log includes the confidence comparison and chosen side
-- Break Angle, Separation Distance, and Hands Extension return reasonable non-zero values when pose quality supports them
-- detection frequency and temporal smoothing logs are present and sensible
+No app repo, Edge Function, or AthleteLab UI changes in this phase unless the external service already requires a typed response model update on its own side.
 
-Artifacts to capture:
-- bilateral decision source and side
-- left vs right average confidence
-- key metric scores
-- detection frequency used
-- smoothing / phase-window logs
-- calibration source and `pixels_per_yard`
+## What to build
 
-### 3. Validate bilateral symmetry on the right-break clip
-Confirm that the same node works symmetrically for the mirrored direction:
-- bilateral selection resolves to right
-- key bilateral metrics still calculate with comparable structure
-- no regression from the left-break case in scoring flow, smoothing, or phase windowing
+### 1. Add a dedicated preprocessing stage before final pose extraction
+Inside the `/analyze` flow in `main.py`:
 
-Artifacts to capture:
-- bilateral decision log
-- right-side confidence advantage
-- Break Angle, Separation Distance, Hands Extension, and Release Speed results
-- calibration source and `pixels_per_yard`
-- progress messages and runtime
+1. load the clip as today
+2. sample multiple early/mid frames
+3. run existing person detection / bbox logic
+4. identify the primary athlete track
+5. build a multi-frame motion envelope
+6. decide whether auto-zoom should run
+7. crop + upscale frames using the selected crop window
+8. run pose inference on the zoomed frames
+9. transform all returned coordinates back into original-frame coordinates
+10. run improved body-based calibration using the zoomed detections
+11. return backward-compatible JSON with added metadata
 
-### 4. Validate low-confidence handling on the marginal backyard clip
-Confirm the degraded-footage path behaves correctly:
-- Pose Quality Audit panel appears in the UI
-- low-confidence metrics are flagged/skipped gracefully rather than producing misleading values
-- the Claude feedback call is skipped when pose quality is too low
-- the result still surfaces actionable diagnostics instead of failing silently
+### 2. Use a multi-frame union bounding box for stable crop decisions
+Do not base crop on a single frame.
 
-Artifacts to capture:
-- Pose Quality Audit contents
-- count of flagged/skipped metrics
-- explicit Claude skipped status / reason from logs
-- calibration source used and whether it fell back to body-based, static, or none
-- progress messages, runtime, and any warnings/errors
+Add logic that:
+- collects the chosen athlete bbox across sampled frames
+- builds a union bbox covering the athlete’s motion envelope
+- rejects unstable detections if the union grows erratically from poor tracking
+- uses the union bbox as the base crop subject before target-fill resizing and padding
 
-## Reporting format
+This should make crop decisions stable for route-running footage, shaky phones, and slight athlete drift.
 
-For each of the three runs, report:
-- video label
-- upload ID / result ID
-- bilateral auto-detect choice and confidence comparison
-- calibration source and `pixels_per_yard`
-- key metric scores:
-  - Break Angle
-  - Release Speed
-  - Hands Extension
-  - Separation Distance when present
-- progress messages shown in UI
-- overall analysis time
-- any errors, warnings, or unexpected behavior
+### 3. Add intelligent motion-direction detection and directional padding
+Add a helper such as:
+- `estimate_motion_direction(...)`
+- `compute_directional_padding(...)`
 
-Then provide a final summary with:
-- what is working solidly now
-- any remaining tuning needs, especially around:
-  - confidence thresholds
-  - calibration robustness
-  - smoothing behavior
-  - metric symmetry between left and right clips
+Rules:
+- estimate horizontal and vertical movement from the sampled athlete bbox centers over time
+- classify dominant travel direction with a confidence score
+- add extra padding in the direction of travel, especially forward for routes
+- if direction confidence is weak, revert to symmetric padding
 
-## Critical bug handling
-If a blocking bug prevents meaningful validation:
-- isolate it to the smallest possible scope
-- patch only that critical blocker
-- rerun the affected validation case(s)
-- clearly separate “bug fixed during validation” from the rest of the report
+Padding rules:
+- minimum 15% padding on all sides
+- additional forward padding scaled by motion strength
+- preserve aspect ratio
+- clamp to frame bounds
 
-## What I need from you
-Send the three direct video URLs for:
-1. left-break slant clip
-2. right-break slant clip
-3. marginal / backyard-style clip
+### 4. Add hard safety rules so cropping never cuts off hands/feet during full motion
+Before finalizing the crop:
+- expand beyond the union bbox with limb safety margins
+- preserve a full-motion envelope for likely arm swing, leg extension, release, break, catch, and follow-through
+- if the computed crop risks clipping extremities or future movement, back off zoom until safe
+- prefer conservative framing over aggressive zoom
 
-Once those URLs are provided, the validation can be run exactly against those files and reported in the structure above.
+Add explicit guardrails:
+- no crop that places the athlete too close to any edge after safety padding
+- if the athlete is already well-framed (>=55% fill), apply minimal or zero zoom
+- if safe target fill cannot be reached without risk, use the safest feasible crop and log the reduction
+
+### 5. Build a structured auto-zoom decision object
+Add an internal object/dict such as:
+
+- `enabled`
+- `reason`
+- `target_person_confidence`
+- `original_person_fill_ratio`
+- `target_fill_ratio`
+- `final_fill_ratio`
+- `zoom_factor`
+- `crop_rect_original`
+- `padding_applied`
+- `movement_direction`
+- `movement_confidence`
+- `safety_backoff_applied`
+- `transform`
+- `athlete_message`
+
+This object should drive logs and the response metadata.
+
+### 6. Crop and upscale with OpenCV
+In `main.py`:
+- crop frames to the chosen rectangle
+- resize back to original resolution using `cv2.INTER_CUBIC` or equivalent high-quality interpolation
+- preserve frame timing / FPS
+- preserve audio if the current service outputs a processed clip; otherwise preserve alignment metadata so analysis timing remains correct
+
+### 7. Make coordinate transformation robust, with clear no-zoom fallback
+Add helpers such as:
+- `build_coordinate_transform(...)`
+- `map_keypoints_to_original_space(...)`
+- `map_bbox_to_original_space(...)`
+
+Rules:
+- when zoom is applied, inverse-map all pose points and boxes from zoomed frame space back to original coordinates
+- when no zoom is applied, use an identity transform explicitly
+- if any transform inputs are invalid, fall back safely to identity/original-frame behavior and log the reason
+- keep downstream outputs behaving as if inference happened on the original video
+
+Apply to:
+- keypoints
+- bounding boxes
+- calibration geometry where needed before exposing final values
+
+### 8. Improve body-based calibration on zoomed detections
+Update or add:
+- `compute_confidence_weighted_body_calibration(...)`
+- refined `multi_frame_body_proportions_hips_shoulders(...)`
+
+Rules:
+- run calibration on the zoomed detections for improved landmark separation
+- weight frame contributions by keypoint confidence
+- reject unstable or low-confidence outlier frames
+- report final `pixels_per_yard` and method clearly
+- preserve backward-compatible calibration fields already consumed downstream
+
+### 9. Expand the response contract with backward-compatible metadata
+Keep existing keys untouched and add optional fields such as:
+- `auto_zoom_applied`
+- `auto_zoom_reason`
+- `auto_zoom_factor`
+- `auto_zoom_original_fill_ratio`
+- `auto_zoom_final_fill_ratio`
+- `auto_zoom_crop_rect`
+- `auto_zoom_padding`
+- `movement_direction`
+- `movement_confidence`
+- `person_detection_confidence`
+- `safety_backoff_applied`
+- `coordinate_transform`
+- `athlete_framing_message`
+- enriched `calibration_details`
+- `calibration_source`
+- `pixels_per_yard`
+
+### 10. Make the athlete-facing message natural and encouraging
+Prepare the returned message so it sounds supportive, not technical. Example tone:
+
+- “Your video was a little far away, so I zoomed in and adjusted the framing to get a clearer read on your movement. For even better results next time, try filming from about 10–15 yards away with your full body in frame.”
+
+If no zoom is applied because the framing is already good:
+- “Your framing looked strong, so analysis used the original video as-is.”
+
+If zoom is skipped due to unclear detection:
+- “I analyzed the original video without reframing because the athlete could not be isolated confidently enough for a safe crop.”
+
+### 11. Add structured logging for debugging and trust
+Required logs:
+- `Person detection confidence: X.XX`
+- `Auto-Zoom applied: X.XXx (athlete filled Y% → Z% of frame)`
+- `Padding applied: top=Xpx, bottom=Ypx, left=Zpx, right=Wpx`
+- `Movement direction: right (confidence 0.81)`
+- `Safety backoff applied: true — reduced crop to preserve extremities`
+- `Coordinate transform: scale_x=..., scale_y=..., offset_x=..., offset_y=...`
+- `Final calibration source: body_based — XX.XX px/yard`
+
+If zoom is skipped:
+- log a clear reason such as `auto_zoom_skipped_no_reliable_person`, `auto_zoom_skipped_already_well_framed`, or `auto_zoom_skipped_invalid_transform`
+
+## Exact files and functions to modify
+
+### Required
+`playcoach-rtmlib-service/main.py`
+
+Modify or add these logical sections/functions:
+- `/analyze` endpoint flow
+- multi-frame person detection sampling
+- target-athlete selection
+- multi-frame union bbox builder
+- motion-direction estimator
+- crop computation with directional padding and safety backoff
+- crop/upscale executor
+- coordinate transform builder + inverse mapper
+- confidence-weighted body calibration helper
+- response serializer for new metadata
+- structured logging calls
+
+### Optional helper extraction if the repo already supports it
+`playcoach-rtmlib-service/preprocessing.py`
+- `select_main_athlete_track`
+- `build_union_motion_bbox`
+- `estimate_motion_direction`
+- `compute_auto_zoom_crop`
+- `apply_crop_and_resize`
+- `build_coordinate_transform`
+- `map_points_to_original_space`
+
+`playcoach-rtmlib-service/calibration.py`
+- `compute_confidence_weighted_body_calibration`
+- refined `multi_frame_body_proportions_hips_shoulders`
+
+## Execution order
+
+1. inspect current `/analyze` flow in `main.py`
+2. add multi-frame detection sampling
+3. add primary-athlete selection
+4. build multi-frame union bbox and motion-direction estimate
+5. compute crop with minimum padding, forward bias, and hard safety rules
+6. crop + upscale frames
+7. run pose on zoomed frames
+8. inverse-transform outputs back to original coordinates with identity fallback when no zoom is applied
+9. run improved confidence-weighted body calibration
+10. append response metadata and athlete-facing message
+11. add structured logs
+12. run an internal distant-clip validation
+
+## Validation to run after implementation
+
+Use one known distant clip and verify:
+
+### A. Auto-zoom decision quality
+- multi-frame union bbox is stable
+- motion direction is detected sensibly
+- forward padding appears in the direction of travel
+- athlete fill ratio improves toward the 62–72% target when safe
+
+### B. Safety behavior
+- no clipped hands or feet across release, break, catch, or stride extension
+- conservative backoff triggers when a tighter crop would be unsafe
+- already-close footage gets minimal or zero zoom
+
+### C. Pose quality improvement
+Compare before vs after on the same distant clip:
+- mean keypoint confidence
+- stability of wrists, elbows, knees, ankles, and hands if wholebody is enabled
+- reduced jitter / improved metric stability
+
+### D. Coordinate correctness
+Confirm that:
+- mapped keypoints align in original-frame space
+- distances, angles, and velocities remain plausible
+- calibration values still make sense downstream
+- no-zoom runs return identity transform cleanly
+
+### E. Fallback safety
+Test:
+- no person / weak person confidence
+- off-center athlete
+- partial occlusion
+- extremely wide shot
+- already well-framed video
+
+Expected result:
+- the service never crashes
+- it falls back to original-frame analysis when needed
+- logs and metadata explain exactly why
+
+## Expected outcome
+
+After this build, the Cloud Run service will intelligently rescue distant or imperfect phone footage using a stable multi-frame union crop, motion-aware directional padding, and strict extremity-protection rules. It will improve pose quality without distorting metrics by mapping all outputs back to original video coordinates, and it will return clear, athlete-friendly metadata explaining what framing assistance was applied.
