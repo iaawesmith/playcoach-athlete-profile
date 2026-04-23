@@ -459,6 +459,10 @@ export async function pollRunAnalysisResult(
   }
 
   const finalUpload = await fetchUploadStatus(uploadId);
+  if (finalUpload.status === "cancelled") {
+    options.onStageChange?.("cancelled", finalUpload);
+    return { stage: "cancelled", upload: finalUpload, result: null };
+  }
   options.onStageChange?.("timed_out", finalUpload);
   return { stage: "timed_out", upload: finalUpload, result: null };
 }
