@@ -163,6 +163,8 @@ type PipelineLogData = {
     backend?: string
     total_frames?: number
     source_fps?: number
+    calibration_source?: string
+    pixels_per_yard?: number
     processing_time_ms?: number
     person_detected?: boolean
     average_keypoint_confidence?: number
