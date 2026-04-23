@@ -1608,16 +1608,6 @@ async function callClaude(
     promptPreview: prompt.slice(0, 500),
   })
 
-  const requestPayload = {
-    video_url: payload.video_url,
-    start_seconds: payload.start_seconds,
-    end_seconds: payload.end_seconds,
-    solution_class: payload.solution_class,
-    performance_mode: payload.performance_mode,
-    det_frequency: payload.det_frequency,
-    tracking_enabled: payload.tracking_enabled,
-  }
-
   let response: Response
   try {
     response = await fetch('https://api.anthropic.com/v1/messages', {
