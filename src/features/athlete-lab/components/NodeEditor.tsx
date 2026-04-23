@@ -316,6 +316,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults
     const normalizedNode = {
       ...node,
+      det_frequency: node.det_frequency ?? 2,
+      det_frequency_solo: node.det_frequency_solo ?? 2,
+      det_frequency_defender: node.det_frequency_defender ?? 1,
+      det_frequency_multiple: node.det_frequency_multiple ?? 1,
       form_checkpoints: migrateCheckpoints(node.form_checkpoints),
       badges: migrateBadges(node.badges as any),
       key_metrics: (node.key_metrics ?? []).map((m) => ({
@@ -2096,7 +2100,6 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const sc = node.solution_class ?? "";
   const pm = node.performance_mode ?? "balanced";
-  const df = node.det_frequency ?? 7;
   const dfSolo = node.det_frequency_solo ?? 2;
   const dfDefender = node.det_frequency_defender ?? 1;
   const dfMultiple = node.det_frequency_multiple ?? 1;
@@ -2269,7 +2272,7 @@ pose_tracker = PoseTracker(
               ))}
             </div>
             <div className="mt-4 px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
-              <p className="text-on-surface-variant/40 text-[10px]">Fallback: <span className="text-on-surface-variant/60 font-semibold">{df}</span> frames — used when no context is available (e.g. direct webhook without pre-upload context)</p>
+              <p className="text-on-surface-variant/40 text-[10px]">If no context is available, the pipeline treats the run as <span className="text-on-surface-variant/60 font-semibold">solo</span> and uses <span className="text-on-surface-variant/60 font-semibold">2</span> frames by default.</p>
             </div>
           </div>
 
