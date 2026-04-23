@@ -422,6 +422,89 @@ interface UploadResult {
   sizeBytes: number;
 }
 
+const HISTORY_FILTER_DEFAULTS: AdminHistoryFilters = {
+  nodeId: "all",
+  dateRange: "last_7_days",
+  calibrationSource: "all",
+  status: "all",
+  sort: "date_desc",
+};
+
+function formatHistoryDate(value: string | null): string {
+  if (!value) return "N/A";
+  try {
+    return new Date(value).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return value;
+  }
+}
+
+function formatHistoryValue(value: string | number | null | undefined, fallback = "N/A"): string {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : fallback;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function formatHistoryScore(value: number | null): string {
+  return typeof value === "number" && Number.isFinite(value) ? String(Math.round(value)) : "—";
+}
+
+function scoreTone(value: number | null): string {
+  if (typeof value !== "number") return "bg-surface-container-lowest text-on-surface-variant";
+  if (value >= 85) return "bg-primary-container/20 text-primary-container";
+  if (value >= 70) return "bg-surface-container-lowest text-on-surface";
+  return "bg-error-dim/15 text-error-dim";
+}
+
+function statusTone(status: string): string {
+  if (status === "failed") return "bg-error-dim/15 text-error-dim";
+  if (status === "complete") return "bg-primary-container/20 text-primary-container";
+  return "bg-surface-container-lowest text-on-surface-variant";
+}
+
+function calibrationTone(source: string | null): string {
+  if (!source || source === "none") return "text-on-surface-variant";
+  if (source === "dynamic") return "text-primary-container";
+  if (source === "body_based") return "text-on-surface";
+  return "text-on-surface-variant";
+}
+
+function formatMetricValue(metric: PipelineMetricResult): string {
+  const value = metric.value;
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${value}${metric.unit ? ` ${metric.unit}` : ""}`;
+}
+
+function HistorySectionHeader({ title, subtitle, icon }: { title: string; subtitle: string; icon: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>{icon}</span>
+          <h2 className="text-on-surface font-extrabold uppercase tracking-tight text-sm">{title}</h2>
+        </div>
+        <p className="text-on-surface-variant text-xs mt-1">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function HistoryDetailBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl bg-surface-container-high p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-on-surface-variant">{label}</p>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
 function ManualTestUploadTab() {
   const [path, setPath] = useState("test-clips/slant-route-reference-v1.mp4");
   const [file, setFile] = useState<File | null>(null);
