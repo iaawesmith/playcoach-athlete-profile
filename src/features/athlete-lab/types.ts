@@ -24,6 +24,8 @@ export interface KeyMetric {
   depends_on_metric_id?: string | null;
   keypoint_mapping?: KeypointMapping | null;
   requires_catch?: boolean;
+  /** When false, this metric is preserved in storage but excluded from UI editing and scoring. Defaults to true. */
+  active?: boolean;
 }
 
 export type ErrorSeverity = "minor" | "common" | "critical";
