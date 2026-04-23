@@ -75,6 +75,10 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
 /* Critical tabs that auto-draft when changed on a live node */
 const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt", "training_status"];
 
+/* Tabs hidden by default — re-enabled with the Show Advanced Tabs toggle */
+const ADVANCED_TAB_KEYS: TabKey[] = ["mechanics", "errors", "checkpoints", "reference", "scoring"];
+const ADVANCED_TABS_STORAGE_KEY = "athleteLab.showAdvancedTabs";
+
 /* ── Shared style constants ── */
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
 const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
