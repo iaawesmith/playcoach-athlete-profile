@@ -1951,19 +1951,30 @@ async function calculateAllMetrics(
       continue
     }
 
-    // Determine which side to use
-    const side = resolveBilateral(mapping, context.route_direction)
-
     // Extract phase keypoints
     const phaseFrames = keypoints.slice(window.start, window.end + 1)
     const phaseScores = scores.slice(window.start, window.end + 1)
+    const bilateralDecision = resolveBilateralSelection(
+      mapping,
+      context.route_direction,
+      phaseFrames,
+      phaseScores,
+      personIndex,
+      metric.name,
+    )
     logInfo('metric_window_selected', {
       ...metricContext,
-      side,
+      side: bilateralDecision.side,
+      bilateralSource: bilateralDecision.source,
       windowStart: window.start,
       windowEnd: window.end,
       frameCount: phaseFrames.length,
-      keypointIndices: mapping.keypoint_indices,
+      keypointIndices: bilateralDecision.effectiveIndices,
+      baseKeypointIndices: bilateralDecision.baseIndices,
+      leftIndices: bilateralDecision.leftIndices,
+      rightIndices: bilateralDecision.rightIndices,
+      leftAverageConfidence: bilateralDecision.leftAverageConfidence,
+      rightAverageConfidence: bilateralDecision.rightAverageConfidence,
       temporalWindow: mapping.temporal_window || null,
       confidenceThreshold: mapping.confidence_threshold || 0.7,
     })
@@ -1971,7 +1982,7 @@ async function calculateAllMetrics(
     // Check confidence
     const confidenceCheck = checkConfidence(
       phaseFrames, phaseScores, personIndex,
-      mapping.keypoint_indices, metric.name, mapping.confidence_threshold || 0.70
+      bilateralDecision.effectiveIndices, metric.name, mapping.confidence_threshold || 0.70
     )
 
     if (!confidenceCheck.passed) {
@@ -1994,30 +2005,30 @@ async function calculateAllMetrics(
     
     switch (mapping.calculation_type) {
       case 'angle':
-        metricValue = calculateAngle(phaseFrames, personIndex, mapping.keypoint_indices)
+        metricValue = calculateAngle(phaseFrames, personIndex, bilateralDecision.effectiveIndices)
         break
       case 'distance':
         metricValue = calculateDistance(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           calibration,
           fallbackBehavior
         )
         break
       case 'velocity':
         metricValue = calculateVelocity(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           mapping.temporal_window || 3, fps, calibration, fallbackBehavior
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           mapping.temporal_window || 5, fps, calibration, fallbackBehavior
         )
         break
       case 'frame_delta':
         metricValue = calculateFrameDelta(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           mapping.temporal_window || 10
         )
         break
@@ -2030,6 +2041,7 @@ async function calculateAllMetrics(
         detail: {
           ...(metricValue.detail || {}),
           confidenceDiagnostics: confidenceCheck.diagnostics,
+          bilateralDecision,
         },
       })
       results.push({
@@ -2039,6 +2051,7 @@ async function calculateAllMetrics(
         detail: {
           ...(metricValue.detail || {}),
           confidenceDiagnostics: confidenceCheck.diagnostics,
+          bilateralDecision,
         },
       })
       continue
@@ -2051,6 +2064,7 @@ async function calculateAllMetrics(
         detail: {
           ...(metricValue.detail || {}),
           confidenceDiagnostics: confidenceCheck.diagnostics,
+          bilateralDecision,
         },
       })
       results.push({
@@ -2076,6 +2090,7 @@ async function calculateAllMetrics(
       detail: {
         ...(metricValue.detail || {}),
         confidenceDiagnostics: confidenceCheck.diagnostics,
+        bilateralDecision,
       },
     })
 
@@ -2093,6 +2108,7 @@ async function calculateAllMetrics(
       detail: {
         ...(metricValue.detail || {}),
         confidenceDiagnostics: confidenceCheck.diagnostics,
+        bilateralDecision,
       },
       keypoint_mapping: metric.keypoint_mapping,
     })
