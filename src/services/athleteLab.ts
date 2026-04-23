@@ -2,8 +2,15 @@ import { supabase } from "@/integrations/supabase/client";
 import type {
   TrainingNode,
   AnalysisResult,
+  AdminHistoryCalibrationFilter,
+  AdminHistoryCalibrationSummary,
+  AdminHistoryDateRange,
+  AdminHistoryRecord,
+  AdminHistorySortOption,
+  AdminHistoryStatusFilter,
   NodeStatus,
   PipelineAnalysisResult,
+  PipelineConfidenceFlag,
   PipelineMetricResult,
   PipelinePhaseScore,
   PipelineRunStage,
@@ -111,6 +118,48 @@ const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 240_000;
 
 const FIXED_TEST_ATHLETE_ID = "8F42B1C3-5D9E-4A7B-B2E1-9C3F4D5A6E7B".toLowerCase();
+
+export const ADMIN_TEST_ATHLETE_ID = FIXED_TEST_ATHLETE_ID;
+
+const ADMIN_HISTORY_LIMIT = 25;
+
+type UploadHistoryRow = {
+  id: string;
+  node_id: string | null;
+  node_version: number | null;
+  video_url: string | null;
+  analysis_context: unknown;
+  created_at: string | null;
+  status: string | null;
+  error_message: string | null;
+  athlete_lab_nodes?: { name: string | null } | null;
+};
+
+type ResultHistoryRow = {
+  id: string;
+  upload_id: string | null;
+  node_id: string;
+  athlete_id: string | null;
+  aggregate_score: number | null;
+  phase_scores: unknown;
+  metric_results: unknown;
+  confidence_flags: unknown;
+  detected_errors: unknown;
+  feedback: string | null;
+  analyzed_at: string | null;
+};
+
+export interface FetchAdminHistoryOptions {
+  limit?: number;
+}
+
+export interface AdminHistoryFilters {
+  nodeId: string;
+  dateRange: AdminHistoryDateRange;
+  calibrationSource: AdminHistoryCalibrationFilter;
+  status: AdminHistoryStatusFilter;
+  sort: AdminHistorySortOption;
+}
 
 export interface RunAnalysisSubmissionInput {
   node: TrainingNode;
