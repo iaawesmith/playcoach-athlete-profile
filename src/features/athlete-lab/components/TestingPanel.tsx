@@ -171,6 +171,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [contextCopied, setContextCopied] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [localProgressMessage, setLocalProgressMessage] = useState("");
+  const [preparationNotice, setPreparationNotice] = useState<string | null>(null);
 
   const isRunning = ["preparing_video", "uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
@@ -233,6 +234,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setResult(null);
     setActiveUpload(null);
     setLocalProgressMessage("");
+    setPreparationNotice(null);
     setRunStage("idle");
   };
 
@@ -249,6 +251,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setError(null);
     setResult(null);
     setLocalProgressMessage("");
+    setPreparationNotice(null);
     setRunStage("idle");
   };
 
@@ -259,6 +262,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       localAbortRef.current?.abort();
       localAbortRef.current = null;
       setLocalProgressMessage("");
+      setPreparationNotice(null);
       setResult(null);
       setError(null);
       setRunStage("cancelled");
@@ -276,6 +280,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       setResult(null);
       setError(null);
       setLocalProgressMessage("");
+      setPreparationNotice(null);
       setRunStage("cancelled");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Cancel failed");
@@ -291,6 +296,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setResult(null);
     setActiveUpload(null);
     setLocalProgressMessage("");
+    setPreparationNotice(null);
 
     const abortController = new AbortController();
     localAbortRef.current = abortController;
@@ -329,6 +335,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       );
 
       setActiveUpload(submission.upload);
+      setPreparationNotice(submission.preparationNote ?? null);
       setLocalProgressMessage("");
       setRunStage(submission.upload.status === "pending" ? "queued" : "processing");
 
@@ -337,6 +344,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
           if (stage === "cancelled") {
             setRunStage("cancelled");
             setLocalProgressMessage("");
+            setPreparationNotice(null);
             if (upload) setActiveUpload(upload);
             return;
           }
@@ -344,6 +352,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
           setRunStage(stage);
           if (stage === "processing" || stage === "fetching_results" || stage === "complete") {
             setLocalProgressMessage("");
+            setPreparationNotice(null);
           }
           if (upload) setActiveUpload(upload);
         },
@@ -364,6 +373,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       if (polled.stage === "cancelled") {
         setRunStage("cancelled");
         setLocalProgressMessage("");
+        setPreparationNotice(null);
         setError(null);
         return;
       }
@@ -380,6 +390,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       if (e instanceof DOMException && e.name === "AbortError") {
         setRunStage("cancelled");
         setLocalProgressMessage("");
+        setPreparationNotice(null);
         setError(null);
         return;
       }
@@ -709,6 +720,12 @@ export function TestingPanel({ node }: TestingPanelProps) {
                 <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-on-surface-variant/70">Latest Progress</p>
                 <p className="mt-1 text-sm text-on-surface">{displayProgressMessage}</p>
               </div>
+            </div>
+          )}
+          {preparationNotice && (
+            <div className="mt-3 rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3">
+              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-on-surface-variant/70">Upload Note</p>
+              <p className="mt-1 text-sm text-on-surface">{preparationNotice}</p>
             </div>
           )}
           {runStage === "timed_out" && (
