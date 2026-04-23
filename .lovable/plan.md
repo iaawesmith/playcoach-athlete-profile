@@ -1,128 +1,180 @@
 
-Implement the calibration hardening work in two phases, with priority placed on improving the dynamic calibration stage inside the Cloud Run service first, then updating the edge-function fallback resolver to consume the richer calibration metadata without changing the rest of the pipeline.
+Implement bilateral auto-detect as a small, isolated update centered on `supabase/functions/analyze-athlete-video/index.ts`, with a minimal AthleteLab editor enhancement so one Slant node can support both left-break and right-break clips without duplicating node definitions.
 
-## Implementation order
+## What will change
 
-### 1. Focus first on dynamic calibration inside Cloud Run
-Update the Cloud Run `/analyze` calibration step before touching fallback behavior in the edge function.
+### 1. Add side-selection priority logic in the edge function
+Refine the current bilateral resolver so side selection follows this order for each metric:
 
-Priority changes in Cloud Run:
-- retune `cv2.Canny` thresholds for noisy real phone footage
-- retune `cv2.HoughLinesP` parameters, especially:
-  - threshold
-  - `minLineLength`
-  - `maxLineGap`
-- strengthen line filtering so only near-horizontal lines that span most of the frame width are kept
-- de-duplicate fragmented detections so the same painted field line does not count multiple times
-- require a minimum good line-pair count before trusting dynamic calibration:
-  - target threshold: at least `8–10` good line pairs
-- reject dynamic calibration when:
-  - good line-pair count is below threshold, or
-  - computed `pixels_per_yard` falls outside a reasonable range such as `40–120`
+1. `bilateral_override` if set to `force_left` or `force_right`
+2. `analysis_context.route_direction` if provided as `left` or `right`
+3. confidence-based auto-detect when neither of the above applies
 
-Add Cloud Run logging:
-- `Dynamic calibration: found X line pairs, calculated Y.YY px/yard`
+This replaces the current simple `resolveBilateral(mapping, routeDirection)` behavior with a richer resolver that can return both:
+- the chosen side
+- the reason/source of that choice (`override`, `route_direction`, `confidence_auto`, or fixed bilateral setting)
 
-Add Cloud Run response fields:
-- `calibration_source`
-- `pixels_per_yard`
-- `calibration_details`
-- `good_line_pairs`
-- rejection reason when dynamic calibration is not trusted
+### 2. Add confidence-based bilateral auto-detect after smoothing/person lock
+Introduce a helper such as `chooseBestBilateralSide(metric, keypoints, scores, personIndex)` that runs after temporal smoothing and target-person locking, using the already-sliced phase frames for that metric.
 
-This makes Cloud Run the source of truth for whether dynamic calibration is truly usable.
+Behavior:
+- derive the left-side keypoint indices for the metric
+- derive the right-side mirror indices for the metric
+- compute average confidence across the left set
+- compute average confidence across the right set
+- return the side with the higher average confidence
 
-### 2. Then update the edge-function fallback resolver
-After Cloud Run returns richer calibration metadata, refine `resolveCalibration(...)` in `supabase/functions/analyze-athlete-video/index.ts` so it uses that metadata instead of accepting any dynamic-looking value blindly.
+This helper should work only when the metric is effectively bilateral and eligible for auto-selection.
 
-Fallback order in the edge function:
-1. trusted dynamic calibration from Cloud Run
-2. body-based calibration using athlete height plus body proportions
-3. static node calibration from `reference_calibrations`
-4. raw pixels only, with `calibration_flag: "unreliable"`
+### 3. Resolve mirrored left/right index sets from the keypoint library
+The existing metric config stores a single `keypoint_indices` array plus bilateral settings. To support auto-detect without introducing duplicate nodes, add a small helper that uses `src/constants/keypointLibrary.json` side metadata to build:
 
-Edge-function acceptance rules for dynamic calibration:
-- accept only when Cloud Run marks dynamic calibration as trusted, or returns enough metadata to prove:
-  - good line-pair count is high enough
-  - `pixels_per_yard` is within the valid range
-- otherwise fall through to body-based, then static, then none
+- `leftIndices`
+- `rightIndices`
 
-Add explicit final source logs in the edge function:
-- `Calibration source: dynamic (15 line pairs, 82.4 px/yard)`
-- `Calibration source: body-based (using athlete height)`
-- `Calibration source: static (80 px/yard from node config)`
-- `Calibration source: none (raw pixels)`
+Approach:
+- treat `Left ...` / `Right ...` keypoints and `side` metadata as mirror pairs
+- preserve center keypoints unchanged on both sides
+- if the configured metric is authored on one side, generate the mirrored opposite-side indices automatically
+- if a keypoint has no mirror pair, keep it unchanged so center/head landmarks still work
 
-## Repo changes
+This keeps the data model minimal and avoids requiring node authors to duplicate every metric mapping.
 
-### In this repo
-Update:
+### 4. Apply the chosen indices consistently through confidence checks and calculations
+Once the effective side is resolved for a metric, use that selected index set everywhere for that metric’s evaluation in the current run:
+
+- `metric_window_selected` logging
+- `checkConfidence(...)`
+- `calculateAngle(...)`
+- `calculateDistance(...)`
+- `calculateVelocity(...)`
+- `calculateAcceleration(...)`
+- `calculateFrameDelta(...)`
+
+Do not change:
+- phase windowing
+- temporal smoothing behavior
+- cancellation flow
+- scoring formulas
+- results writing
+- progress messages
+
+Only the effective indices passed into the existing metric pipeline should change.
+
+### 5. Add explicit bilateral logs
+Add a dedicated log entry when confidence-based auto-detect is used, with wording equivalent to:
+
+- `Bilateral auto-detect chose left side for Break Angle (conf left: 0.84, right: 0.61)`
+
+Also include structured details in the existing JSON logging style:
+- metric name / id
+- chosen side
+- left average confidence
+- right average confidence
+- left indices
+- right indices
+- effective indices actually used
+- selection source
+
+If side came from override or route direction, log that source clearly as well so run behavior is easy to audit.
+
+### 6. Respect existing bilateral settings without widening scope
+Preserve current semantics:
+- `bilateral_override` remains highest priority
+- `route_direction` remains second priority
+- `bilateral: left` or `bilateral: right` should behave as fixed-side metrics
+- `bilateral: auto` is the recommended/default path for route metrics
+
+This ensures backward compatibility for existing nodes that already depend on forced-side behavior.
+
+## AthleteLab admin UI updates
+
+### 7. Keep bilateral visible and defaulted to auto in the Metrics tab
+The editor already defaults new mappings to:
+- `bilateral: "auto"`
+- `bilateral_override: "auto"`
+
+Keep that default and make the bilateral section more transparent rather than changing the model.
+
+### 8. Show left/right derived indices in the metric editor
+Update `src/features/athlete-lab/components/KeyMetricsEditor.tsx` so the mapping panel displays:
+
+- configured/base indices
+- derived left indices
+- derived right indices
+
+This should be a transparency aid only:
+- no new complicated editor flow
+- no duplicate manual entry fields required unless absolutely necessary
+- authors can keep selecting one side as the base mapping and immediately see the mirrored alternative that auto-detect may use
+
+A concise presentation in the selected-summary area is enough:
+- Base
+- Left
+- Right
+- keypoint names where helpful
+
+### 9. Keep node normalization compatible
+If needed, make only minimal normalization updates in `NodeEditor.tsx` or shared types so older metrics still safely default to:
+- `bilateral: "auto"`
+- `bilateral_override: "auto"`
+
+No larger schema change is required unless exploration during implementation shows the editor cannot derive mirrored indices cleanly from the existing library.
+
+## Files to update
+
+Primary:
 - `supabase/functions/analyze-athlete-video/index.ts`
+- `src/features/athlete-lab/components/KeyMetricsEditor.tsx`
 
-Optional typed/UI alignment if needed:
+Possibly minor support updates:
+- `src/features/athlete-lab/components/NodeEditor.tsx`
 - `src/features/athlete-lab/types.ts`
-- `src/features/athlete-lab/components/TestingPanel.tsx`
-- `src/services/athleteLab.ts`
-
-### Outside this repo
-The primary tuning work must happen in the external Cloud Run service code, since that is where:
-- `cv2.Canny`
-- `cv2.HoughLinesP`
-- dynamic line filtering
-- line-pair counting
-are actually implemented.
 
 ## Technical details
 
-### Cloud Run
-Implement a stricter dynamic-calibration pipeline:
-- inspect several early usable frames
-- preprocess frames for phone footage
-- keep only long, near-horizontal line segments
-- cluster/de-duplicate similar lines
-- form candidate yard-line pairs
-- compute `pixels_per_yard` from robust pair spacing statistics
-- trust the result only if:
-  - `good_line_pairs >= 8` (or final chosen threshold in the 8–10 range)
-  - `40 <= pixels_per_yard <= 120`
+### Edge-function design
+Add small helpers near existing metric/confidence logic:
+- mirror-index resolver from keypoint library metadata
+- left/right confidence averaging helper
+- richer bilateral side resolver returning chosen side + source + effective indices
 
-### Edge function
-Expand parsing of Cloud Run calibration payload so it can read:
-- `calibration_source`
-- `calibration_details`
-- `good_line_pairs`
-- rejection reason
-- `calibration_flag`
+Suggested flow per metric:
+1. get phase window
+2. build `phaseFrames` / `phaseScores`
+3. resolve effective side and indices
+4. log bilateral decision
+5. run confidence check with effective indices
+6. run calculation with effective indices
+7. preserve existing scoring/output flow
 
-Preserve compatibility with older responses by continuing to read existing:
-- `pixelsPerYard`
-- `pixels_per_yard`
-- `calibrationConfidence`
-- `calibration_confidence`
+### UI design
+In `KeyMetricsEditor`, reuse the existing keypoint library import to derive and display mirrored left/right sets from the selected `keypoint_indices`. This keeps the admin UI aligned with the actual runtime behavior.
 
 ## Validation
 
-1. Test several real phone-footage clips, including wide backyard-style shots
-2. Confirm dynamic calibration produces more realistic values, typically around `60–100 px/yard`
-3. Confirm bad dynamic outputs are rejected before reaching distance/velocity metrics
-4. Confirm fallback order works correctly:
-   - dynamic
-   - body-based
-   - static
-   - none
-5. Confirm logs clearly show:
-   - line-pair count
-   - computed px/yard
-   - final calibration source used
-6. Confirm distance, velocity, and acceleration metrics are more stable when calibration succeeds
-7. Confirm no regressions in:
-   - progress messages
+1. Test a left-break Slant clip
+   - auto-detect should resolve to left when no override or route direction is forcing a side
+   - metrics should populate normally
+
+2. Test a right-break Slant clip
+   - auto-detect should resolve to right
+   - the same node should work without duplication
+
+3. Confirm logs show the chosen side and confidence comparison
+
+4. Confirm `force_left` and `force_right` still override auto-detect
+
+5. Confirm `route_direction` still takes priority over confidence-based auto-detect when provided
+
+6. Confirm no regressions in:
+   - progress updates
    - temporal smoothing
    - phase windowing
-   - metric calculations
+   - metric calculations other than chosen-side indices
    - cancellation
    - result persistence
 
 ## Expected outcome
 
-After this update, the work starts where it matters most: the dynamic calibration step itself becomes much stricter and more reliable on real phone footage, and the edge-function fallback resolver then uses that richer calibration metadata to choose the best safe fallback without affecting the rest of the pipeline.
+After this change, one Slant node can support both left-break and right-break footage. The pipeline will prefer explicit overrides first, then route direction when supplied, and otherwise choose the stronger side automatically from keypoint confidence, while the AthleteLab editor clearly shows the left/right index mappings the pipeline will use.
