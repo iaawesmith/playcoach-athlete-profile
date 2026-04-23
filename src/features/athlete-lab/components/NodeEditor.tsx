@@ -306,6 +306,113 @@ function StatusModal({ mode, blockingItems, onConfirm, onCancel, toggling }: {
   );
 }
 
+/* ── Active-only Metrics Section ──
+ * Shows only metrics with active !== false in the editor. Inactive metrics
+ * are listed below in a collapsible "Hidden metrics" row with a Reactivate
+ * button. Saves merge active edits + untouched inactive entries back into a
+ * single key_metrics array (preserving original ordering of inactive items).
+ */
+function ActiveMetricsSection({
+  allMetrics,
+  onChange,
+  onConfirmDelete,
+  phases,
+}: {
+  allMetrics: KeyMetric[];
+  onChange: (m: KeyMetric[]) => void;
+  onConfirmDelete: (opts: { title: string; body: string; confirmLabel: string; onConfirm: () => void }) => void;
+  phases: PhaseNote[];
+}) {
+  const [showHidden, setShowHidden] = useState(false);
+
+  const activeIndices: number[] = [];
+  const inactiveIndices: number[] = [];
+  allMetrics.forEach((m, i) => {
+    if (m.active === false) inactiveIndices.push(i);
+    else activeIndices.push(i);
+  });
+
+  const activeMetrics = activeIndices.map((i) => allMetrics[i]);
+  const inactiveMetrics = inactiveIndices.map((i) => allMetrics[i]);
+
+  const handleActiveChange = (next: KeyMetric[]) => {
+    // Preserve inactive entries in their original positions; replace active
+    // slots with the edited list (in order). New metrics added past the
+    // original active count are appended.
+    const merged: KeyMetric[] = [];
+    let activeCursor = 0;
+    const inactiveSet = new Set(inactiveIndices);
+    for (let i = 0; i < allMetrics.length; i++) {
+      if (inactiveSet.has(i)) {
+        merged.push(allMetrics[i]);
+      } else if (activeCursor < next.length) {
+        merged.push({ ...next[activeCursor], active: true });
+        activeCursor++;
+      }
+    }
+    while (activeCursor < next.length) {
+      merged.push({ ...next[activeCursor], active: true });
+      activeCursor++;
+    }
+    onChange(merged);
+  };
+
+  const reactivate = (originalIndex: number) => {
+    const next = allMetrics.map((m, i) => (i === originalIndex ? { ...m, active: true } : m));
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-6">
+      <KeyMetricsEditor
+        metrics={activeMetrics}
+        onChange={handleActiveChange}
+        onConfirmDelete={onConfirmDelete}
+        phases={phases}
+      />
+
+      {inactiveMetrics.length > 0 && (
+        <div className="rounded-xl border border-outline-variant/15 overflow-hidden" style={{ backgroundColor: '#131920' }}>
+          <button
+            onClick={() => setShowHidden((v) => !v)}
+            className="w-full px-4 py-3 flex items-center justify-between text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.15em] hover:text-on-surface transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>visibility_off</span>
+              Hidden metrics ({inactiveMetrics.length})
+            </span>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, transform: showHidden ? "rotate(180deg)" : undefined, transition: "transform 0.2s" }}>expand_more</span>
+          </button>
+          {showHidden && (
+            <div className="px-4 pb-4 space-y-2">
+              <p className="text-on-surface-variant/60 text-[11px] leading-snug">
+                These metrics are preserved in storage but excluded from scoring and the editor. Reactivate to bring them back.
+              </p>
+              {inactiveMetrics.map((m, idx) => {
+                const originalIndex = inactiveIndices[idx];
+                return (
+                  <div key={originalIndex} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#1A2029' }}>
+                    <span className="text-on-surface-variant/40 text-[10px] font-mono w-4 text-center shrink-0">{originalIndex + 1}</span>
+                    <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{m.name || "Untitled Metric"}</p>
+                    <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{m.unit}</span>
+                    <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{m.weight}%</span>
+                    <button
+                      onClick={() => reactivate(originalIndex)}
+                      className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border border-primary-container/30 text-primary-container hover:bg-primary-container/10 active:scale-95 transition-all shrink-0"
+                    >
+                      Reactivate
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
   const [draft, setDraft] = useState<TrainingNode>(node);
