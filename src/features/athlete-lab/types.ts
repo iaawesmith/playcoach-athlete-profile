@@ -342,6 +342,7 @@ export interface PipelineUploadSnapshot {
   id: string;
   status: PipelineUploadStatus;
   error_message: string | null;
+  progress_message: string | null;
   created_at: string | null;
   video_url: string | null;
   node_id: string | null;
