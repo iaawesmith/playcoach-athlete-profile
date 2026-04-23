@@ -166,6 +166,55 @@ type CloudRunResponse = {
   rejection_reason?: string | null
   rejectionReason?: string | null
   progress_updates?: CloudRunProgressUpdate[]
+  auto_zoom_applied?: boolean | null
+  autoZoomApplied?: boolean | null
+  auto_zoom_reason?: string | null
+  autoZoomReason?: string | null
+  auto_zoom_factor?: number | null
+  autoZoomFactor?: number | null
+  auto_zoom_final_fill_ratio?: number | null
+  autoZoomFinalFillRatio?: number | null
+  auto_zoom_crop_rect?: JsonRecord | null
+  autoZoomCropRect?: JsonRecord | null
+  auto_zoom_padding?: JsonRecord | null
+  autoZoomPadding?: JsonRecord | null
+  movement_direction?: string | null
+  movementDirection?: string | null
+  movement_confidence?: number | null
+  movementConfidence?: number | null
+  person_detection_confidence?: number | null
+  personDetectionConfidence?: number | null
+  safety_backoff_applied?: boolean | null
+  safetyBackoffApplied?: boolean | null
+  athlete_framing_message?: string | null
+  athleteFramingMessage?: string | null
+  mean_keypoint_confidence_before_auto_zoom?: number | null
+  meanKeypointConfidenceBeforeAutoZoom?: number | null
+  mean_keypoint_confidence_after_auto_zoom?: number | null
+  meanKeypointConfidenceAfterAutoZoom?: number | null
+}
+
+type CloudRunMetadata = {
+  auto_zoom_applied?: boolean
+  auto_zoom_reason?: string
+  auto_zoom_factor?: number
+  auto_zoom_final_fill_ratio?: number
+  auto_zoom_crop_rect?: JsonRecord
+  auto_zoom_padding?: JsonRecord
+  movement_direction?: string
+  movement_confidence?: number
+  person_detection_confidence?: number
+  safety_backoff_applied?: boolean
+  athlete_framing_message?: string
+  mean_keypoint_confidence_before_auto_zoom?: number
+  mean_keypoint_confidence_after_auto_zoom?: number
+  calibration_source?: string
+  calibration_confidence?: string
+  calibration_details?: JsonRecord
+  calibration_flag?: string
+  rejection_reason?: string
+  good_line_pairs?: number
+  pixels_per_yard?: number
 }
 
 type PipelineLogData = {
@@ -211,6 +260,24 @@ type PipelineLogData = {
       percent_below: number
       status: 'RELIABLE' | 'MARGINAL' | 'UNRELIABLE'
     }>
+    auto_zoom_applied?: boolean
+    auto_zoom_reason?: string
+    auto_zoom_factor?: number
+    auto_zoom_final_fill_ratio?: number
+    auto_zoom_crop_rect?: JsonRecord
+    auto_zoom_padding?: JsonRecord
+    movement_direction?: string
+    movement_confidence?: number
+    person_detection_confidence?: number
+    safety_backoff_applied?: boolean
+    athlete_framing_message?: string
+    mean_keypoint_confidence_before_auto_zoom?: number
+    mean_keypoint_confidence_after_auto_zoom?: number
+    calibration_confidence?: string
+    calibration_details?: JsonRecord
+    calibration_flag?: string
+    rejection_reason?: string
+    good_line_pairs?: number
   }
   metrics?: Array<{
     name: string
@@ -313,6 +380,106 @@ function summarizePersonCount(keypoints: VideoKeypoints): { firstFrame: number; 
   }, 0)
 
   return { firstFrame, maxAcrossFrames }
+}
+
+function readBooleanField(...values: unknown[]): boolean | undefined {
+  for (const value of values) {
+    if (typeof value === 'boolean') return value
+  }
+  return undefined
+}
+
+function readNumberField(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return undefined
+}
+
+function readStringField(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+  }
+  return undefined
+}
+
+function readJsonRecordField(...values: unknown[]): JsonRecord | undefined {
+  for (const value of values) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as JsonRecord
+  }
+  return undefined
+}
+
+function buildCloudRunMetadata(result: CloudRunResponse): CloudRunMetadata {
+  const metadata: CloudRunMetadata = {}
+
+  const autoZoomApplied = readBooleanField(result.auto_zoom_applied, result.autoZoomApplied)
+  if (autoZoomApplied !== undefined) metadata.auto_zoom_applied = autoZoomApplied
+
+  const autoZoomReason = readStringField(result.auto_zoom_reason, result.autoZoomReason)
+  if (autoZoomReason !== undefined) metadata.auto_zoom_reason = autoZoomReason
+
+  const autoZoomFactor = readNumberField(result.auto_zoom_factor, result.autoZoomFactor)
+  if (autoZoomFactor !== undefined) metadata.auto_zoom_factor = autoZoomFactor
+
+  const autoZoomFinalFillRatio = readNumberField(result.auto_zoom_final_fill_ratio, result.autoZoomFinalFillRatio)
+  if (autoZoomFinalFillRatio !== undefined) metadata.auto_zoom_final_fill_ratio = autoZoomFinalFillRatio
+
+  const autoZoomCropRect = readJsonRecordField(result.auto_zoom_crop_rect, result.autoZoomCropRect)
+  if (autoZoomCropRect !== undefined) metadata.auto_zoom_crop_rect = autoZoomCropRect
+
+  const autoZoomPadding = readJsonRecordField(result.auto_zoom_padding, result.autoZoomPadding)
+  if (autoZoomPadding !== undefined) metadata.auto_zoom_padding = autoZoomPadding
+
+  const movementDirection = readStringField(result.movement_direction, result.movementDirection)
+  if (movementDirection !== undefined) metadata.movement_direction = movementDirection
+
+  const movementConfidence = readNumberField(result.movement_confidence, result.movementConfidence)
+  if (movementConfidence !== undefined) metadata.movement_confidence = movementConfidence
+
+  const personDetectionConfidence = readNumberField(result.person_detection_confidence, result.personDetectionConfidence)
+  if (personDetectionConfidence !== undefined) metadata.person_detection_confidence = personDetectionConfidence
+
+  const safetyBackoffApplied = readBooleanField(result.safety_backoff_applied, result.safetyBackoffApplied)
+  if (safetyBackoffApplied !== undefined) metadata.safety_backoff_applied = safetyBackoffApplied
+
+  const athleteFramingMessage = readStringField(result.athlete_framing_message, result.athleteFramingMessage)
+  if (athleteFramingMessage !== undefined) metadata.athlete_framing_message = athleteFramingMessage
+
+  const meanConfidenceBefore = readNumberField(
+    result.mean_keypoint_confidence_before_auto_zoom,
+    result.meanKeypointConfidenceBeforeAutoZoom,
+  )
+  if (meanConfidenceBefore !== undefined) metadata.mean_keypoint_confidence_before_auto_zoom = meanConfidenceBefore
+
+  const meanConfidenceAfter = readNumberField(
+    result.mean_keypoint_confidence_after_auto_zoom,
+    result.meanKeypointConfidenceAfterAutoZoom,
+  )
+  if (meanConfidenceAfter !== undefined) metadata.mean_keypoint_confidence_after_auto_zoom = meanConfidenceAfter
+
+  const calibrationSource = readStringField(result.calibration_source, result.calibrationSource)
+  if (calibrationSource !== undefined) metadata.calibration_source = calibrationSource
+
+  const calibrationConfidence = readStringField(result.calibration_confidence, result.calibrationConfidence)
+  if (calibrationConfidence !== undefined) metadata.calibration_confidence = calibrationConfidence
+
+  const calibrationDetails = readJsonRecordField(result.calibration_details, result.calibrationDetails)
+  if (calibrationDetails !== undefined) metadata.calibration_details = calibrationDetails
+
+  const calibrationFlag = readStringField(result.calibration_flag, result.calibrationFlag)
+  if (calibrationFlag !== undefined) metadata.calibration_flag = calibrationFlag
+
+  const rejectionReason = readStringField(result.rejection_reason, result.rejectionReason)
+  if (rejectionReason !== undefined) metadata.rejection_reason = rejectionReason
+
+  const goodLinePairs = readNumberField(result.good_line_pairs, result.goodLinePairs)
+  if (goodLinePairs !== undefined) metadata.good_line_pairs = goodLinePairs
+
+  const pixelsPerYard = getPixelsPerYardValue(result)
+  if (pixelsPerYard !== null) metadata.pixels_per_yard = pixelsPerYard
+
+  return metadata
 }
 
 function clampPercentage(value: number) {
@@ -467,6 +634,7 @@ Deno.serve(async (req) => {
       det_frequency: detFrequency,
       tracking_enabled: nodeConfig.tracking_enabled
     })
+    const cloudRunMetadata = buildCloudRunMetadata(rtmlibResult)
     logData.rtmlib = {
       solution_class: nodeConfig.solution_class,
       backend: 'cloud_run',
@@ -475,6 +643,7 @@ Deno.serve(async (req) => {
       keypoint_confidence: summarizeKeypointConfidence(rtmlibResult.scores),
       calibration_source: getCalibrationSourceLabel(rtmlibResult) ?? undefined,
       pixels_per_yard: getPixelsPerYardValue(rtmlibResult) ?? undefined,
+      ...(Object.keys(cloudRunMetadata).length > 0 ? cloudRunMetadata : {}),
     }
     const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
     logInfo('cloud_run_response_received', {
@@ -625,7 +794,7 @@ Deno.serve(async (req) => {
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Writing analysis results...')
-    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData)
+    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata)
     logInfo('results_written', {
       uploadId,
       aggregateScore: scoreResult.aggregate_score,
@@ -3009,6 +3178,7 @@ async function writeResults(
   errorResults: any,
   feedback: string,
   logData: PipelineLogData,
+  cloudRunMetadata: CloudRunMetadata,
 ) {
   const { error } = await supabase
     .from('athlete_lab_results')
@@ -3021,7 +3191,10 @@ async function writeResults(
       phase_scores: scoreResult.phase_scores,
       metric_results: metricResults,
       feedback,
-      result_data: { log_data: logData },
+      result_data: {
+        ...(Object.keys(cloudRunMetadata).length > 0 ? cloudRunMetadata : {}),
+        log_data: logData,
+      },
       confidence_flags: metricResults
         .filter(m => m.status === 'flagged')
         .map(m => ({ metric: m.name, reason: m.reason })),
