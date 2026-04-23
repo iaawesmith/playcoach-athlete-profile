@@ -1,93 +1,89 @@
 
-Manually validate the calibration resolver end-to-end by creating a fresh upload, but first address a backend blocker that prevents the requested `analysis_context` payload from flowing through the normal webhook path.
+Rewire the AthleteLab Run Analysis tab to submit real analysis jobs through the production upload pipeline, while keeping the existing context form and simulated function deployed but no longer used by this tab.
 
-### What I found
+### What will be built
 
-- The analysis pipeline code in `supabase/functions/analyze-athlete-video/index.ts` expects `upload.analysis_context`.
-- The live `public.athlete_uploads` table currently does **not** have an `analysis_context` column.
-- Because of that, the exact test you requested cannot run through the normal insert/webhook flow yet: the upload row has nowhere to store `athlete_height`, so body-based calibration cannot be triggered from a real upload record.
-- I also confirmed the Slant node exists and is live:
-  - `id: 75ed4b18-8a22-440e-9a23-b86204956056`
-  - `node_version: 4`
-  - `reference_fallback_behavior: pixel_warning`
-  - sideline static calibration currently has `pixels_per_yard: 80`
+1. Add reliable upload-to-result linkage
+   - Add a nullable `upload_id uuid` column on `public.athlete_lab_results`
+   - Add a foreign key from `athlete_lab_results.upload_id` to `athlete_uploads.id`
+   - Update the production function’s results insert so each completed run writes `upload_id`
+   - Use `upload_id` as the primary result lookup path in the UI
+   - If no result row is found immediately after completion, keep a safe fallback query by athlete/node/time ordering for resilience
 
-### Current implementation mismatch to verify during execution
+2. Add a backend helper for admin test submissions
+   - Create a dedicated backend function for Run Analysis submissions
+   - It will accept the node, signed video URL, timing, camera angle, and full `analysis_context`
+   - It will insert into `athlete_uploads` using the fixed test athlete ID the user approved
+   - This avoids client-side RLS issues and preserves the real webhook-triggered production path
 
-There is also a likely metadata inconsistency in the deployed function:
-- the new resolver code writes metric detail as:
-  - `calibrationSource`
-  - `calibrationConfidence`
-  - `calibrationDetails`
-- but recent stored `metric_results` still show older detail like `calibrationSource: "cloud_run_calibration"` on some metrics and missing the new structured fields on others
+3. Move Run Analysis uploads onto the real storage path
+   - Change file uploads from `athlete-media/test-videos/*` to `athlete-videos/test-clips/*`
+   - Use naming like `test-clips/{node-id}-{timestamp}.{ext}`
+   - Generate a 24-hour signed URL after upload
+   - Keep MIME-based file selection (`video/*`) so `.mp4`, `.mov`, and `.MOV` continue to work
 
-That means the deployed behavior should be verified carefully after the test run.
+4. Replace simulated submission in `TestingPanel`
+   - Remove the tab’s dependency on `athlete-lab-analyze`
+   - On submit:
+     - upload local file if provided
+     - create signed URL
+     - call the new backend helper
+     - receive the created `athlete_uploads.id`
+   - Keep the existing Analysis Context inputs and forward them into `analysis_context`
+   - Include `camera_angle`, `start_seconds`, and `end_seconds` in the real upload payload
 
-### Execution plan
+5. Add real pipeline polling with clear states
+   - Poll `athlete_uploads` by ID until `complete`, `failed`, or 240 seconds elapsed
+   - Show distinct stages such as uploading, queued, processing, fetching results, complete, failed, and timed out
+   - Make timeout messaging explicit: polling stopped after 240 seconds, but the pipeline may still be running and results may appear later
+   - Keep retry available without clearing the entered context unnecessarily
 
-1. Fix the upload schema so analysis context can be stored
-   - Add `analysis_context jsonb` to `public.athlete_uploads`
-   - Keep all existing rows compatible by making it nullable or defaulting to `{}`
-
-2. Generate a fresh 24-hour signed URL for the reference clip
-   - Reuse `athlete-videos/test-clips/slant-route-reference-v1.mp4`
-   - Produce a new signed URL for `video_url`
-
-3. Insert the test upload row
-   - Use the Slant node ID you provided
-   - Include:
-     - `camera_angle: "sideline"`
-     - `node_version`
-     - `video_url`
-     - `analysis_context` with `athlete_height`
-   - Trigger analysis through the existing normal insert/webhook flow
-
-4. Wait for pipeline completion
-   - Poll `athlete_uploads` until the row reaches `complete` or `failed`
-   - Allow up to the requested 240 seconds
-
-5. Return the full inspection output
-   - Final `athlete_uploads` row:
-     - `id`
-     - `status`
-     - `error_message`
-   - Matching `athlete_lab_results` row:
-     - `id`
-     - `node_version`
-     - `athlete_id`
-     - `aggregate_score`
-     - full `phase_scores`
-     - all metric entries in `metric_results`
-   - For each metric, explicitly surface:
+6. Fetch and render real result data
+   - After upload completion, fetch the linked `athlete_lab_results` row using `upload_id`
+   - Replace the simulated result view with a real pipeline result view showing:
+     - aggregate score
+     - phase scores
+     - full metric results
+     - confidence flags
+     - detected errors
+     - feedback text
+   - Surface calibration metadata per metric:
      - `calibrationSource`
      - `calibrationConfidence`
      - `calibrationDetails`
-     - `pixelsPerYard`
-     - raw pixel value where present
-   - Retrieve the run’s `calibration_resolved` log event if available
+     - resolved `pixelsPerYard`
+     - raw pixel value when present in detail
 
-### Technical details
+7. Improve result and error UX
+   - Show `athlete_uploads.error_message` clearly when the pipeline fails
+   - Distinguish upload/signing/backend submission failures from downstream pipeline failures
+   - If polling times out, preserve the upload ID and show a “check later” state instead of a failure state
+   - Keep the Analysis Log area compatible with the new flow, but do not block migration on log enhancements
 
-Files/systems involved once execution is allowed:
-- Database schema: `public.athlete_uploads`
-- Runtime function: `supabase/functions/analyze-athlete-video/index.ts`
-- Signed URL generation path already exists conceptually via storage signed URLs for `athlete-videos`
+### Files and systems to update
 
-### Expected validation outcomes
+- `src/features/athlete-lab/components/TestingPanel.tsx`
+- `src/services/athleteLab.ts`
+- `src/features/athlete-lab/types.ts`
+- `supabase/functions/analyze-athlete-video/index.ts` for `upload_id` on results writes only
+- one new backend function for privileged admin test upload creation
+- database migration for `athlete_lab_results.upload_id`
 
-After the schema blocker is removed and the test is run:
-- If Cloud Run dynamic calibration succeeds, metrics should report `dynamic`
-- If dynamic fails and `athlete_height` is present, the resolver should choose `body_based` when confidence is `>= 0.3`
-- If height is absent or body-based confidence is too low, sideline static fallback should resolve to the node’s configured `pixels_per_yard: 80`
-- The returned metric detail should reveal whether the deployed function is actually emitting the new structured calibration metadata consistently
+### Technical notes
 
-### Why this needs approval
+- The `upload_id` addition is a small additive schema change and is worth including for reliable linkage
+- No changes to metric calculations, calibration resolver logic, node config, or Cloud Run
+- No changes to the existing Analysis Context form fields beyond passing them into the real upload flow
+- The old `athlete-lab-analyze` function remains deployed for now but is no longer used by Run Analysis
+- Storage policy may need a minimal adjustment if browser uploads to `athlete-videos/test-clips/*` are currently blocked by existing rules
 
-This task requires capabilities unavailable in the current read-only mode:
-- database/schema change or at minimum a writable insert path
-- signed URL generation
-- inserting a live upload row
-- waiting/polling the pipeline
-- fetching result rows after execution
+### Validation after implementation
 
-Once approved in writable mode, I can run the full test and return the exact output you asked for.
+1. Run Analysis uploads land in `athlete-videos/test-clips/*`
+2. Uploaded files get a 24-hour signed URL
+3. Submitting creates a real `athlete_uploads` row through the backend helper
+4. The webhook triggers the production pipeline
+5. Polling shows correct intermediate states
+6. Successful runs resolve a linked `athlete_lab_results.upload_id`
+7. The UI shows real metric output including calibration metadata
+8. Timeout state clearly says polling gave up, not that the pipeline failed
