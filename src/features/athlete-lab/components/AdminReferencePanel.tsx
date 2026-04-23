@@ -1,5 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchAdminTestHistory,
+  filterAndSortAdminHistory,
+  type AdminHistoryFilters,
+} from "@/services/athleteLab";
+import type { AdminHistoryRecord, PipelineMetricResult } from "@/features/athlete-lab/types";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
 import { PipelineSetupTab } from "./PipelineSetupTab";
@@ -415,6 +422,425 @@ interface UploadResult {
   sizeBytes: number;
 }
 
+const HISTORY_FILTER_DEFAULTS: AdminHistoryFilters = {
+  nodeId: "all",
+  dateRange: "last_7_days",
+  calibrationSource: "all",
+  status: "all",
+  sort: "date_desc",
+};
+
+function formatHistoryDate(value: string | null): string {
+  if (!value) return "N/A";
+  try {
+    return new Date(value).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return value;
+  }
+}
+
+function formatHistoryValue(value: string | number | null | undefined, fallback = "N/A"): string {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : fallback;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function formatHistoryScore(value: number | null): string {
+  return typeof value === "number" && Number.isFinite(value) ? String(Math.round(value)) : "—";
+}
+
+function scoreTone(value: number | null): string {
+  if (typeof value !== "number") return "bg-surface-container-lowest text-on-surface-variant";
+  if (value >= 85) return "bg-primary-container/20 text-primary-container";
+  if (value >= 70) return "bg-surface-container-lowest text-on-surface";
+  return "bg-error-dim/15 text-error-dim";
+}
+
+function statusTone(status: string): string {
+  if (status === "failed") return "bg-error-dim/15 text-error-dim";
+  if (status === "complete") return "bg-primary-container/20 text-primary-container";
+  return "bg-surface-container-lowest text-on-surface-variant";
+}
+
+function calibrationTone(source: string | null): string {
+  if (!source || source === "none") return "text-on-surface-variant";
+  if (source === "dynamic") return "text-primary-container";
+  if (source === "body_based") return "text-on-surface";
+  return "text-on-surface-variant";
+}
+
+function formatMetricValue(metric: PipelineMetricResult): string {
+  const value = metric.value;
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${value}${metric.unit ? ` ${metric.unit}` : ""}`;
+}
+
+function HistorySectionHeader({ title, subtitle, icon }: { title: string; subtitle: string; icon: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>{icon}</span>
+          <h2 className="text-on-surface font-extrabold uppercase tracking-tight text-sm">{title}</h2>
+        </div>
+        <p className="text-on-surface-variant text-xs mt-1">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function HistoryDetailBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl bg-surface-container-high p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-on-surface-variant">{label}</p>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function RecentTestRunsSection() {
+  const [history, setHistory] = useState<AdminHistoryRecord[]>([]);
+  const [filters, setFilters] = useState<AdminHistoryFilters>(HISTORY_FILTER_DEFAULTS);
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const records = await fetchAdminTestHistory();
+      setHistory(records);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load recent test runs.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  const nodeOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    history.forEach((record) => {
+      if (record.nodeId) map.set(record.nodeId, record.nodeName);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [history]);
+
+  const visibleHistory = useMemo(() => filterAndSortAdminHistory(history, filters), [history, filters]);
+
+  const toggleRow = (uploadId: string) => {
+    setExpandedRows((current) => ({ ...current, [uploadId]: !current[uploadId] }));
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl bg-surface-container p-5">
+      <HistorySectionHeader
+        title="Recent Test Runs"
+        subtitle="Cross-node production test history for the fixed admin athlete. Filter, sort, and expand runs to inspect calibration, metrics, and failures."
+        icon="history"
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <label className="space-y-1">
+          <span className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Node</span>
+          <select
+            value={filters.nodeId}
+            onChange={(e) => setFilters((current) => ({ ...current, nodeId: e.target.value }))}
+            className="h-10 w-full rounded-lg border border-outline-variant/10 bg-surface-container-lowest px-3 text-xs text-on-surface focus:outline-none focus:border-primary-container/30"
+          >
+            <option value="all">All Nodes</option>
+            {nodeOptions.map(([nodeId, nodeName]) => (
+              <option key={nodeId} value={nodeId}>{nodeName}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Date Range</span>
+          <select
+            value={filters.dateRange}
+            onChange={(e) => setFilters((current) => ({ ...current, dateRange: e.target.value as AdminHistoryFilters["dateRange"] }))}
+            className="h-10 w-full rounded-lg border border-outline-variant/10 bg-surface-container-lowest px-3 text-xs text-on-surface focus:outline-none focus:border-primary-container/30"
+          >
+            <option value="today">Today</option>
+            <option value="last_7_days">Last 7 Days</option>
+            <option value="all">All</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Calibration</span>
+          <select
+            value={filters.calibrationSource}
+            onChange={(e) => setFilters((current) => ({ ...current, calibrationSource: e.target.value as AdminHistoryFilters["calibrationSource"] }))}
+            className="h-10 w-full rounded-lg border border-outline-variant/10 bg-surface-container-lowest px-3 text-xs text-on-surface focus:outline-none focus:border-primary-container/30"
+          >
+            <option value="all">All</option>
+            <option value="dynamic">Dynamic</option>
+            <option value="body_based">Body Based</option>
+            <option value="static">Static</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Status</span>
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters((current) => ({ ...current, status: e.target.value as AdminHistoryFilters["status"] }))}
+            className="h-10 w-full rounded-lg border border-outline-variant/10 bg-surface-container-lowest px-3 text-xs text-on-surface focus:outline-none focus:border-primary-container/30"
+          >
+            <option value="all">All</option>
+            <option value="complete">Complete</option>
+            <option value="failed">Failed</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Sort</span>
+          <select
+            value={filters.sort}
+            onChange={(e) => setFilters((current) => ({ ...current, sort: e.target.value as AdminHistoryFilters["sort"] }))}
+            className="h-10 w-full rounded-lg border border-outline-variant/10 bg-surface-container-lowest px-3 text-xs text-on-surface focus:outline-none focus:border-primary-container/30"
+          >
+            <option value="date_desc">Newest</option>
+            <option value="date_asc">Oldest</option>
+            <option value="score_asc">Aggregate Score ↑</option>
+            <option value="score_desc">Aggregate Score ↓</option>
+            <option value="node_name_asc">Node Name A–Z</option>
+          </select>
+        </label>
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-error-dim/20 bg-error-dim/10 p-4">
+          <p className="text-sm text-error-dim">{error}</p>
+          <button onClick={() => void loadHistory()} className="mt-3 h-9 rounded-full bg-surface-container-lowest px-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface">
+            Retry
+          </button>
+        </div>
+      ) : loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-16 animate-pulse rounded-xl bg-surface-container-high" />
+          ))}
+        </div>
+      ) : visibleHistory.length === 0 ? (
+        <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl bg-surface-container-high text-center">
+          <span className="material-symbols-outlined text-on-surface-variant/40" style={{ fontSize: 30 }}>history_toggle_off</span>
+          <p className="mt-3 text-sm text-on-surface">No test runs match the current filters.</p>
+          <p className="mt-1 text-xs text-on-surface-variant">Expand the date range or clear filters to inspect older runs.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl bg-surface-container-high p-1">
+          <Table className="min-w-[1180px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Date / Time</TableHead>
+                <TableHead>Node</TableHead>
+                <TableHead>Version</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Video</TableHead>
+                <TableHead>Height</TableHead>
+                <TableHead>Wingspan</TableHead>
+                <TableHead>Camera</TableHead>
+                <TableHead>Route</TableHead>
+                <TableHead>Calibration</TableHead>
+                <TableHead>Confidence</TableHead>
+                <TableHead>Aggregate</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleHistory.map((record) => {
+                const isExpanded = !!expandedRows[record.uploadId];
+                return (
+                  <>
+                    <TableRow
+                      key={record.uploadId}
+                      onClick={() => toggleRow(record.uploadId)}
+                      className="cursor-pointer border-white/5 bg-surface-container-high hover:bg-surface-container"
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 16 }}>
+                            {isExpanded ? "expand_less" : "expand_more"}
+                          </span>
+                          <span className="text-xs text-on-surface">{formatHistoryDate(record.analyzedAt ?? record.uploadCreatedAt)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-semibold text-on-surface">{record.nodeName}</TableCell>
+                      <TableCell className="text-on-surface-variant">{formatHistoryValue(record.nodeVersion)}</TableCell>
+                      <TableCell>
+                        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${statusTone(record.status)}`}>
+                          {record.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-[180px] truncate text-on-surface-variant">{record.videoIdentifier}</TableCell>
+                      <TableCell>{formatHistoryValue(record.analysisContext.athleteHeightText)}</TableCell>
+                      <TableCell>{formatHistoryValue(record.analysisContext.athleteWingspanText)}</TableCell>
+                      <TableCell>{formatHistoryValue(record.analysisContext.cameraAngle)}</TableCell>
+                      <TableCell>{formatHistoryValue(record.analysisContext.routeDirection)}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs font-semibold uppercase tracking-[0.18em] ${calibrationTone(record.calibration?.normalizedSource ?? null)}`}>
+                          {formatHistoryValue(record.calibration?.source, "None")}
+                        </span>
+                      </TableCell>
+                      <TableCell>{formatHistoryValue(record.calibration?.confidence as string | number | null)}</TableCell>
+                      <TableCell>
+                        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${scoreTone(record.aggregateScore)}`}>
+                          {formatHistoryScore(record.aggregateScore)}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && (
+                      <TableRow key={`${record.uploadId}-detail`} className="hover:bg-transparent">
+                        <TableCell colSpan={12} className="bg-surface px-4 py-5">
+                          <div className="space-y-4">
+                            <div className="grid gap-4 lg:grid-cols-3">
+                              <HistoryDetailBlock label="Run Summary">
+                                <div className="space-y-2 text-sm text-on-surface">
+                                  <p><span className="text-on-surface-variant">Upload ID:</span> <span className="font-mono text-xs">{record.uploadId}</span></p>
+                                  <p><span className="text-on-surface-variant">Result ID:</span> <span className="font-mono text-xs">{record.resultId ?? "N/A"}</span></p>
+                                  <p><span className="text-on-surface-variant">Upload Status:</span> {record.status}</p>
+                                  <p><span className="text-on-surface-variant">Error:</span> {record.errorMessage ?? "None"}</p>
+                                </div>
+                              </HistoryDetailBlock>
+
+                              <HistoryDetailBlock label="Calibration Detail">
+                                {record.calibration ? (
+                                  <div className="space-y-2 text-sm text-on-surface">
+                                    <p><span className="text-on-surface-variant">Source:</span> {record.calibration.source ?? "N/A"}</p>
+                                    <p><span className="text-on-surface-variant">Confidence:</span> {formatHistoryValue(record.calibration.confidence as string | number | null)}</p>
+                                    <p><span className="text-on-surface-variant">Pixels / Yard:</span> {formatHistoryValue(record.calibration.pixelsPerYard)}</p>
+                                    <p><span className="text-on-surface-variant">Raw Pixel Value:</span> {formatHistoryValue(record.calibration.rawPixelValue)}</p>
+                                    {record.calibration.details && (
+                                      <pre className="overflow-x-auto rounded-lg bg-surface-container-lowest p-3 text-[11px] text-on-surface-variant">{JSON.stringify(record.calibration.details, null, 2)}</pre>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-on-surface-variant">No calibration metadata recorded for this run.</p>
+                                )}
+                              </HistoryDetailBlock>
+
+                              <HistoryDetailBlock label="Phase Scores">
+                                {record.phaseBreakdown.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {record.phaseBreakdown.map((phase) => (
+                                      <div key={`${record.uploadId}-${phase.id}`} className="flex items-center justify-between rounded-lg bg-surface-container-lowest px-3 py-2 text-sm text-on-surface">
+                                        <span>{phase.name}</span>
+                                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${scoreTone(phase.score)}`}>{phase.score}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-on-surface-variant">No phase scores returned.</p>
+                                )}
+                              </HistoryDetailBlock>
+                            </div>
+
+                            <HistoryDetailBlock label="Metric Results">
+                              {record.metricResults.length > 0 ? (
+                                <div className="space-y-3">
+                                  {record.metricResults.map((metric, index) => (
+                                    <div key={`${record.uploadId}-${metric.name}-${index}`} className="rounded-xl bg-surface-container-lowest p-4">
+                                      <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div>
+                                          <p className="text-sm font-semibold text-on-surface">{metric.name}</p>
+                                          <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">
+                                            {metric.phase_name ?? metric.phase_id ?? "Unassigned"} · {metric.calculation_type ?? "Unknown"} · {metric.status}
+                                          </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${scoreTone(metric.score ?? null)}`}>
+                                            {formatHistoryScore(metric.score ?? null)}
+                                          </span>
+                                          <span className="rounded-full bg-surface-container px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">
+                                            {formatMetricValue(metric)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3 grid gap-3 md:grid-cols-4">
+                                        <div className="rounded-lg bg-surface-container px-3 py-3 text-sm text-on-surface"><span className="text-on-surface-variant">Elite:</span> {metric.elite_target || "—"}</div>
+                                        <div className="rounded-lg bg-surface-container px-3 py-3 text-sm text-on-surface"><span className="text-on-surface-variant">Deviation:</span> {formatHistoryValue(metric.deviation)}</div>
+                                        <div className="rounded-lg bg-surface-container px-3 py-3 text-sm text-on-surface"><span className="text-on-surface-variant">Weight:</span> {formatHistoryValue(metric.weight)}</div>
+                                        <div className="rounded-lg bg-surface-container px-3 py-3 text-sm text-on-surface"><span className="text-on-surface-variant">Reason:</span> {metric.reason ?? "—"}</div>
+                                      </div>
+                                      {metric.detail && (
+                                        <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-container p-3 text-[11px] text-on-surface-variant">{JSON.stringify(metric.detail, null, 2)}</pre>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-on-surface-variant">No metric results linked to this run.</p>
+                              )}
+                            </HistoryDetailBlock>
+
+                            <div className="grid gap-4 lg:grid-cols-2">
+                              <HistoryDetailBlock label="Confidence Flags">
+                                {record.confidenceFlags.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {record.confidenceFlags.map((flag, index) => (
+                                      <div key={`${record.uploadId}-flag-${index}`} className="rounded-lg bg-surface-container-lowest px-3 py-3 text-sm text-on-surface">
+                                        <div className="font-semibold">{flag.metric}</div>
+                                        <div className="mt-1 text-on-surface-variant">{flag.reason}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-on-surface-variant">No confidence diagnostics were recorded.</p>
+                                )}
+                              </HistoryDetailBlock>
+
+                              <HistoryDetailBlock label="Detected Errors">
+                                {record.detectedErrors.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {record.detectedErrors.map((entry, index) => (
+                                      <pre key={`${record.uploadId}-error-${index}`} className="overflow-x-auto rounded-lg bg-surface-container-lowest p-3 text-[11px] text-on-surface-variant">{JSON.stringify(entry, null, 2)}</pre>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-on-surface-variant">No detected errors were attached to this run.</p>
+                                )}
+                              </HistoryDetailBlock>
+                            </div>
+
+                            <HistoryDetailBlock label="Feedback">
+                              {record.feedback ? (
+                                <details className="rounded-xl bg-surface-container-lowest p-4 text-sm text-on-surface">
+                                  <summary className="cursor-pointer font-semibold uppercase tracking-[0.2em] text-[10px] text-on-surface-variant">Show Feedback</summary>
+                                  <p className="mt-3 whitespace-pre-wrap leading-relaxed">{record.feedback}</p>
+                                </details>
+                              ) : (
+                                <p className="text-sm text-on-surface-variant">No feedback text returned.</p>
+                              )}
+                            </HistoryDetailBlock>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManualTestUploadTab() {
   const [path, setPath] = useState("test-clips/slant-route-reference-v1.mp4");
   const [file, setFile] = useState<File | null>(null);
@@ -611,6 +1037,10 @@ function ManualTestUploadTab() {
           </div>
         </div>
       )}
+
+      <div className="pt-4">
+        <RecentTestRunsSection />
+      </div>
     </div>
   );
 }
