@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type {
   TrainingNode,
   AnalysisResult,
+  AnalysisLogData,
   AdminHistoryCalibrationFilter,
   AdminHistoryCalibrationSummary,
   AdminHistoryDateRange,
@@ -475,6 +476,8 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
   const row = parseRecord(value);
   const resultId = typeof row.id === "string" ? row.id : "";
   if (!resultId) return null;
+  const resultData = parseRecord(row.result_data);
+  const rawLogData = row.log_data ?? resultData.log_data;
 
   const phaseScores = Object.entries(parseRecord(row.phase_scores)).reduce<Record<string, number>>((acc, [key, rawValue]) => {
     if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
@@ -496,6 +499,9 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
     feedback: typeof row.feedback === "string" ? row.feedback : "",
     analyzedAt: typeof row.analyzed_at === "string" ? row.analyzed_at : null,
     errorMessage: null,
+    log_data: rawLogData && typeof rawLogData === "object" && !Array.isArray(rawLogData)
+      ? rawLogData as AnalysisLogData
+      : undefined,
   };
 }
 
