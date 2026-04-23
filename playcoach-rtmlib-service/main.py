@@ -83,9 +83,49 @@ class AnalyzeResponse(BaseModel):
     safety_backoff_applied: bool = False
     coordinate_transform: dict[str, float] | None = None
     athlete_framing_message: str | None = None
+    mean_keypoint_confidence_before_auto_zoom: float | None = None
+    mean_keypoint_confidence_after_auto_zoom: float | None = None
     calibration_source: str | None = None
+    calibration_confidence: float | None = None
     calibration_details: dict[str, Any] | None = None
+    calibration_flag: str | None = None
+    good_line_pairs: int | None = None
+    rejection_reason: str | None = None
     pixels_per_yard: float | None = None
+
+
+def build_response_defaults() -> dict[str, Any]:
+    return {
+        'auto_zoom_applied': False,
+        'auto_zoom_reason': None,
+        'auto_zoom_factor': None,
+        'auto_zoom_original_fill_ratio': None,
+        'auto_zoom_final_fill_ratio': None,
+        'auto_zoom_crop_rect': None,
+        'auto_zoom_padding': None,
+        'movement_direction': None,
+        'movement_confidence': None,
+        'person_detection_confidence': None,
+        'safety_backoff_applied': False,
+        'coordinate_transform': None,
+        'athlete_framing_message': None,
+        'mean_keypoint_confidence_before_auto_zoom': None,
+        'mean_keypoint_confidence_after_auto_zoom': None,
+        'calibration_source': None,
+        'calibration_confidence': None,
+        'calibration_details': None,
+        'calibration_flag': None,
+        'good_line_pairs': None,
+        'rejection_reason': None,
+        'pixels_per_yard': None,
+    }
+
+
+def compute_mean_keypoint_confidence(scores: Sequence[Sequence[float]]) -> float | None:
+    values = [float(score) for frame_scores in scores for score in frame_scores if np.isfinite(score)]
+    if not values:
+        return None
+    return round(sum(values) / len(values), 4)
 
 
 def sample_detection_frames(frames: Sequence[np.ndarray], max_samples: int = 9) -> list[tuple[int, np.ndarray]]:
