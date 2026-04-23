@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
   const { data, error } = await supabase
     .from("athlete_uploads")
-    .select("id, athlete_id, status, error_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
+    .select("id, athlete_id, status, error_message, progress_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
     .eq("id", parsed.data.uploadId)
     .maybeSingle();
 
@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
       id: data.id,
       status: data.status,
       error_message: data.error_message,
+        progress_message: data.progress_message,
       created_at: data.created_at,
       video_url: data.video_url,
       node_id: data.node_id,
