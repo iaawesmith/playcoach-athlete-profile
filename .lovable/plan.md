@@ -1,151 +1,130 @@
 
-Implement metric-aware temporal smoothing in `supabase/functions/analyze-athlete-video/index.ts` by replacing the current global moving-average helper with a confidence-aware, node-driven version that runs once immediately after Cloud Run returns raw pose data.
+Implement proper proportional phase windowing in `supabase/functions/analyze-athlete-video/index.ts` by replacing the current broad `buildPhaseWindows` behavior with a boundary-aware helper that allocates frames cleanly by phase weight, then adds overlap only at internal boundaries.
 
 ## What will change
 
-### 1. Replace the existing smoothing helper with the required signature
-Update the current `applyTemporalSmoothing(keypoints, windowSize = 3)` helper to:
+### 1. Replace the current phase window helper
+Update the existing phase segmentation logic so it uses a new helper with the requested contract:
 
-- use the required signature:
-  - `applyTemporalSmoothing(keypoints, scores, nodeConfig)`
-- return the same `VideoKeypoints` shape as input
-- stay fully backward-compatible with the rest of the pipeline
+- `calculatePhaseWindows(totalFrames, phases, frameBuffer)`
 
-Why this is needed:
-- the current helper already exists, but it:
-  - smooths every keypoint indiscriminately
-  - ignores confidence scores
-  - ignores metric-specific `temporal_window`
-  - does not interpolate low-confidence gaps
-- the pipeline currently calls it with only `keypoints`, so it does not satisfy the requested behavior
+This helper will:
+- accept the total analyzed frame count
+- read the ordered `nodeConfig.phase_breakdown`
+- allocate each phase a base non-overlapping frame span using `proportion_weight`
+- apply overlap only at internal boundaries
+- clamp all final windows to the inclusive range `[0, totalFrames - 1]`
+- return inclusive `startFrame` / `endFrame` windows for each phase
 
-### 2. Build a metric-aware smoothing configuration from node metrics
-Inside the helper, derive the set of keypoints that should be smoothed from `nodeConfig.key_metrics`:
+### 2. Compute proportional base windows first
+Build contiguous phase spans before applying overlap:
 
-- inspect each metric’s `keypoint_mapping`
-- collect every referenced `keypoint_index`
-- track per-keypoint smoothing settings across all metrics that use it:
-  - smoothing window = max of metric `temporal_window`, with minimum 3
-  - confidence threshold = the strictest practical threshold for that keypoint based on metrics using it
+- sort phases by `sequence_order`
+- normalize `proportion_weight`
+- convert weights into frame counts that sum exactly to `totalFrames`
+- assign contiguous base windows:
+  - first phase starts at `0`
+  - last phase ends at `totalFrames - 1`
 
-This keeps smoothing focused only on keypoints that actually affect scoring.
+Recommended approach:
+- compute ideal frame counts from weights
+- floor them
+- distribute remaining frames by largest remainder so the final allocation is exact
 
-### 3. Add low-confidence interpolation before averaging
-For each tracked keypoint and coordinate stream (`x`, `y`):
+This avoids drift caused by repeatedly rounding each phase independently.
 
-- inspect frame-by-frame confidence from `scores`
-- mark frames below the chosen confidence threshold as unreliable
-- for unreliable runs with a max gap of 5 frames:
-  - linearly interpolate between neighboring good frames
-- if a low-confidence gap has no valid neighbors or exceeds 5 frames:
-  - leave original values unchanged for that gap
+### 3. Apply boundary overlap correctly
+After the base windows are built, expand only around shared phase boundaries:
 
-This reduces jitter while avoiding invented motion across long missing spans.
+- for each boundary between phase A and phase B:
+  - extend A’s end forward by `frameBuffer`
+  - extend B’s start backward by `frameBuffer`
+- do not add artificial padding before the first phase
+- do not add artificial padding after the last phase
+- clamp every final `startFrame` and `endFrame` to `0...totalFrames - 1`
 
-### 4. Apply moving-average smoothing on the repaired timeseries
-After interpolation:
+Because `frame_buffer` exists per phase today, use a backward-compatible boundary rule:
+- derive each boundary overlap from adjacent phases
+- recommended: use the maximum of the left/right phase `frame_buffer`
+- fallback to `3` when missing
 
-- run a centered moving average on each keypoint’s X and Y values
-- use the derived window for that keypoint
-- enforce minimum window size of 3
-- preserve original coordinates for frames/persons/keypoints that cannot be safely processed
+This produces transition context for metrics like Break Angle, Head Snap Timing, Catch Window, and YAC Burst without over-expanding the outer edges.
 
-This should stabilize velocity, acceleration, and angle-derived metrics without changing pipeline outputs structurally.
+### 4. Keep downstream metric usage unchanged
+Integrate the new helper at the current phase-window step:
 
-### 5. Keep smoothing scoped cleanly to the current pipeline
-Update the run flow right after Cloud Run returns:
+Current location:
+- after temporal smoothing
+- before metric calculations
 
-Current flow already has:
-- Cloud Run response
-- temporal smoothing step
-- target-person lock
-- calibration
-- metric calculation
+Update the pipeline so it:
+- calculates `phaseWindows` once after smoothing
+- stores the result in the same analysis context/variable used today
+- continues passing `phaseWindows` into `calculateAllMetrics`
+- preserves the current downstream metric selection flow
 
-Refine that step so it becomes:
-- `const smoothedKeypoints = applyTemporalSmoothing(rtmlibResult.keypoints, rtmlibResult.scores, nodeConfig)`
-- continue using:
-  - `smoothedKeypoints`
-  - original `rtmlibResult.scores`
+No other pipeline behavior changes:
+- progress messages remain the same
+- cancellation checks remain the same
+- result writing remains the same
+- Claude / fallback behavior remains the same
 
-Everything downstream should continue using the smoothed keypoints:
-- person lock
-- tracked-person isolation
-- calibration
-- phase segmentation
-- metric calculations
-- scoring
-- error detection
-- Claude decision/feedback
-- results writing
+### 5. Preserve compatibility with current log consumers
+Keep the returned structure compatible with existing code that reads:
 
-### 6. Add the required logging
-Emit a clear log entry after smoothing completes:
+- `phaseWindows[phaseId].start`
+- `phaseWindows[phaseId].end`
 
-`Applied temporal smoothing (window = X frames) for Y keypoints`
+The helper can internally work with `startFrame` / `endFrame`, then map back to `{ start, end }` for the existing pipeline so no downstream refactor is needed.
 
-Recommended logging details:
-- upload ID
-- number of unique smoothed keypoints
-- representative/default window used
-- per-keypoint window map if helpful
+### 6. Add explicit debugging logs for both stages
+After phase windows are calculated, emit clear logs showing both:
+- the base proportional windows before overlap
+- the final overlapped windows after boundary expansion and clamping
 
-Keep existing progress/status behavior intact. Do not remove or rename current progress messages unless needed to keep them accurate.
+Example summary:
+- `Phase base windows calculated: Release (0-24), Stem (25-70), Break (71-92)`
+- `Phase frame windows calculated: Release (0-30), Stem (24-74), Break (67-93)`
+
+Include:
+- phase name
+- inclusive start/end
+- frame buffer used at each boundary
+- confirmation that final windows were clamped to valid frame bounds where needed
+
+This should replace or augment the current `phase_windows_built` log with debugging output that makes proportional allocation and overlap behavior easy to verify.
 
 ## Files to update
 
 - `supabase/functions/analyze-athlete-video/index.ts`
 
-## Implementation details
+## Specific code areas to touch
 
-### Helper behavior
-Use these rules inside `applyTemporalSmoothing`:
+### In the main pipeline flow
+At the current Step 7:
+- replace the `buildPhaseWindows(...)` call with `calculatePhaseWindows(...)`
+- pass in:
+  - `rtmlibResult.frame_count`
+  - `nodeConfig.phase_breakdown`
+  - a resolved frame buffer strategy
 
-- only process keypoints referenced by metrics
-- iterate frame-by-frame and person-by-person so multi-person clips remain structurally compatible
-- use `scores[frame][person][keypointIndex]` to decide whether a frame is reliable
-- interpolation rule:
-  - only fill gaps when both left and right neighbors are reliable
-  - only if gap length `<= 5`
-- moving average rule:
-  - centered window
-  - minimum 3
-  - ignore invalid/missing points in the averaging pool
-  - fall back to original/interpolated point when too few valid neighbors exist
-
-### Minimality
-Keep the change isolated:
-- no schema changes
-- no frontend changes
-- no changes to Cloud Run
-- no changes to cancellation logic
-- no changes to Claude logic
-- no changes to results shape
-
-### Backward compatibility
-Preserve all current behavior for:
-- completed runs
-- failed runs
-- cancelled runs
-- progress messages
-- result writing
-- low-confidence / Pose Quality Audit flow
-
-Only the coordinate stream feeding the metric engine should become cleaner.
+### In helper functions
+Replace or refactor:
+- `buildPhaseWindows`
+- `buildPhaseWindowLog` only if needed to support the richer base-window and final-window logging
 
 ## Validation
 
-1. Run a test with the Slant node
-2. Confirm the function logs include:
-   - `Applied temporal smoothing (window = X frames) for Y keypoints`
-3. Confirm the pipeline still completes successfully end-to-end
-4. Compare metric stability before/after on a short phone-footage clip, especially:
-   - velocity
-   - acceleration
-   - angle metrics affected by frame jitter
-5. Confirm cancel still works normally during processing
-6. Confirm no regressions in progress logging, scoring, feedback, or result persistence
+1. Run a Slant node analysis
+2. Confirm logs show readable base proportional windows
+3. Confirm logs show final overlapped windows with boundary overlap applied
+4. Confirm first phase starts at frame `0`
+5. Confirm last phase ends at `totalFrames - 1`
+6. Confirm all final windows are clamped to `[0, totalFrames - 1]`
+7. Confirm adjacent phases overlap only around shared boundaries
+8. Confirm metrics still calculate successfully using the new windows
+9. Confirm no regressions in progress messages, cancellation, or final result writing
 
 ## Expected outcome
 
-After this change, the analysis pipeline will use confidence-aware, metric-scoped smoothed keypoints before metric calculation, reducing phone-footage jitter while preserving the current pipeline architecture and user experience.
+After this change, phase segmentation will be frame-accurate, proportionally allocated, overlapped only where transitions occur, and easier to debug because both the base and final window calculations will be visible in logs.
