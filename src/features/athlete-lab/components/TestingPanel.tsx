@@ -252,6 +252,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       const cancelledUpload = await cancelRunAnalysis(activeUpload.id);
       setActiveUpload(cancelledUpload);
       setResult(null);
+      setError(null);
       setRunStage("cancelled");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Cancel failed");
