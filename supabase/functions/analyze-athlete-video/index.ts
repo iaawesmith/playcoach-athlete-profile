@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
     })
 
     // Update status to processing immediately
-    await updateUploadStatus(upload.id, 'processing', undefined, 'Downloading video from storage...')
+    await updateUploadStatus(upload.id, 'processing', undefined, 'Loading model on server...')
     await ensureNotCancelled(upload.id)
 
     // STEP 1: Fetch full node config
@@ -223,14 +223,12 @@ Deno.serve(async (req) => {
       pixelsPerYard: staticCalibration?.pixels_per_yard ?? null,
     })
 
-    // STEP 4: Prepare video and call Cloud Run rtmlib service
-    await setUploadProgress(upload.id, 'Downloading video from storage...')
-    const preparedVideo = await prepareVideoForCloudRun(upload as UploadLike)
+    // STEP 4: Call Cloud Run rtmlib service with the uploaded video URL
+    await setUploadProgress(upload.id, 'Loading model on server...')
     await ensureNotCancelled(upload.id)
-    await setUploadProgress(upload.id, 'Loading RTMW model...')
     const rtmlibResult = await callCloudRun({
       uploadId: upload.id,
-      video_url: preparedVideo.videoUrl,
+      video_url: upload.video_url,
       start_seconds: upload.start_seconds,
       end_seconds: upload.end_seconds,
       solution_class: nodeConfig.solution_class,
@@ -1689,72 +1687,6 @@ async function callClaude(
   return feedback
 }
 
-
-async function prepareVideoForCloudRun(upload: UploadLike): Promise<{ videoUrl: string }> {
-  const sourceUrl = typeof upload.video_url === 'string' ? upload.video_url.trim() : ''
-  if (!sourceUrl) {
-    throw new Error('Upload is missing a source video URL.')
-  }
-
-  await setUploadProgress(upload.id, 'Decimating video to 30 fps...')
-  logInfo('video_decimation_started', { uploadId: upload.id, sourceUrlPresent: true, targetFps: 30 })
-
-  await ensureNotCancelled(upload.id)
-
-  const response = await fetch(sourceUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to download source video: ${response.status} ${response.statusText}`)
-  }
-
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  await ensureNotCancelled(upload.id)
-  const tempDir = await Deno.makeTempDir({ prefix: 'analysis-video-' })
-  const inputPath = `${tempDir}/input.mp4`
-  const outputPath = `${tempDir}/decimated-30fps.mp4`
-  await Deno.writeFile(inputPath, bytes)
-
-  try {
-    const ffmpeg = new Deno.Command('ffmpeg', {
-      args: ['-y', '-i', inputPath, '-r', '30', '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-movflags', '+faststart', outputPath],
-      stdout: 'piped',
-      stderr: 'piped',
-    })
-
-    const result = await ffmpeg.output()
-    await ensureNotCancelled(upload.id)
-    if (result.code !== 0) {
-      const stderr = new TextDecoder().decode(result.stderr).slice(0, 400)
-      throw new Error(`FFmpeg failed while preparing video (${stderr || 'unknown error'})`)
-    }
-
-    const fileBytes = await Deno.readFile(outputPath)
-    const targetPath = `test-clips/decimated/${upload.id}-30fps.mp4`
-
-    const { error: uploadError } = await supabase.storage
-      .from('athlete-videos')
-      .upload(targetPath, fileBytes, {
-        upsert: true,
-        contentType: 'video/mp4',
-      })
-
-    if (uploadError) {
-      throw new Error(`Failed to store 30 fps video: ${uploadError.message}`)
-    }
-
-    const { data: signedData, error: signedError } = await supabase.storage
-      .from('athlete-videos')
-      .createSignedUrl(targetPath, 60 * 60)
-
-    if (signedError || !signedData?.signedUrl) {
-      throw new Error(signedError?.message || 'Failed to sign 30 fps video URL.')
-    }
-
-    logInfo('video_decimation_complete', { uploadId: upload.id, targetFps: 30, targetPath })
-    return { videoUrl: signedData.signedUrl }
-  } finally {
-    await Deno.remove(tempDir, { recursive: true }).catch(() => undefined)
-  }
-}
 
 async function callCloudRun(payload: {
   uploadId: string

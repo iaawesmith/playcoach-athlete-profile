@@ -31,9 +31,10 @@ type ScoreTone = "success" | "warning" | "danger";
 
 const STAGE_LABELS: Record<PipelineRunStage, string> = {
   idle: "Ready",
-  uploading: "Uploading test clip",
-  queued: "Queued for pipeline",
-  processing: "Running production pipeline",
+  preparing_video: "Compressing to 30 fps",
+  uploading: "Uploading video",
+  queued: "Queued for analysis",
+  processing: "Processing on server",
   fetching_results: "Fetching results",
   complete: "Complete",
   cancelled: "Cancelled",
@@ -43,6 +44,7 @@ const STAGE_LABELS: Record<PipelineRunStage, string> = {
 
 const STAGE_ICONS: Record<PipelineRunStage, string> = {
   idle: "science",
+  preparing_video: "movie_edit",
   uploading: "cloud_upload",
   queued: "schedule",
   processing: "bolt",
@@ -145,6 +147,7 @@ function calibrationSummary(metric: PipelineMetricResult) {
 
 export function TestingPanel({ node }: TestingPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const localAbortRef = useRef<AbortController | null>(null);
   const [videoDesc, setVideoDesc] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -167,8 +170,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [endSeconds, setEndSeconds] = useState(node.clip_duration_max.toString());
   const [contextCopied, setContextCopied] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [localProgressMessage, setLocalProgressMessage] = useState("");
 
-  const isRunning = ["uploading", "queued", "processing", "fetching_results"].includes(runStage);
+  const isRunning = ["preparing_video", "uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
 
   const handleFileSelect = (file: File) => {
@@ -223,9 +227,12 @@ export function TestingPanel({ node }: TestingPanelProps) {
   };
 
   const resetRunState = () => {
+    localAbortRef.current?.abort();
+    localAbortRef.current = null;
     setError(null);
     setResult(null);
     setActiveUpload(null);
+    setLocalProgressMessage("");
     setRunStage("idle");
   };
 
@@ -237,13 +244,28 @@ export function TestingPanel({ node }: TestingPanelProps) {
   };
 
   const handleRetry = () => {
+    localAbortRef.current?.abort();
+    localAbortRef.current = null;
     setError(null);
     setResult(null);
+    setLocalProgressMessage("");
     setRunStage("idle");
   };
 
   const handleCancel = async () => {
-    if (!activeUpload || isCancelling) return;
+    if (isCancelling) return;
+
+    if (!activeUpload && (runStage === "preparing_video" || runStage === "uploading")) {
+      localAbortRef.current?.abort();
+      localAbortRef.current = null;
+      setLocalProgressMessage("");
+      setResult(null);
+      setError(null);
+      setRunStage("cancelled");
+      return;
+    }
+
+    if (!activeUpload) return;
 
     setIsCancelling(true);
     setError(null);
@@ -253,6 +275,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
       setActiveUpload(cancelledUpload);
       setResult(null);
       setError(null);
+      setLocalProgressMessage("");
       setRunStage("cancelled");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Cancel failed");
@@ -267,7 +290,11 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setError(null);
     setResult(null);
     setActiveUpload(null);
-    setRunStage(uploadedFile ? "uploading" : "queued");
+    setLocalProgressMessage("");
+
+    const abortController = new AbortController();
+    localAbortRef.current = abortController;
+    setRunStage(uploadedFile ? "preparing_video" : "queued");
 
     try {
       const parsedEndSeconds = endSeconds.trim() ? Number(endSeconds) : Number.NaN;
@@ -275,37 +302,49 @@ export function TestingPanel({ node }: TestingPanelProps) {
         ? Math.min(Math.max(parsedEndSeconds, node.clip_duration_min), node.clip_duration_max)
         : node.clip_duration_max;
 
-      const submission = await submitRunAnalysisJob({
-        node,
-        uploadedFile,
-        externalVideoUrl: videoUrl.trim() || undefined,
-        cameraAngle,
-        startSeconds: 0,
-        endSeconds: normalizedEndSeconds,
-        analysisContext: contextEnabled ? buildContext() : {
-          camera_angle: cameraAngle,
-          people_in_video: peopleInVideo,
-          ...buildRouteDirectionPayload(breakDirection),
-          catch_included: catchStatus !== "no",
-          catch_status: catchStatus,
-          athlete_level: athleteLevel,
-          focus_area: "",
-          performance_description: videoDesc.trim(),
+      const submission = await submitRunAnalysisJob(
+        {
+          node,
+          uploadedFile,
+          externalVideoUrl: videoUrl.trim() || undefined,
+          cameraAngle,
+          startSeconds: 0,
+          endSeconds: normalizedEndSeconds,
+          analysisContext: contextEnabled ? buildContext() : {
+            camera_angle: cameraAngle,
+            people_in_video: peopleInVideo,
+            ...buildRouteDirectionPayload(breakDirection),
+            catch_included: catchStatus !== "no",
+            catch_status: catchStatus,
+            athlete_level: athleteLevel,
+            focus_area: "",
+            performance_description: videoDesc.trim(),
+          },
         },
-      });
+        {
+          signal: abortController.signal,
+          onStageChange: (stage) => setRunStage(stage),
+          onProgressMessage: (message) => setLocalProgressMessage(message),
+        },
+      );
 
       setActiveUpload(submission.upload);
+      setLocalProgressMessage("");
       setRunStage(submission.upload.status === "pending" ? "queued" : "processing");
 
       const polled = await pollRunAnalysisResult(submission.uploadId, node, {
         onStageChange: (stage, upload) => {
           if (stage === "cancelled") {
             setRunStage("cancelled");
+            setLocalProgressMessage("");
             if (upload) setActiveUpload(upload);
             return;
           }
 
           setRunStage(stage);
+          if (stage === "processing" || stage === "fetching_results" || stage === "complete") {
+            setLocalProgressMessage("");
+          }
           if (upload) setActiveUpload(upload);
         },
       });
@@ -324,6 +363,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
       if (polled.stage === "cancelled") {
         setRunStage("cancelled");
+        setLocalProgressMessage("");
         setError(null);
         return;
       }
@@ -337,8 +377,19 @@ export function TestingPanel({ node }: TestingPanelProps) {
       setRunStage("failed");
       setError(polled.upload.error_message || "The production pipeline failed before results were written.");
     } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setRunStage("cancelled");
+        setLocalProgressMessage("");
+        setError(null);
+        return;
+      }
+
       setRunStage("failed");
       setError(e instanceof Error ? e.message : "Analysis failed");
+    } finally {
+      if (localAbortRef.current === abortController) {
+        localAbortRef.current = null;
+      }
     }
   };
 
@@ -371,21 +422,24 @@ export function TestingPanel({ node }: TestingPanelProps) {
         : "text-on-surface";
 
   const progressMessage = activeUpload?.progress_message?.trim() || "";
-  const displayProgressMessage = progressMessage || (
-    runStage === "uploading"
-      ? "Uploading test clip..."
+  const displayProgressMessage = localProgressMessage || progressMessage || (
+    runStage === "preparing_video"
+      ? "Compressing video to 30 fps..."
+      : runStage === "uploading"
+        ? "Uploading video..."
       : runStage === "queued"
         ? "Queued for analysis..."
         : runStage === "processing"
-          ? "Preparing the production pipeline..."
+          ? "Loading model on server..."
           : runStage === "fetching_results"
             ? "Loading the completed analysis package..."
             : ""
   );
   const progressSegments = [
     runStage !== "idle",
+    ["uploading", "queued", "processing", "fetching_results", "complete", "cancelled"].includes(runStage),
     ["queued", "processing", "fetching_results", "complete", "cancelled"].includes(runStage),
-    ["processing", "fetching_results", "complete", "cancelled"].includes(runStage),
+    ["processing", "fetching_results", "complete"].includes(runStage),
     ["fetching_results", "complete"].includes(runStage),
     runStage === "complete",
   ];
@@ -677,7 +731,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             {isRunning ? STAGE_LABELS[runStage] : "Run Analysis"}
           </button>
 
-          {activeUpload && (activeUpload.status === "pending" || activeUpload.status === "processing") && runStage !== "cancelled" && (
+          {((runStage === "preparing_video" || runStage === "uploading") || (activeUpload && (activeUpload.status === "pending" || activeUpload.status === "processing"))) && runStage !== "cancelled" && (
             <button
               onClick={handleCancel}
               disabled={isCancelling}

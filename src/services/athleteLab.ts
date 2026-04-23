@@ -170,6 +170,12 @@ export interface RunAnalysisSubmissionInput {
   analysisContext: AnalysisContext & Record<string, unknown>;
 }
 
+export interface RunAnalysisSubmissionOptions {
+  onStageChange?: (stage: PipelineRunStage) => void;
+  onProgressMessage?: (message: string) => void;
+  signal?: AbortSignal;
+}
+
 export interface SubmittedAnalysisJob {
   uploadId: string;
   upload: PipelineUploadSnapshot;
@@ -188,6 +194,200 @@ function getFileExtension(fileName: string): string {
 
 function buildTestClipPath(nodeId: string, fileName: string): string {
   return `${TEST_VIDEO_FOLDER}/${nodeId}-${Date.now()}.${getFileExtension(fileName)}`;
+}
+
+function createAbortError(): Error {
+  return new DOMException("The operation was aborted.", "AbortError");
+}
+
+function ensureNotAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+}
+
+function emitProgress(options: RunAnalysisSubmissionOptions, stage: PipelineRunStage, message: string) {
+  options.onStageChange?.(stage);
+  options.onProgressMessage?.(message);
+}
+
+function waitForVideoEvent(target: HTMLVideoElement, eventName: "loadedmetadata" | "ended", signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const onResolve = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onAbort = () => {
+      cleanup();
+      reject(createAbortError());
+    };
+
+    const cleanup = () => {
+      target.removeEventListener(eventName, onResolve);
+      target.removeEventListener("error", onError);
+      signal?.removeEventListener("abort", onAbort);
+    };
+
+    const onError = () => {
+      cleanup();
+      reject(new Error("Failed to read the selected video."));
+    };
+
+    target.addEventListener(eventName, onResolve, { once: true });
+    target.addEventListener("error", onError, { once: true });
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function getSupportedRecordingMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") return null;
+
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ];
+
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
+}
+
+async function prepareVideoForUpload(
+  file: File,
+  options: RunAnalysisSubmissionOptions,
+): Promise<{ file: File; wasPrepared: boolean; note?: string }> {
+  const canProcessInBrowser =
+    typeof window !== "undefined" &&
+    typeof document !== "undefined" &&
+    typeof HTMLVideoElement !== "undefined" &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    typeof MediaRecorder !== "undefined";
+
+  if (!canProcessInBrowser) {
+    return {
+      file,
+      wasPrepared: false,
+      note: "Browser video compression is not supported here, so the original clip will be uploaded.",
+    };
+  }
+
+  const mimeType = getSupportedRecordingMimeType();
+  if (!mimeType) {
+    return {
+      file,
+      wasPrepared: false,
+      note: "This browser cannot record a compressed 30 fps clip, so the original video will be uploaded.",
+    };
+  }
+
+  ensureNotAborted(options.signal);
+  emitProgress(options, "preparing_video", "Compressing video to 30 fps...");
+
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+  video.src = objectUrl;
+
+  try {
+    await waitForVideoEvent(video, "loadedmetadata", options.signal);
+    ensureNotAborted(options.signal);
+
+    const width = Math.max(2, Math.round(video.videoWidth || 1280));
+    const height = Math.max(2, Math.round(video.videoHeight || 720));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { alpha: false });
+
+    if (!context) {
+      return {
+        file,
+        wasPrepared: false,
+        note: "Video compression could not start in this browser, so the original file will be uploaded.",
+      };
+    }
+
+    const stream = canvas.captureStream(30);
+    const chunks: BlobPart[] = [];
+    let frameRequest = 0;
+
+    const recorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 2_500_000,
+    });
+
+    recorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    });
+
+    const recorderStopped = new Promise<void>((resolve, reject) => {
+      recorder.addEventListener("stop", () => resolve(), { once: true });
+      recorder.addEventListener("error", () => reject(new Error("Video compression failed during recording.")), { once: true });
+    });
+
+    const drawFrame = () => {
+      ensureNotAborted(options.signal);
+      context.drawImage(video, 0, 0, width, height);
+      if (!video.paused && !video.ended) {
+        frameRequest = window.requestAnimationFrame(drawFrame);
+      }
+    };
+
+    const stopProcessing = () => {
+      if (frameRequest) window.cancelAnimationFrame(frameRequest);
+      stream.getTracks().forEach((track) => track.stop());
+      if (recorder.state !== "inactive") recorder.stop();
+      video.pause();
+    };
+
+    const onAbort = () => stopProcessing();
+    options.signal?.addEventListener("abort", onAbort, { once: true });
+
+    try {
+      recorder.start(250);
+      await video.play();
+      drawFrame();
+      await waitForVideoEvent(video, "ended", options.signal);
+      stopProcessing();
+      await recorderStopped;
+    } finally {
+      options.signal?.removeEventListener("abort", onAbort);
+    }
+
+    ensureNotAborted(options.signal);
+
+    const processedBlob = new Blob(chunks, { type: mimeType });
+    if (processedBlob.size === 0) {
+      return {
+        file,
+        wasPrepared: false,
+        note: "Video compression returned an empty file, so the original clip will be uploaded.",
+      };
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, "");
+    const outputExtension = mimeType.includes("webm") ? "webm" : getFileExtension(file.name);
+    const processedFile = new File([processedBlob], `${baseName}-30fps.${outputExtension}`, {
+      type: mimeType,
+      lastModified: Date.now(),
+    });
+
+    return { file: processedFile, wasPrepared: true };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+
+    return {
+      file,
+      wasPrepared: false,
+      note: "30 fps compression was skipped for this clip, so the original video will be uploaded.",
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function parseNumber(value: unknown): number | null {
@@ -317,18 +517,29 @@ async function uploadTestClip(file: File, node: TrainingNode): Promise<{ signedU
   return { signedUrl, path: uploadedPath };
 }
 
-export async function submitRunAnalysisJob(input: RunAnalysisSubmissionInput): Promise<SubmittedAnalysisJob> {
+export async function submitRunAnalysisJob(
+  input: RunAnalysisSubmissionInput,
+  options: RunAnalysisSubmissionOptions = {},
+): Promise<SubmittedAnalysisJob> {
   const { node, uploadedFile, externalVideoUrl, cameraAngle, startSeconds = 0, endSeconds, analysisContext } = input;
 
   let signedVideoUrl = externalVideoUrl?.trim() ?? "";
   let storagePath: string | null = null;
 
   if (uploadedFile) {
-    const uploaded = await uploadTestClip(uploadedFile, node);
+    const prepared = await prepareVideoForUpload(uploadedFile, options);
+    if (prepared.note) {
+      options.onProgressMessage?.(prepared.note);
+    }
+
+    ensureNotAborted(options.signal);
+    emitProgress(options, "uploading", "Uploading video...");
+    const uploaded = await uploadTestClip(prepared.file, node);
     signedVideoUrl = uploaded.signedUrl;
     storagePath = uploaded.path;
   }
 
+  ensureNotAborted(options.signal);
   if (!signedVideoUrl) {
     throw new Error("Provide a video file or a direct video URL before running analysis.");
   }
@@ -359,6 +570,8 @@ export async function submitRunAnalysisJob(input: RunAnalysisSubmissionInput): P
   }
 
   const upload = await fetchUploadStatus(uploadId);
+  options.onProgressMessage?.("");
+  options.onStageChange?.(upload.status === "pending" ? "queued" : "processing");
   return { uploadId, upload, videoUrl: signedVideoUrl, storagePath };
 }
 
