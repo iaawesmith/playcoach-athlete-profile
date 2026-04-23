@@ -32,9 +32,9 @@ type ScoreTone = "success" | "warning" | "danger";
 const STAGE_LABELS: Record<PipelineRunStage, string> = {
   idle: "Ready",
   preparing_video: "Compressing to 30 fps",
-  uploading: "Uploading test clip",
-  queued: "Queued for pipeline",
-  processing: "Running production pipeline",
+  uploading: "Uploading video",
+  queued: "Queued for analysis",
+  processing: "Processing on server",
   fetching_results: "Fetching results",
   complete: "Complete",
   cancelled: "Cancelled",
@@ -731,7 +731,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             {isRunning ? STAGE_LABELS[runStage] : "Run Analysis"}
           </button>
 
-          {activeUpload && (activeUpload.status === "pending" || activeUpload.status === "processing") && runStage !== "cancelled" && (
+          {((runStage === "preparing_video" || runStage === "uploading") || (activeUpload && (activeUpload.status === "pending" || activeUpload.status === "processing"))) && runStage !== "cancelled" && (
             <button
               onClick={handleCancel}
               disabled={isCancelling}
