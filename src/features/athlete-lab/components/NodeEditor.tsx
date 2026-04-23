@@ -511,6 +511,18 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             <span className="material-symbols-outlined" style={{ fontSize: 12 }}>expand_more</span>
           </button>
           <button
+            onClick={() => setShowAdvancedTabs((v) => !v)}
+            title={showAdvancedTabs ? "Hide advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)" : "Show advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border cursor-pointer hover:brightness-110 active:scale-95 transition-all ${
+              showAdvancedTabs
+                ? "border-primary-container/30 bg-primary-container/10 text-primary-container"
+                : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
+            }`}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>tune</span>
+            Advanced Tabs
+          </button>
+          <button
             onClick={save}
             disabled={saving || !dirty}
             className="h-10 px-6 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2"
@@ -537,7 +549,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
       {/* ── Tab row ── */}
       <div className="px-6 pt-3 pb-2 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 border-b border-outline-variant/10" style={{ backgroundColor: '#131920' }}>
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <div key={t.key} className="flex items-center gap-0 shrink-0">
             <button
               onClick={() => setTab(t.key)}
