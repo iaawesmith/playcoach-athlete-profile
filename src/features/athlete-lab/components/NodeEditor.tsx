@@ -94,17 +94,20 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "Videos", detail: "At least 1 reference video is required" });
   }
 
-  // At least 4 metrics and weights sum to 100
-  if (node.key_metrics.length < 4) {
-    issues.push({ label: "Metrics", detail: `At least 4 metrics required (currently ${node.key_metrics.length})` });
+  // Active-only metric checks (inactive metrics are preserved but excluded from scoring)
+  const activeMetrics = (node.key_metrics ?? []).filter((m) => m.active !== false);
+
+  // At least 4 active metrics and active weights sum to 100
+  if (activeMetrics.length < 4) {
+    issues.push({ label: "Metrics", detail: `At least 4 active metrics required (currently ${activeMetrics.length})` });
   }
-  const totalWeight = node.key_metrics.reduce((s, m) => s + m.weight, 0);
+  const totalWeight = activeMetrics.reduce((s, m) => s + m.weight, 0);
   if (totalWeight !== 100) {
-    issues.push({ label: "Metrics", detail: `Metric weights must add up to 100% (currently ${totalWeight}%)` });
+    issues.push({ label: "Metrics", detail: `Active metric weights must add up to 100% (currently ${totalWeight}%)` });
   }
 
-  // Keypoint mapping completeness for each metric
-  for (const m of node.key_metrics) {
+  // Keypoint mapping completeness for each active metric
+  for (const m of activeMetrics) {
     const km = m.keypoint_mapping;
     if (!km || !km.calculation_type) {
       issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: missing keypoint mapping` });
@@ -151,9 +154,9 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
   if (!node.solution_class || node.solution_class.trim().length === 0) {
     issues.push({ label: "Training Status", detail: "Solution class not configured" });
   } else {
-    // Check solution class supports all keypoint indices
+    // Check solution class supports all keypoint indices (active metrics only)
     const sc = node.solution_class;
-    for (const m of node.key_metrics) {
+    for (const m of activeMetrics) {
       const indices = m.keypoint_mapping?.keypoint_indices ?? [];
       if (sc === "body" && indices.some(i => i >= 17)) {
         const needsFeet = indices.some(i => i >= 17 && i <= 22);
