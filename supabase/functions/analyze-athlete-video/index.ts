@@ -464,9 +464,10 @@ Deno.serve(async (req) => {
 
     // STEP 7: Divide frames into phase windows
     await setUploadProgress(upload.id, 'Segmenting the rep into route phases...')
-    const phaseWindows = buildPhaseWindows(
+    const phaseWindows = calculatePhaseWindows(
       rtmlibResult.frame_count,
-      nodeConfig.phase_breakdown
+      nodeConfig.phase_breakdown,
+      3,
     )
     if (logData.rtmlib) {
       logData.rtmlib.phase_windows = buildPhaseWindowLog(
@@ -1382,34 +1383,144 @@ function lockTargetPerson(
 }
 
 
-function buildPhaseWindows(totalFrames: number, phaseBreakdown: any[]) {
-  const windows: Record<string, { start: number, end: number }> = {}
-  let framePosition = 0
+function clampFrame(frame: number, totalFrames: number): number {
+  if (totalFrames <= 0) return 0
+  return Math.max(0, Math.min(totalFrames - 1, frame))
+}
 
-  const sortedPhases = [...phaseBreakdown].sort((a, b) => 
-    (a.sequence_order || 0) - (b.sequence_order || 0)
+function calculatePhaseWindows(totalFrames: number, phaseBreakdown: any[], frameBuffer: number) {
+  const windows: Record<string, { start: number, end: number }> = {}
+  if (!Array.isArray(phaseBreakdown) || phaseBreakdown.length === 0 || totalFrames <= 0) {
+    return windows
+  }
+
+  const sortedPhases = [...phaseBreakdown].sort((a, b) =>
+    (a?.sequence_order || 0) - (b?.sequence_order || 0)
   )
 
-  for (const phase of sortedPhases) {
-    const phaseFrames = Math.round(totalFrames * (phase.proportion_weight / 100))
-    const buffer = phase.frame_buffer || 3
-    
-    windows[phase.id] = {
-      start: Math.max(0, framePosition - buffer),
-      end: Math.min(totalFrames - 1, framePosition + phaseFrames + buffer)
+  const normalizedPhases = sortedPhases.map((phase, index) => {
+    const weight = Number.isFinite(phase?.proportion_weight) ? Number(phase.proportion_weight) : 0
+    return {
+      id: typeof phase?.id === 'string' ? phase.id : `phase-${index + 1}`,
+      name: typeof phase?.name === 'string' ? phase.name : `Phase ${index + 1}`,
+      proportionWeight: weight > 0 ? weight : 0,
+      frameBuffer: Number.isFinite(phase?.frame_buffer) ? Math.max(0, Math.round(Number(phase.frame_buffer))) : Math.max(0, Math.round(frameBuffer)),
     }
-    framePosition += phaseFrames
+  })
+
+  const totalWeight = normalizedPhases.reduce((sum, phase) => sum + phase.proportionWeight, 0)
+  const fallbackWeight = normalizedPhases.length > 0 ? 1 / normalizedPhases.length : 0
+  const weightedPhases = normalizedPhases.map((phase) => {
+    const normalizedWeight = totalWeight > 0 ? phase.proportionWeight / totalWeight : fallbackWeight
+    const exactFrames = normalizedWeight * totalFrames
+    const baseFrames = Math.floor(exactFrames)
+    return {
+      ...phase,
+      exactFrames,
+      baseFrames,
+      remainder: exactFrames - baseFrames,
+    }
+  })
+
+  let remainingFrames = totalFrames - weightedPhases.reduce((sum, phase) => sum + phase.baseFrames, 0)
+  const allocationOrder = weightedPhases
+    .map((phase, index) => ({ index, remainder: phase.remainder }))
+    .sort((a, b) => {
+      if (b.remainder !== a.remainder) return b.remainder - a.remainder
+      return a.index - b.index
+    })
+
+  for (let index = 0; index < allocationOrder.length && remainingFrames > 0; index += 1) {
+    weightedPhases[allocationOrder[index].index].baseFrames += 1
+    remainingFrames -= 1
   }
+
+  const baseWindows = weightedPhases.map((phase) => {
+    const previousWindow = windows.__last__
+    const startFrame = previousWindow ? previousWindow.end + 1 : 0
+    const endFrame = Math.max(startFrame - 1, startFrame + phase.baseFrames - 1)
+    const baseWindow = {
+      ...phase,
+      startFrame,
+      endFrame,
+    }
+    windows.__last__ = { start: startFrame, end: endFrame }
+    return baseWindow
+  })
+
+  delete windows.__last__
+
+  if (baseWindows.length > 0) {
+    baseWindows[0].startFrame = 0
+    baseWindows[baseWindows.length - 1].endFrame = totalFrames - 1
+  }
+
+  const finalWindows = baseWindows.map((phase, index) => {
+    let startFrame = phase.startFrame
+    let endFrame = phase.endFrame
+
+    if (index > 0) {
+      const leftPhase = baseWindows[index - 1]
+      const boundaryBuffer = Math.max(leftPhase.frameBuffer, phase.frameBuffer, Math.max(0, Math.round(frameBuffer)))
+      startFrame -= boundaryBuffer
+    }
+
+    if (index < baseWindows.length - 1) {
+      const rightPhase = baseWindows[index + 1]
+      const boundaryBuffer = Math.max(phase.frameBuffer, rightPhase.frameBuffer, Math.max(0, Math.round(frameBuffer)))
+      endFrame += boundaryBuffer
+    }
+
+    const clampedStart = clampFrame(startFrame, totalFrames)
+    const clampedEnd = clampFrame(endFrame, totalFrames)
+
+    return {
+      ...phase,
+      startFrame: clampedStart,
+      endFrame: clampedEnd,
+    }
+  })
+
+  for (const phase of finalWindows) {
+    windows[phase.id] = {
+      start: phase.startFrame,
+      end: phase.endFrame,
+    }
+  }
+
+  const baseSummary = baseWindows
+    .map((phase) => `${phase.name} (${phase.startFrame}-${phase.endFrame})`)
+    .join(', ')
+  const finalSummary = finalWindows
+    .map((phase) => `${phase.name} (${phase.startFrame}-${phase.endFrame})`)
+    .join(', ')
+
+  logInfo('phase_base_windows_calculated', {
+    totalFrames,
+    message: `Phase base windows calculated: ${baseSummary}`,
+    phases: baseWindows.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      proportionWeight: phase.proportionWeight,
+      baseFrames: phase.baseFrames,
+      start: phase.startFrame,
+      end: phase.endFrame,
+    })),
+  })
 
   logInfo('phase_windows_built', {
     totalFrames,
-    phases: sortedPhases.map((phase) => ({
+    message: `Phase frame windows calculated: ${finalSummary} (with frame_buffer applied)`,
+    phases: finalWindows.map((phase, index) => ({
       id: phase.id,
       name: phase.name,
-      proportionWeight: phase.proportion_weight,
-      frameBuffer: phase.frame_buffer || 3,
-      start: windows[phase.id]?.start ?? null,
-      end: windows[phase.id]?.end ?? null,
+      proportionWeight: phase.proportionWeight,
+      frameBuffer: phase.frameBuffer,
+      start: phase.startFrame,
+      end: phase.endFrame,
+      baseStart: baseWindows[index]?.startFrame ?? null,
+      baseEnd: baseWindows[index]?.endFrame ?? null,
+      clamped: phase.startFrame !== (baseWindows[index]?.startFrame ?? phase.startFrame) || phase.endFrame !== (baseWindows[index]?.endFrame ?? phase.endFrame),
     })),
   })
 
