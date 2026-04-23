@@ -1435,20 +1435,18 @@ function calculatePhaseWindows(totalFrames: number, phaseBreakdown: any[], frame
     remainingFrames -= 1
   }
 
+  let nextStartFrame = 0
   const baseWindows = weightedPhases.map((phase) => {
-    const previousWindow = windows.__last__
-    const startFrame = previousWindow ? previousWindow.end + 1 : 0
+    const startFrame = nextStartFrame
     const endFrame = Math.max(startFrame - 1, startFrame + phase.baseFrames - 1)
-    const baseWindow = {
+    nextStartFrame = endFrame + 1
+
+    return {
       ...phase,
       startFrame,
       endFrame,
     }
-    windows.__last__ = { start: startFrame, end: endFrame }
-    return baseWindow
   })
-
-  delete windows.__last__
 
   if (baseWindows.length > 0) {
     baseWindows[0].startFrame = 0
@@ -1458,16 +1456,20 @@ function calculatePhaseWindows(totalFrames: number, phaseBreakdown: any[], frame
   const finalWindows = baseWindows.map((phase, index) => {
     let startFrame = phase.startFrame
     let endFrame = phase.endFrame
+    let leftBoundaryBuffer = 0
+    let rightBoundaryBuffer = 0
 
     if (index > 0) {
       const leftPhase = baseWindows[index - 1]
       const boundaryBuffer = Math.max(leftPhase.frameBuffer, phase.frameBuffer, Math.max(0, Math.round(frameBuffer)))
+      leftBoundaryBuffer = boundaryBuffer
       startFrame -= boundaryBuffer
     }
 
     if (index < baseWindows.length - 1) {
       const rightPhase = baseWindows[index + 1]
       const boundaryBuffer = Math.max(phase.frameBuffer, rightPhase.frameBuffer, Math.max(0, Math.round(frameBuffer)))
+      rightBoundaryBuffer = boundaryBuffer
       endFrame += boundaryBuffer
     }
 
@@ -1478,6 +1480,9 @@ function calculatePhaseWindows(totalFrames: number, phaseBreakdown: any[], frame
       ...phase,
       startFrame: clampedStart,
       endFrame: clampedEnd,
+      leftBoundaryBuffer,
+      rightBoundaryBuffer,
+      wasClamped: clampedStart !== startFrame || clampedEnd !== endFrame,
     }
   })
 
@@ -1516,11 +1521,13 @@ function calculatePhaseWindows(totalFrames: number, phaseBreakdown: any[], frame
       name: phase.name,
       proportionWeight: phase.proportionWeight,
       frameBuffer: phase.frameBuffer,
+      leftBoundaryBuffer: phase.leftBoundaryBuffer,
+      rightBoundaryBuffer: phase.rightBoundaryBuffer,
       start: phase.startFrame,
       end: phase.endFrame,
       baseStart: baseWindows[index]?.startFrame ?? null,
       baseEnd: baseWindows[index]?.endFrame ?? null,
-      clamped: phase.startFrame !== (baseWindows[index]?.startFrame ?? phase.startFrame) || phase.endFrame !== (baseWindows[index]?.endFrame ?? phase.endFrame),
+      clamped: phase.wasClamped,
     })),
   })
 
