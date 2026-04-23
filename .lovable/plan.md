@@ -1,128 +1,128 @@
 
-Re-run live verification for the AthleteLab production pipeline now that the node is live, using the existing Testing Panel flow and backend logs to confirm the recent pipeline changes are functioning together.
+Implement the calibration hardening work in two phases, with priority placed on improving the dynamic calibration stage inside the Cloud Run service first, then updating the edge-function fallback resolver to consume the richer calibration metadata without changing the rest of the pipeline.
 
-## Verification scope
+## Implementation order
 
-### 1. Re-run a real production analysis from AthleteLab
-Use the existing Testing Panel on `/athlete-lab` to launch a fresh run against the live Slant node with solo context.
+### 1. Focus first on dynamic calibration inside Cloud Run
+Update the Cloud Run `/analyze` calibration step before touching fallback behavior in the edge function.
 
-Capture:
-- upload ID
-- result ID
-- final upload status
-- aggregate score
-- metric results and confidence flags shown in the UI
+Priority changes in Cloud Run:
+- retune `cv2.Canny` thresholds for noisy real phone footage
+- retune `cv2.HoughLinesP` parameters, especially:
+  - threshold
+  - `minLineLength`
+  - `maxLineGap`
+- strengthen line filtering so only near-horizontal lines that span most of the frame width are kept
+- de-duplicate fragmented detections so the same painted field line does not count multiple times
+- require a minimum good line-pair count before trusting dynamic calibration:
+  - target threshold: at least `8–10` good line pairs
+- reject dynamic calibration when:
+  - good line-pair count is below threshold, or
+  - computed `pixels_per_yard` falls outside a reasonable range such as `40–120`
 
-This replaces the earlier blocked check, which failed before analysis because the node was not live.
+Add Cloud Run logging:
+- `Dynamic calibration: found X line pairs, calculated Y.YY px/yard`
 
-### 2. Confirm the backend no longer fails at node load
-Verify the new run progresses past node fetch and does not hit:
+Add Cloud Run response fields:
+- `calibration_source`
+- `pixels_per_yard`
+- `calibration_details`
+- `good_line_pairs`
+- rejection reason when dynamic calibration is not trusted
 
-- `Node not found or not live`
+This makes Cloud Run the source of truth for whether dynamic calibration is truly usable.
 
-Success criteria:
-- upload advances beyond configuration loading
-- pose processing begins
-- a result is written or a pipeline-level fallback completes cleanly
+### 2. Then update the edge-function fallback resolver
+After Cloud Run returns richer calibration metadata, refine `resolveCalibration(...)` in `supabase/functions/analyze-athlete-video/index.ts` so it uses that metadata instead of accepting any dynamic-looking value blindly.
 
-### 3. Verify detection-frequency tuning in backend logs
-Inspect the live `analyze-athlete-video` logs for the new run and confirm the expected detection-frequency entry appears:
+Fallback order in the edge function:
+1. trusted dynamic calibration from Cloud Run
+2. body-based calibration using athlete height plus body proportions
+3. static node calibration from `reference_calibrations`
+4. raw pixels only, with `calibration_flag: "unreliable"`
 
-- `Detection frequency set to 2 for this run (solo)`
+Edge-function acceptance rules for dynamic calibration:
+- accept only when Cloud Run marks dynamic calibration as trusted, or returns enough metadata to prove:
+  - good line-pair count is high enough
+  - `pixels_per_yard` is within the valid range
+- otherwise fall through to body-based, then static, then none
 
-Also confirm structured details include:
-- scenario = `solo`
-- base scenario value = `2`
-- final `detFrequency` passed to Cloud Run = `2`
-- any Break-phase override only if it lowered the value
+Add explicit final source logs in the edge function:
+- `Calibration source: dynamic (15 line pairs, 82.4 px/yard)`
+- `Calibration source: body-based (using athlete height)`
+- `Calibration source: static (80 px/yard from node config)`
+- `Calibration source: none (raw pixels)`
 
-### 4. Verify temporal smoothing still runs
-In the same backend log stream, confirm the smoothing step still executes after pose data returns:
+## Repo changes
 
-- `Applied temporal smoothing (window = X frames) for Y keypoints`
-
-Success criteria:
-- smoothing log is present
-- pipeline continues into phase windowing and metric calculation afterward
-- no regression in cancellation/status handling
-
-### 5. Verify proportional phase windowing still runs
-Confirm the phase-window logs appear for the same run:
-
-- `Phase base windows calculated: ...`
-- `Phase frame windows calculated: ... (with frame_buffer applied)`
-
-Check that:
-- first phase starts at `0`
-- last phase ends at `totalFrames - 1`
-- final windows are clamped to valid frame bounds
-- overlapped windows are logged separately from base windows
-
-### 6. Verify pose output and downstream metric health
-Use the finished result plus log data to confirm the pose framework actually returned usable data.
-
-Check:
-- result contains metric rows instead of a totally empty metric payload
-- keypoint confidence summary exists in `log_data.rtmlib`
-- phase scores populated
-- no evidence that the pose engine returned zero usable frames unless the clip truly failed
-
-For the solo Slant run, specifically review:
-- Break Angle
-- Head Snap Timing
-
-Goal:
-- confirm they are present and look more stable than the previous no-pose / stale-detection behavior
-
-### 7. Verify UI surfaces the run correctly
-Confirm the Testing Panel reflects the completed production run correctly:
-
-- score card renders
-- phase breakdown renders
-- metric results render
-- confidence flags section behaves correctly
-- Pose Quality Audit only appears when the run is truly low-confidence
-
-If the clip is good:
-- normal feedback should appear
-- no misleading low-confidence education panel
-
-If the clip is poor:
-- Pose Quality Audit should appear
-- fallback guidance should be visible
-
-### 8. Verify cancel still works
-Run one additional verification pass where analysis is cancelled mid-flight.
-
-Confirm:
-- cancel action updates status cleanly
-- UI moves to cancelled state
-- no final result is incorrectly shown for the cancelled upload
-- backend does not continue writing a completed result after cancellation
-
-## Files/features involved
-No new implementation is planned for this verification pass. The check will validate behavior across the already-updated areas:
-
+### In this repo
+Update:
 - `supabase/functions/analyze-athlete-video/index.ts`
+
+Optional typed/UI alignment if needed:
+- `src/features/athlete-lab/types.ts`
 - `src/features/athlete-lab/components/TestingPanel.tsx`
 - `src/services/athleteLab.ts`
 
-## Technical details to validate
-The current code already contains the main instrumentation needed for verification:
+### Outside this repo
+The primary tuning work must happen in the external Cloud Run service code, since that is where:
+- `cv2.Canny`
+- `cv2.HoughLinesP`
+- dynamic line filtering
+- line-pair counting
+are actually implemented.
 
-- node fetch is restricted to `status = 'live'`
-- detection selection log:
-  - `detection_frequency_selected`
-- smoothing log:
-  - `temporal_smoothing_applied`
-- phase window logs:
-  - `phase_base_windows_calculated`
-  - `phase_windows_built`
-- Testing Panel already shows:
-  - Result ID
-  - confidence flags
-  - Pose Quality Audit
-  - raw analysis log panel
+## Technical details
+
+### Cloud Run
+Implement a stricter dynamic-calibration pipeline:
+- inspect several early usable frames
+- preprocess frames for phone footage
+- keep only long, near-horizontal line segments
+- cluster/de-duplicate similar lines
+- form candidate yard-line pairs
+- compute `pixels_per_yard` from robust pair spacing statistics
+- trust the result only if:
+  - `good_line_pairs >= 8` (or final chosen threshold in the 8–10 range)
+  - `40 <= pixels_per_yard <= 120`
+
+### Edge function
+Expand parsing of Cloud Run calibration payload so it can read:
+- `calibration_source`
+- `calibration_details`
+- `good_line_pairs`
+- rejection reason
+- `calibration_flag`
+
+Preserve compatibility with older responses by continuing to read existing:
+- `pixelsPerYard`
+- `pixels_per_yard`
+- `calibrationConfidence`
+- `calibration_confidence`
+
+## Validation
+
+1. Test several real phone-footage clips, including wide backyard-style shots
+2. Confirm dynamic calibration produces more realistic values, typically around `60–100 px/yard`
+3. Confirm bad dynamic outputs are rejected before reaching distance/velocity metrics
+4. Confirm fallback order works correctly:
+   - dynamic
+   - body-based
+   - static
+   - none
+5. Confirm logs clearly show:
+   - line-pair count
+   - computed px/yard
+   - final calibration source used
+6. Confirm distance, velocity, and acceleration metrics are more stable when calibration succeeds
+7. Confirm no regressions in:
+   - progress messages
+   - temporal smoothing
+   - phase windowing
+   - metric calculations
+   - cancellation
+   - result persistence
 
 ## Expected outcome
-After verification, there should be clear confirmation that the live Slant node now runs end-to-end, detection frequency resolves to `2` for solo runs, pose data is returned, smoothing and phase windowing execute, metrics populate normally, and cancellation still behaves correctly.
+
+After this update, the work starts where it matters most: the dynamic calibration step itself becomes much stricter and more reliable on real phone footage, and the edge-function fallback resolver then uses that richer calibration metadata to choose the best safe fallback without affecting the rest of the pipeline.
