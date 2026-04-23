@@ -48,6 +48,69 @@ const BILATERAL_OPTIONS: { value: BilateralMode; label: string }[] = [
 const GROUP_NAMES: Record<string, string> = { body: "BODY", feet: "FEET", hands: "HANDS", face: "FACE" };
 const ALL_GROUPS = ["body", "feet", "hands", "face"];
 
+type KeypointLibraryEntry = {
+  index: number;
+  name: string;
+  group: string;
+  sub_group: string;
+  side: string;
+  football_use: string | null;
+};
+
+const KEYPOINTS = keypointLibrary.keypoints as KeypointLibraryEntry[];
+const KEYPOINT_BY_INDEX = new Map<number, KeypointLibraryEntry>(KEYPOINTS.map((entry) => [entry.index, entry]));
+
+function buildMirrorIndexMap(keypoints: KeypointLibraryEntry[]) {
+  const bySignature = new Map<string, { left?: number; right?: number }>();
+
+  for (const keypoint of keypoints) {
+    const normalizedName = keypoint.name
+      .replace(/^Left\s+/i, "")
+      .replace(/^Right\s+/i, "")
+      .replace(/\s+Left$/i, "")
+      .replace(/\s+Right$/i, "")
+      .trim();
+    const signature = `${keypoint.group}:${keypoint.sub_group}:${normalizedName}`;
+    const existing = bySignature.get(signature) || {};
+    if (keypoint.side === "left") existing.left = keypoint.index;
+    if (keypoint.side === "right") existing.right = keypoint.index;
+    bySignature.set(signature, existing);
+  }
+
+  const mirrorMap = new Map<number, number>();
+  for (const pair of bySignature.values()) {
+    if (typeof pair.left === "number" && typeof pair.right === "number") {
+      mirrorMap.set(pair.left, pair.right);
+      mirrorMap.set(pair.right, pair.left);
+    }
+  }
+  return mirrorMap;
+}
+
+const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap(KEYPOINTS);
+
+function mapIndicesToSide(indices: number[], side: "left" | "right") {
+  return indices.map((index) => {
+    const entry = KEYPOINT_BY_INDEX.get(index);
+    if (!entry) return index;
+    if (entry.side === "center" || entry.side === side) return index;
+    return MIRROR_INDEX_BY_INDEX.get(index) ?? index;
+  });
+}
+
+function formatIndices(indices: number[]) {
+  return indices.length > 0 ? indices.join(", ") : "—";
+}
+
+function formatIndexNames(indices: number[]) {
+  return indices
+    .map((index) => {
+      const entry = KEYPOINT_BY_INDEX.get(index);
+      return entry ? `${entry.name} (${index})` : `${index}`;
+    })
+    .join(", ");
+}
+
 function getDefaultMapping(): KeypointMapping {
   return {
     body_groups: ["body"],
