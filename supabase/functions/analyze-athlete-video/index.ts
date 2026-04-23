@@ -166,6 +166,55 @@ type CloudRunResponse = {
   rejection_reason?: string | null
   rejectionReason?: string | null
   progress_updates?: CloudRunProgressUpdate[]
+  auto_zoom_applied?: boolean | null
+  autoZoomApplied?: boolean | null
+  auto_zoom_reason?: string | null
+  autoZoomReason?: string | null
+  auto_zoom_factor?: number | null
+  autoZoomFactor?: number | null
+  auto_zoom_final_fill_ratio?: number | null
+  autoZoomFinalFillRatio?: number | null
+  auto_zoom_crop_rect?: JsonRecord | null
+  autoZoomCropRect?: JsonRecord | null
+  auto_zoom_padding?: JsonRecord | null
+  autoZoomPadding?: JsonRecord | null
+  movement_direction?: string | null
+  movementDirection?: string | null
+  movement_confidence?: number | null
+  movementConfidence?: number | null
+  person_detection_confidence?: number | null
+  personDetectionConfidence?: number | null
+  safety_backoff_applied?: boolean | null
+  safetyBackoffApplied?: boolean | null
+  athlete_framing_message?: string | null
+  athleteFramingMessage?: string | null
+  mean_keypoint_confidence_before_auto_zoom?: number | null
+  meanKeypointConfidenceBeforeAutoZoom?: number | null
+  mean_keypoint_confidence_after_auto_zoom?: number | null
+  meanKeypointConfidenceAfterAutoZoom?: number | null
+}
+
+type CloudRunMetadata = {
+  auto_zoom_applied?: boolean
+  auto_zoom_reason?: string
+  auto_zoom_factor?: number
+  auto_zoom_final_fill_ratio?: number
+  auto_zoom_crop_rect?: JsonRecord
+  auto_zoom_padding?: JsonRecord
+  movement_direction?: string
+  movement_confidence?: number
+  person_detection_confidence?: number
+  safety_backoff_applied?: boolean
+  athlete_framing_message?: string
+  mean_keypoint_confidence_before_auto_zoom?: number
+  mean_keypoint_confidence_after_auto_zoom?: number
+  calibration_source?: string
+  calibration_confidence?: string
+  calibration_details?: JsonRecord
+  calibration_flag?: string
+  rejection_reason?: string
+  good_line_pairs?: number
+  pixels_per_yard?: number
 }
 
 type PipelineLogData = {
