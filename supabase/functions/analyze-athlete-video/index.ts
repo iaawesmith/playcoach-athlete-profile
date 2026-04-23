@@ -45,6 +45,16 @@ type CloudRunCalibrationInput = JsonRecord & {
   pixels_per_yard?: number | null
   calibrationConfidence?: string | null
   calibration_confidence?: string | null
+  calibration_source?: string | null
+  calibrationSource?: string | null
+  calibration_details?: JsonRecord | null
+  calibrationDetails?: JsonRecord | null
+  calibration_flag?: string | null
+  calibrationFlag?: string | null
+  good_line_pairs?: number | null
+  goodLinePairs?: number | null
+  rejection_reason?: string | null
+  rejectionReason?: string | null
 }
 
 type AthleteHeightMeasurement = {
@@ -122,6 +132,16 @@ type CloudRunResponse = {
   pixels_per_yard?: number | null
   calibrationConfidence?: string | null
   calibration_confidence?: string | null
+  calibration_source?: string | null
+  calibrationSource?: string | null
+  calibration_details?: JsonRecord | null
+  calibrationDetails?: JsonRecord | null
+  calibration_flag?: string | null
+  calibrationFlag?: string | null
+  good_line_pairs?: number | null
+  goodLinePairs?: number | null
+  rejection_reason?: string | null
+  rejectionReason?: string | null
   progress_updates?: CloudRunProgressUpdate[]
 }
 
