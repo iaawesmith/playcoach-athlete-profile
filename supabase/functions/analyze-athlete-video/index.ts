@@ -364,6 +364,106 @@ function summarizePersonCount(keypoints: VideoKeypoints): { firstFrame: number; 
   return { firstFrame, maxAcrossFrames }
 }
 
+function readBooleanField(...values: unknown[]): boolean | undefined {
+  for (const value of values) {
+    if (typeof value === 'boolean') return value
+  }
+  return undefined
+}
+
+function readNumberField(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return undefined
+}
+
+function readStringField(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+  }
+  return undefined
+}
+
+function readJsonRecordField(...values: unknown[]): JsonRecord | undefined {
+  for (const value of values) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as JsonRecord
+  }
+  return undefined
+}
+
+function buildCloudRunMetadata(result: CloudRunResponse): CloudRunMetadata {
+  const metadata: CloudRunMetadata = {}
+
+  const autoZoomApplied = readBooleanField(result.auto_zoom_applied, result.autoZoomApplied)
+  if (autoZoomApplied !== undefined) metadata.auto_zoom_applied = autoZoomApplied
+
+  const autoZoomReason = readStringField(result.auto_zoom_reason, result.autoZoomReason)
+  if (autoZoomReason !== undefined) metadata.auto_zoom_reason = autoZoomReason
+
+  const autoZoomFactor = readNumberField(result.auto_zoom_factor, result.autoZoomFactor)
+  if (autoZoomFactor !== undefined) metadata.auto_zoom_factor = autoZoomFactor
+
+  const autoZoomFinalFillRatio = readNumberField(result.auto_zoom_final_fill_ratio, result.autoZoomFinalFillRatio)
+  if (autoZoomFinalFillRatio !== undefined) metadata.auto_zoom_final_fill_ratio = autoZoomFinalFillRatio
+
+  const autoZoomCropRect = readJsonRecordField(result.auto_zoom_crop_rect, result.autoZoomCropRect)
+  if (autoZoomCropRect !== undefined) metadata.auto_zoom_crop_rect = autoZoomCropRect
+
+  const autoZoomPadding = readJsonRecordField(result.auto_zoom_padding, result.autoZoomPadding)
+  if (autoZoomPadding !== undefined) metadata.auto_zoom_padding = autoZoomPadding
+
+  const movementDirection = readStringField(result.movement_direction, result.movementDirection)
+  if (movementDirection !== undefined) metadata.movement_direction = movementDirection
+
+  const movementConfidence = readNumberField(result.movement_confidence, result.movementConfidence)
+  if (movementConfidence !== undefined) metadata.movement_confidence = movementConfidence
+
+  const personDetectionConfidence = readNumberField(result.person_detection_confidence, result.personDetectionConfidence)
+  if (personDetectionConfidence !== undefined) metadata.person_detection_confidence = personDetectionConfidence
+
+  const safetyBackoffApplied = readBooleanField(result.safety_backoff_applied, result.safetyBackoffApplied)
+  if (safetyBackoffApplied !== undefined) metadata.safety_backoff_applied = safetyBackoffApplied
+
+  const athleteFramingMessage = readStringField(result.athlete_framing_message, result.athleteFramingMessage)
+  if (athleteFramingMessage !== undefined) metadata.athlete_framing_message = athleteFramingMessage
+
+  const meanConfidenceBefore = readNumberField(
+    result.mean_keypoint_confidence_before_auto_zoom,
+    result.meanKeypointConfidenceBeforeAutoZoom,
+  )
+  if (meanConfidenceBefore !== undefined) metadata.mean_keypoint_confidence_before_auto_zoom = meanConfidenceBefore
+
+  const meanConfidenceAfter = readNumberField(
+    result.mean_keypoint_confidence_after_auto_zoom,
+    result.meanKeypointConfidenceAfterAutoZoom,
+  )
+  if (meanConfidenceAfter !== undefined) metadata.mean_keypoint_confidence_after_auto_zoom = meanConfidenceAfter
+
+  const calibrationSource = readStringField(result.calibration_source, result.calibrationSource)
+  if (calibrationSource !== undefined) metadata.calibration_source = calibrationSource
+
+  const calibrationConfidence = readStringField(result.calibration_confidence, result.calibrationConfidence)
+  if (calibrationConfidence !== undefined) metadata.calibration_confidence = calibrationConfidence
+
+  const calibrationDetails = readJsonRecordField(result.calibration_details, result.calibrationDetails)
+  if (calibrationDetails !== undefined) metadata.calibration_details = calibrationDetails
+
+  const calibrationFlag = readStringField(result.calibration_flag, result.calibrationFlag)
+  if (calibrationFlag !== undefined) metadata.calibration_flag = calibrationFlag
+
+  const rejectionReason = readStringField(result.rejection_reason, result.rejectionReason)
+  if (rejectionReason !== undefined) metadata.rejection_reason = rejectionReason
+
+  const goodLinePairs = readNumberField(result.good_line_pairs, result.goodLinePairs)
+  if (goodLinePairs !== undefined) metadata.good_line_pairs = goodLinePairs
+
+  const pixelsPerYard = getPixelsPerYardValue(result)
+  if (pixelsPerYard !== null) metadata.pixels_per_yard = pixelsPerYard
+
+  return metadata
+}
+
 function clampPercentage(value: number) {
   return Math.max(0, Math.min(100, value))
 }
