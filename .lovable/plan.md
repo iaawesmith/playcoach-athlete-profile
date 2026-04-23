@@ -1,130 +1,138 @@
-
-Implement proper proportional phase windowing in `supabase/functions/analyze-athlete-video/index.ts` by replacing the current broad `buildPhaseWindows` behavior with a boundary-aware helper that allocates frames cleanly by phase weight, then adds overlap only at internal boundaries.
+Implement detection-frequency tuning as a small, backward-compatible update centered on `supabase/functions/analyze-athlete-video/index.ts`, while aligning the AthleteLab admin defaults and reference copy with the new behavior.
 
 ## What will change
 
-### 1. Replace the current phase window helper
-Update the existing phase segmentation logic so it uses a new helper with the requested contract:
+### 1. Refine detection-frequency selection in the edge function
+Update the existing detection-frequency selector so it resolves one run-level `det_frequency` before the Cloud Run call using this priority:
 
-- `calculatePhaseWindows(totalFrames, phases, frameBuffer)`
+1. Scenario-specific override from node config
+   - support the existing flat fields already in use:
+     - `det_frequency_solo`
+     - `det_frequency_defender`
+     - `det_frequency_multiple`
+2. Support an optional nested config shape if present on the node:
+   - `detection_frequency.solo`
+   - `detection_frequency.with_defender`
+   - `detection_frequency.multiple`
+3. Fallback behavior
+   - if `analysis_context.people_in_video` is missing or indicates solo/unknown, default to `2`
+   - with defender defaults to `1`
+   - multiple defaults to `1`
 
-This helper will:
-- accept the total analyzed frame count
-- read the ordered `nodeConfig.phase_breakdown`
-- allocate each phase a base non-overlapping frame span using `proportion_weight`
-- apply overlap only at internal boundaries
-- clamp all final windows to the inclusive range `[0, totalFrames - 1]`
-- return inclusive `startFrame` / `endFrame` windows for each phase
+This preserves current pipeline structure while making solo the safe default for the primary use case.
 
-### 2. Compute proportional base windows first
-Build contiguous phase spans before applying overlap:
+### 2. Support a Break-phase override without changing the Cloud Run contract
+Because the Cloud Run request accepts a single `det_frequency` for the whole run, implement the Break-phase behavior as a run-level clamp:
 
-- sort phases by `sequence_order`
-- normalize `proportion_weight`
-- convert weights into frame counts that sum exactly to `totalFrames`
-- assign contiguous base windows:
-  - first phase starts at `0`
-  - last phase ends at `totalFrames - 1`
+- inspect `nodeConfig.phase_breakdown`
+- if the Break phase carries an optional override such as `det_frequency` or `detection_frequency`
+- lower the selected run-level frequency to that value when it is smaller than the scenario-selected value
+- do not attempt per-phase switching mid-run
 
-Recommended approach:
-- compute ideal frame counts from weights
-- floor them
-- distribute remaining frames by largest remainder so the final allocation is exact
+This keeps the implementation minimal and compatible with the current single-request analysis flow.
 
-This avoids drift caused by repeatedly rounding each phase independently.
+### 3. Add explicit logging for detection choice
+Add a clear log entry right after analysis context selection and before the Cloud Run call, for example:
 
-### 3. Apply boundary overlap correctly
-After the base windows are built, expand only around shared phase boundaries:
+- `Detection frequency set to 2 for this run (solo)`
+- `Detection frequency set to 1 for this run (with_defender)`
+- `Detection frequency set to 1 for this run (multiple)`
 
-- for each boundary between phase A and phase B:
-  - extend A’s end forward by `frameBuffer`
-  - extend B’s start backward by `frameBuffer`
-- do not add artificial padding before the first phase
-- do not add artificial padding after the last phase
-- clamp every final `startFrame` and `endFrame` to `0...totalFrames - 1`
+Include structured log details such as:
+- upload ID
+- detected scenario
+- base scenario value
+- whether a Break override lowered it
+- final value passed to Cloud Run
 
-Because `frame_buffer` exists per phase today, use a backward-compatible boundary rule:
-- derive each boundary overlap from adjacent phases
-- recommended: use the maximum of the left/right phase `frame_buffer`
-- fallback to `3` when missing
+### 4. Keep Cloud Run integration unchanged except for the resolved value
+Continue passing a single `det_frequency` into `callCloudRun(...)` exactly as today, but make sure the resolved tuned value is what gets sent.
 
-This produces transition context for metrics like Break Angle, Head Snap Timing, Catch Window, and YAC Burst without over-expanding the outer edges.
+No changes to:
+- progress messages
+- cancellation checks
+- temporal smoothing
+- phase windowing
+- metric calculations
+- Claude / fallback behavior
+- results persistence
 
-### 4. Keep downstream metric usage unchanged
-Integrate the new helper at the current phase-window step:
+## Admin / node configuration alignment
 
-Current location:
-- after temporal smoothing
-- before metric calculations
+### 5. Respect and normalize the existing AthleteLab detection fields
+The admin already uses:
+- `det_frequency_solo`
+- `det_frequency_defender`
+- `det_frequency_multiple`
 
-Update the pipeline so it:
-- calculates `phaseWindows` once after smoothing
-- stores the result in the same analysis context/variable used today
-- continues passing `phaseWindows` into `calculateAllMetrics`
-- preserves the current downstream metric selection flow
+Keep those fields as the primary editable controls and ensure their effective defaults are:
 
-No other pipeline behavior changes:
-- progress messages remain the same
-- cancellation checks remain the same
-- result writing remains the same
-- Claude / fallback behavior remains the same
+- solo: `2`
+- with defender: `1`
+- multiple: `1`
 
-### 5. Preserve compatibility with current log consumers
-Keep the returned structure compatible with existing code that reads:
+### 6. Update stale fallback/reference copy in the admin
+The training-status UI currently still references the old generic fallback of `7`. Update the admin display/reference copy so it matches the new tuning logic:
 
-- `phaseWindows[phaseId].start`
-- `phaseWindows[phaseId].end`
+- solo default/effective fallback should read as `2`
+- with defender and multiple remain `1`
+- any generated “pipeline reference” snippets and fallback helper text should no longer imply that `7` is the default operating value for solo runs
 
-The helper can internally work with `startFrame` / `endFrame`, then map back to `{ start, end }` for the existing pipeline so no downstream refactor is needed.
+### 7. Keep saved-node behavior safe for older records
+For older nodes where these fields may be null or unset:
 
-### 6. Add explicit debugging logs for both stages
-After phase windows are calculated, emit clear logs showing both:
-- the base proportional windows before overlap
-- the final overlapped windows after boundary expansion and clamping
+- continue using null-safe defaults in the UI
+- ensure the edge function also defaults safely at runtime
+- if needed, normalize outgoing saves from the node editor so blank values persist as `2/1/1` instead of remaining undefined
 
-Example summary:
-- `Phase base windows calculated: Release (0-24), Stem (25-70), Break (71-92)`
-- `Phase frame windows calculated: Release (0-30), Stem (24-74), Break (67-93)`
-
-Include:
-- phase name
-- inclusive start/end
-- frame buffer used at each boundary
-- confirmation that final windows were clamped to valid frame bounds where needed
-
-This should replace or augment the current `phase_windows_built` log with debugging output that makes proportional allocation and overlap behavior easy to verify.
+This avoids requiring a broad schema refactor while still making behavior deterministic.
 
 ## Files to update
 
 - `supabase/functions/analyze-athlete-video/index.ts`
+- `src/features/athlete-lab/components/NodeEditor.tsx`
+- `src/features/athlete-lab/utils/nodeExport.ts`
+- optionally `src/features/athlete-lab/types.ts` only if a typed optional Break override field is added to phase config
 
-## Specific code areas to touch
+## Technical details
 
-### In the main pipeline flow
-At the current Step 7:
-- replace the `buildPhaseWindows(...)` call with `calculatePhaseWindows(...)`
-- pass in:
-  - `rtmlibResult.frame_count`
-  - `nodeConfig.phase_breakdown`
-  - a resolved frame buffer strategy
+### Edge-function logic
+Implement a helper pattern like:
 
-### In helper functions
-Replace or refactor:
-- `buildPhaseWindows`
-- `buildPhaseWindowLog` only if needed to support the richer base-window and final-window logging
+- `normalizePeopleInVideo(context.people_in_video)` → `solo | with_defender | multiple`
+- `resolveDetectionFrequency(nodeConfig, peopleInVideo, phaseBreakdown)` → final number
+
+Resolution rules:
+- read existing flat fields first
+- support nested `detection_frequency` object if present
+- clamp to integer `>= 1`
+- apply Break-phase override as `final = Math.min(baseScenarioFrequency, breakOverride)` when valid
+
+### Break override shape
+To stay backward-compatible, the edge function can read optional fields directly from raw phase objects without requiring every node to have them, for example:
+- `phase.det_frequency`
+- `phase.detection_frequency`
+
+If later desired, that can be exposed in the admin UI, but it does not need to be required for this tuning pass.
 
 ## Validation
 
-1. Run a Slant node analysis
-2. Confirm logs show readable base proportional windows
-3. Confirm logs show final overlapped windows with boundary overlap applied
-4. Confirm first phase starts at frame `0`
-5. Confirm last phase ends at `totalFrames - 1`
-6. Confirm all final windows are clamped to `[0, totalFrames - 1]`
-7. Confirm adjacent phases overlap only around shared boundaries
-8. Confirm metrics still calculate successfully using the new windows
-9. Confirm no regressions in progress messages, cancellation, or final result writing
+1. Run a Slant node analysis with solo context
+2. Confirm logs show:
+   - `Detection frequency set to 2 for this run (solo)`
+3. Confirm the Cloud Run request receives `det_frequency: 2`
+4. Confirm pose output still returns valid keypoints
+5. Compare stability on fast-transition metrics such as:
+   - Break Angle
+   - Head Snap Timing
+6. Confirm no regressions in:
+   - progress updates
+   - cancellation
+   - temporal smoothing
+   - phase windowing
+   - final results writing
+7. Verify AthleteLab admin now displays `2 / 1 / 1` as the effective defaults and no longer suggests `7` as the solo fallback
 
 ## Expected outcome
 
-After this change, phase segmentation will be frame-accurate, proportionally allocated, overlapped only where transitions occur, and easier to debug because both the base and final window calculations will be visible in logs.
+After this change, solo athletic movements will use a much more appropriate detection cadence by default, the node editor’s configuration will match the real pipeline behavior, and fast transition moments like the slant break will have a better chance of receiving fresh detections without changing the rest of the analysis pipeline.
