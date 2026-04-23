@@ -616,6 +616,7 @@ Deno.serve(async (req) => {
       det_frequency: detFrequency,
       tracking_enabled: nodeConfig.tracking_enabled
     })
+    const cloudRunMetadata = buildCloudRunMetadata(rtmlibResult)
     logData.rtmlib = {
       solution_class: nodeConfig.solution_class,
       backend: 'cloud_run',
@@ -624,6 +625,7 @@ Deno.serve(async (req) => {
       keypoint_confidence: summarizeKeypointConfidence(rtmlibResult.scores),
       calibration_source: getCalibrationSourceLabel(rtmlibResult) ?? undefined,
       pixels_per_yard: getPixelsPerYardValue(rtmlibResult) ?? undefined,
+      ...(Object.keys(cloudRunMetadata).length > 0 ? cloudRunMetadata : {}),
     }
     const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
     logInfo('cloud_run_response_received', {
@@ -774,7 +776,7 @@ Deno.serve(async (req) => {
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Writing analysis results...')
-    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData)
+    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata)
     logInfo('results_written', {
       uploadId,
       aggregateScore: scoreResult.aggregate_score,
