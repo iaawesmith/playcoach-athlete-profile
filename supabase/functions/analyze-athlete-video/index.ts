@@ -45,6 +45,16 @@ type CloudRunCalibrationInput = JsonRecord & {
   pixels_per_yard?: number | null
   calibrationConfidence?: string | null
   calibration_confidence?: string | null
+  calibration_source?: string | null
+  calibrationSource?: string | null
+  calibration_details?: JsonRecord | null
+  calibrationDetails?: JsonRecord | null
+  calibration_flag?: string | null
+  calibrationFlag?: string | null
+  good_line_pairs?: number | null
+  goodLinePairs?: number | null
+  rejection_reason?: string | null
+  rejectionReason?: string | null
 }
 
 type AthleteHeightMeasurement = {
@@ -122,6 +132,16 @@ type CloudRunResponse = {
   pixels_per_yard?: number | null
   calibrationConfidence?: string | null
   calibration_confidence?: string | null
+  calibration_source?: string | null
+  calibrationSource?: string | null
+  calibration_details?: JsonRecord | null
+  calibrationDetails?: JsonRecord | null
+  calibration_flag?: string | null
+  calibrationFlag?: string | null
+  good_line_pairs?: number | null
+  goodLinePairs?: number | null
+  rejection_reason?: string | null
+  rejectionReason?: string | null
   progress_updates?: CloudRunProgressUpdate[]
 }
 
@@ -143,6 +163,8 @@ type PipelineLogData = {
     backend?: string
     total_frames?: number
     source_fps?: number
+    calibration_source?: string
+    pixels_per_yard?: number
     processing_time_ms?: number
     person_detected?: boolean
     average_keypoint_confidence?: number
@@ -428,6 +450,8 @@ Deno.serve(async (req) => {
       total_frames: rtmlibResult.frame_count,
       source_fps: rtmlibResult.fps,
       keypoint_confidence: summarizeKeypointConfidence(rtmlibResult.scores),
+      calibration_source: getCalibrationSourceLabel(rtmlibResult) ?? undefined,
+      pixels_per_yard: getPixelsPerYardValue(rtmlibResult) ?? undefined,
     }
     const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
     logInfo('cloud_run_response_received', {
@@ -436,6 +460,9 @@ Deno.serve(async (req) => {
       fps: rtmlibResult.fps,
       firstFramePersonCount: personCountSummary.firstFrame,
       maxFramePersonCount: personCountSummary.maxAcrossFrames,
+      calibrationSource: getCalibrationSourceLabel(rtmlibResult),
+      pixelsPerYard: getPixelsPerYardValue(rtmlibResult),
+      goodLinePairs: getGoodLinePairsValue(rtmlibResult),
     })
     await ensureNotCancelled(upload.id)
 
@@ -969,10 +996,201 @@ function getCalibrationConfidenceLabel(calibration: CloudRunCalibrationInput): s
   return null
 }
 
+function getCalibrationSourceLabel(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.calibrationSource
+  if (typeof camelValue === 'string' && camelValue.trim().length > 0) return camelValue.trim().toLowerCase()
+
+  const snakeValue = calibration.calibration_source
+  if (typeof snakeValue === 'string' && snakeValue.trim().length > 0) return snakeValue.trim().toLowerCase()
+
+  return null
+}
+
+function getCalibrationDetailsRecord(calibration: CloudRunCalibrationInput): JsonRecord {
+  const camelValue = calibration.calibrationDetails
+  if (camelValue && typeof camelValue === 'object' && !Array.isArray(camelValue)) {
+    return camelValue as JsonRecord
+  }
+
+  const snakeValue = calibration.calibration_details
+  if (snakeValue && typeof snakeValue === 'object' && !Array.isArray(snakeValue)) {
+    return snakeValue as JsonRecord
+  }
+
+  return {}
+}
+
+function getCalibrationFlagLabel(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.calibrationFlag
+  if (typeof camelValue === 'string' && camelValue.trim().length > 0) return camelValue.trim().toLowerCase()
+
+  const snakeValue = calibration.calibration_flag
+  if (typeof snakeValue === 'string' && snakeValue.trim().length > 0) return snakeValue.trim().toLowerCase()
+
+  return null
+}
+
+function getGoodLinePairsValue(calibration: CloudRunCalibrationInput): number | null {
+  const camelValue = calibration.goodLinePairs
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue) && camelValue >= 0) return camelValue
+
+  const snakeValue = calibration.good_line_pairs
+  if (typeof snakeValue === 'number' && Number.isFinite(snakeValue) && snakeValue >= 0) return snakeValue
+
+  return null
+}
+
+function getCalibrationRejectionReason(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.rejectionReason
+  if (typeof camelValue === 'string' && camelValue.trim().length > 0) return camelValue.trim()
+
+  const snakeValue = calibration.rejection_reason
+  if (typeof snakeValue === 'string' && snakeValue.trim().length > 0) return snakeValue.trim()
+
+  return null
+}
+
+function isDynamicCalibrationTrusted(calibration: CloudRunCalibrationInput): {
+  accepted: boolean
+  reason: string
+  sourceLabel: string | null
+  confidenceLabel: string | null
+  goodLinePairs: number | null
+  pixelsPerYard: number | null
+  calibrationFlag: string | null
+  details: JsonRecord
+  rejectionReason: string | null
+} {
+  const pixelsPerYard = getPixelsPerYardValue(calibration)
+  const confidenceLabel = getCalibrationConfidenceLabel(calibration)
+  const sourceLabel = getCalibrationSourceLabel(calibration)
+  const details = getCalibrationDetailsRecord(calibration)
+  const calibrationFlag = getCalibrationFlagLabel(calibration)
+  const goodLinePairs = getGoodLinePairsValue(calibration)
+  const rejectionReason = getCalibrationRejectionReason(calibration)
+  const trustedBySource = sourceLabel === 'dynamic'
+  const trustedByConfidence = confidenceLabel === 'dynamic' || confidenceLabel === 'trusted'
+  const withinExpectedRange = pixelsPerYard !== null && pixelsPerYard >= 40 && pixelsPerYard <= 120
+  const linePairThresholdMet = goodLinePairs === null || goodLinePairs >= 8
+  const explicitlyUnreliable = calibrationFlag === 'unreliable'
+
+  if (pixelsPerYard === null) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_pixels_per_yard_unavailable',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (!withinExpectedRange) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_pixels_per_yard_out_of_range',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (!linePairThresholdMet) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_line_pair_count_below_threshold',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (explicitlyUnreliable) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_marked_unreliable',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (!trustedBySource && !trustedByConfidence) {
+    return {
+      accepted: false,
+      reason: rejectionReason || `dynamic_confidence_${confidenceLabel || 'missing'}`,
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  return {
+    accepted: true,
+    reason: 'cloud_run_dynamic_calibration',
+    sourceLabel,
+    confidenceLabel,
+    goodLinePairs,
+    pixelsPerYard,
+    calibrationFlag,
+    details,
+    rejectionReason,
+  }
+}
+
+function logCalibrationSource(calibration: ResolvedCalibration) {
+  const details = calibration.details
+  const pixelsPerYard = calibration.pixelsPerYard
+  const goodLinePairs = typeof details.goodLinePairs === 'number' && Number.isFinite(details.goodLinePairs)
+    ? details.goodLinePairs
+    : typeof details.good_line_pairs === 'number' && Number.isFinite(details.good_line_pairs)
+      ? details.good_line_pairs
+      : null
+
+  let message = 'Calibration source: none (raw pixels)'
+
+  if (calibration.source === 'dynamic') {
+    message = `Calibration source: dynamic (${goodLinePairs ?? 'unknown'} line pairs, ${pixelsPerYard !== null ? pixelsPerYard.toFixed(1) : 'n/a'} px/yard)`
+  } else if (calibration.source === 'body_based') {
+    message = 'Calibration source: body-based (using athlete height)'
+  } else if (calibration.source === 'static') {
+    message = `Calibration source: static (${pixelsPerYard !== null ? pixelsPerYard.toFixed(1) : 'n/a'} px/yard from node config)`
+  }
+
+  logInfo('calibration_source_selected', {
+    source: calibration.source,
+    pixelsPerYard,
+    confidence: calibration.confidence,
+    message,
+    details,
+  })
+}
+
 function getCalibrationMetricDetail(calibration: ResolvedCalibration): JsonRecord {
   return {
     calibrationSource: calibration.source,
     calibrationConfidence: calibration.confidence,
+    pixelsPerYard: calibration.pixelsPerYard,
+    calibrationFlag: calibration.details.calibrationFlag ?? calibration.details.calibration_flag ?? null,
     calibrationDetails: calibration.details,
   }
 }
@@ -985,27 +1203,46 @@ function resolveCalibration(
   nodeConfig: any,
   cameraAngle: string,
 ): ResolvedCalibration {
-  const dynamicPixelsPerYard = getPixelsPerYardValue(cloudRunCalibration)
-  const dynamicConfidence = getCalibrationConfidenceLabel(cloudRunCalibration)
+  const dynamicAssessment = isDynamicCalibrationTrusted(cloudRunCalibration)
 
-  if (dynamicPixelsPerYard !== null && dynamicConfidence === 'dynamic') {
+  logInfo('dynamic_calibration_assessed', {
+    source: dynamicAssessment.sourceLabel,
+    confidence: dynamicAssessment.confidenceLabel,
+    pixelsPerYard: dynamicAssessment.pixelsPerYard,
+    goodLinePairs: dynamicAssessment.goodLinePairs,
+    accepted: dynamicAssessment.accepted,
+    reason: dynamicAssessment.reason,
+    rejectionReason: dynamicAssessment.rejectionReason,
+    message: dynamicAssessment.goodLinePairs !== null && dynamicAssessment.pixelsPerYard !== null
+      ? `Dynamic calibration: found ${dynamicAssessment.goodLinePairs} line pairs, calculated ${dynamicAssessment.pixelsPerYard.toFixed(2)} px/yard`
+      : 'Dynamic calibration diagnostics incomplete',
+    details: dynamicAssessment.details,
+  })
+
+  if (dynamicAssessment.accepted && dynamicAssessment.pixelsPerYard !== null) {
     const resolved = {
-      pixelsPerYard: dynamicPixelsPerYard,
+      pixelsPerYard: dynamicAssessment.pixelsPerYard,
       source: 'dynamic' as const,
-      confidence: 1,
-      reason: 'cloud_run_dynamic_calibration',
+      confidence: dynamicAssessment.goodLinePairs !== null
+        ? clamp(dynamicAssessment.goodLinePairs / 12, 0.65, 1)
+        : 1,
+      reason: dynamicAssessment.reason,
       details: {
-        pixelsPerYard: dynamicPixelsPerYard,
-        calibrationConfidence: dynamicConfidence,
+        pixelsPerYard: dynamicAssessment.pixelsPerYard,
+        calibrationConfidence: dynamicAssessment.confidenceLabel,
+        calibrationSource: dynamicAssessment.sourceLabel,
+        calibrationFlag: dynamicAssessment.calibrationFlag,
+        goodLinePairs: dynamicAssessment.goodLinePairs,
+        rejectionReason: dynamicAssessment.rejectionReason,
+        ...dynamicAssessment.details,
       },
     }
     logInfo('calibration_resolved', resolved)
+    logCalibrationSource(resolved)
     return resolved
   }
 
-  const dynamicFailureReason = dynamicPixelsPerYard === null
-    ? 'dynamic_pixels_per_yard_unavailable'
-    : `dynamic_confidence_${dynamicConfidence || 'missing'}`
+  const dynamicFailureReason = dynamicAssessment.reason
 
   if (athleteHeight) {
     logInfo('calibration_source_fallback', {
@@ -1023,10 +1260,13 @@ function resolveCalibration(
         reason: 'body_based_calibration_accepted',
         details: {
           method: bodyBasedCalibration.method,
+          pixelsPerYard: bodyBasedCalibration.pixelsPerYard,
+          dynamicFailureReason,
           ...bodyBasedCalibration.details,
         },
       }
       logInfo('calibration_resolved', resolved)
+      logCalibrationSource(resolved)
       return resolved
     }
 
@@ -1055,10 +1295,13 @@ function resolveCalibration(
       reason: 'node_reference_calibration',
       details: {
         cameraAngle,
+        pixelsPerYard: staticPixelsPerYard,
+        dynamicFailureReason,
         matchedCalibration: staticCalibration ?? {},
       },
     }
     logInfo('calibration_resolved', resolved)
+    logCalibrationSource(resolved)
     return resolved
   }
 
@@ -1077,10 +1320,12 @@ function resolveCalibration(
       dynamicFailureReason,
       athleteHeightProvided: Boolean(athleteHeight),
       staticCalibrationFound: Boolean(staticCalibration),
+      calibrationFlag: 'unreliable',
       cameraAngle,
     },
   }
   logInfo('calibration_resolved', resolved)
+  logCalibrationSource(resolved)
   return resolved
 }
 
