@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from statistics import median
-from typing import Iterable, Sequence
-
-import cv2
+from typing import Sequence
 import numpy as np
 
 
@@ -184,6 +182,8 @@ def map_bbox_to_original_space(box: BoundingBox, transform: CoordinateTransform)
 
 
 def apply_crop_and_resize(frame: np.ndarray, crop_rect: dict[str, int], output_size: tuple[int, int]) -> np.ndarray:
+    import cv2
+
     x, y, width, height = crop_rect['x'], crop_rect['y'], crop_rect['width'], crop_rect['height']
     cropped = frame[y : y + height, x : x + width]
     output_width, output_height = output_size

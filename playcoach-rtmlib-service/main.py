@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Any, Callable, Sequence
 
 import logging
 
-import cv2
 import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -14,6 +12,7 @@ from calibration import compute_confidence_weighted_body_calibration
 from preprocessing import (
     AutoZoomDecision,
     BoundingBox,
+    CoordinateTransform,
     apply_crop_and_resize,
     as_bbox_detection,
     build_coordinate_transform,
@@ -157,24 +156,13 @@ def remap_results_to_original_space(
     keypoints: Sequence[Sequence[Sequence[float]]],
     decision: AutoZoomDecision,
 ) -> list[list[list[float]]]:
-    transform = build_coordinate_transform(
-        decision.crop_rect_original,
-        original_size=(1, 1),
-        output_size=(1, 1),
+    transform = CoordinateTransform(
+        scale_x=float(decision.transform.get('scale_x', 1.0)),
+        scale_y=float(decision.transform.get('scale_y', 1.0)),
+        offset_x=float(decision.transform.get('offset_x', 0.0)),
+        offset_y=float(decision.transform.get('offset_y', 0.0)),
+        applied=bool(decision.transform.get('applied', False)),
     )
-    if decision.transform:
-        transform = build_coordinate_transform(
-            decision.crop_rect_original,
-            original_size=(1, 1),
-            output_size=(1, 1),
-        )
-        transform = transform.__class__(
-            scale_x=float(decision.transform.get('scale_x', 1.0)),
-            scale_y=float(decision.transform.get('scale_y', 1.0)),
-            offset_x=float(decision.transform.get('offset_x', 0.0)),
-            offset_y=float(decision.transform.get('offset_y', 0.0)),
-            applied=bool(decision.transform.get('applied', False)),
-        )
     return map_points_to_original_space(keypoints, transform)
 
 
