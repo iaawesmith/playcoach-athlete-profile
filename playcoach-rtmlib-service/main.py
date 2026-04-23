@@ -83,9 +83,49 @@ class AnalyzeResponse(BaseModel):
     safety_backoff_applied: bool = False
     coordinate_transform: dict[str, float] | None = None
     athlete_framing_message: str | None = None
+    mean_keypoint_confidence_before_auto_zoom: float | None = None
+    mean_keypoint_confidence_after_auto_zoom: float | None = None
     calibration_source: str | None = None
+    calibration_confidence: float | None = None
     calibration_details: dict[str, Any] | None = None
+    calibration_flag: str | None = None
+    good_line_pairs: int | None = None
+    rejection_reason: str | None = None
     pixels_per_yard: float | None = None
+
+
+def build_response_defaults() -> dict[str, Any]:
+    return {
+        'auto_zoom_applied': False,
+        'auto_zoom_reason': None,
+        'auto_zoom_factor': None,
+        'auto_zoom_original_fill_ratio': None,
+        'auto_zoom_final_fill_ratio': None,
+        'auto_zoom_crop_rect': None,
+        'auto_zoom_padding': None,
+        'movement_direction': None,
+        'movement_confidence': None,
+        'person_detection_confidence': None,
+        'safety_backoff_applied': False,
+        'coordinate_transform': None,
+        'athlete_framing_message': None,
+        'mean_keypoint_confidence_before_auto_zoom': None,
+        'mean_keypoint_confidence_after_auto_zoom': None,
+        'calibration_source': None,
+        'calibration_confidence': None,
+        'calibration_details': None,
+        'calibration_flag': None,
+        'good_line_pairs': None,
+        'rejection_reason': None,
+        'pixels_per_yard': None,
+    }
+
+
+def compute_mean_keypoint_confidence(scores: Sequence[Sequence[float]]) -> float | None:
+    values = [float(score) for frame_scores in scores for score in frame_scores if np.isfinite(score)]
+    if not values:
+        return None
+    return round(sum(values) / len(values), 4)
 
 
 def sample_detection_frames(frames: Sequence[np.ndarray], max_samples: int = 9) -> list[tuple[int, np.ndarray]]:
@@ -129,8 +169,11 @@ def enrich_response_metadata(
     base_response: dict[str, Any],
     decision: AutoZoomDecision,
     calibration_result: dict[str, Any],
+    mean_confidence_before: float | None,
+    mean_confidence_after: float | None,
 ) -> dict[str, Any]:
-    base_response.update(
+    metadata = build_response_defaults()
+    metadata.update(
         {
             'auto_zoom_applied': decision.enabled,
             'auto_zoom_reason': decision.reason,
@@ -145,11 +188,19 @@ def enrich_response_metadata(
             'safety_backoff_applied': decision.safety_backoff_applied,
             'coordinate_transform': decision.transform,
             'athlete_framing_message': decision.athlete_message,
+            'mean_keypoint_confidence_before_auto_zoom': mean_confidence_before,
+            'mean_keypoint_confidence_after_auto_zoom': mean_confidence_after,
             'calibration_source': calibration_result.get('source'),
+            'calibration_confidence': calibration_result.get('confidence'),
             'calibration_details': calibration_result.get('details'),
+            'calibration_flag': calibration_result.get('flag'),
+            'good_line_pairs': calibration_result.get('good_line_pairs'),
+            'rejection_reason': calibration_result.get('rejection_reason')
+            or (calibration_result.get('details') or {}).get('rejection_reason'),
             'pixels_per_yard': calibration_result.get('pixels_per_yard'),
         }
     )
+    base_response.update(metadata)
     return base_response
 
 
@@ -417,6 +468,7 @@ def analyze_clip_with_existing_backends(
         raise ValueError('Frame loader returned zero frames')
 
     zoomed_frames, decision = run_autozoom_pipeline(frames, detector) if request.auto_zoom_enabled else (list(frames), compute_auto_zoom_crop([], frames[0].shape[1], frames[0].shape[0]))
+    original_keypoints, original_scores = pose_runner(frames, request)
     zoomed_keypoints, zoomed_scores = pose_runner(zoomed_frames, request)
     original_space_keypoints = remap_results_to_original_space(zoomed_keypoints, decision)
     calibration_result = compute_confidence_weighted_body_calibration(original_space_keypoints, zoomed_scores).to_metadata()
@@ -429,7 +481,13 @@ def analyze_clip_with_existing_backends(
         'fps': fps,
         'progress_updates': build_progress_updates(decision),
     }
-    return enrich_response_metadata(response, decision, calibration_result)
+    return enrich_response_metadata(
+        response,
+        decision,
+        calibration_result,
+        compute_mean_keypoint_confidence(original_scores),
+        compute_mean_keypoint_confidence(zoomed_scores),
+    )
 
 
 @app.post('/analyze', response_model=AnalyzeResponse)
