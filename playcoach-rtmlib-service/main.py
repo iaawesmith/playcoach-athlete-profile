@@ -468,6 +468,7 @@ def analyze_clip_with_existing_backends(
         raise ValueError('Frame loader returned zero frames')
 
     zoomed_frames, decision = run_autozoom_pipeline(frames, detector) if request.auto_zoom_enabled else (list(frames), compute_auto_zoom_crop([], frames[0].shape[1], frames[0].shape[0]))
+    original_keypoints, original_scores = pose_runner(frames, request)
     zoomed_keypoints, zoomed_scores = pose_runner(zoomed_frames, request)
     original_space_keypoints = remap_results_to_original_space(zoomed_keypoints, decision)
     calibration_result = compute_confidence_weighted_body_calibration(original_space_keypoints, zoomed_scores).to_metadata()
@@ -480,7 +481,13 @@ def analyze_clip_with_existing_backends(
         'fps': fps,
         'progress_updates': build_progress_updates(decision),
     }
-    return enrich_response_metadata(response, decision, calibration_result)
+    return enrich_response_metadata(
+        response,
+        decision,
+        calibration_result,
+        compute_mean_keypoint_confidence(original_scores),
+        compute_mean_keypoint_confidence(zoomed_scores),
+    )
 
 
 @app.post('/analyze', response_model=AnalyzeResponse)
