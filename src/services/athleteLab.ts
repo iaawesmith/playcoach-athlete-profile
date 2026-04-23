@@ -111,9 +111,7 @@ export async function runAnalysis(node: TrainingNode, videoDescription: string, 
   return data as AnalysisResult;
 }
 
-const TEST_VIDEO_BUCKET = "athlete-videos";
 const TEST_VIDEO_FOLDER = "test-clips";
-const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 240_000;
 
@@ -243,23 +241,30 @@ function mapPhaseBreakdown(phaseScores: Record<string, number>, node: TrainingNo
 
 async function uploadTestClip(file: File, node: TrainingNode): Promise<{ signedUrl: string; path: string }> {
   const path = buildTestClipPath(node.id, file.name);
-  const { error: uploadError } = await supabase.storage
-    .from(TEST_VIDEO_BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type || undefined });
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("path", path);
 
-  if (uploadError) {
-    throw new Error(`Video upload failed: ${uploadError.message}`);
+  const { data, error } = await supabase.functions.invoke("admin-test-upload", {
+    body: formData,
+  });
+
+  if (error) {
+    throw new Error(`Video upload failed: ${error.message}`);
   }
 
-  const { data: signedData, error: signError } = await supabase.storage
-    .from(TEST_VIDEO_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  const record = parseRecord(data);
+  const signedUrl = typeof record.signedUrl === "string" ? record.signedUrl : "";
+  const uploadedPath = typeof record.path === "string" ? record.path : path;
 
-  if (signError || !signedData?.signedUrl) {
-    throw new Error(`Signed URL generation failed: ${signError?.message ?? "Unknown error"}`);
+  if (!signedUrl) {
+    const uploadError = typeof record.error === "string"
+      ? record.error
+      : "Unexpected response from upload helper.";
+    throw new Error(`Video upload failed: ${uploadError}`);
   }
 
-  return { signedUrl: signedData.signedUrl, path };
+  return { signedUrl, path: uploadedPath };
 }
 
 export async function submitRunAnalysisJob(input: RunAnalysisSubmissionInput): Promise<SubmittedAnalysisJob> {
