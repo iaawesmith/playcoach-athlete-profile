@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const selectClause = "id, upload_id, athlete_id, node_id, aggregate_score, phase_scores, metric_results, confidence_flags, detected_errors, feedback, analyzed_at";
+  const selectClause = "id, upload_id, athlete_id, node_id, aggregate_score, phase_scores, metric_results, confidence_flags, detected_errors, feedback, analyzed_at, result_data";
 
   const { data: directData, error: directError } = await supabase
     .from("athlete_lab_results")
@@ -83,6 +83,9 @@ Deno.serve(async (req) => {
       detected_errors: row.detected_errors,
       feedback: row.feedback,
       analyzed_at: row.analyzed_at,
+      log_data: row.result_data && typeof row.result_data === "object" && !Array.isArray(row.result_data)
+        ? (row.result_data as Record<string, unknown>).log_data ?? null
+        : null,
     },
   });
 });

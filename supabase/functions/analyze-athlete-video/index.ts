@@ -125,6 +125,101 @@ type CloudRunResponse = {
   progress_updates?: CloudRunProgressUpdate[]
 }
 
+type PipelineLogData = {
+  timestamp?: string
+  preflight: {
+    checks: Array<{
+      name: string
+      expected: string
+      actual: string
+      result: 'PASS' | 'WARN' | 'FAIL'
+    }>
+    pipeline_stopped?: boolean
+    stop_reason?: string
+  }
+  rtmlib?: {
+    solution_class?: string
+    model?: string
+    backend?: string
+    total_frames?: number
+    source_fps?: number
+    processing_time_ms?: number
+    phase_windows?: Array<{
+      phase: string
+      start: number
+      end: number
+      frame_count: number
+      percent: number
+    }>
+    keypoint_confidence?: Array<{
+      index: number
+      name: string
+      mean_confidence: number
+      min_confidence: number
+      min_frame: number
+      frames_below: number
+      total_frames: number
+      percent_below: number
+      status: 'RELIABLE' | 'MARGINAL' | 'UNRELIABLE'
+    }>
+  }
+  metrics?: Array<{
+    name: string
+    weight: number
+    phase: string
+    frames_evaluated: number
+    frame_range: string
+    keypoints: string
+    calculation_type: string
+    temporal_window: number
+    extracted_values?: string
+    calculated_result: string
+    unit: string
+    elite_target: string
+    deviation: string
+    raw_score: number
+    weighted_contribution: string
+    status: 'SCORED' | 'SKIPPED' | 'FLAGGED'
+    skip_reason?: string
+  }>
+  aggregate?: {
+    mastery_score: number
+    confidence_adjusted: boolean
+    metrics_skipped: number
+    metrics_total: number
+  }
+  error_detection?: Array<{
+    name: string
+    auto_detectable: boolean
+    condition: string
+    metric_value: string
+    evaluation_expression: string
+    triggered: boolean
+  }>
+  claude_api?: {
+    model?: string
+    system_instructions_present?: boolean
+    system_instructions_chars?: number
+    variables_injected?: Array<{ name: string; value_summary: string; present: boolean }>
+    missing_variables?: string[]
+    prompt_tokens?: number
+    system_tokens?: number
+    template_tokens?: number
+    variable_tokens?: number
+    response_tokens?: number
+    total_tokens?: number
+    word_count?: number
+    target_words?: number
+    truncated?: boolean
+    status?: 'COMPLETE' | 'FAILED'
+  }
+}
+
+type ClaudeCallResult = {
+  feedback: string
+  log: PipelineLogData['claude_api']
+}
+
 function createCancellationError(uploadId: string): PipelineCancellationError {
   const error = new Error(`Upload ${uploadId} was cancelled`) as PipelineCancellationError
   error.code = 'UPLOAD_CANCELLED'
@@ -180,6 +275,11 @@ Deno.serve(async (req) => {
       endSeconds: upload.end_seconds,
     })
 
+    const logData: PipelineLogData = {
+      timestamp: new Date().toISOString(),
+      preflight: { checks: [] },
+    }
+
     // Update status to processing immediately
     await updateUploadStatus(upload.id, 'processing', undefined, 'Loading model on server...')
     await ensureNotCancelled(upload.id)
@@ -199,6 +299,11 @@ Deno.serve(async (req) => {
     // STEP 2: Pre-flight validation
     await setUploadProgress(upload.id, 'Validating clip window and pipeline settings...')
     const preflightResult = await runPreflight(upload, nodeConfig)
+    logData.preflight = {
+      checks: preflightResult.checks,
+      pipeline_stopped: !preflightResult.passed,
+      stop_reason: preflightResult.passed ? undefined : preflightResult.reason,
+    }
     if (!preflightResult.passed) {
       logWarn('preflight_failed', { uploadId, reason: preflightResult.reason })
       await updateUploadStatus(upload.id, 'failed', preflightResult.reason)
@@ -236,6 +341,13 @@ Deno.serve(async (req) => {
       det_frequency: detFrequency,
       tracking_enabled: nodeConfig.tracking_enabled
     })
+    logData.rtmlib = {
+      solution_class: nodeConfig.solution_class,
+      backend: 'cloud_run',
+      total_frames: rtmlibResult.frame_count,
+      source_fps: rtmlibResult.fps,
+      keypoint_confidence: summarizeKeypointConfidence(rtmlibResult.scores),
+    }
     const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
     logInfo('cloud_run_response_received', {
       uploadId,
@@ -285,6 +397,13 @@ Deno.serve(async (req) => {
       rtmlibResult.frame_count,
       nodeConfig.phase_breakdown
     )
+    if (logData.rtmlib) {
+      logData.rtmlib.phase_windows = buildPhaseWindowLog(
+        phaseWindows,
+        nodeConfig.phase_breakdown,
+        rtmlibResult.frame_count,
+      )
+    }
 
     // STEP 8: Calculate all metrics
     await setUploadProgress(upload.id, 'Calculating metrics...')
@@ -317,6 +436,13 @@ Deno.serve(async (req) => {
       nodeConfig,
       context.catch_included !== false
     )
+    logData.metrics = buildMetricLogEntries(metricResults, phaseWindows, nodeConfig.phase_breakdown)
+    logData.aggregate = {
+      mastery_score: typeof scoreResult.aggregate_score === 'number' ? scoreResult.aggregate_score : 0,
+      confidence_adjusted: metricResults.some((metric) => metric.status === 'flagged'),
+      metrics_skipped: metricResults.filter((metric) => metric.status !== 'scored').length,
+      metrics_total: metricResults.length,
+    }
 
     // STEP 10: Error auto-detection
     await setUploadProgress(upload.id, 'Checking for common route errors...')
@@ -325,7 +451,10 @@ Deno.serve(async (req) => {
     // STEP 11: Call Claude API
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Generating coaching feedback...')
-    const feedback = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+    const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+    const feedback = claudeResult.feedback
+    logData.claude_api = claudeResult.log
+    logData.error_detection = buildErrorDetectionLog(nodeConfig.common_errors, metricResults, errorResults)
     logInfo('claude_feedback_received', {
       uploadId,
       feedbackLength: feedback.length,
@@ -334,7 +463,7 @@ Deno.serve(async (req) => {
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Writing analysis results...')
-    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback)
+    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData)
     logInfo('results_written', {
       uploadId,
       aggregateScore: scoreResult.aggregate_score,
@@ -410,17 +539,174 @@ async function fetchNodeConfig(nodeId: string) {
 
 
 async function runPreflight(upload: any, nodeConfig: any) {
-  const guidelines = nodeConfig.camera_guidelines || {}
-  
-  // Duration check
   const duration = upload.end_seconds - upload.start_seconds
-  if (duration < nodeConfig.clip_duration_min || duration > nodeConfig.clip_duration_max) {
-    return { passed: false, reason: `Duration ${duration}s outside bounds ${nodeConfig.clip_duration_min}-${nodeConfig.clip_duration_max}s` }
+  const checks = [
+    {
+      name: 'Clip duration',
+      expected: `${nodeConfig.clip_duration_min}-${nodeConfig.clip_duration_max}s`,
+      actual: `${duration}s`,
+      result: duration < nodeConfig.clip_duration_min || duration > nodeConfig.clip_duration_max ? 'FAIL' as const : 'PASS' as const,
+    },
+    {
+      name: 'Node status',
+      expected: 'live',
+      actual: nodeConfig.status || 'unknown',
+      result: nodeConfig.status === 'live' ? 'PASS' as const : 'FAIL' as const,
+    },
+  ]
+
+  const failedCheck = checks.find((check) => check.result === 'FAIL')
+  if (failedCheck) {
+    return { passed: false, reason: `${failedCheck.name}: ${failedCheck.actual}`, checks }
   }
 
-  return { passed: true }
+  return { passed: true, checks }
   // Note: Resolution and frame occupancy checks happen after Cloud Run
   // returns the video metadata. Frame size check requires actual frame analysis.
+}
+
+function formatNumber(value: unknown, digits = 2): string {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : 'N/A'
+}
+
+function summarizeValue(value: unknown): string {
+  if (typeof value === 'string') return value.slice(0, 120)
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (Array.isArray(value)) return `${value.length} items`
+  if (value && typeof value === 'object') return JSON.stringify(value).slice(0, 120)
+  return 'N/A'
+}
+
+function parsePhaseBreakdown(phases: any[]): Array<{ id: string; name: string }> {
+  if (!Array.isArray(phases)) return []
+  return phases.map((phase, index) => ({
+    id: typeof phase?.id === 'string' ? phase.id : `phase-${index + 1}`,
+    name: typeof phase?.name === 'string' ? phase.name : `Phase ${index + 1}`,
+  }))
+}
+
+function buildPhaseWindowLog(
+  phaseWindows: Record<string, { start: number; end: number }>,
+  phaseBreakdown: any[],
+  totalFrames: number,
+) {
+  const phases = parsePhaseBreakdown(phaseBreakdown)
+  return phases.map((phase) => {
+    const window = phaseWindows[phase.id] || { start: 0, end: 0 }
+    const frameCount = Math.max(0, window.end - window.start + 1)
+    return {
+      phase: phase.name,
+      start: window.start,
+      end: window.end,
+      frame_count: frameCount,
+      percent: totalFrames > 0 ? Math.round((frameCount / totalFrames) * 100) : 0,
+    }
+  })
+}
+
+function summarizeKeypointConfidence(scores: VideoScores) {
+  const totals = new Map<number, { total: number; min: number; minFrame: number; framesBelow: number; count: number }>()
+
+  for (let frameIndex = 0; frameIndex < scores.length; frameIndex += 1) {
+    const personScores = scores[frameIndex]?.[0]
+    if (!Array.isArray(personScores)) continue
+
+    personScores.forEach((score, index) => {
+      if (!Number.isFinite(score)) return
+      const current = totals.get(index) ?? { total: 0, min: 1, minFrame: frameIndex, framesBelow: 0, count: 0 }
+      current.total += score
+      current.count += 1
+      if (score < current.min) {
+        current.min = score
+        current.minFrame = frameIndex
+      }
+      if (score < 0.7) current.framesBelow += 1
+      totals.set(index, current)
+    })
+  }
+
+  return Array.from(totals.entries())
+    .slice(0, 17)
+    .map(([index, summary]) => {
+      const mean = summary.count > 0 ? summary.total / summary.count : 0
+      const percentBelow = summary.count > 0 ? (summary.framesBelow / summary.count) * 100 : 0
+      return {
+        index,
+        name: `Keypoint ${index}`,
+        mean_confidence: Number(mean.toFixed(3)),
+        min_confidence: Number(summary.min.toFixed(3)),
+        min_frame: summary.minFrame,
+        frames_below: summary.framesBelow,
+        total_frames: summary.count,
+        percent_below: Number(percentBelow.toFixed(1)),
+        status: percentBelow <= 10 ? 'RELIABLE' as const : percentBelow <= 30 ? 'MARGINAL' as const : 'UNRELIABLE' as const,
+      }
+    })
+}
+
+function buildMetricLogEntries(metricResults: any[], phaseWindows: Record<string, { start: number; end: number }>, phaseBreakdown: any[]) {
+  const phaseNameMap = new Map(parsePhaseBreakdown(phaseBreakdown).map((phase) => [phase.id, phase.name]))
+
+  return metricResults.map((metric) => {
+    const phaseId = metric?.keypoint_mapping?.phase_id || metric?.phase_id || 'unknown'
+    const window = phaseWindows[phaseId]
+    const detail = metric?.detail && typeof metric.detail === 'object' ? metric.detail as JsonRecord : {}
+    const value = typeof metric?.value === 'number' && Number.isFinite(metric.value) ? metric.value : null
+    const deviation = typeof metric?.deviation === 'number' && Number.isFinite(metric.deviation) ? metric.deviation : null
+    const score = typeof metric?.score === 'number' && Number.isFinite(metric.score) ? metric.score : 0
+
+    return {
+      name: typeof metric?.name === 'string' ? metric.name : 'Metric',
+      weight: typeof metric?.weight === 'number' && Number.isFinite(metric.weight) ? metric.weight : 0,
+      phase: phaseNameMap.get(phaseId) ?? phaseId,
+      frames_evaluated: window ? Math.max(0, window.end - window.start + 1) : 0,
+      frame_range: window ? `${window.start}-${window.end}` : 'N/A',
+      keypoints: Array.isArray(metric?.keypoint_mapping?.keypoint_indices)
+        ? metric.keypoint_mapping.keypoint_indices.join(', ')
+        : '',
+      calculation_type: typeof metric?.keypoint_mapping?.calculation_type === 'string'
+        ? metric.keypoint_mapping.calculation_type
+        : 'unknown',
+      temporal_window: typeof metric?.keypoint_mapping?.temporal_window === 'number'
+        ? metric.keypoint_mapping.temporal_window
+        : 0,
+      extracted_values: value !== null ? formatNumber(value) : summarizeValue(detail),
+      calculated_result: value !== null ? formatNumber(value) : metric?.reason || 'N/A',
+      unit: typeof metric?.unit === 'string' ? metric.unit : '',
+      elite_target: metric?.elite_target != null ? String(metric.elite_target) : '',
+      deviation: deviation !== null ? formatNumber(deviation) : 'N/A',
+      raw_score: score,
+      weighted_contribution: formatNumber(score * (typeof metric?.weight === 'number' ? metric.weight : 0) / 100),
+      status: metric?.status === 'scored' ? 'SCORED' as const : metric?.status === 'flagged' ? 'FLAGGED' as const : 'SKIPPED' as const,
+      skip_reason: typeof metric?.reason === 'string' ? metric.reason : undefined,
+    }
+  })
+}
+
+function buildErrorDetectionLog(errors: any[], metricResults: any[], errorResults: { detected: string[] }) {
+  const metricMap = new Map<string, number>()
+  metricResults.forEach((metric) => {
+    if (metric?.status === 'scored' && typeof metric?.value === 'number' && Number.isFinite(metric.value)) {
+      metricMap.set(metric.name, metric.value)
+    }
+  })
+
+  return Array.isArray(errors)
+    ? errors.map((error) => {
+        const condition = typeof error?.auto_detection_condition === 'string' ? error.auto_detection_condition : ''
+        const metricName = condition.match(/^(.+?)\s*(>|<|>=|<=|=|!=)\s*[\d.]+$/)?.[1]?.trim() ?? ''
+        const metricValue = metricName && metricMap.has(metricName) ? formatNumber(metricMap.get(metricName), 2) : 'N/A'
+        return {
+          name: typeof error?.error === 'string' ? error.error : typeof error?.name === 'string' ? error.name : 'Rule',
+          auto_detectable: Boolean(error?.auto_detectable && condition),
+          condition,
+          metric_value: metricValue,
+          evaluation_expression: condition || 'Manual review',
+          triggered: errorResults.detected.includes(error?.error) || errorResults.detected.includes(error?.name),
+        }
+      })
+    : []
 }
 
 
@@ -1574,7 +1860,7 @@ async function callClaude(
   errorResults: any,
   upload: any,
   context: any
-) {
+): Promise<ClaudeCallResult> {
   const variables = {
     mastery_score: scoreResult.aggregate_score?.toString() || 'N/A',
     phase_scores: formatPhaseScores(scoreResult.phase_scores, nodeConfig.phase_breakdown),
@@ -1596,6 +1882,26 @@ async function callClaude(
   let prompt = nodeConfig.llm_prompt_template
   for (const [key, value] of Object.entries(variables)) {
     prompt = prompt.replaceAll(`{{${key}}}`, value as string)
+  }
+
+  const claudeLog: PipelineLogData['claude_api'] = {
+    model: 'claude-sonnet-4-5',
+    system_instructions_present: Boolean(nodeConfig.llm_system_instructions),
+    system_instructions_chars: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions.length : 0,
+    variables_injected: Object.entries(variables).map(([name, value]) => ({
+      name,
+      value_summary: summarizeValue(value),
+      present: typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined,
+    })),
+    missing_variables: Object.entries(variables)
+      .filter(([, value]) => typeof value !== 'string' || value.trim().length === 0)
+      .map(([name]) => name),
+    template_tokens: Math.ceil((nodeConfig.llm_prompt_template || '').length / 4),
+    system_tokens: Math.ceil((nodeConfig.llm_system_instructions || '').length / 4),
+    variable_tokens: Math.ceil(Object.values(variables).join(' ').length / 4),
+    prompt_tokens: Math.ceil(prompt.length / 4),
+    target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+    status: 'FAILED',
   }
 
   logInfo('claude_request_prepared', {
@@ -1668,6 +1974,13 @@ async function callClaude(
     throw new Error(`Claude request failed: ${response.status}`)
   }
 
+  const usage = data.usage && typeof data.usage === 'object' ? data.usage as Record<string, unknown> : {}
+  const inputTokens = typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined
+  const outputTokens = typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined
+  claudeLog.response_tokens = outputTokens
+  claudeLog.total_tokens = (inputTokens ?? 0) + (outputTokens ?? 0) || undefined
+  if (inputTokens !== undefined) claudeLog.prompt_tokens = inputTokens
+
   const content = Array.isArray(data.content) ? data.content : []
   const firstBlock = content[0]
   const feedback =
@@ -1684,7 +1997,13 @@ async function callClaude(
     })
   }
 
-  return feedback
+  claudeLog.word_count = feedback.trim().length > 0 ? feedback.trim().split(/\s+/).length : 0
+  claudeLog.truncated = typeof claudeLog.target_words === 'number' && typeof claudeLog.word_count === 'number'
+    ? claudeLog.word_count > claudeLog.target_words
+    : false
+  claudeLog.status = 'COMPLETE'
+
+  return { feedback, log: claudeLog }
 }
 
 
@@ -1760,7 +2079,8 @@ async function writeResults(
   scoreResult: any,
   metricResults: any[],
   errorResults: any,
-  feedback: string
+  feedback: string,
+  logData: PipelineLogData,
 ) {
   const { error } = await supabase
     .from('athlete_lab_results')
@@ -1773,6 +2093,7 @@ async function writeResults(
       phase_scores: scoreResult.phase_scores,
       metric_results: metricResults,
       feedback,
+      result_data: { log_data: logData },
       confidence_flags: metricResults
         .filter(m => m.status === 'flagged')
         .map(m => ({ metric: m.name, reason: m.reason })),
