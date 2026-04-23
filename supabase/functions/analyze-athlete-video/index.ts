@@ -539,17 +539,174 @@ async function fetchNodeConfig(nodeId: string) {
 
 
 async function runPreflight(upload: any, nodeConfig: any) {
-  const guidelines = nodeConfig.camera_guidelines || {}
-  
-  // Duration check
   const duration = upload.end_seconds - upload.start_seconds
-  if (duration < nodeConfig.clip_duration_min || duration > nodeConfig.clip_duration_max) {
-    return { passed: false, reason: `Duration ${duration}s outside bounds ${nodeConfig.clip_duration_min}-${nodeConfig.clip_duration_max}s` }
+  const checks = [
+    {
+      name: 'Clip duration',
+      expected: `${nodeConfig.clip_duration_min}-${nodeConfig.clip_duration_max}s`,
+      actual: `${duration}s`,
+      result: duration < nodeConfig.clip_duration_min || duration > nodeConfig.clip_duration_max ? 'FAIL' as const : 'PASS' as const,
+    },
+    {
+      name: 'Node status',
+      expected: 'live',
+      actual: nodeConfig.status || 'unknown',
+      result: nodeConfig.status === 'live' ? 'PASS' as const : 'FAIL' as const,
+    },
+  ]
+
+  const failedCheck = checks.find((check) => check.result === 'FAIL')
+  if (failedCheck) {
+    return { passed: false, reason: `${failedCheck.name}: ${failedCheck.actual}`, checks }
   }
 
-  return { passed: true }
+  return { passed: true, checks }
   // Note: Resolution and frame occupancy checks happen after Cloud Run
   // returns the video metadata. Frame size check requires actual frame analysis.
+}
+
+function formatNumber(value: unknown, digits = 2): string {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : 'N/A'
+}
+
+function summarizeValue(value: unknown): string {
+  if (typeof value === 'string') return value.slice(0, 120)
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (Array.isArray(value)) return `${value.length} items`
+  if (value && typeof value === 'object') return JSON.stringify(value).slice(0, 120)
+  return 'N/A'
+}
+
+function parsePhaseBreakdown(phases: any[]): Array<{ id: string; name: string }> {
+  if (!Array.isArray(phases)) return []
+  return phases.map((phase, index) => ({
+    id: typeof phase?.id === 'string' ? phase.id : `phase-${index + 1}`,
+    name: typeof phase?.name === 'string' ? phase.name : `Phase ${index + 1}`,
+  }))
+}
+
+function buildPhaseWindowLog(
+  phaseWindows: Record<string, { start: number; end: number }>,
+  phaseBreakdown: any[],
+  totalFrames: number,
+) {
+  const phases = parsePhaseBreakdown(phaseBreakdown)
+  return phases.map((phase) => {
+    const window = phaseWindows[phase.id] || { start: 0, end: 0 }
+    const frameCount = Math.max(0, window.end - window.start + 1)
+    return {
+      phase: phase.name,
+      start: window.start,
+      end: window.end,
+      frame_count: frameCount,
+      percent: totalFrames > 0 ? Math.round((frameCount / totalFrames) * 100) : 0,
+    }
+  })
+}
+
+function summarizeKeypointConfidence(scores: VideoScores) {
+  const totals = new Map<number, { total: number; min: number; minFrame: number; framesBelow: number; count: number }>()
+
+  for (let frameIndex = 0; frameIndex < scores.length; frameIndex += 1) {
+    const personScores = scores[frameIndex]?.[0]
+    if (!Array.isArray(personScores)) continue
+
+    personScores.forEach((score, index) => {
+      if (!Number.isFinite(score)) return
+      const current = totals.get(index) ?? { total: 0, min: 1, minFrame: frameIndex, framesBelow: 0, count: 0 }
+      current.total += score
+      current.count += 1
+      if (score < current.min) {
+        current.min = score
+        current.minFrame = frameIndex
+      }
+      if (score < 0.7) current.framesBelow += 1
+      totals.set(index, current)
+    })
+  }
+
+  return Array.from(totals.entries())
+    .slice(0, 17)
+    .map(([index, summary]) => {
+      const mean = summary.count > 0 ? summary.total / summary.count : 0
+      const percentBelow = summary.count > 0 ? (summary.framesBelow / summary.count) * 100 : 0
+      return {
+        index,
+        name: `Keypoint ${index}`,
+        mean_confidence: Number(mean.toFixed(3)),
+        min_confidence: Number(summary.min.toFixed(3)),
+        min_frame: summary.minFrame,
+        frames_below: summary.framesBelow,
+        total_frames: summary.count,
+        percent_below: Number(percentBelow.toFixed(1)),
+        status: percentBelow <= 10 ? 'RELIABLE' as const : percentBelow <= 30 ? 'MARGINAL' as const : 'UNRELIABLE' as const,
+      }
+    })
+}
+
+function buildMetricLogEntries(metricResults: any[], phaseWindows: Record<string, { start: number; end: number }>, phaseBreakdown: any[]) {
+  const phaseNameMap = new Map(parsePhaseBreakdown(phaseBreakdown).map((phase) => [phase.id, phase.name]))
+
+  return metricResults.map((metric) => {
+    const phaseId = metric?.keypoint_mapping?.phase_id || metric?.phase_id || 'unknown'
+    const window = phaseWindows[phaseId]
+    const detail = metric?.detail && typeof metric.detail === 'object' ? metric.detail as JsonRecord : {}
+    const value = typeof metric?.value === 'number' && Number.isFinite(metric.value) ? metric.value : null
+    const deviation = typeof metric?.deviation === 'number' && Number.isFinite(metric.deviation) ? metric.deviation : null
+    const score = typeof metric?.score === 'number' && Number.isFinite(metric.score) ? metric.score : 0
+
+    return {
+      name: typeof metric?.name === 'string' ? metric.name : 'Metric',
+      weight: typeof metric?.weight === 'number' && Number.isFinite(metric.weight) ? metric.weight : 0,
+      phase: phaseNameMap.get(phaseId) ?? phaseId,
+      frames_evaluated: window ? Math.max(0, window.end - window.start + 1) : 0,
+      frame_range: window ? `${window.start}-${window.end}` : 'N/A',
+      keypoints: Array.isArray(metric?.keypoint_mapping?.keypoint_indices)
+        ? metric.keypoint_mapping.keypoint_indices.join(', ')
+        : '',
+      calculation_type: typeof metric?.keypoint_mapping?.calculation_type === 'string'
+        ? metric.keypoint_mapping.calculation_type
+        : 'unknown',
+      temporal_window: typeof metric?.keypoint_mapping?.temporal_window === 'number'
+        ? metric.keypoint_mapping.temporal_window
+        : 0,
+      extracted_values: value !== null ? formatNumber(value) : summarizeValue(detail),
+      calculated_result: value !== null ? formatNumber(value) : metric?.reason || 'N/A',
+      unit: typeof metric?.unit === 'string' ? metric.unit : '',
+      elite_target: metric?.elite_target != null ? String(metric.elite_target) : '',
+      deviation: deviation !== null ? formatNumber(deviation) : 'N/A',
+      raw_score: score,
+      weighted_contribution: formatNumber(score * (typeof metric?.weight === 'number' ? metric.weight : 0) / 100),
+      status: metric?.status === 'scored' ? 'SCORED' as const : metric?.status === 'flagged' ? 'FLAGGED' as const : 'SKIPPED' as const,
+      skip_reason: typeof metric?.reason === 'string' ? metric.reason : undefined,
+    }
+  })
+}
+
+function buildErrorDetectionLog(errors: any[], metricResults: any[], errorResults: { detected: string[] }) {
+  const metricMap = new Map<string, number>()
+  metricResults.forEach((metric) => {
+    if (metric?.status === 'scored' && typeof metric?.value === 'number' && Number.isFinite(metric.value)) {
+      metricMap.set(metric.name, metric.value)
+    }
+  })
+
+  return Array.isArray(errors)
+    ? errors.map((error) => {
+        const condition = typeof error?.auto_detection_condition === 'string' ? error.auto_detection_condition : ''
+        const metricName = condition.match(/^(.+?)\s*(>|<|>=|<=|=|!=)\s*[\d.]+$/)?.[1]?.trim() ?? ''
+        const metricValue = metricName && metricMap.has(metricName) ? formatNumber(metricMap.get(metricName), 2) : 'N/A'
+        return {
+          name: typeof error?.error === 'string' ? error.error : typeof error?.name === 'string' ? error.name : 'Rule',
+          auto_detectable: Boolean(error?.auto_detectable && condition),
+          condition,
+          metric_value: metricValue,
+          evaluation_expression: condition || 'Manual review',
+          triggered: errorResults.detected.includes(error?.error) || errorResults.detected.includes(error?.name),
+        }
+      })
+    : []
 }
 
 
