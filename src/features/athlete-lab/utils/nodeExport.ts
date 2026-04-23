@@ -138,7 +138,7 @@ function generateMetrics(node: TrainingNode): string {
       missing.push("entire keypoint_mapping");
     }
 
-    out += `\n### Metric ${i + 1}: ${m.name || "Untitled"} (${m.weight}%)\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (metrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}\n`;
+    out += `\n### Metric ${i + 1}: ${m.name || "Untitled"} (${m.weight}%)\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nBody Groups: ${km?.body_groups?.length ? km.body_groups.join(", ") : "None"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (metrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}\n`;
   });
   return out;
 }
@@ -151,7 +151,7 @@ function generateScoring(node: TrainingNode): string {
   if (!renorm) {
     renormLine += `\nMax score when catch excluded: ${100 - catchWeight}%`;
   }
-  return `## Scoring\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMin Metrics Threshold: ${node.min_metrics_threshold ?? 50}%\n${renormLine}\n\nScore Bands:\n  90-100: ${bands.elite}\n  75-89: ${bands.varsity}\n  60-74: ${bands.developing}\n  Below 60: ${bands.needs_work}`;
+  return `## Scoring\n\nScoring Formula Description:\n${node.scoring_rules?.trim() || "Not configured"}\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMin Metrics Threshold: ${node.min_metrics_threshold ?? 50}%\n${renormLine}\n\nScore Bands:\n  90-100: ${bands.elite}\n  75-89: ${bands.varsity}\n  60-74: ${bands.developing}\n  Below 60: ${bands.needs_work}`;
 }
 
 function generateErrors(node: TrainingNode): string {
