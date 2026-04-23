@@ -457,8 +457,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
               ]} />
               <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Catch-dependent metrics stay aligned with the real scoring rules.</p>
               {catchStatus === "no" && (
-                <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
-                  <p className="text-xs text-yellow-200">Catch Efficiency and YAC Burst will be excluded when the run reaches metric scoring.</p>
+                <div className="mt-2 rounded-lg border border-outline-variant/10 bg-surface-container-high px-3 py-2">
+                  <p className="text-xs text-on-surface-variant">Catch Efficiency and YAC Burst will be excluded when the run reaches metric scoring.</p>
                 </div>
               )}
             </div>
@@ -657,7 +657,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             </div>
           )}
           {runStage === "timed_out" && (
-            <p className="mt-3 text-xs text-yellow-200">Polling gave up after 240 seconds. This does not mean the pipeline failed — the job may still complete and appear in results later.</p>
+            <p className="mt-3 text-xs text-on-surface-variant">Polling gave up after 240 seconds. This does not mean the pipeline failed — the job may still complete and appear in results later.</p>
           )}
           {runStage === "cancelled" && (
             <p className="mt-3 text-xs text-on-surface-variant">This run was cancelled before completion. No final analysis results will be written for this upload.</p>
