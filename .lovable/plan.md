@@ -1,135 +1,151 @@
 
-Fix the missing Analysis Log by wiring `log_data` through the production pipeline end-to-end. Right now the UI is behaving correctly: the data simply is not being persisted or returned.
+Implement metric-aware temporal smoothing in `supabase/functions/analyze-athlete-video/index.ts` by replacing the current global moving-average helper with a confidence-aware, node-driven version that runs once immediately after Cloud Run returns raw pose data.
 
-### Why it is not populating
+## What will change
 
-The production Run Analysis flow currently drops the log payload in multiple places:
+### 1. Replace the existing smoothing helper with the required signature
+Update the current `applyTemporalSmoothing(keypoints, windowSize = 3)` helper to:
 
-1. `AnalysisLog` expects `result?.log_data`
-   - `TestingPanel.tsx` passes `result?.log_data` into `AnalysisLog`
-   - `AnalysisLog.tsx` shows the empty-state warning when that field is missing
+- use the required signature:
+  - `applyTemporalSmoothing(keypoints, scores, nodeConfig)`
+- return the same `VideoKeypoints` shape as input
+- stay fully backward-compatible with the rest of the pipeline
 
-2. The frontend result normalizer never maps `log_data`
-   - `src/services/athleteLab.ts`
-   - `normalizePipelineResult()` returns score/metrics/errors/feedback, but no `log_data`
+Why this is needed:
+- the current helper already exists, but it:
+  - smooths every keypoint indiscriminately
+  - ignores confidence scores
+  - ignores metric-specific `temporal_window`
+  - does not interpolate low-confidence gaps
+- the pipeline currently calls it with only `keypoints`, so it does not satisfy the requested behavior
 
-3. The result-fetching Edge Function never selects or returns it
-   - `supabase/functions/admin-get-pipeline-result/index.ts`
-   - `selectClause` excludes both `log_data` and `result_data`
-   - response payload returns no `log_data`
+### 2. Build a metric-aware smoothing configuration from node metrics
+Inside the helper, derive the set of keypoints that should be smoothed from `nodeConfig.key_metrics`:
 
-4. The production analysis Edge Function never persists it
-   - `supabase/functions/analyze-athlete-video/index.ts`
-   - `writeResults()` inserts aggregate score, metrics, flags, errors, and feedback
-   - it does not insert any structured pipeline log into `athlete_lab_results`
+- inspect each metric’s `keypoint_mapping`
+- collect every referenced `keypoint_index`
+- track per-keypoint smoothing settings across all metrics that use it:
+  - smoothing window = max of metric `temporal_window`, with minimum 3
+  - confidence threshold = the strictest practical threshold for that keypoint based on metrics using it
 
-So the immediate root cause is: the pipeline log is neither saved nor returned.
+This keeps smoothing focused only on keypoints that actually affect scoring.
 
-### What to build
+### 3. Add low-confidence interpolation before averaging
+For each tracked keypoint and coordinate stream (`x`, `y`):
 
-Implement a structured `log_data` object in the production analysis flow and return it with each completed result so the Analysis Log panel can render the full debugging view.
+- inspect frame-by-frame confidence from `scores`
+- mark frames below the chosen confidence threshold as unreliable
+- for unreliable runs with a max gap of 5 frames:
+  - linearly interpolate between neighboring good frames
+- if a low-confidence gap has no valid neighbors or exceeds 5 frames:
+  - leave original values unchanged for that gap
 
-### Implementation steps
+This reduces jitter while avoiding invented motion across long missing spans.
 
-1. Build a structured pipeline log inside `analyze-athlete-video`
-   - Add a `logData` accumulator matching the frontend `AnalysisLogData` shape:
-     - `timestamp`
-     - `preflight`
-     - `rtmlib`
-     - `metrics`
-     - `aggregate`
-     - `error_detection`
-     - `claude_api`
-   - Populate it from values already available in the function:
-     - preflight checks from `runPreflight()`
-     - Cloud Run metadata (`frame_count`, `fps`, calibration/progress context)
-     - phase windows from `buildPhaseWindows()`
-     - metric evaluation details from `metricResults`
-     - aggregate score summary from `scoreResult`
-     - detected errors from `errorResults`
-     - Claude prompt/response metadata already being logged server-side
+### 4. Apply moving-average smoothing on the repaired timeseries
+After interpolation:
 
-2. Persist the log with the result row
-   - Reuse the existing `athlete_lab_results.result_data` JSON column for backward-compatible storage
-   - Save a structured payload such as:
-     ```text
-     {
-       log_data: { ...full structured pipeline log... }
-     }
-     ```
-   - This avoids requiring a schema change unless a dedicated `log_data` column is preferred later
+- run a centered moving average on each keypoint’s X and Y values
+- use the derived window for that keypoint
+- enforce minimum window size of 3
+- preserve original coordinates for frames/persons/keypoints that cannot be safely processed
 
-3. Return the log from `admin-get-pipeline-result`
-   - Expand `selectClause` to include `result_data`
-   - Extract `log_data` from `result_data`
-   - Return it in the function response as:
-     - `result.log_data`
-   - Keep all current fields unchanged
+This should stabilize velocity, acceleration, and angle-derived metrics without changing pipeline outputs structurally.
 
-4. Map the log in the frontend service layer
-   - Update `normalizePipelineResult()` in `src/services/athleteLab.ts`
-   - Read `row.log_data` if returned directly
-   - Fallback to `row.result_data?.log_data` for compatibility
-   - Assign it to `PipelineAnalysisResult.log_data`
+### 5. Keep smoothing scoped cleanly to the current pipeline
+Update the run flow right after Cloud Run returns:
 
-5. Keep the UI unchanged, but make it start working
-   - `TestingPanel.tsx` already passes `result?.log_data`
-   - `AnalysisLog.tsx` already renders the structured sections
-   - No UX redesign needed; once data flows through, the panel should populate automatically
+Current flow already has:
+- Cloud Run response
+- temporal smoothing step
+- target-person lock
+- calibration
+- metric calculation
 
-### Files to update
+Refine that step so it becomes:
+- `const smoothedKeypoints = applyTemporalSmoothing(rtmlibResult.keypoints, rtmlibResult.scores, nodeConfig)`
+- continue using:
+  - `smoothedKeypoints`
+  - original `rtmlibResult.scores`
+
+Everything downstream should continue using the smoothed keypoints:
+- person lock
+- tracked-person isolation
+- calibration
+- phase segmentation
+- metric calculations
+- scoring
+- error detection
+- Claude decision/feedback
+- results writing
+
+### 6. Add the required logging
+Emit a clear log entry after smoothing completes:
+
+`Applied temporal smoothing (window = X frames) for Y keypoints`
+
+Recommended logging details:
+- upload ID
+- number of unique smoothed keypoints
+- representative/default window used
+- per-keypoint window map if helpful
+
+Keep existing progress/status behavior intact. Do not remove or rename current progress messages unless needed to keep them accurate.
+
+## Files to update
 
 - `supabase/functions/analyze-athlete-video/index.ts`
-- `supabase/functions/admin-get-pipeline-result/index.ts`
-- `src/services/athleteLab.ts`
 
-### Data mapping details
+## Implementation details
 
-Use the existing frontend type as the contract:
+### Helper behavior
+Use these rules inside `applyTemporalSmoothing`:
 
-- `AnalysisLogData` in `src/features/athlete-lab/types.ts`
+- only process keypoints referenced by metrics
+- iterate frame-by-frame and person-by-person so multi-person clips remain structurally compatible
+- use `scores[frame][person][keypointIndex]` to decide whether a frame is reliable
+- interpolation rule:
+  - only fill gaps when both left and right neighbors are reliable
+  - only if gap length `<= 5`
+- moving average rule:
+  - centered window
+  - minimum 3
+  - ignore invalid/missing points in the averaging pool
+  - fall back to original/interpolated point when too few valid neighbors exist
 
-Recommended field mapping:
-
-- `preflight.checks`
-  - from `runPreflight()` output
-- `preflight.pipeline_stopped`, `stop_reason`
-  - when preflight fails
-- `rtmlib.solution_class`
-  - from node config / request payload
-- `rtmlib.total_frames`, `source_fps`
-  - from Cloud Run response
-- `rtmlib.phase_windows`
-  - from `buildPhaseWindows()`
-- `metrics[]`
-  - derived from each metric result, including status, value, deviation, scoring, skip/flag reason
-- `aggregate`
-  - from aggregate score computation
-- `error_detection[]`
-  - from `detectErrors()`
-- `claude_api`
-  - from existing prompt/response/token metadata already being logged during Claude generation
+### Minimality
+Keep the change isolated:
+- no schema changes
+- no frontend changes
+- no changes to Cloud Run
+- no changes to cancellation logic
+- no changes to Claude logic
+- no changes to results shape
 
 ### Backward compatibility
+Preserve all current behavior for:
+- completed runs
+- failed runs
+- cancelled runs
+- progress messages
+- result writing
+- low-confidence / Pose Quality Audit flow
 
-- No change to completed/failed/cancelled behavior
-- No need to alter the Run Analysis UI flow
-- Existing rows without `result_data.log_data` will still show the current empty-state message
-- New runs will populate the full Analysis Log
+Only the coordinate stream feeding the metric engine should become cleaner.
 
-### Validation
+## Validation
 
-1. Run a fresh analysis in Athlete Lab
-2. Confirm `athlete_lab_results.result_data` contains `log_data`
-3. Confirm `admin-get-pipeline-result` response includes `result.log_data`
-4. Confirm `Analysis Log` renders sections instead of “Log data not available”
-5. Confirm flagged/skipped metrics appear in the log so missing-metric debugging becomes possible
-6. Confirm failed/cancelled runs still do not falsely show completed log output
+1. Run a test with the Slant node
+2. Confirm the function logs include:
+   - `Applied temporal smoothing (window = X frames) for Y keypoints`
+3. Confirm the pipeline still completes successfully end-to-end
+4. Compare metric stability before/after on a short phone-footage clip, especially:
+   - velocity
+   - acceleration
+   - angle metrics affected by frame jitter
+5. Confirm cancel still works normally during processing
+6. Confirm no regressions in progress logging, scoring, feedback, or result persistence
 
-### Expected outcome
+## Expected outcome
 
-After this change, the Analysis Log section will stop showing the placeholder warning for new completed runs and will expose the full pipeline diagnostics needed to understand:
-- why a metric was scored, flagged, or skipped
-- whether preflight or confidence thresholds suppressed output
-- how phase windows were built
-- what Claude received and returned
+After this change, the analysis pipeline will use confidence-aware, metric-scoped smoothed keypoints before metric calculation, reducing phone-footage jitter while preserving the current pipeline architecture and user experience.
