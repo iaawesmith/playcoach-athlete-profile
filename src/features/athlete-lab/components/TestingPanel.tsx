@@ -1,10 +1,19 @@
-import { useState, useRef } from "react";
-import type { TrainingNode, AnalysisResult } from "../types";
-import { runAnalysis } from "@/services/athleteLab";
-import type { AnalysisContext } from "@/services/athleteLab";
+import { useRef, useState } from "react";
+import type {
+  PipelineAnalysisResult,
+  PipelineMetricResult,
+  PipelineRunStage,
+  PipelineUploadSnapshot,
+  TrainingNode,
+} from "../types";
+import {
+  type AnalysisContext,
+  pollRunAnalysisResult,
+  submitRunAnalysisJob,
+} from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
-import { supabase } from "@/integrations/supabase/client";
 import { AnalysisLog } from "./AnalysisLog";
+import { cn } from "@/lib/utils";
 
 interface TestingPanelProps {
   node: TrainingNode;
@@ -17,6 +26,30 @@ type CatchOption = "yes" | "no" | "partial";
 type AthleteLevelOption = "youth" | "high_school" | "college" | "professional";
 type MeasurementUnit = "inches" | "cm";
 
+type ScoreTone = "success" | "warning" | "danger";
+
+const STAGE_LABELS: Record<PipelineRunStage, string> = {
+  idle: "Ready",
+  uploading: "Uploading test clip",
+  queued: "Queued for pipeline",
+  processing: "Running production pipeline",
+  fetching_results: "Fetching results",
+  complete: "Complete",
+  failed: "Pipeline failed",
+  timed_out: "Polling timed out",
+};
+
+const STAGE_ICONS: Record<PipelineRunStage, string> = {
+  idle: "science",
+  uploading: "cloud_upload",
+  queued: "schedule",
+  processing: "bolt",
+  fetching_results: "database",
+  complete: "check_circle",
+  failed: "error",
+  timed_out: "hourglass_top",
+};
+
 function RadioPills({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: readonly { value: string; label: string }[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -25,11 +58,12 @@ function RadioPills({ value, onChange, options }: { value: string; onChange: (v:
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`h-8 px-4 rounded-full text-xs font-bold uppercase tracking-[0.15em] transition-all duration-150 active:scale-95 ${
+          className={cn(
+            "h-8 rounded-full px-4 text-xs font-bold uppercase tracking-[0.15em] transition-all duration-150 active:scale-95",
             value === opt.value
-              ? "kinetic-gradient text-[#00460a]"
-              : "bg-surface-container-high border border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:border-outline-variant/40"
-          }`}
+              ? "kinetic-gradient text-primary-foreground"
+              : "bg-surface-container-high border border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:border-outline-variant/40",
+          )}
         >
           {opt.label}
         </button>
@@ -38,18 +72,84 @@ function RadioPills({ value, onChange, options }: { value: string; onChange: (v:
   );
 }
 
+function scoreTone(score: number | null): ScoreTone {
+  if (score === null) return "danger";
+  if (score >= 80) return "success";
+  if (score >= 60) return "warning";
+  return "danger";
+}
+
+function scoreClasses(score: number | null) {
+  const tone = scoreTone(score);
+  if (tone === "success") {
+    return {
+      badge: "bg-primary-container/15 text-primary",
+      bar: "bg-primary-container",
+      ring: "bg-primary-container/20",
+    };
+  }
+
+  if (tone === "warning") {
+    return {
+      badge: "bg-yellow-500/15 text-yellow-300",
+      bar: "bg-yellow-300",
+      ring: "bg-yellow-500/20",
+    };
+  }
+
+  return {
+    badge: "bg-destructive/15 text-destructive-foreground",
+    bar: "bg-destructive",
+    ring: "bg-destructive/20",
+  };
+}
+
+function formatNumber(value: number | null | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "—";
+  return Number.isInteger(value) ? value.toString() : value.toFixed(2);
+}
+
+function calibrationSummary(metric: PipelineMetricResult) {
+  const detail = metric.detail;
+  if (!detail) return null;
+
+  const calibrationSource = typeof detail.calibrationSource === "string" ? detail.calibrationSource : null;
+  const calibrationConfidence = typeof detail.calibrationConfidence === "number"
+    ? detail.calibrationConfidence
+    : typeof detail.calibrationConfidence === "string"
+      ? detail.calibrationConfidence
+      : null;
+  const calibrationDetails = detail.calibrationDetails && typeof detail.calibrationDetails === "object" && !Array.isArray(detail.calibrationDetails)
+    ? (detail.calibrationDetails as Record<string, unknown>)
+    : null;
+  const pixelsPerYard = typeof detail.pixelsPerYard === "number"
+    ? detail.pixelsPerYard
+    : calibrationDetails && typeof calibrationDetails.pixelsPerYard === "number"
+      ? calibrationDetails.pixelsPerYard
+      : null;
+
+  if (!calibrationSource && calibrationConfidence === null && !calibrationDetails && pixelsPerYard === null) {
+    return null;
+  }
+
+  return {
+    calibrationSource,
+    calibrationConfidence,
+    calibrationDetails,
+    pixelsPerYard,
+  };
+}
+
 export function TestingPanel({ node }: TestingPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [videoDesc, setVideoDesc] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-
-  // Analysis context state
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<PipelineAnalysisResult | null>(null);
+  const [activeUpload, setActiveUpload] = useState<PipelineUploadSnapshot | null>(null);
+  const [runStage, setRunStage] = useState<PipelineRunStage>("idle");
   const [contextEnabled, setContextEnabled] = useState(true);
   const [cameraAngle, setCameraAngle] = useState<CameraAngleOption>("sideline");
   const [peopleInVideo, setPeopleInVideo] = useState<PeopleOption>("solo");
@@ -61,7 +161,11 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [athleteHeightUnit, setAthleteHeightUnit] = useState<MeasurementUnit>("inches");
   const [athleteWingspan, setAthleteWingspan] = useState("");
   const [athleteWingspanUnit, setAthleteWingspanUnit] = useState<MeasurementUnit>("inches");
+  const [endSeconds, setEndSeconds] = useState(node.clip_duration_max.toString());
   const [contextCopied, setContextCopied] = useState(false);
+
+  const isRunning = ["uploading", "queued", "processing", "fetching_results"].includes(runStage);
+  const hasInput = Boolean(videoUrl.trim() || uploadedFile);
 
   const handleFileSelect = (file: File) => {
     setUploadedFile(file);
@@ -77,65 +181,10 @@ export function TestingPanel({ node }: TestingPanelProps) {
     }
   };
 
-  const handleRun = async () => {
-    if (!videoDesc.trim() && !videoUrl.trim() && !uploadedFile) return;
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    let finalVideoUrl = videoUrl;
-
-    if (uploadedFile) {
-      setUploading(true);
-      const ext = uploadedFile.name.split(".").pop() || "mp4";
-      const path = `test-videos/${node.id}-${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("athlete-media").upload(path, uploadedFile, { upsert: true });
-      setUploading(false);
-      if (uploadErr) {
-        setError("Video upload failed: " + uploadErr.message);
-        setLoading(false);
-        return;
-      }
-      const { data: urlData } = supabase.storage.from("athlete-media").getPublicUrl(path);
-      finalVideoUrl = urlData.publicUrl;
-    }
-
-    try {
-      const description = [
-        videoDesc.trim(),
-        finalVideoUrl ? `Video URL: ${finalVideoUrl}` : "",
-      ].filter(Boolean).join("\n\n");
-      const res = await runAnalysis(node, description, contextEnabled ? buildContext() : undefined);
-      setResult(res);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Analysis failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRerun = () => {
-    setResult(null);
-    setError(null);
-    setUploadedFile(null);
-    setVideoUrl("");
-    setVideoDesc("");
-  };
-
-  const hasInput = videoDesc.trim() || videoUrl.trim() || uploadedFile;
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "#00e639";
-    if (score >= 60) return "#f59e0b";
-    return "#ef4444";
-  };
-
-  const buildContext = (): AnalysisContext => {
+  const buildContext = (): AnalysisContext & Record<string, unknown> => {
     const parsedHeight = athleteHeight.trim() ? Number(athleteHeight) : Number.NaN;
     const parsedWingspan = athleteWingspan.trim() ? Number(athleteWingspan) : Number.NaN;
 
-    // Temporary per-test inputs for admin workflows.
-    // When athlete onboarding is built, these values should auto-populate from the athlete profile.
     return {
       camera_angle: cameraAngle,
       people_in_video: peopleInVideo,
@@ -144,19 +193,113 @@ export function TestingPanel({ node }: TestingPanelProps) {
       catch_status: catchStatus,
       athlete_level: athleteLevel,
       focus_area: focusArea.trim(),
-      ...(Number.isFinite(parsedHeight) ? {
-        athlete_height: {
-          value: parsedHeight,
-          unit: athleteHeightUnit,
-        },
-      } : {}),
-      ...(Number.isFinite(parsedWingspan) ? {
-        athlete_wingspan: {
-          value: parsedWingspan,
-          unit: athleteWingspanUnit,
-        },
-      } : {}),
+      performance_description: videoDesc.trim(),
+      ...(Number.isFinite(parsedHeight)
+        ? {
+            athlete_height: {
+              value: parsedHeight,
+              unit: athleteHeightUnit,
+            },
+          }
+        : {}),
+      ...(Number.isFinite(parsedWingspan)
+        ? {
+            athlete_wingspan: {
+              value: parsedWingspan,
+              unit: athleteWingspanUnit,
+            },
+          }
+        : {}),
     };
+  };
+
+  const resetRunState = () => {
+    setError(null);
+    setResult(null);
+    setActiveUpload(null);
+    setRunStage("idle");
+  };
+
+  const handleRerun = () => {
+    resetRunState();
+    setUploadedFile(null);
+    setVideoUrl("");
+    setVideoDesc("");
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setResult(null);
+    setRunStage("idle");
+  };
+
+  const handleRun = async () => {
+    if (!hasInput || isRunning) return;
+
+    setError(null);
+    setResult(null);
+    setActiveUpload(null);
+    setRunStage(uploadedFile ? "uploading" : "queued");
+
+    try {
+      const parsedEndSeconds = endSeconds.trim() ? Number(endSeconds) : Number.NaN;
+      const normalizedEndSeconds = Number.isFinite(parsedEndSeconds)
+        ? Math.min(Math.max(parsedEndSeconds, node.clip_duration_min), node.clip_duration_max)
+        : node.clip_duration_max;
+
+      const submission = await submitRunAnalysisJob({
+        node,
+        uploadedFile,
+        externalVideoUrl: videoUrl.trim() || undefined,
+        cameraAngle,
+        startSeconds: 0,
+        endSeconds: normalizedEndSeconds,
+        analysisContext: contextEnabled ? buildContext() : {
+          camera_angle: cameraAngle,
+          people_in_video: peopleInVideo,
+          route_direction: routeDirection,
+          catch_included: catchStatus !== "no",
+          catch_status: catchStatus,
+          athlete_level: athleteLevel,
+          focus_area: "",
+          performance_description: videoDesc.trim(),
+        },
+      });
+
+      setActiveUpload(submission.upload);
+      setRunStage(submission.upload.status === "pending" ? "queued" : "processing");
+
+      const polled = await pollRunAnalysisResult(submission.uploadId, node, {
+        onStageChange: (stage, upload) => {
+          setRunStage(stage);
+          if (upload) setActiveUpload(upload);
+        },
+      });
+
+      setActiveUpload(polled.upload);
+
+      if (polled.stage === "complete" && polled.result) {
+        setResult({
+          ...polled.result,
+          uploadStatus: polled.upload.status,
+          errorMessage: polled.upload.error_message,
+        });
+        setRunStage("complete");
+        return;
+      }
+
+      if (polled.stage === "timed_out") {
+        setRunStage("timed_out");
+        setError("Polling stopped after 240 seconds. The production pipeline may still be running, so check back later using this upload ID.");
+        return;
+      }
+
+      setRunStage("failed");
+      setError(polled.upload.error_message || "The production pipeline failed before results were written.");
+    } catch (e: unknown) {
+      setRunStage("failed");
+      setError(e instanceof Error ? e.message : "Analysis failed");
+    }
   };
 
   const copyContext = () => {
@@ -166,124 +309,129 @@ export function TestingPanel({ node }: TestingPanelProps) {
     const catchLabel: Record<CatchOption, string> = { yes: "Yes", no: "No", partial: "Partial" };
     const levelLabel: Record<AthleteLevelOption, string> = { youth: "Youth (Under 14)", high_school: "High School", college: "College", professional: "Professional" };
 
-    const text = `# Analysis Context\nCamera Angle: ${cameraLabel[cameraAngle]}\nPeople in Video: ${peopleLabel[peopleInVideo]}\nRoute Direction: ${routeLabel[routeDirection]}\nCatch Included: ${catchLabel[catchStatus]}\nAthlete Level: ${levelLabel[athleteLevel]}\nAthlete Height: ${athleteHeight.trim() ? `${athleteHeight.trim()} ${athleteHeightUnit}` : "Not provided"}\nAthlete Wingspan: ${athleteWingspan.trim() ? `${athleteWingspan.trim()} ${athleteWingspanUnit}` : "Not provided"}\nFocus Area: ${focusArea.trim() || "Not specified"}`;
+    const text = `# Analysis Context\nCamera Angle: ${cameraLabel[cameraAngle]}\nPeople in Video: ${peopleLabel[peopleInVideo]}\nRoute Direction: ${routeLabel[routeDirection]}\nCatch Included: ${catchLabel[catchStatus]}\nAthlete Level: ${levelLabel[athleteLevel]}\nAthlete Height: ${athleteHeight.trim() ? `${athleteHeight.trim()} ${athleteHeightUnit}` : "Not provided"}\nAthlete Wingspan: ${athleteWingspan.trim() ? `${athleteWingspan.trim()} ${athleteWingspanUnit}` : "Not provided"}\nEnd Seconds: ${endSeconds.trim() || node.clip_duration_max}\nFocus Area: ${focusArea.trim() || "Not specified"}\nPerformance Description: ${videoDesc.trim() || "Not specified"}`;
     navigator.clipboard.writeText(text);
     setContextCopied(true);
     setTimeout(() => setContextCopied(false), 1500);
   };
 
+  const statusTone = runStage === "complete"
+    ? "text-primary"
+    : runStage === "timed_out"
+      ? "text-yellow-300"
+      : runStage === "failed"
+        ? "text-destructive-foreground"
+        : "text-on-surface";
+
   return (
     <div className="space-y-6">
-
-      {/* Analysis Context Panel */}
-      <div className="bg-surface-container rounded-xl border border-white/5">
+      <div className="rounded-xl border border-white/5 bg-surface-container">
         <div className="flex items-center justify-between p-5 pb-0">
           <div className="flex items-center gap-2">
-            <span className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em]">Analysis Context</span>
-            <SectionTooltip tip="Optional context that improves analysis accuracy by informing the Edge Function how to process the video. Used for testing — will be collected automatically from athlete onboarding and upload flow when the product launches." />
-            <button onClick={copyContext} className="ml-2 text-on-surface-variant/40 hover:text-on-surface transition-colors" title="Copy context">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">Analysis Context</span>
+            <SectionTooltip tip="Context flows directly into the production upload payload so calibration, detection frequency, and feedback use the real pipeline settings." />
+            <button onClick={copyContext} className="ml-2 text-on-surface-variant/40 transition-colors hover:text-on-surface" title="Copy context">
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{contextCopied ? "check" : "content_copy"}</span>
             </button>
           </div>
           <button
             onClick={() => setContextEnabled(!contextEnabled)}
-            className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${contextEnabled ? "bg-primary-container" : "bg-surface-container-highest"}`}
+            className={cn(
+              "relative h-5 w-10 rounded-full transition-colors duration-200",
+              contextEnabled ? "bg-primary-container" : "bg-surface-container-highest",
+            )}
           >
-            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${contextEnabled ? "translate-x-5" : ""}`} />
+            <span className={cn(
+              "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-on-surface transition-transform duration-200",
+              contextEnabled ? "translate-x-5" : "",
+            )} />
           </button>
         </div>
 
         {contextEnabled && (
-          <div className="p-5 pt-4 space-y-4">
-            {/* Camera Angle */}
+          <div className="space-y-4 p-5 pt-4">
             <div>
-              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Camera Angle</label>
+              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Camera Angle</label>
               <RadioPills value={cameraAngle} onChange={(v) => setCameraAngle(v as CameraAngleOption)} options={[
-                { value: "sideline" as const, label: "Sideline" },
-                { value: "behind_qb" as const, label: "Behind QB" },
-                { value: "endzone" as const, label: "Endzone" },
-                { value: "other" as const, label: "Other" },
+                { value: "sideline", label: "Sideline" },
+                { value: "behind_qb", label: "Behind QB" },
+                { value: "endzone", label: "Endzone" },
+                { value: "other", label: "Other" },
               ]} />
-              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Reference calibration selection for distance metrics</p>
+              <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Used by the calibration resolver in the production pipeline.</p>
             </div>
 
-            {/* People in Video */}
             <div>
-              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">People in Video</label>
+              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">People in Video</label>
               <RadioPills value={peopleInVideo} onChange={(v) => setPeopleInVideo(v as PeopleOption)} options={[
-                { value: "solo" as const, label: "Just Me" },
-                { value: "with_defender" as const, label: "Me + Defender" },
-                { value: "multiple" as const, label: "Multiple People" },
+                { value: "solo", label: "Just Me" },
+                { value: "with_defender", label: "Me + Defender" },
+                { value: "multiple", label: "Multiple People" },
               ]} />
-              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Person locking strategy and detection frequency</p>
+              <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Used by person locking strategy and detector frequency selection.</p>
             </div>
 
-            {/* Route Direction */}
             <div>
-              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Route Direction</label>
+              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Route Direction</label>
               <RadioPills value={routeDirection} onChange={(v) => setRouteDirection(v as RouteDirectionOption)} options={[
-                { value: "left" as const, label: "Left" },
-                { value: "right" as const, label: "Right" },
-                { value: "both" as const, label: "Both" },
+                { value: "left", label: "Left" },
+                { value: "right", label: "Right" },
+                { value: "both", label: "Both" },
               ]} />
-              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Bilateral keypoint selection override</p>
+              <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Used by bilateral keypoint override during metric calculation.</p>
             </div>
 
-            {/* Catch Included */}
             <div>
-              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Clip Includes Catch?</label>
+              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Clip Includes Catch?</label>
               <RadioPills value={catchStatus} onChange={(v) => setCatchStatus(v as CatchOption)} options={[
-                { value: "yes" as const, label: "Yes" },
-                { value: "no" as const, label: "No" },
-                { value: "partial" as const, label: "Partial" },
+                { value: "yes", label: "Yes" },
+                { value: "no", label: "No" },
+                { value: "partial", label: "Partial" },
               ]} />
-              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Catch Efficiency and YAC Burst metric inclusion</p>
+              <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Catch-dependent metrics stay aligned with the real scoring rules.</p>
               {catchStatus === "no" && (
-                <div className="mt-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <p className="text-blue-300 text-xs">ℹ Catch Efficiency and YAC Burst will be excluded from scoring. Remaining metrics rescored to 100% if Renormalize is ON in Scoring tab.</p>
+                <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
+                  <p className="text-xs text-yellow-200">Catch Efficiency and YAC Burst will be excluded when the run reaches metric scoring.</p>
                 </div>
               )}
             </div>
 
-            {/* Athlete Level */}
             <div>
-              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Athlete Level</label>
+              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Athlete Level</label>
               <select
                 value={athleteLevel}
                 onChange={(e) => setAthleteLevel(e.target.value as AthleteLevelOption)}
-                className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary-container/50 transition-colors appearance-none"
+                className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface transition-colors focus:border-primary-container/50 focus:outline-none"
               >
                 <option value="youth">Youth (Under 14)</option>
                 <option value="high_school">High School</option>
                 <option value="college">College</option>
                 <option value="professional">Professional</option>
               </select>
-              <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: LLM feedback tone and vocabulary. Will be pulled from athlete profile when onboarding is implemented.</p>
             </div>
 
-            {/* Focus Area */}
             <div>
-              <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Focus Area <span className="text-on-surface-variant/30">(Optional)</span></label>
+              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Focus Area <span className="text-on-surface-variant/30">(Optional)</span></label>
               <input
                 value={focusArea}
                 onChange={(e) => setFocusArea(e.target.value.slice(0, 100))}
-                placeholder="e.g. working on my break angle, trying to improve release speed"
-                className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors"
+                placeholder="e.g. working on my break angle"
+                className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
               />
-              <div className="flex items-center justify-between mt-1.5">
-                <p className="text-on-surface-variant/50 text-[10px]">Used by: Passed to Claude as additional coaching context</p>
-                <span className="text-on-surface-variant/30 text-[10px]">{focusArea.length}/100</span>
+              <div className="mt-1.5 flex items-center justify-between">
+                <p className="text-[10px] text-on-surface-variant/50">Passed into the full analysis context JSON.</p>
+                <span className="text-[10px] text-on-surface-variant/30">{focusArea.length}/100</span>
               </div>
             </div>
 
             <div className="space-y-3 rounded-xl bg-surface-container-high/60 p-4">
               <div>
-                <p className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em]">Body Calibration</p>
-                <p className="mt-1 text-on-surface-variant/50 text-[10px]">If both fields are left blank, body-based calibration is unavailable for this test.</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">Body Calibration</p>
+                <p className="mt-1 text-[10px] text-on-surface-variant/50">Height and wingspan feed the body-based calibration fallback when dynamic calibration is unavailable.</p>
               </div>
 
               <div>
-                <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Athlete Height</label>
+                <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Athlete Height</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
                   <input
                     type="number"
@@ -293,22 +441,21 @@ export function TestingPanel({ node }: TestingPanelProps) {
                     value={athleteHeight}
                     onChange={(e) => setAthleteHeight(e.target.value)}
                     placeholder="70"
-                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors"
+                    className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
                   />
                   <select
                     value={athleteHeightUnit}
                     onChange={(e) => setAthleteHeightUnit(e.target.value as MeasurementUnit)}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary-container/50 transition-colors appearance-none"
+                    className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface transition-colors focus:border-primary-container/50 focus:outline-none"
                   >
                     <option value="inches">Inches</option>
                     <option value="cm">CM</option>
                   </select>
                 </div>
-                <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Future body-based calibration for distance metrics.</p>
               </div>
 
               <div>
-                <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Athlete Wingspan <span className="text-on-surface-variant/30">(Optional)</span></label>
+                <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Athlete Wingspan <span className="text-on-surface-variant/30">(Optional)</span></label>
                 <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
                   <input
                     type="number"
@@ -318,300 +465,351 @@ export function TestingPanel({ node }: TestingPanelProps) {
                     value={athleteWingspan}
                     onChange={(e) => setAthleteWingspan(e.target.value)}
                     placeholder="72"
-                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors"
+                    className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
                   />
                   <select
                     value={athleteWingspanUnit}
                     onChange={(e) => setAthleteWingspanUnit(e.target.value as MeasurementUnit)}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary-container/50 transition-colors appearance-none"
+                    className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface transition-colors focus:border-primary-container/50 focus:outline-none"
                   >
                     <option value="inches">Inches</option>
                     <option value="cm">CM</option>
                   </select>
                 </div>
-                <p className="text-on-surface-variant/50 text-[10px] mt-1.5">Used by: Optional precision boost for future body-based calibration.</p>
               </div>
             </div>
           </div>
         )}
       </div>
-      <div className="bg-surface-container rounded-xl p-5 border border-white/5 space-y-4">
-        {/* Video Upload */}
+
+      <div className="space-y-4 rounded-xl border border-white/5 bg-surface-container p-5">
         <div>
-          <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">
-            Video Upload
-          </label>
+          <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Video Upload</label>
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`w-full min-h-[90px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
+            className={cn(
+              "flex min-h-[90px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-surface-container-lowest transition-colors",
               dragOver
                 ? "border-primary-container/50 bg-primary-container/5"
                 : uploadedFile
-                  ? "border-primary-container/30 bg-surface-container-lowest"
-                  : "border-outline-variant/20 bg-surface-container-lowest hover:border-outline-variant/40"
-            }`}
+                  ? "border-primary-container/30"
+                  : "border-outline-variant/20 hover:border-outline-variant/40",
+            )}
           >
-            <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+            <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileSelect(file); }} />
             {uploadedFile ? (
               <div className="flex items-center gap-3 px-4 py-3">
-                <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 24 }}>videocam</span>
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: 24 }}>videocam</span>
                 <div>
-                  <div className="text-on-surface text-sm font-medium">{uploadedFile.name}</div>
-                  <div className="text-on-surface-variant text-[10px]">{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB</div>
+                  <div className="text-sm font-medium text-on-surface">{uploadedFile.name}</div>
+                  <div className="text-[10px] text-on-surface-variant">{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB</div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }} className="text-on-surface-variant hover:text-red-400 ml-2">
+                <button onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }} className="ml-2 text-on-surface-variant transition-colors hover:text-destructive-foreground">
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
                 </button>
               </div>
             ) : (
               <>
                 <span className="material-symbols-outlined text-on-surface-variant/40" style={{ fontSize: 28 }}>cloud_upload</span>
-                <span className="text-on-surface-variant text-xs">Drag & drop a video or <span className="text-primary-container font-semibold">browse</span></span>
+                <span className="text-xs text-on-surface-variant">Drag & drop a video or <span className="font-semibold text-primary">browse</span></span>
+                <span className="text-[10px] text-on-surface-variant/40">Accepted by MIME type: video/*</span>
               </>
             )}
           </div>
         </div>
 
-        {/* Video URL */}
         <div>
-          <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Or Paste Video URL</label>
+          <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Or Paste Direct Video URL</label>
           <input
             value={videoUrl}
             onChange={(e) => { setVideoUrl(e.target.value); if (e.target.value) setUploadedFile(null); }}
-            placeholder="https://youtube.com/watch?v=... or direct video link"
-            className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors"
+            placeholder="https://..."
+            className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
           />
+          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Local uploads land in athlete-videos/test-clips with a 24-hour signed URL. External URLs are passed through as-is.</p>
         </div>
 
-        {/* Description */}
         <div>
-          <label className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest mb-2">Performance Description (Optional)</label>
+          <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Performance Description (Optional)</label>
           <textarea
             value={videoDesc}
             onChange={(e) => setVideoDesc(e.target.value)}
-            placeholder="Describe the athlete's performance for additional context..."
-            className="w-full min-h-[70px] bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container/50 transition-colors resize-y"
+            placeholder="Describe the rep for later result review..."
+            className="min-h-[70px] w-full resize-y rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
           />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Clip End Seconds</label>
+          <input
+            type="number"
+            min={node.clip_duration_min}
+            max={node.clip_duration_max}
+            step="0.1"
+            value={endSeconds}
+            onChange={(e) => setEndSeconds(e.target.value)}
+            className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
+          />
+          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Start seconds are fixed at 0. End seconds are clamped to this node’s allowed clip window of {node.clip_duration_min}–{node.clip_duration_max}s.</p>
+        </div>
+
+        <div className="rounded-xl border border-white/5 bg-surface-container-high/50 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={cn("material-symbols-outlined", statusTone)} style={{ fontSize: 18 }}>{STAGE_ICONS[runStage]}</span>
+            <div className="flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant">Pipeline Status</p>
+              <p className="mt-1 text-sm text-on-surface">{STAGE_LABELS[runStage]}</p>
+            </div>
+            {activeUpload && (
+              <div className="rounded-lg border border-outline-variant/10 bg-surface-container-lowest px-3 py-2 text-right">
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Upload ID</p>
+                <p className="mt-1 break-all font-mono text-[11px] text-on-surface">{activeUpload.id}</p>
+              </div>
+            )}
+          </div>
+          {runStage === "timed_out" && (
+            <p className="mt-3 text-xs text-yellow-200">Polling gave up after 240 seconds. This does not mean the pipeline failed — the job may still complete and appear in results later.</p>
+          )}
         </div>
 
         <button
           onClick={handleRun}
-          disabled={loading || uploading || !hasInput}
-          className="h-11 px-8 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2"
+          disabled={!hasInput || isRunning}
+          className="flex h-11 items-center gap-2 rounded-full kinetic-gradient px-8 text-xs font-black uppercase tracking-[0.2em] text-primary-foreground transition-all duration-150 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
         >
-          {loading || uploading ? (
-            <>
-              <span className="material-symbols-outlined animate-spin" style={{ fontSize: 16 }}>progress_activity</span>
-              {uploading ? "Uploading..." : "Analyzing..."}
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>play_arrow</span>
-              Run Analysis
-            </>
-          )}
+          <span className={cn("material-symbols-outlined", isRunning && "animate-pulse")} style={{ fontSize: 16 }}>
+            {isRunning ? STAGE_ICONS[runStage] : "play_arrow"}
+          </span>
+          {isRunning ? STAGE_LABELS[runStage] : "Run Analysis"}
         </button>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-white/5" />
-
-      {/* Error */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
-          <span className="material-symbols-outlined text-red-400 shrink-0" style={{ fontSize: 20 }}>error</span>
-          <div>
-            <div className="text-red-400 text-sm font-semibold">Analysis Failed</div>
-            <div className="text-red-400/80 text-xs mt-1">{error}</div>
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined shrink-0 text-destructive-foreground" style={{ fontSize: 20 }}>error</span>
+            <div className="space-y-2">
+              <div>
+                <div className="text-sm font-semibold text-destructive-foreground">{runStage === "timed_out" ? "Polling Timed Out" : "Analysis Failed"}</div>
+                <div className="mt-1 text-xs text-destructive-foreground/80">{error}</div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleRetry}
+                  className="flex h-10 items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-high px-5 text-xs font-black uppercase tracking-[0.2em] text-on-surface transition-all duration-150 active:scale-95 hover:bg-surface-container-highest"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>refresh</span>
+                  Retry
+                </button>
+                {activeUpload && (
+                  <div className="flex items-center rounded-full border border-outline-variant/10 bg-surface-container-lowest px-4 text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">
+                    Last upload: {activeUpload.id}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Empty State */}
-      {!result && !error && !loading && (
-        <div className="bg-surface-container rounded-xl p-8 border border-white/5 flex flex-col items-center text-center space-y-4">
+      {!result && !error && !isRunning && (
+        <div className="flex flex-col items-center space-y-4 rounded-xl border border-white/5 bg-surface-container p-8 text-center">
           <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 48 }}>analytics</span>
-          <p className="text-on-surface-variant text-sm max-w-md">
-            Run an analysis to see scoring, phase breakdown, metrics, and coach feedback here.
+          <p className="max-w-md text-sm text-on-surface-variant">
+            Run the real production pipeline to inspect aggregate score, phase scores, metric calibration detail, confidence flags, and generated feedback here.
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-lg mt-2">
+          <div className="mt-2 grid w-full max-w-lg grid-cols-2 gap-3 sm:grid-cols-3">
             {[
-              { icon: "speed", label: "Overall Score" },
-              { icon: "timeline", label: "Phase Breakdown" },
-              { icon: "thumb_up", label: "Strengths" },
-              { icon: "trending_up", label: "Improvements" },
-              { icon: "analytics", label: "Raw Metrics" },
-              { icon: "compare", label: "Elite Comparison" },
+              { icon: "speed", label: "Aggregate Score" },
+              { icon: "timeline", label: "Phase Scores" },
+              { icon: "analytics", label: "Metric Details" },
+              { icon: "straighten", label: "Calibration" },
+              { icon: "flag", label: "Confidence Flags" },
+              { icon: "sports", label: "Feedback" },
             ].map((item) => (
-              <div key={item.label} className="flex items-center gap-2 bg-surface-container-high rounded-lg px-3 py-2 border border-white/5">
-                <span className="material-symbols-outlined text-primary-container/40" style={{ fontSize: 16 }}>{item.icon}</span>
-                <span className="text-on-surface-variant/60 text-[10px] uppercase tracking-widest font-medium">{item.label}</span>
+              <div key={item.label} className="flex items-center gap-2 rounded-lg border border-white/5 bg-surface-container-high px-3 py-2">
+                <span className="material-symbols-outlined text-primary/40" style={{ fontSize: 16 }}>{item.icon}</span>
+                <span className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant/60">{item.label}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Results */}
       {result && (
         <div className="space-y-5">
-          {/* 1. Overall Score */}
-          <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-            <div className="flex items-center gap-5">
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center font-black text-3xl shrink-0"
-                style={{ background: `linear-gradient(135deg, ${getScoreColor(result.overallScore)}, ${getScoreColor(result.overallScore)}88)`, color: "#0b0f12" }}
-              >
-                {result.overallScore}
+          <div className="rounded-xl border border-white/5 bg-surface-container p-5">
+            <div className="flex flex-wrap items-center gap-5">
+              <div className={cn("flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-3xl font-black", scoreClasses(result.aggregateScore).ring)}>
+                <span className={cn("rounded-full px-3 py-2", scoreClasses(result.aggregateScore).badge)}>
+                  {result.aggregateScore ?? "—"}
+                </span>
               </div>
               <div className="flex-1">
-                <div className="text-on-surface font-black uppercase tracking-tighter text-xl">Route Mastery Score</div>
-                <div className="flex items-center gap-4 mt-1">
-                  <span className="text-on-surface-variant text-xs">
-                    Confidence: <span className="text-on-surface font-bold">{Math.round(result.confidence * 100)}%</span>
-                  </span>
-                  <div className="flex-1 max-w-[120px] h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-primary-container" style={{ width: `${result.confidence * 100}%` }} />
-                  </div>
+                <div className="text-xl font-black uppercase tracking-tight text-on-surface">Production Analysis Score</div>
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-on-surface-variant">
+                  <span>Status: <span className="font-bold text-on-surface">{result.uploadStatus}</span></span>
+                  {result.analyzedAt && <span>Analyzed: <span className="font-bold text-on-surface">{new Date(result.analyzedAt).toLocaleString()}</span></span>}
+                  {result.resultId && <span>Result ID: <span className="font-mono text-on-surface">{result.resultId}</span></span>}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Warnings */}
-          {result.warnings && result.warnings.length > 0 && (
-            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-orange-400" style={{ fontSize: 18 }}>warning</span>
-                <span className="text-orange-400 text-[10px] font-semibold uppercase tracking-[0.3em]">Warnings</span>
-              </div>
-              {result.warnings.map((w, i) => (
-                <div key={i} className="text-orange-300/80 text-xs flex gap-2">
-                  <span className="text-orange-400 shrink-0">•</span> {w}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 2. Phase Breakdown */}
-          <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-            <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>timeline</span>
+          <div className="rounded-xl border border-white/5 bg-surface-container p-5">
+            <h4 className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>timeline</span>
               Phase Breakdown
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {result.phaseBreakdown.map((p) => (
-                <div key={p.phase} className="bg-surface-container-high rounded-xl p-4 border border-white/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-on-surface text-sm font-bold">{p.phase}</span>
-                    <span
-                      className="text-sm font-black px-2 py-0.5 rounded-lg"
-                      style={{ color: getScoreColor(p.score), background: `${getScoreColor(p.score)}15` }}
-                    >
-                      {p.score}
-                    </span>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {result.phaseBreakdown.map((phase) => {
+                const phaseStyles = scoreClasses(phase.score);
+                return (
+                  <div key={phase.id} className="rounded-xl border border-white/5 bg-surface-container-high p-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-bold text-on-surface">{phase.name}</span>
+                      <span className={cn("rounded-lg px-2 py-0.5 text-sm font-black", phaseStyles.badge)}>{phase.score}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-lowest">
+                      <div className={cn("h-full rounded-full", phaseStyles.bar)} style={{ width: `${Math.max(0, Math.min(phase.score, 100))}%` }} />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-surface-container-lowest rounded-full overflow-hidden mb-2">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${p.score}%`, background: getScoreColor(p.score) }} />
-                  </div>
-                  <p className="text-on-surface-variant text-xs leading-relaxed">{p.feedback}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* 3. Feedback — Strengths & Improvements */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-              <h4 className="text-[10px] font-semibold uppercase tracking-[0.4em] mb-3 flex items-center gap-2" style={{ color: "#00e639" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, color: "#00e639" }}>thumb_up</span>
-                Strengths
-              </h4>
-              <ul className="space-y-2">
-                {result.strengths.map((s, i) => (
-                  <li key={i} className="text-on-surface text-xs flex gap-2 leading-relaxed">
-                    <span className="shrink-0 mt-0.5" style={{ color: "#00e639" }}>✓</span> {s}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-              <h4 className="text-orange-400 text-[10px] font-semibold uppercase tracking-[0.4em] mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-orange-400" style={{ fontSize: 16 }}>trending_up</span>
-                Areas to Improve
-              </h4>
-              <ul className="space-y-2">
-                {result.improvements.map((s, i) => (
-                  <li key={i} className="text-on-surface text-xs flex gap-2 leading-relaxed">
-                    <span className="text-orange-400 shrink-0 mt-0.5">→</span> {s}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* 4. Raw Metrics Table */}
-          <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-            <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>analytics</span>
-              Raw Metrics
+          <div className="rounded-xl border border-white/5 bg-surface-container p-5">
+            <h4 className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>analytics</span>
+              Metric Results
             </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-on-surface-variant text-[9px] uppercase tracking-[0.3em] border-b border-white/5">
-                    <th className="text-left py-2 pr-4 font-semibold">Metric</th>
-                    <th className="text-right py-2 px-3 font-semibold">Score</th>
-                    <th className="text-right py-2 px-3 font-semibold">Value</th>
-                    <th className="text-right py-2 px-3 font-semibold">Elite Target</th>
-                    <th className="text-right py-2 pl-3 font-semibold">Diff</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.metricScores.map((m) => (
-                    <tr key={m.name} className="border-b border-white/5 last:border-0">
-                      <td className="py-2.5 pr-4 text-on-surface font-medium">{m.name}</td>
-                      <td className="py-2.5 px-3 text-right">
-                        <span className="font-bold" style={{ color: getScoreColor(m.score) }}>{m.score}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-on-surface">{m.value}</td>
-                      <td className="py-2.5 px-3 text-right text-on-surface-variant">{m.target}</td>
-                      <td className="py-2.5 pl-3 text-right text-on-surface-variant">{m.difference || "—"}</td>
-                    </tr>
+            <div className="space-y-3">
+              {result.metricResults.map((metric) => {
+                const metricStyles = scoreClasses(metric.score ?? null);
+                const calibration = calibrationSummary(metric);
+                return (
+                  <div key={`${metric.name}-${metric.phase_id ?? metric.phase_name ?? "metric"}`} className="rounded-xl border border-white/5 bg-surface-container-high p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-on-surface">{metric.name}</div>
+                        <div className="mt-1 flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.2em] text-on-surface-variant/70">
+                          <span>{metric.phase_name ?? metric.phase_id ?? "Unassigned phase"}</span>
+                          <span>{metric.calculation_type ?? "Unknown calc"}</span>
+                          <span>{metric.status}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={cn("rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em]", metricStyles.badge)}>
+                          {metric.score ?? "—"}
+                        </span>
+                        <span className="rounded-full border border-outline-variant/10 bg-surface-container-lowest px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">
+                          Weight {metric.weight}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                      <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Measured</p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">{formatNumber(metric.value)} {metric.unit}</p>
+                      </div>
+                      <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Elite Target</p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">{metric.elite_target || "—"}</p>
+                      </div>
+                      <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Deviation</p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">{formatNumber(metric.deviation)}</p>
+                      </div>
+                      <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Reason</p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">{metric.reason ?? "—"}</p>
+                      </div>
+                    </div>
+
+                    {calibration && (
+                      <div className="mt-4 rounded-xl border border-primary-container/10 bg-primary-container/5 p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>straighten</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant">Calibration</span>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Source</p>
+                            <p className="mt-1 text-sm font-semibold text-on-surface">{calibration.calibrationSource ?? "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Confidence</p>
+                            <p className="mt-1 text-sm font-semibold text-on-surface">{typeof calibration.calibrationConfidence === "number" ? calibration.calibrationConfidence.toFixed(2) : calibration.calibrationConfidence ?? "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Pixels Per Yard</p>
+                            <p className="mt-1 text-sm font-semibold text-on-surface">{formatNumber(calibration.pixelsPerYard)}</p>
+                          </div>
+                        </div>
+                        {calibration.calibrationDetails && (
+                          <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-container-lowest p-3 text-[11px] text-on-surface-variant">{JSON.stringify(calibration.calibrationDetails, null, 2)}</pre>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/5 bg-surface-container p-5">
+              <h4 className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>flag</span>
+                Confidence Flags
+              </h4>
+              {result.confidenceFlags.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No confidence flags were recorded for this run.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {result.confidenceFlags.map((flag, index) => (
+                    <li key={`${flag.metric}-${index}`} className="rounded-lg bg-surface-container-high px-3 py-3 text-xs text-on-surface">
+                      <div className="font-semibold text-on-surface">{flag.metric}</div>
+                      <div className="mt-1 text-on-surface-variant">{flag.reason}</div>
+                    </li>
                   ))}
-                </tbody>
-              </table>
+                </ul>
+              )}
             </div>
-          </div>
-
-          {/* 5. Elite Comparison */}
-          {result.eliteComparison && (
-            <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-              <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>compare</span>
-                Elite Comparison
+            <div className="rounded-xl border border-white/5 bg-surface-container p-5">
+              <h4 className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>error</span>
+                Detected Errors
               </h4>
-              <p className="text-on-surface text-sm leading-relaxed">{result.eliteComparison}</p>
+              {result.detectedErrors.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No auto-detected errors fired for this run.</p>
+              ) : (
+                <div className="space-y-2">
+                  {result.detectedErrors.map((entry, index) => (
+                    <pre key={index} className="overflow-x-auto rounded-lg bg-surface-container-high p-3 text-[11px] text-on-surface-variant">{JSON.stringify(entry, null, 2)}</pre>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-
-          {/* Coach Feedback */}
-          <div className="bg-surface-container rounded-xl p-5 border border-white/5">
-            <h4 className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.4em] mb-3 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>sports</span>
-              Coach Feedback
-            </h4>
-            <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{result.coachFeedback}</p>
           </div>
 
-          {/* 6. Action Buttons */}
-          <div className="flex gap-3">
+          <div className="rounded-xl border border-white/5 bg-surface-container p-5">
+            <h4 className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>sports</span>
+              Feedback
+            </h4>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{result.feedback || "No feedback returned."}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={handleRerun}
-              className="h-10 px-6 rounded-full bg-surface-container-high border border-outline-variant/20 text-on-surface font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 flex items-center gap-2 hover:bg-surface-container-highest"
+              className="flex h-10 items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-high px-6 text-xs font-black uppercase tracking-[0.2em] text-on-surface transition-all duration-150 active:scale-95 hover:bg-surface-container-highest"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>refresh</span>
               Re-run with Different Video
@@ -620,7 +818,6 @@ export function TestingPanel({ node }: TestingPanelProps) {
         </div>
       )}
 
-      {/* Analysis Log — always visible */}
       <AnalysisLog logData={result?.log_data} nodeName={node.name} hasResult={!!result} />
     </div>
   );
