@@ -102,6 +102,29 @@ type ConfidenceCheckResult = {
   diagnostics: ConfidenceDiagnostics
 }
 
+type BilateralSide = 'left' | 'right'
+
+type BilateralDecisionSource = 'override' | 'fixed_bilateral' | 'route_direction' | 'confidence_auto'
+
+type BilateralMappingInput = {
+  bilateral?: string | null
+  bilateral_override?: string | null
+  keypoint_indices?: number[] | null
+}
+
+type BilateralDecision = {
+  side: BilateralSide
+  source: BilateralDecisionSource
+  baseIndices: number[]
+  leftIndices: number[]
+  rightIndices: number[]
+  effectiveIndices: number[]
+  leftAverageConfidence: number | null
+  rightAverageConfidence: number | null
+}
+
+const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap()
+
 type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
 
 type UploadLike = {
@@ -1913,19 +1936,30 @@ async function calculateAllMetrics(
       continue
     }
 
-    // Determine which side to use
-    const side = resolveBilateral(mapping, context.route_direction)
-
     // Extract phase keypoints
     const phaseFrames = keypoints.slice(window.start, window.end + 1)
     const phaseScores = scores.slice(window.start, window.end + 1)
+    const bilateralDecision = resolveBilateralSelection(
+      mapping,
+      context.route_direction,
+      phaseFrames,
+      phaseScores,
+      personIndex,
+      metric.name,
+    )
     logInfo('metric_window_selected', {
       ...metricContext,
-      side,
+      side: bilateralDecision.side,
+      bilateralSource: bilateralDecision.source,
       windowStart: window.start,
       windowEnd: window.end,
       frameCount: phaseFrames.length,
-      keypointIndices: mapping.keypoint_indices,
+      keypointIndices: bilateralDecision.effectiveIndices,
+      baseKeypointIndices: bilateralDecision.baseIndices,
+      leftIndices: bilateralDecision.leftIndices,
+      rightIndices: bilateralDecision.rightIndices,
+      leftAverageConfidence: bilateralDecision.leftAverageConfidence,
+      rightAverageConfidence: bilateralDecision.rightAverageConfidence,
       temporalWindow: mapping.temporal_window || null,
       confidenceThreshold: mapping.confidence_threshold || 0.7,
     })
@@ -1933,7 +1967,7 @@ async function calculateAllMetrics(
     // Check confidence
     const confidenceCheck = checkConfidence(
       phaseFrames, phaseScores, personIndex,
-      mapping.keypoint_indices, metric.name, mapping.confidence_threshold || 0.70
+      bilateralDecision.effectiveIndices, metric.name, mapping.confidence_threshold || 0.70
     )
 
     if (!confidenceCheck.passed) {
@@ -1956,30 +1990,30 @@ async function calculateAllMetrics(
     
     switch (mapping.calculation_type) {
       case 'angle':
-        metricValue = calculateAngle(phaseFrames, personIndex, mapping.keypoint_indices)
+        metricValue = calculateAngle(phaseFrames, personIndex, bilateralDecision.effectiveIndices)
         break
       case 'distance':
         metricValue = calculateDistance(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           calibration,
           fallbackBehavior
         )
         break
       case 'velocity':
         metricValue = calculateVelocity(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           mapping.temporal_window || 3, fps, calibration, fallbackBehavior
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           mapping.temporal_window || 5, fps, calibration, fallbackBehavior
         )
         break
       case 'frame_delta':
         metricValue = calculateFrameDelta(
-          phaseFrames, personIndex, mapping.keypoint_indices,
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           mapping.temporal_window || 10
         )
         break
@@ -1992,6 +2026,7 @@ async function calculateAllMetrics(
         detail: {
           ...(metricValue.detail || {}),
           confidenceDiagnostics: confidenceCheck.diagnostics,
+          bilateralDecision,
         },
       })
       results.push({
@@ -2001,6 +2036,7 @@ async function calculateAllMetrics(
         detail: {
           ...(metricValue.detail || {}),
           confidenceDiagnostics: confidenceCheck.diagnostics,
+          bilateralDecision,
         },
       })
       continue
@@ -2013,6 +2049,7 @@ async function calculateAllMetrics(
         detail: {
           ...(metricValue.detail || {}),
           confidenceDiagnostics: confidenceCheck.diagnostics,
+          bilateralDecision,
         },
       })
       results.push({
@@ -2038,6 +2075,7 @@ async function calculateAllMetrics(
       detail: {
         ...(metricValue.detail || {}),
         confidenceDiagnostics: confidenceCheck.diagnostics,
+        bilateralDecision,
       },
     })
 
@@ -2055,6 +2093,7 @@ async function calculateAllMetrics(
       detail: {
         ...(metricValue.detail || {}),
         confidenceDiagnostics: confidenceCheck.diagnostics,
+        bilateralDecision,
       },
       keypoint_mapping: metric.keypoint_mapping,
     })
@@ -2432,13 +2471,181 @@ function checkConfidence(
   }
 }
 
-function resolveBilateral(mapping: any, routeDirection: string): string {
-  if (mapping.bilateral_override && mapping.bilateral_override !== 'auto') {
-    return mapping.bilateral_override
+function buildMirrorIndexMap(): Map<number, number> {
+  const mirrorPairs: Array<[number, number]> = [
+    [1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14], [15, 16],
+    [17, 20], [18, 21], [19, 22],
+    [24, 35], [25, 34], [26, 33], [27, 32], [28, 31],
+    [36, 45], [37, 46], [38, 43], [39, 42], [40, 41],
+    [50, 52], [53, 62], [54, 61], [55, 60], [56, 59], [57, 64], [58, 63],
+    [65, 69], [66, 68], [73, 70], [74, 77], [75, 76], [80, 78],
+    [91, 112], [92, 113], [93, 114], [94, 115], [95, 116], [96, 117], [97, 118], [98, 119], [99, 120],
+    [100, 121], [101, 122], [102, 123], [103, 124], [104, 125], [105, 126], [106, 127], [107, 128],
+    [108, 129], [109, 130], [110, 131], [111, 132],
+  ]
+
+  const mirrorMap = new Map<number, number>()
+  for (const [leftIndex, rightIndex] of mirrorPairs) {
+    mirrorMap.set(leftIndex, rightIndex)
+    mirrorMap.set(rightIndex, leftIndex)
   }
-  if (routeDirection === 'left') return 'force_left'
-  if (routeDirection === 'right') return 'force_right'
-  return 'auto'
+  return mirrorMap
+}
+
+function mapIndicesToSide(indices: number[], side: BilateralSide): number[] {
+  return indices.map((index) => {
+    const mirrored = MIRROR_INDEX_BY_INDEX.get(index)
+    if (!mirrored) return index
+    const isLeftBase = index < mirrored
+    if (side === 'left') return isLeftBase ? index : mirrored
+    return isLeftBase ? mirrored : index
+  })
+}
+
+function averageConfidenceForIndices(
+  frames: VideoKeypoints,
+  scores: VideoScores,
+  personIdx: number,
+  indices: number[],
+): number | null {
+  let total = 0
+  let count = 0
+
+  for (let frameIndex = 0; frameIndex < scores.length; frameIndex++) {
+    const personScores = scores[frameIndex]?.[personIdx]
+    const personKeypoints = frames[frameIndex]?.[personIdx]
+    if (!personScores || !personKeypoints) continue
+
+    for (const index of indices) {
+      const keypoint = personKeypoints[index]
+      const confidence = personScores[index]
+      if (!keypoint || !Number.isFinite(confidence)) continue
+      total += confidence
+      count += 1
+    }
+  }
+
+  return count > 0 ? total / count : null
+}
+
+function chooseBestBilateralSide(
+  metricName: string,
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
+  personIdx: number,
+  leftIndices: number[],
+  rightIndices: number[],
+): Pick<BilateralDecision, 'side' | 'leftAverageConfidence' | 'rightAverageConfidence'> {
+  const leftAverageConfidence = averageConfidenceForIndices(keypoints, scores, personIdx, leftIndices)
+  const rightAverageConfidence = averageConfidenceForIndices(keypoints, scores, personIdx, rightIndices)
+  const safeLeftConfidence = leftAverageConfidence ?? 0
+  const safeRightConfidence = rightAverageConfidence ?? 0
+  const side: BilateralSide = safeLeftConfidence >= safeRightConfidence ? 'left' : 'right'
+
+  logInfo('bilateral_auto_detect', {
+    metricName,
+    chosenSide: side,
+    leftAverageConfidence,
+    rightAverageConfidence,
+    leftIndices,
+    rightIndices,
+    message: `Bilateral auto-detect chose ${side} side for ${metricName} (conf left: ${safeLeftConfidence.toFixed(2)}, right: ${safeRightConfidence.toFixed(2)})`,
+  })
+
+  return { side, leftAverageConfidence, rightAverageConfidence }
+}
+
+function resolveBilateralSelection(
+  mapping: BilateralMappingInput,
+  routeDirection: unknown,
+  phaseFrames: VideoKeypoints,
+  phaseScores: VideoScores,
+  personIdx: number,
+  metricName: string,
+): BilateralDecision {
+  const baseIndices = Array.isArray(mapping.keypoint_indices) ? mapping.keypoint_indices : []
+  const leftIndices = mapIndicesToSide(baseIndices, 'left')
+  const rightIndices = mapIndicesToSide(baseIndices, 'right')
+  const routeSide = routeDirection === 'left' || routeDirection === 'right' ? routeDirection : null
+  const bilateralOverride = mapping.bilateral_override ?? 'auto'
+  const bilateralMode = mapping.bilateral ?? 'auto'
+
+  if (bilateralOverride === 'force_left' || bilateralOverride === 'force_right') {
+    const side: BilateralSide = bilateralOverride === 'force_left' ? 'left' : 'right'
+    logInfo('bilateral_side_selected', {
+      metricName,
+      source: 'override',
+      side,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
+    })
+    return {
+      side,
+      source: 'override',
+      baseIndices,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
+      leftAverageConfidence: null,
+      rightAverageConfidence: null,
+    }
+  }
+
+  if (bilateralMode === 'left' || bilateralMode === 'right') {
+    const side: BilateralSide = bilateralMode
+    logInfo('bilateral_side_selected', {
+      metricName,
+      source: 'fixed_bilateral',
+      side,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
+    })
+    return {
+      side,
+      source: 'fixed_bilateral',
+      baseIndices,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
+      leftAverageConfidence: null,
+      rightAverageConfidence: null,
+    }
+  }
+
+  if (routeSide) {
+    logInfo('bilateral_side_selected', {
+      metricName,
+      source: 'route_direction',
+      side: routeSide,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: routeSide === 'left' ? leftIndices : rightIndices,
+    })
+    return {
+      side: routeSide,
+      source: 'route_direction',
+      baseIndices,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: routeSide === 'left' ? leftIndices : rightIndices,
+      leftAverageConfidence: null,
+      rightAverageConfidence: null,
+    }
+  }
+
+  const autoChoice = chooseBestBilateralSide(metricName, phaseFrames, phaseScores, personIdx, leftIndices, rightIndices)
+  return {
+    side: autoChoice.side,
+    source: 'confidence_auto',
+    baseIndices,
+    leftIndices,
+    rightIndices,
+    effectiveIndices: autoChoice.side === 'left' ? leftIndices : rightIndices,
+    leftAverageConfidence: autoChoice.leftAverageConfidence,
+    rightAverageConfidence: autoChoice.rightAverageConfidence,
+  }
 }
 
 

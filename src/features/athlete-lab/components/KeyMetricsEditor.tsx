@@ -48,6 +48,69 @@ const BILATERAL_OPTIONS: { value: BilateralMode; label: string }[] = [
 const GROUP_NAMES: Record<string, string> = { body: "BODY", feet: "FEET", hands: "HANDS", face: "FACE" };
 const ALL_GROUPS = ["body", "feet", "hands", "face"];
 
+type KeypointLibraryEntry = {
+  index: number;
+  name: string;
+  group: string;
+  sub_group: string;
+  side: string;
+  football_use: string | null;
+};
+
+const KEYPOINTS = keypointLibrary.keypoints as KeypointLibraryEntry[];
+const KEYPOINT_BY_INDEX = new Map<number, KeypointLibraryEntry>(KEYPOINTS.map((entry) => [entry.index, entry]));
+
+function buildMirrorIndexMap(keypoints: KeypointLibraryEntry[]) {
+  const bySignature = new Map<string, { left?: number; right?: number }>();
+
+  for (const keypoint of keypoints) {
+    const normalizedName = keypoint.name
+      .replace(/^Left\s+/i, "")
+      .replace(/^Right\s+/i, "")
+      .replace(/\s+Left$/i, "")
+      .replace(/\s+Right$/i, "")
+      .trim();
+    const signature = `${keypoint.group}:${keypoint.sub_group}:${normalizedName}`;
+    const existing = bySignature.get(signature) || {};
+    if (keypoint.side === "left") existing.left = keypoint.index;
+    if (keypoint.side === "right") existing.right = keypoint.index;
+    bySignature.set(signature, existing);
+  }
+
+  const mirrorMap = new Map<number, number>();
+  for (const pair of bySignature.values()) {
+    if (typeof pair.left === "number" && typeof pair.right === "number") {
+      mirrorMap.set(pair.left, pair.right);
+      mirrorMap.set(pair.right, pair.left);
+    }
+  }
+  return mirrorMap;
+}
+
+const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap(KEYPOINTS);
+
+function mapIndicesToSide(indices: number[], side: "left" | "right") {
+  return indices.map((index) => {
+    const entry = KEYPOINT_BY_INDEX.get(index);
+    if (!entry) return index;
+    if (entry.side === "center" || entry.side === side) return index;
+    return MIRROR_INDEX_BY_INDEX.get(index) ?? index;
+  });
+}
+
+function formatIndices(indices: number[]) {
+  return indices.length > 0 ? indices.join(", ") : "—";
+}
+
+function formatIndexNames(indices: number[]) {
+  return indices
+    .map((index) => {
+      const entry = KEYPOINT_BY_INDEX.get(index);
+      return entry ? `${entry.name} (${index})` : `${index}`;
+    })
+    .join(", ");
+}
+
 function getDefaultMapping(): KeypointMapping {
   return {
     body_groups: ["body"],
@@ -430,9 +493,6 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   const [activeGroupTab, setActiveGroupTab] = useState<string>(km.body_groups[0] || "body");
   const [presetLoaded, setPresetLoaded] = useState<string | null>(null);
 
-  const keypoints = keypointLibrary.keypoints as Array<{
-    index: number; name: string; group: string; sub_group: string; side: string; football_use: string | null;
-  }>;
   const subGroupOrder = keypointLibrary.sub_group_order as Record<string, string[]>;
   const subGroupDisplayNames = keypointLibrary.sub_group_display_names as Record<string, string>;
   const combinations = keypointLibrary.common_football_combinations as Array<{
@@ -440,16 +500,16 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   }>;
 
   const filteredKeypoints = useMemo(() => {
-    return keypoints.filter(kp => km.body_groups.includes(kp.group));
-  }, [km.body_groups, keypoints]);
+    return KEYPOINTS.filter(kp => km.body_groups.includes(kp.group));
+  }, [km.body_groups]);
 
   const tabKeypoints = useMemo(() => {
-    return keypoints.filter(kp => kp.group === activeGroupTab);
-  }, [activeGroupTab, keypoints]);
+    return KEYPOINTS.filter(kp => kp.group === activeGroupTab);
+  }, [activeGroupTab]);
 
   const groupedTabKeypoints = useMemo(() => {
     const order = subGroupOrder[activeGroupTab] || [];
-    const groups: Record<string, typeof keypoints> = {};
+    const groups: Record<string, typeof KEYPOINTS> = {};
     for (const kp of tabKeypoints) {
       if (!groups[kp.sub_group]) groups[kp.sub_group] = [];
       groups[kp.sub_group].push(kp);
@@ -464,7 +524,7 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
     if (newGroups.length === 0) return;
     // Remove keypoints that belong to deselected groups
     const validKeypoints = km.keypoint_indices.filter(idx => {
-      const kp = keypoints.find(k => k.index === idx);
+      const kp = KEYPOINTS.find(k => k.index === idx);
       return kp && newGroups.includes(kp.group);
     });
     setKm({ ...km, body_groups: newGroups, keypoint_indices: validKeypoints });
@@ -487,7 +547,7 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
     // library lookup AND index-range fallback to guarantee correctness
     const neededGroups = new Set<string>();
     for (const idx of combo.keypoints) {
-      const kp = keypoints.find(k => k.index === idx);
+        const kp = KEYPOINTS.find(k => k.index === idx);
       if (kp) {
         neededGroups.add(kp.group);
       } else {
@@ -525,6 +585,8 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   };
 
   const validation = getKeypointValidation(km.calculation_type, km.keypoint_indices.length);
+  const leftIndices = useMemo(() => mapIndicesToSide(km.keypoint_indices, "left"), [km.keypoint_indices]);
+  const rightIndices = useMemo(() => mapIndicesToSide(km.keypoint_indices, "right"), [km.keypoint_indices]);
 
   const confidenceColor = km.confidence_threshold >= 0.70
     ? "text-primary-container"
@@ -641,7 +703,7 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
           {km.keypoint_indices.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {km.keypoint_indices.map(idx => {
-                const kp = keypoints.find(k => k.index === idx);
+                const kp = KEYPOINTS.find(k => k.index === idx);
                 return (
                   <span key={idx} className="px-2 py-0.5 rounded-lg bg-primary-container/10 text-primary-container text-[10px] font-medium flex items-center gap-1 border border-primary-container/20">
                     {kp?.name || idx} ({idx})
@@ -657,6 +719,21 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
           <p className={`text-xs mt-2 ${validation.valid ? "text-primary-container/70" : "text-amber-400"}`}>
             {validation.message}
           </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            {[
+              { label: "Base", indices: km.keypoint_indices },
+              { label: "Left", indices: leftIndices },
+              { label: "Right", indices: rightIndices },
+            ].map((mappingView) => (
+              <div key={mappingView.label} className="rounded-xl border border-outline-variant/10 bg-surface-container p-3 space-y-1.5">
+                <p className="text-on-surface-variant/50 text-[10px] font-semibold uppercase tracking-widest">{mappingView.label} Indices</p>
+                <p className="text-on-surface text-xs font-medium break-words">{formatIndices(mappingView.indices)}</p>
+                <p className="text-on-surface-variant/60 text-[10px] leading-relaxed break-words">
+                  {mappingView.indices.length > 0 ? formatIndexNames(mappingView.indices) : "No keypoints selected"}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
