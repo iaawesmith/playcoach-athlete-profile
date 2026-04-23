@@ -2542,17 +2542,32 @@ function chooseBestBilateralSide(
   const safeRightConfidence = rightAverageConfidence ?? 0
   const side: BilateralSide = safeLeftConfidence >= safeRightConfidence ? 'left' : 'right'
 
-  logInfo('bilateral_auto_detect', {
+  return { side, leftAverageConfidence, rightAverageConfidence }
+}
+
+function logBilateralDecision(
+  metricName: string,
+  source: BilateralDecisionSource,
+  side: BilateralSide,
+  leftIndices: number[],
+  rightIndices: number[],
+  effectiveIndices: number[],
+  leftAverageConfidence: number | null,
+  rightAverageConfidence: number | null,
+) {
+  const safeLeftConfidence = leftAverageConfidence ?? 0
+  const safeRightConfidence = rightAverageConfidence ?? 0
+  logInfo('bilateral_side_selected', {
     metricName,
-    chosenSide: side,
-    leftAverageConfidence,
-    rightAverageConfidence,
+    source,
+    side,
     leftIndices,
     rightIndices,
-    message: `Bilateral auto-detect chose ${side} side for ${metricName} (conf left: ${safeLeftConfidence.toFixed(2)}, right: ${safeRightConfidence.toFixed(2)})`,
+    effectiveIndices,
+    leftAverageConfidence,
+    rightAverageConfidence,
+    message: `Bilateral for ${metricName}: chose ${side} via ${source} (conf left: ${safeLeftConfidence.toFixed(2)} vs right: ${safeRightConfidence.toFixed(2)})`,
   })
-
-  return { side, leftAverageConfidence, rightAverageConfidence }
 }
 
 function resolveBilateralSelection(
@@ -2572,21 +2587,15 @@ function resolveBilateralSelection(
 
   if (bilateralOverride === 'force_left' || bilateralOverride === 'force_right') {
     const side: BilateralSide = bilateralOverride === 'force_left' ? 'left' : 'right'
-    logInfo('bilateral_side_selected', {
-      metricName,
-      source: 'override',
-      side,
-      leftIndices,
-      rightIndices,
-      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
-    })
+    const effectiveIndices = side === 'left' ? leftIndices : rightIndices
+    logBilateralDecision(metricName, 'override', side, leftIndices, rightIndices, effectiveIndices, null, null)
     return {
       side,
       source: 'override',
       baseIndices,
       leftIndices,
       rightIndices,
-      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
+      effectiveIndices,
       leftAverageConfidence: null,
       rightAverageConfidence: null,
     }
@@ -2594,55 +2603,54 @@ function resolveBilateralSelection(
 
   if (bilateralMode === 'left' || bilateralMode === 'right') {
     const side: BilateralSide = bilateralMode
-    logInfo('bilateral_side_selected', {
-      metricName,
-      source: 'fixed_bilateral',
-      side,
-      leftIndices,
-      rightIndices,
-      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
-    })
+    const effectiveIndices = side === 'left' ? leftIndices : rightIndices
+    logBilateralDecision(metricName, 'fixed_bilateral', side, leftIndices, rightIndices, effectiveIndices, null, null)
     return {
       side,
       source: 'fixed_bilateral',
       baseIndices,
       leftIndices,
       rightIndices,
-      effectiveIndices: side === 'left' ? leftIndices : rightIndices,
+      effectiveIndices,
       leftAverageConfidence: null,
       rightAverageConfidence: null,
     }
   }
 
   if (routeSide) {
-    logInfo('bilateral_side_selected', {
-      metricName,
-      source: 'route_direction',
-      side: routeSide,
-      leftIndices,
-      rightIndices,
-      effectiveIndices: routeSide === 'left' ? leftIndices : rightIndices,
-    })
+    const effectiveIndices = routeSide === 'left' ? leftIndices : rightIndices
+    logBilateralDecision(metricName, 'route_direction', routeSide, leftIndices, rightIndices, effectiveIndices, null, null)
     return {
       side: routeSide,
       source: 'route_direction',
       baseIndices,
       leftIndices,
       rightIndices,
-      effectiveIndices: routeSide === 'left' ? leftIndices : rightIndices,
+      effectiveIndices,
       leftAverageConfidence: null,
       rightAverageConfidence: null,
     }
   }
 
   const autoChoice = chooseBestBilateralSide(metricName, phaseFrames, phaseScores, personIdx, leftIndices, rightIndices)
+  const effectiveIndices = autoChoice.side === 'left' ? leftIndices : rightIndices
+  logBilateralDecision(
+    metricName,
+    'confidence_auto',
+    autoChoice.side,
+    leftIndices,
+    rightIndices,
+    effectiveIndices,
+    autoChoice.leftAverageConfidence,
+    autoChoice.rightAverageConfidence,
+  )
   return {
     side: autoChoice.side,
     source: 'confidence_auto',
     baseIndices,
     leftIndices,
     rightIndices,
-    effectiveIndices: autoChoice.side === 'left' ? leftIndices : rightIndices,
+    effectiveIndices,
     leftAverageConfidence: autoChoice.leftAverageConfidence,
     rightAverageConfidence: autoChoice.rightAverageConfidence,
   }
