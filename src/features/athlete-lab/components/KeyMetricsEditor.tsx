@@ -735,8 +735,8 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
           <div className="mt-3 grid gap-2 md:grid-cols-3">
             {[
               { label: "Base", indices: km.keypoint_indices },
-              { label: "Left", indices: leftIndices },
-              { label: "Right", indices: rightIndices },
+              { label: "Derived Left", indices: leftIndices },
+              { label: "Derived Right", indices: rightIndices },
             ].map((mappingView) => (
               <div key={mappingView.label} className="rounded-xl border border-outline-variant/10 bg-surface-container p-3 space-y-1.5">
                 <p className="text-on-surface-variant/50 text-[10px] font-semibold uppercase tracking-widest">{mappingView.label} Indices</p>
