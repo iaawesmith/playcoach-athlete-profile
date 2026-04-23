@@ -122,6 +122,7 @@ type CloudRunResponse = {
   pixels_per_yard?: number | null
   calibrationConfidence?: string | null
   calibration_confidence?: string | null
+  progress_updates?: CloudRunProgressUpdate[]
 }
 
 function createCancellationError(uploadId: string): PipelineCancellationError {
@@ -1708,12 +1709,15 @@ async function prepareVideoForCloudRun(upload: UploadLike): Promise<{ videoUrl: 
   await setUploadProgress(upload.id, 'Decimating video to 30 fps...')
   logInfo('video_decimation_started', { uploadId: upload.id, sourceUrlPresent: true, targetFps: 30 })
 
+  await ensureNotCancelled(upload.id)
+
   const response = await fetch(sourceUrl)
   if (!response.ok) {
     throw new Error(`Failed to download source video: ${response.status} ${response.statusText}`)
   }
 
   const bytes = new Uint8Array(await response.arrayBuffer())
+  await ensureNotCancelled(upload.id)
   const tempDir = await Deno.makeTempDir({ prefix: 'analysis-video-' })
   const inputPath = `${tempDir}/input.mp4`
   const outputPath = `${tempDir}/decimated-30fps.mp4`
@@ -1727,6 +1731,7 @@ async function prepareVideoForCloudRun(upload: UploadLike): Promise<{ videoUrl: 
     })
 
     const result = await ffmpeg.output()
+    await ensureNotCancelled(upload.id)
     if (result.code !== 0) {
       const stderr = new TextDecoder().decode(result.stderr).slice(0, 400)
       throw new Error(`FFmpeg failed while preparing video (${stderr || 'unknown error'})`)
