@@ -1037,6 +1037,10 @@ function ManualTestUploadTab() {
           </div>
         </div>
       )}
+
+      <div className="pt-4">
+        <RecentTestRunsSection />
+      </div>
     </div>
   );
 }
