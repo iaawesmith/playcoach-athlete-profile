@@ -144,6 +144,10 @@ type PipelineLogData = {
     total_frames?: number
     source_fps?: number
     processing_time_ms?: number
+    person_detected?: boolean
+    average_keypoint_confidence?: number
+    reliable_frame_percentage?: number
+    most_common_issue?: string
     phase_windows?: Array<{
       phase: string
       start: number
@@ -211,7 +215,8 @@ type PipelineLogData = {
     word_count?: number
     target_words?: number
     truncated?: boolean
-    status?: 'COMPLETE' | 'FAILED'
+    skipped_reason?: string
+    status?: 'COMPLETE' | 'FAILED' | 'SKIPPED'
   }
 }
 
