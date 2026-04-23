@@ -25,18 +25,21 @@ interface ReadinessCategory {
 export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   const categories: ReadinessCategory[] = [];
 
+  // Active-only metrics (inactive ones are preserved in storage but excluded from readiness/scoring)
+  const activeMetrics = (node.key_metrics ?? []).filter((m) => m.active !== false);
+
   // 1. METRICS & KEYPOINTS — 25%
   const metricsChecks: ReadinessCheck[] = [];
-  metricsChecks.push({ label: `${node.key_metrics.length} metrics defined (min 4)`, pass: node.key_metrics.length >= 4 });
-  const metricWeightSum = node.key_metrics.reduce((s, m) => s + m.weight, 0);
-  metricsChecks.push({ label: `Weights sum to ${metricWeightSum}% (must be 100%)`, pass: metricWeightSum === 100 });
-  const allMapped = node.key_metrics.every(m => m.keypoint_mapping?.calculation_type && (m.keypoint_mapping?.keypoint_indices?.length ?? 0) > 0);
-  metricsChecks.push({ label: "All metrics have keypoint mapping", pass: allMapped });
-  const allPhased = node.key_metrics.every(m => m.keypoint_mapping?.phase_id);
-  metricsChecks.push({ label: "All metrics have phase assigned", pass: allPhased });
+  metricsChecks.push({ label: `${activeMetrics.length} active metrics defined (min 4)`, pass: activeMetrics.length >= 4 });
+  const metricWeightSum = activeMetrics.reduce((s, m) => s + m.weight, 0);
+  metricsChecks.push({ label: `Active weights sum to ${metricWeightSum}% (must be 100%)`, pass: metricWeightSum === 100 });
+  const allMapped = activeMetrics.every(m => m.keypoint_mapping?.calculation_type && (m.keypoint_mapping?.keypoint_indices?.length ?? 0) > 0);
+  metricsChecks.push({ label: "All active metrics have keypoint mapping", pass: allMapped });
+  const allPhased = activeMetrics.every(m => m.keypoint_mapping?.phase_id);
+  metricsChecks.push({ label: "All active metrics have phase assigned", pass: allPhased });
   // Keypoint counts valid
   let kpCountsValid = true;
-  for (const m of node.key_metrics) {
+  for (const m of activeMetrics) {
     const km = m.keypoint_mapping;
     if (!km) continue;
     const count = km.keypoint_indices.length;
@@ -47,7 +50,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   metricsChecks.push({ label: "Keypoint counts valid for calculation types", pass: kpCountsValid });
   // Temporal windows
   let twValid = true;
-  for (const m of node.key_metrics) {
+  for (const m of activeMetrics) {
     const km = m.keypoint_mapping;
     if (!km) continue;
     const tw = m.temporal_window ?? 1;
@@ -68,7 +71,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   let scSupportsAll = true;
   if (scConfigured) {
     const sc = node.solution_class;
-    for (const m of node.key_metrics) {
+    for (const m of activeMetrics) {
       const indices = m.keypoint_mapping?.keypoint_indices ?? [];
       if (sc === "body" && indices.some(i => i >= 17)) { scSupportsAll = false; break; }
       if (sc === "body_with_feet" && indices.some(i => i >= 91)) { scSupportsAll = false; break; }
