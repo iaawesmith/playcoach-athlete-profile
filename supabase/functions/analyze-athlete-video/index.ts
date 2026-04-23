@@ -275,6 +275,11 @@ Deno.serve(async (req) => {
       endSeconds: upload.end_seconds,
     })
 
+    const logData: PipelineLogData = {
+      timestamp: new Date().toISOString(),
+      preflight: { checks: [] },
+    }
+
     // Update status to processing immediately
     await updateUploadStatus(upload.id, 'processing', undefined, 'Loading model on server...')
     await ensureNotCancelled(upload.id)
@@ -294,6 +299,11 @@ Deno.serve(async (req) => {
     // STEP 2: Pre-flight validation
     await setUploadProgress(upload.id, 'Validating clip window and pipeline settings...')
     const preflightResult = await runPreflight(upload, nodeConfig)
+    logData.preflight = {
+      checks: preflightResult.checks,
+      pipeline_stopped: !preflightResult.passed,
+      stop_reason: preflightResult.passed ? undefined : preflightResult.reason,
+    }
     if (!preflightResult.passed) {
       logWarn('preflight_failed', { uploadId, reason: preflightResult.reason })
       await updateUploadStatus(upload.id, 'failed', preflightResult.reason)
@@ -331,6 +341,13 @@ Deno.serve(async (req) => {
       det_frequency: detFrequency,
       tracking_enabled: nodeConfig.tracking_enabled
     })
+    logData.rtmlib = {
+      solution_class: nodeConfig.solution_class,
+      backend: 'cloud_run',
+      total_frames: rtmlibResult.frame_count,
+      source_fps: rtmlibResult.fps,
+      keypoint_confidence: summarizeKeypointConfidence(rtmlibResult.scores),
+    }
     const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
     logInfo('cloud_run_response_received', {
       uploadId,
@@ -380,6 +397,13 @@ Deno.serve(async (req) => {
       rtmlibResult.frame_count,
       nodeConfig.phase_breakdown
     )
+    if (logData.rtmlib) {
+      logData.rtmlib.phase_windows = buildPhaseWindowLog(
+        phaseWindows,
+        nodeConfig.phase_breakdown,
+        rtmlibResult.frame_count,
+      )
+    }
 
     // STEP 8: Calculate all metrics
     await setUploadProgress(upload.id, 'Calculating metrics...')
@@ -412,6 +436,13 @@ Deno.serve(async (req) => {
       nodeConfig,
       context.catch_included !== false
     )
+    logData.metrics = buildMetricLogEntries(metricResults, phaseWindows, nodeConfig.phase_breakdown)
+    logData.aggregate = {
+      mastery_score: typeof scoreResult.aggregate_score === 'number' ? scoreResult.aggregate_score : 0,
+      confidence_adjusted: metricResults.some((metric) => metric.status === 'flagged'),
+      metrics_skipped: metricResults.filter((metric) => metric.status !== 'scored').length,
+      metrics_total: metricResults.length,
+    }
 
     // STEP 10: Error auto-detection
     await setUploadProgress(upload.id, 'Checking for common route errors...')
@@ -420,7 +451,10 @@ Deno.serve(async (req) => {
     // STEP 11: Call Claude API
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Generating coaching feedback...')
-    const feedback = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+    const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+    const feedback = claudeResult.feedback
+    logData.claude_api = claudeResult.log
+    logData.error_detection = buildErrorDetectionLog(nodeConfig.common_errors, metricResults, errorResults)
     logInfo('claude_feedback_received', {
       uploadId,
       feedbackLength: feedback.length,
@@ -429,7 +463,7 @@ Deno.serve(async (req) => {
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Writing analysis results...')
-    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback)
+    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData)
     logInfo('results_written', {
       uploadId,
       aggregateScore: scoreResult.aggregate_score,
