@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import keypointLibrary from '../../../src/constants/keypointLibrary.json' with { type: 'json' }
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -101,6 +102,43 @@ type ConfidenceCheckResult = {
   passed: boolean
   diagnostics: ConfidenceDiagnostics
 }
+
+type KeypointLibraryEntry = {
+  index: number
+  name: string
+  group: string
+  sub_group: string
+  side: 'left' | 'right' | 'center' | string
+  football_use: string | null
+}
+
+type BilateralSide = 'left' | 'right'
+
+type BilateralDecisionSource = 'override' | 'fixed_bilateral' | 'route_direction' | 'confidence_auto'
+
+type BilateralMappingInput = {
+  bilateral?: string | null
+  bilateral_override?: string | null
+  keypoint_indices?: number[] | null
+}
+
+type BilateralDecision = {
+  side: BilateralSide
+  source: BilateralDecisionSource
+  baseIndices: number[]
+  leftIndices: number[]
+  rightIndices: number[]
+  effectiveIndices: number[]
+  leftAverageConfidence: number | null
+  rightAverageConfidence: number | null
+}
+
+const KEYPOINT_LIBRARY = (keypointLibrary as { keypoints: KeypointLibraryEntry[] }).keypoints
+const KEYPOINT_BY_INDEX = new Map<number, KeypointLibraryEntry>(
+  KEYPOINT_LIBRARY.map((entry) => [entry.index, entry])
+)
+
+const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap(KEYPOINT_LIBRARY)
 
 type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
 
