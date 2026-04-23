@@ -509,22 +509,52 @@ Deno.serve(async (req) => {
       metrics_skipped: metricResults.filter((metric) => metric.status !== 'scored').length,
       metrics_total: metricResults.length,
     }
+    const poseQualityAudit = buildPoseQualityAudit(
+      personCountSummary,
+      logData.rtmlib?.keypoint_confidence,
+      metricResults,
+      scoreResult.aggregate_score,
+    )
+    if (logData.rtmlib) {
+      logData.rtmlib.person_detected = poseQualityAudit.personDetected
+      logData.rtmlib.average_keypoint_confidence = poseQualityAudit.averageKeypointConfidence
+      logData.rtmlib.reliable_frame_percentage = poseQualityAudit.reliableFramePercentage
+      logData.rtmlib.most_common_issue = poseQualityAudit.mostCommonIssue
+    }
 
     // STEP 10: Error auto-detection
     await setUploadProgress(upload.id, 'Checking for common route errors...')
     const errorResults = detectErrors(nodeConfig.common_errors, metricResults)
+    logData.error_detection = buildErrorDetectionLog(nodeConfig.common_errors, metricResults, errorResults)
 
     // STEP 11: Call Claude API
     await ensureNotCancelled(upload.id)
-    await setUploadProgress(upload.id, 'Generating coaching feedback...')
-    const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
-    const feedback = claudeResult.feedback
-    logData.claude_api = claudeResult.log
-    logData.error_detection = buildErrorDetectionLog(nodeConfig.common_errors, metricResults, errorResults)
-    logInfo('claude_feedback_received', {
-      uploadId,
-      feedbackLength: feedback.length,
-    })
+    let feedback = 'Pose confidence was too low to generate coaching feedback. Please try a clearer video — stand 10–15 yards away, film perpendicular to your route, and make sure your full body stays in frame.'
+    if (!poseQualityAudit.usableData) {
+      logData.claude_api = {
+        model: 'claude-sonnet-4-5',
+        status: 'SKIPPED',
+        skipped_reason: 'Pose confidence too low to generate reliable coaching feedback.',
+        target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+      }
+      logInfo('claude_skipped_low_confidence', {
+        uploadId,
+        aggregateScore: scoreResult.aggregate_score,
+        passedMetricCount: poseQualityAudit.passedMetricCount,
+        lowConfidenceMetricCount: poseQualityAudit.lowConfidenceMetricCount,
+        averageKeypointConfidence: poseQualityAudit.averageKeypointConfidence,
+        reliableFramePercentage: poseQualityAudit.reliableFramePercentage,
+      })
+    } else {
+      await setUploadProgress(upload.id, 'Generating coaching feedback...')
+      const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+      feedback = claudeResult.feedback
+      logData.claude_api = claudeResult.log
+      logInfo('claude_feedback_received', {
+        uploadId,
+        feedbackLength: feedback.length,
+      })
+    }
 
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
