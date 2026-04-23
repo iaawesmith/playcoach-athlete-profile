@@ -366,3 +366,51 @@ export interface PipelineAnalysisResult {
   errorMessage: string | null;
   log_data?: AnalysisLogData;
 }
+
+export type AdminHistoryDateRange = "today" | "last_7_days" | "all";
+
+export type AdminHistoryCalibrationFilter = "all" | "dynamic" | "body_based" | "static" | "none";
+
+export type AdminHistoryStatusFilter = "all" | "complete" | "failed";
+
+export type AdminHistorySortOption = "date_desc" | "date_asc" | "score_asc" | "score_desc" | "node_name_asc";
+
+export interface AdminHistoryCalibrationSummary {
+  source: string | null;
+  normalizedSource: Exclude<AdminHistoryCalibrationFilter, "all">;
+  confidence: number | string | null;
+  pixelsPerYard: number | null;
+  rawPixelValue: number | null;
+  details: Record<string, unknown> | null;
+}
+
+export interface AdminHistoryContextSnapshot {
+  athleteHeightText: string | null;
+  athleteWingspanText: string | null;
+  cameraAngle: string | null;
+  routeDirection: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AdminHistoryRecord {
+  uploadId: string;
+  resultId: string | null;
+  nodeId: string | null;
+  nodeName: string;
+  nodeVersion: number | null;
+  status: PipelineUploadStatus;
+  errorMessage: string | null;
+  uploadCreatedAt: string | null;
+  analyzedAt: string | null;
+  videoUrl: string | null;
+  videoIdentifier: string;
+  aggregateScore: number | null;
+  phaseScores: Record<string, number>;
+  phaseBreakdown: PipelinePhaseScore[];
+  metricResults: PipelineMetricResult[];
+  confidenceFlags: PipelineConfidenceFlag[];
+  detectedErrors: Array<Record<string, unknown>>;
+  feedback: string;
+  calibration: AdminHistoryCalibrationSummary | null;
+  analysisContext: AdminHistoryContextSnapshot;
+}
