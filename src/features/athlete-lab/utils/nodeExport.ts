@@ -184,7 +184,8 @@ function generateReference(node: TrainingNode): string {
   const rawFallback = node.reference_fallback_behavior ?? "pixel_warning";
   const fallbackLabel = fallbackMap[rawFallback] ?? rawFallback;
 
-  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\n`;
+  const camera = parseCameraSettings(node.camera_guidelines);
+  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\nGeneric Fallback Filming Instructions: ${node.reference_filming_instructions?.trim() || "Not configured"}\n`;
 
   for (const angle of ANGLES) {
     const cal = cals.find(c => c.camera_angle === angle.key);
@@ -230,7 +231,7 @@ function generateCamera(node: TrainingNode): string {
     }
   }
 
-  out += `\nSkill-Specific Filming Notes:\n${cam.skill_specific_filming_notes?.trim() || "Not configured"}\n\nGeneric Camera Fallback Instructions:\n${cam.camera_filming_instructions?.trim() || "Not configured"}`;
+  out += `\nAthlete Filming Instructions:\n${cam.camera_filming_instructions?.trim() || "Not configured"}`;
   return out;
 }
 
@@ -246,7 +247,7 @@ function generateCheckpoints(node: TrainingNode): string {
   let out = `## Checkpoints\n\nCount: ${cps.length} defined\nSegmentation Method: ${seg === "proportional" ? "Proportional" : "Checkpoint-triggered"}\n`;
   cps.forEach((cp, i) => {
     const phaseName = cp.phase_id ? (phases.find(p => p.id === cp.phase_id)?.name ?? "Unknown") : "Not assigned";
-    out += `\n### Checkpoint ${i + 1}: ${cp.name} (Priority ${cp.priority})\nPhase: ${phaseName}\nTransition Role: ${cp.phase_transition_role}\nTrigger Condition: ${cp.trigger_condition || "Not configured"}\nRequired Keypoints: ${cp.required_keypoint_indices.join(", ")} — ${kpNames(cp.required_keypoint_indices)}\nConfidence Threshold: ${cp.confidence_threshold}\n`;
+    out += `\n### Checkpoint ${i + 1}: ${cp.name} (Priority ${cp.priority})\nDescription: ${cp.description?.trim() || "Not configured"}\nPhase: ${phaseName}\nTransition Role: ${cp.phase_transition_role}\nTrigger Condition: ${cp.trigger_condition || "Not configured"}\nRequired Keypoints: ${cp.required_keypoint_indices.join(", ")} — ${kpNames(cp.required_keypoint_indices)}\nConfidence Threshold: ${cp.confidence_threshold}\n`;
   });
   return out;
 }
