@@ -1,5 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchAdminTestHistory,
+  filterAndSortAdminHistory,
+  type AdminHistoryFilters,
+} from "@/services/athleteLab";
+import type { AdminHistoryRecord, PipelineMetricResult } from "@/features/athlete-lab/types";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
 import { PipelineSetupTab } from "./PipelineSetupTab";
