@@ -239,6 +239,54 @@ function mapPhaseBreakdown(phaseScores: Record<string, number>, node: TrainingNo
   return [...configured, ...extras];
 }
 
+function normalizeUploadSnapshot(value: unknown): PipelineUploadSnapshot | null {
+  const record = parseRecord(value);
+  const id = typeof record.id === "string" ? record.id : "";
+  if (!id) return null;
+
+  return {
+    id,
+    status: (typeof record.status === "string" ? record.status : "pending") as PipelineUploadStatus,
+    error_message: typeof record.error_message === "string" ? record.error_message : null,
+    created_at: typeof record.created_at === "string" ? record.created_at : null,
+    video_url: typeof record.video_url === "string" ? record.video_url : null,
+    node_id: typeof record.node_id === "string" ? record.node_id : null,
+    node_version: typeof record.node_version === "number" && Number.isFinite(record.node_version) ? record.node_version : null,
+    camera_angle: typeof record.camera_angle === "string" ? record.camera_angle : null,
+    start_seconds: parseNumber(record.start_seconds),
+    end_seconds: parseNumber(record.end_seconds),
+    analysis_context: parseRecord(record.analysis_context),
+  };
+}
+
+function normalizePipelineResult(value: unknown, uploadId: string, node: TrainingNode): PipelineAnalysisResult | null {
+  const row = parseRecord(value);
+  const resultId = typeof row.id === "string" ? row.id : "";
+  if (!resultId) return null;
+
+  const phaseScores = Object.entries(parseRecord(row.phase_scores)).reduce<Record<string, number>>((acc, [key, rawValue]) => {
+    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      acc[key] = rawValue;
+    }
+    return acc;
+  }, {});
+
+  return {
+    uploadId,
+    resultId,
+    uploadStatus: "complete",
+    aggregateScore: parseNumber(row.aggregate_score),
+    phaseScores,
+    phaseBreakdown: mapPhaseBreakdown(phaseScores, node),
+    metricResults: parseMetricResults(row.metric_results),
+    confidenceFlags: Array.isArray(row.confidence_flags) ? row.confidence_flags as PipelineConfidenceFlag[] : [],
+    detectedErrors: Array.isArray(row.detected_errors) ? row.detected_errors as Array<Record<string, unknown>> : [],
+    feedback: typeof row.feedback === "string" ? row.feedback : "",
+    analyzedAt: typeof row.analyzed_at === "string" ? row.analyzed_at : null,
+    errorMessage: null,
+  };
+}
+
 async function uploadTestClip(file: File, node: TrainingNode): Promise<{ signedUrl: string; path: string }> {
   const path = buildTestClipPath(node.id, file.name);
   const formData = new FormData();
@@ -313,82 +361,46 @@ export async function submitRunAnalysisJob(input: RunAnalysisSubmissionInput): P
 }
 
 export async function fetchUploadStatus(uploadId: string): Promise<PipelineUploadSnapshot> {
-  const { data, error } = await supabase
-    .from("athlete_uploads")
-    .select("id, status, error_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
-    .eq("id", uploadId)
-    .single();
+  const { data, error } = await supabase.functions.invoke("admin-get-upload-status", {
+    body: { uploadId },
+  });
 
-  if (error || !data) {
-    throw new Error(error?.message || "Failed to load upload status.");
+  if (error) {
+    throw new Error(error.message || "Failed to load upload status.");
   }
 
-  return {
-    id: data.id,
-    status: (data.status ?? "pending") as PipelineUploadStatus,
-    error_message: data.error_message,
-    created_at: data.created_at,
-    video_url: data.video_url,
-    node_id: data.node_id,
-    node_version: data.node_version,
-    camera_angle: data.camera_angle,
-    start_seconds: data.start_seconds,
-    end_seconds: data.end_seconds,
-    analysis_context: parseRecord(data.analysis_context),
-  };
+  const record = parseRecord(data);
+  if (typeof record.error === "string" && record.error) {
+    throw new Error(record.error);
+  }
+
+  const upload = normalizeUploadSnapshot(record.upload);
+  if (!upload) {
+    throw new Error("Failed to load upload status.");
+  }
+
+  return upload;
 }
 
 async function fetchPipelineResult(uploadId: string, node: TrainingNode): Promise<PipelineAnalysisResult | null> {
-  const { data, error } = await supabase
-    .from("athlete_lab_results")
-    .select("id, upload_id, aggregate_score, phase_scores, metric_results, confidence_flags, detected_errors, feedback, analyzed_at")
-    .eq("upload_id", uploadId)
-    .maybeSingle();
+  const { data, error } = await supabase.functions.invoke("admin-get-pipeline-result", {
+    body: {
+      uploadId,
+      nodeId: node.id,
+      athleteId: FIXED_TEST_ATHLETE_ID,
+    },
+  });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const fallbackQuery = async () => {
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from("athlete_lab_results")
-      .select("id, upload_id, aggregate_score, phase_scores, metric_results, confidence_flags, detected_errors, feedback, analyzed_at")
-      .eq("athlete_id", FIXED_TEST_ATHLETE_ID)
-      .eq("node_id", node.id)
-      .order("analyzed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const record = parseRecord(data);
+  if (typeof record.error === "string" && record.error) {
+    throw new Error(record.error);
+  }
 
-    if (fallbackError) {
-      throw new Error(fallbackError.message);
-    }
-
-    return fallbackData;
-  };
-
-  const row = data ?? await fallbackQuery();
-  if (!row) return null;
-
-  const phaseScores = Object.entries(parseRecord(row.phase_scores)).reduce<Record<string, number>>((acc, [key, value]) => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      acc[key] = value;
-    }
-    return acc;
-  }, {});
-  return {
-    uploadId,
-    resultId: row.id ?? null,
-    uploadStatus: "complete",
-    aggregateScore: row.aggregate_score,
-    phaseScores,
-    phaseBreakdown: mapPhaseBreakdown(phaseScores, node),
-    metricResults: parseMetricResults(row.metric_results),
-    confidenceFlags: Array.isArray(row.confidence_flags) ? row.confidence_flags as Array<{ metric: string; reason: string }> : [],
-    detectedErrors: Array.isArray(row.detected_errors) ? row.detected_errors as Array<Record<string, unknown>> : [],
-    feedback: row.feedback ?? "",
-    analyzedAt: row.analyzed_at ?? null,
-    errorMessage: null,
-  };
+  return normalizePipelineResult(record.result, uploadId, node);
 }
 
 export async function pollRunAnalysisResult(
