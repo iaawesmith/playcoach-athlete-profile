@@ -99,7 +99,9 @@ def build_union_motion_bbox(boxes: Sequence[BoundingBox], frame_width: int, fram
     area_samples = [max(box.width * box.height, 1.0) for box in boxes]
     median_area = median(area_samples)
     union_area = clipped.width * clipped.height
-    unstable = union_area > (median_area * 5.5)
+    stable_area_samples = [area for area in area_samples if area <= (median_area * 2.4)]
+    minimum_consistent_frames = 2 if len(area_samples) <= 4 else 3
+    unstable = union_area > (median_area * 7.8) and len(stable_area_samples) >= minimum_consistent_frames
     return clipped, unstable
 
 
@@ -112,12 +114,15 @@ def estimate_motion_direction(boxes: Sequence[BoundingBox], frame_width: int, fr
     dy = ordered[-1].center_y - ordered[0].center_y
     normalized_dx = dx / max(frame_width, 1)
     normalized_dy = dy / max(frame_height, 1)
-    magnitude = min(1.0, (abs(normalized_dx) * 1.7) + (abs(normalized_dy) * 1.2))
+    short_clip_boost = 1.18 if len(ordered) <= 4 else 1.0
+    magnitude = min(1.0, ((abs(normalized_dx) * 1.9) + (abs(normalized_dy) * 1.35)) * short_clip_boost)
     horizontal = 'right' if dx > 0 else 'left' if dx < 0 else 'static'
     vertical = 'down' if dy > 0 else 'up' if dy < 0 else 'static'
-    if abs(normalized_dx) < 0.025:
+    horizontal_static_threshold = 0.015 if len(ordered) <= 4 else 0.02
+    vertical_static_threshold = 0.015 if len(ordered) <= 4 else 0.02
+    if abs(normalized_dx) < horizontal_static_threshold:
         horizontal = 'static'
-    if abs(normalized_dy) < 0.025:
+    if abs(normalized_dy) < vertical_static_threshold:
         vertical = 'static'
     return DirectionEstimate(horizontal=horizontal, vertical=vertical, confidence=magnitude, dx=dx, dy=dy)
 
@@ -274,8 +279,8 @@ def _apply_extremity_safety(
 ) -> tuple[dict[str, int], bool]:
     safe_crop = dict(crop_rect)
     safety_backoff = False
-    limb_margin_x = int(max(union_box.width * 0.18, frame_width * 0.035))
-    limb_margin_y = int(max(union_box.height * 0.20, frame_height * 0.04))
+    limb_margin_x = int(max(union_box.width * 0.14, frame_width * 0.028))
+    limb_margin_y = int(max(union_box.height * 0.155, frame_height * 0.032))
 
     desired_x1 = max(0, int(union_box.x - limb_margin_x))
     desired_y1 = max(0, int(union_box.y - limb_margin_y))
@@ -287,16 +292,21 @@ def _apply_extremity_safety(
     crop_x2 = safe_crop['x'] + safe_crop['width']
     crop_y2 = safe_crop['y'] + safe_crop['height']
 
-    if crop_x1 > desired_x1:
+    left_cut_ratio = max(0.0, (crop_x1 - desired_x1) / max(float(limb_margin_x), 1.0))
+    top_cut_ratio = max(0.0, (crop_y1 - desired_y1) / max(float(limb_margin_y), 1.0))
+    right_cut_ratio = max(0.0, (desired_x2 - crop_x2) / max(float(limb_margin_x), 1.0))
+    bottom_cut_ratio = max(0.0, (desired_y2 - crop_y2) / max(float(limb_margin_y), 1.0))
+
+    if left_cut_ratio > 0.15:
         crop_x1 = desired_x1
         safety_backoff = True
-    if crop_y1 > desired_y1:
+    if top_cut_ratio > 0.15:
         crop_y1 = desired_y1
         safety_backoff = True
-    if crop_x2 < desired_x2:
+    if right_cut_ratio > 0.15:
         crop_x2 = desired_x2
         safety_backoff = True
-    if crop_y2 < desired_y2:
+    if bottom_cut_ratio > 0.15:
         crop_y2 = desired_y2
         safety_backoff = True
 
@@ -340,7 +350,7 @@ def compute_auto_zoom_crop(
     person_confidence = sum(box.confidence for box in tracked_boxes) / len(tracked_boxes)
     union_box, unstable = build_union_motion_bbox(tracked_boxes, frame_width, frame_height)
     identity = build_coordinate_transform(None, (frame_width, frame_height), None)
-    if union_box is None or person_confidence < 0.35 or unstable:
+    if union_box is None or person_confidence < 0.28 or unstable:
         reason = 'auto_zoom_skipped_unstable_motion_envelope' if unstable else 'auto_zoom_skipped_low_person_confidence'
         return AutoZoomDecision(
             enabled=False,
