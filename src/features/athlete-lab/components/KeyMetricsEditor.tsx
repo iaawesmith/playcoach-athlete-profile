@@ -593,6 +593,13 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   const validation = getKeypointValidation(km.calculation_type, km.keypoint_indices.length);
   const leftIndices = useMemo(() => mapIndicesToSide(km.keypoint_indices, "left"), [km.keypoint_indices]);
   const rightIndices = useMemo(() => mapIndicesToSide(km.keypoint_indices, "right"), [km.keypoint_indices]);
+  const bilateralControlMode = (km.bilateral_override ?? "auto") === "force_left"
+    ? "force_left"
+    : (km.bilateral_override ?? "auto") === "force_right"
+      ? "force_right"
+      : (km.bilateral ?? "auto") === "auto"
+        ? "auto_confidence"
+        : "node_default";
 
   const confidenceColor = km.confidence_threshold >= 0.70
     ? "text-primary-container"
@@ -806,14 +813,33 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
           <span className={LABEL_CLASS}>Metric Bilateral Control</span>
           <SectionTooltip tip={TOOLTIPS.bilateralOverride} />
         </div>
-        <div className="grid gap-2 md:grid-cols-3">
-          {BILATERAL_OVERRIDE_OPTIONS.map(opt => {
-            const active = (km.bilateral_override ?? "auto") === opt.value;
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              value: "node_default",
+              label: "Node Default",
+              description: "Uses the metric's node-default side setting above.",
+              onClick: () => setKm({ ...km, bilateral_override: "auto" }),
+            },
+            {
+              value: "auto_confidence",
+              label: "Auto (confidence)",
+              description: "Uses route direction first, then confidence-based side choice.",
+              onClick: () => setKm({ ...km, bilateral: "auto", bilateral_override: "auto" }),
+            },
+            ...BILATERAL_OVERRIDE_OPTIONS.filter((opt) => opt.value !== "auto").map((opt) => ({
+              value: opt.value,
+              label: opt.label,
+              description: opt.description,
+              onClick: () => setKm({ ...km, bilateral_override: opt.value }),
+            })),
+          ].map(opt => {
+            const active = bilateralControlMode === opt.value;
             return (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setKm({ ...km, bilateral_override: opt.value })}
+                onClick={opt.onClick}
                 className={`rounded-xl border px-3 py-2 text-left transition-all ${
                   active
                     ? "bg-primary-container/20 text-primary-container border-primary-container/30"

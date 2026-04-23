@@ -333,6 +333,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               keypoint_indices: [],
               calculation_type: null,
               bilateral: "auto" as const,
+              bilateral_override: "auto" as const,
               confidence_threshold: 0.70,
               phase_id: null,
               ...m.keypoint_mapping,
