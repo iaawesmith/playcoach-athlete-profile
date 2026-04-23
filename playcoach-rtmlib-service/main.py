@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Sequence
 
+import importlib
+import inspect
 import logging
+import os
 
 import numpy as np
 from fastapi import FastAPI
@@ -25,6 +28,29 @@ from preprocessing import (
 
 logger = logging.getLogger('playcoach-rtmlib-service')
 app = FastAPI(title='playcoach-rtmlib-service')
+
+
+FRAME_LOADER_ENV = 'PLAYCOACH_FRAME_LOADER'
+PERSON_DETECTOR_ENV = 'PLAYCOACH_PERSON_DETECTOR'
+POSE_RUNNER_ENV = 'PLAYCOACH_POSE_RUNNER'
+FRAME_LOADER_CANDIDATES = (
+    ('service', ('load_frames', 'load_video_frames', 'frame_loader', 'load_frames_for_request')),
+    ('pipeline', ('load_frames', 'load_video_frames', 'frame_loader')),
+    ('runtime', ('load_frames', 'load_video_frames', 'frame_loader')),
+    ('video', ('load_frames', 'load_video_frames')),
+)
+PERSON_DETECTOR_CANDIDATES = (
+    ('service', ('person_detector', 'detect_people', 'detect_persons')),
+    ('pipeline', ('person_detector', 'detect_people')),
+    ('runtime', ('person_detector', 'detect_people')),
+    ('detector', ('person_detector', 'detect_people')),
+)
+POSE_RUNNER_CANDIDATES = (
+    ('service', ('pose_runner', 'run_pose', 'run_pose_inference')),
+    ('pipeline', ('pose_runner', 'run_pose', 'run_pose_inference')),
+    ('runtime', ('pose_runner', 'run_pose', 'run_pose_inference')),
+    ('pose', ('pose_runner', 'run_pose')),
+)
 
 
 class AnalyzeRequest(BaseModel):
@@ -178,6 +204,208 @@ def build_progress_updates(decision: AutoZoomDecision) -> list[dict[str, Any]]:
     return updates
 
 
+def _import_callable(reference: str) -> Callable[..., Any]:
+    module_name, _, attr_name = reference.partition(':')
+    if not module_name or not attr_name:
+        raise ValueError(f'Invalid backend reference: {reference}')
+    module = importlib.import_module(module_name)
+    candidate = getattr(module, attr_name, None)
+    if not callable(candidate):
+        raise ValueError(f'Backend reference is not callable: {reference}')
+    return candidate
+
+
+def _resolve_backend_callable(
+    label: str,
+    env_var: str,
+    candidates: Sequence[tuple[str, Sequence[str]]],
+) -> Callable[..., Any]:
+    reference = os.getenv(env_var)
+    if reference:
+        return _import_callable(reference)
+
+    for module_name, attr_names in candidates:
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError:
+            continue
+        for attr_name in attr_names:
+            candidate = getattr(module, attr_name, None)
+            if callable(candidate):
+                return candidate
+
+    raise RuntimeError(
+        f'Could not resolve the live {label}. '
+        f'Set {env_var}=module:function or expose one of the expected runtime callables.'
+    )
+
+
+def _invoke_with_request_context(func: Callable[..., Any], **context: Any) -> Any:
+    signature = inspect.signature(func)
+    positional_args: list[Any] = []
+    keyword_args: dict[str, Any] = {}
+
+    for parameter in signature.parameters.values():
+        if parameter.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            continue
+        if parameter.name in context:
+            if parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                positional_args.append(context[parameter.name])
+            else:
+                keyword_args[parameter.name] = context[parameter.name]
+            continue
+        if parameter.default is inspect._empty:
+            raise TypeError(f'Missing required argument {parameter.name} for {func.__name__}')
+
+    return func(*positional_args, **keyword_args)
+
+
+def _to_float_matrix(values: Any) -> list[list[float]]:
+    array = np.asarray(values, dtype=float)
+    if array.ndim == 0:
+        return [[float(array.item())]]
+    if array.ndim == 1:
+        return [[float(value) for value in array.tolist()]]
+    return [[float(value) for value in row] for row in array.tolist()]
+
+
+def _to_float_tensor(values: Any) -> list[list[list[float]]]:
+    array = np.asarray(values, dtype=float)
+    if array.ndim == 1:
+        return [[[float(value) for value in array.tolist()]]]
+    if array.ndim == 2:
+        return [[[float(value) for value in row] for row in array.tolist()]]
+    return [
+        [[float(value) for value in point] for point in frame]
+        for frame in array.tolist()
+    ]
+
+
+def _normalize_frame_loader_result(result: Any) -> tuple[list[np.ndarray], float]:
+    if isinstance(result, dict):
+        frames = result.get('frames')
+        fps = result.get('fps')
+    elif isinstance(result, tuple) and len(result) >= 2:
+        frames, fps = result[0], result[1]
+    else:
+        raise TypeError('Frame loader must return either (frames, fps) or a dict with frames/fps')
+
+    normalized_frames = [np.asarray(frame) for frame in frames or []]
+    return normalized_frames, float(fps or 0.0)
+
+
+def _normalize_detector_output(result: Any) -> list[dict[str, Any]]:
+    if result is None:
+        return []
+    detections = result if isinstance(result, Sequence) and not isinstance(result, (bytes, str, dict)) else [result]
+    normalized: list[dict[str, Any]] = []
+    for detection in detections:
+        if isinstance(detection, dict):
+            candidate = dict(detection)
+        elif hasattr(detection, '__dict__'):
+            candidate = vars(detection)
+        elif isinstance(detection, Sequence) and len(detection) >= 4:
+            candidate = {'bbox': list(detection[:4]), 'confidence': float(detection[4]) if len(detection) > 4 else 1.0, 'label': 'person'}
+        else:
+            continue
+
+        box = candidate.get('bbox') or candidate.get('box') or candidate.get('xyxy')
+        if box is None and {'x1', 'y1', 'x2', 'y2'}.issubset(candidate):
+            box = [candidate['x1'], candidate['y1'], candidate['x2'], candidate['y2']]
+            candidate['bbox'] = box
+        candidate.setdefault('confidence', candidate.get('score', 0.0))
+        candidate.setdefault('label', candidate.get('class', 'person'))
+        normalized.append(candidate)
+    return normalized
+
+
+def _normalize_pose_output(result: Any) -> tuple[list[list[list[float]]], list[list[float]]]:
+    keypoints: Any = None
+    scores: Any = None
+
+    if isinstance(result, tuple) and len(result) >= 2:
+        keypoints, scores = result[0], result[1]
+    elif isinstance(result, dict):
+        keypoints = result.get('keypoints') or result.get('poses') or result.get('points')
+        scores = result.get('scores') or result.get('confidences') or result.get('pose_scores')
+    else:
+        keypoints = getattr(result, 'keypoints', None)
+        scores = getattr(result, 'scores', None)
+
+    if keypoints is None:
+        raise TypeError('Pose runner did not return keypoints')
+
+    normalized_keypoints = _to_float_tensor(keypoints)
+    if scores is not None:
+        normalized_scores = _to_float_matrix(scores)
+        return normalized_keypoints, normalized_scores
+
+    derived_scores: list[list[float]] = []
+    for frame in normalized_keypoints:
+        derived_scores.append([float(point[2]) if len(point) > 2 else 0.0 for point in frame])
+    return normalized_keypoints, derived_scores
+
+
+def _build_frame_loader_adapter(frame_loader_impl: Callable[..., Any]) -> Callable[[AnalyzeRequest], tuple[list[np.ndarray], float]]:
+    def frame_loader(request: AnalyzeRequest) -> tuple[list[np.ndarray], float]:
+        result = _invoke_with_request_context(
+            frame_loader_impl,
+            request=request,
+            video_url=request.video_url,
+            start_seconds=request.start_seconds,
+            end_seconds=request.end_seconds,
+        )
+        return _normalize_frame_loader_result(result)
+
+    return frame_loader
+
+
+def _build_detector_adapter(detector_impl: Callable[..., Any]) -> Callable[[np.ndarray], Sequence[dict[str, Any]]]:
+    def detector(frame: np.ndarray) -> Sequence[dict[str, Any]]:
+        result = _invoke_with_request_context(detector_impl, frame=frame, image=frame)
+        return _normalize_detector_output(result)
+
+    return detector
+
+
+def _build_pose_runner_adapter(
+    pose_runner_impl: Callable[..., Any],
+) -> Callable[[Sequence[np.ndarray], AnalyzeRequest], tuple[list[list[list[float]]], list[list[float]]]]:
+    def pose_runner(
+        frames: Sequence[np.ndarray],
+        request: AnalyzeRequest,
+    ) -> tuple[list[list[list[float]]], list[list[float]]]:
+        result = _invoke_with_request_context(
+            pose_runner_impl,
+            frames=list(frames),
+            request=request,
+            solution_class=request.solution_class,
+            performance_mode=request.performance_mode,
+            det_frequency=request.det_frequency,
+            tracking_enabled=request.tracking_enabled,
+            start_seconds=request.start_seconds,
+            end_seconds=request.end_seconds,
+        )
+        return _normalize_pose_output(result)
+
+    return pose_runner
+
+
+def resolve_live_backends() -> tuple[
+    Callable[[AnalyzeRequest], tuple[list[np.ndarray], float]],
+    Callable[[np.ndarray], Sequence[dict[str, Any]]],
+    Callable[[Sequence[np.ndarray], AnalyzeRequest], tuple[list[list[list[float]]], list[list[float]]]],
+]:
+    frame_loader_impl = _resolve_backend_callable('frame loader', FRAME_LOADER_ENV, FRAME_LOADER_CANDIDATES)
+    detector_impl = _resolve_backend_callable('person detector', PERSON_DETECTOR_ENV, PERSON_DETECTOR_CANDIDATES)
+    pose_runner_impl = _resolve_backend_callable('pose runner', POSE_RUNNER_ENV, POSE_RUNNER_CANDIDATES)
+    return (
+        _build_frame_loader_adapter(frame_loader_impl),
+        _build_detector_adapter(detector_impl),
+        _build_pose_runner_adapter(pose_runner_impl),
+    )
+
+
 def analyze_clip_with_existing_backends(
     request: AnalyzeRequest,
     frame_loader: Callable[[AnalyzeRequest], tuple[list[np.ndarray], float]],
@@ -206,7 +434,6 @@ def analyze_clip_with_existing_backends(
 
 @app.post('/analyze', response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
-    raise RuntimeError(
-        'Wire analyze() to the existing frame loader, rtmlib person detector, and pose runner in the live playcoach-rtmlib-service. '
-        'The auto-zoom helpers in this file are ready to drop into that pipeline.'
-    )
+    frame_loader, detector, pose_runner = resolve_live_backends()
+    result = analyze_clip_with_existing_backends(request, frame_loader, detector, pose_runner)
+    return AnalyzeResponse(**result)
