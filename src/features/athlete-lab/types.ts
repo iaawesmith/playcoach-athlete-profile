@@ -298,6 +298,7 @@ export type PipelineUploadStatus = "pending" | "processing" | "complete" | "fail
 
 export type PipelineRunStage =
   | "idle"
+  | "preparing_video"
   | "uploading"
   | "queued"
   | "processing"
