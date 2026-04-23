@@ -2471,40 +2471,34 @@ function checkConfidence(
   }
 }
 
-function buildMirrorIndexMap(keypoints: KeypointLibraryEntry[]): Map<number, number> {
-  const bySignature = new Map<string, { left?: number; right?: number }>()
-
-  for (const keypoint of keypoints) {
-    const normalizedName = keypoint.name
-      .replace(/^Left\s+/i, '')
-      .replace(/^Right\s+/i, '')
-      .replace(/\s+Left$/i, '')
-      .replace(/\s+Right$/i, '')
-      .trim()
-    const signature = `${keypoint.group}:${keypoint.sub_group}:${normalizedName}`
-    const existing = bySignature.get(signature) || {}
-    if (keypoint.side === 'left') existing.left = keypoint.index
-    if (keypoint.side === 'right') existing.right = keypoint.index
-    bySignature.set(signature, existing)
-  }
+function buildMirrorIndexMap(): Map<number, number> {
+  const mirrorPairs: Array<[number, number]> = [
+    [1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14], [15, 16],
+    [17, 20], [18, 21], [19, 22],
+    [24, 35], [25, 34], [26, 33], [27, 32], [28, 31],
+    [36, 45], [37, 46], [38, 43], [39, 42], [40, 41],
+    [50, 52], [53, 62], [54, 61], [55, 60], [56, 59], [57, 64], [58, 63],
+    [65, 69], [66, 68], [73, 70], [74, 77], [75, 76], [80, 78],
+    [91, 112], [92, 113], [93, 114], [94, 115], [95, 116], [96, 117], [97, 118], [98, 119], [99, 120],
+    [100, 121], [101, 122], [102, 123], [103, 124], [104, 125], [105, 126], [106, 127], [107, 128],
+    [108, 129], [109, 130], [110, 131], [111, 132],
+  ]
 
   const mirrorMap = new Map<number, number>()
-  for (const pair of bySignature.values()) {
-    if (typeof pair.left === 'number' && typeof pair.right === 'number') {
-      mirrorMap.set(pair.left, pair.right)
-      mirrorMap.set(pair.right, pair.left)
-    }
+  for (const [leftIndex, rightIndex] of mirrorPairs) {
+    mirrorMap.set(leftIndex, rightIndex)
+    mirrorMap.set(rightIndex, leftIndex)
   }
   return mirrorMap
 }
 
 function mapIndicesToSide(indices: number[], side: BilateralSide): number[] {
   return indices.map((index) => {
-    const entry = KEYPOINT_BY_INDEX.get(index)
-    if (!entry) return index
-    if (entry.side === 'center') return index
-    if (entry.side === side) return index
-    return MIRROR_INDEX_BY_INDEX.get(index) ?? index
+    const mirrored = MIRROR_INDEX_BY_INDEX.get(index)
+    if (!mirrored) return index
+    const isLeftBase = index < mirrored
+    if (side === 'left') return isLeftBase ? index : mirrored
+    return isLeftBase ? mirrored : index
   })
 }
 
