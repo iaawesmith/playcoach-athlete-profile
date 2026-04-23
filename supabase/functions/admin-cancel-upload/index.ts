@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
   const { data: existing, error: existingError } = await supabase
     .from("athlete_uploads")
-    .select("id, athlete_id, status, error_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
+    .select("id, athlete_id, status, error_message, progress_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
     .eq("id", parsed.data.uploadId)
     .maybeSingle();
 
@@ -68,9 +68,9 @@ Deno.serve(async (req) => {
 
   const { data: updated, error: updateError } = await supabase
     .from("athlete_uploads")
-    .update({ status: "cancelled", error_message: null })
+    .update({ status: "cancelled", error_message: null, progress_message: "Analysis cancelled." })
     .eq("id", parsed.data.uploadId)
-    .select("id, status, error_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
+    .select("id, status, error_message, progress_message, created_at, video_url, node_id, node_version, camera_angle, start_seconds, end_seconds, analysis_context")
     .single();
 
   if (updateError) {
