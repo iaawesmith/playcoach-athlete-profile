@@ -1196,27 +1196,46 @@ function resolveCalibration(
   nodeConfig: any,
   cameraAngle: string,
 ): ResolvedCalibration {
-  const dynamicPixelsPerYard = getPixelsPerYardValue(cloudRunCalibration)
-  const dynamicConfidence = getCalibrationConfidenceLabel(cloudRunCalibration)
+  const dynamicAssessment = isDynamicCalibrationTrusted(cloudRunCalibration)
 
-  if (dynamicPixelsPerYard !== null && dynamicConfidence === 'dynamic') {
+  logInfo('dynamic_calibration_assessed', {
+    source: dynamicAssessment.sourceLabel,
+    confidence: dynamicAssessment.confidenceLabel,
+    pixelsPerYard: dynamicAssessment.pixelsPerYard,
+    goodLinePairs: dynamicAssessment.goodLinePairs,
+    accepted: dynamicAssessment.accepted,
+    reason: dynamicAssessment.reason,
+    rejectionReason: dynamicAssessment.rejectionReason,
+    message: dynamicAssessment.goodLinePairs !== null && dynamicAssessment.pixelsPerYard !== null
+      ? `Dynamic calibration: found ${dynamicAssessment.goodLinePairs} line pairs, calculated ${dynamicAssessment.pixelsPerYard.toFixed(2)} px/yard`
+      : 'Dynamic calibration diagnostics incomplete',
+    details: dynamicAssessment.details,
+  })
+
+  if (dynamicAssessment.accepted && dynamicAssessment.pixelsPerYard !== null) {
     const resolved = {
-      pixelsPerYard: dynamicPixelsPerYard,
+      pixelsPerYard: dynamicAssessment.pixelsPerYard,
       source: 'dynamic' as const,
-      confidence: 1,
-      reason: 'cloud_run_dynamic_calibration',
+      confidence: dynamicAssessment.goodLinePairs !== null
+        ? clamp(dynamicAssessment.goodLinePairs / 12, 0.65, 1)
+        : 1,
+      reason: dynamicAssessment.reason,
       details: {
-        pixelsPerYard: dynamicPixelsPerYard,
-        calibrationConfidence: dynamicConfidence,
+        pixelsPerYard: dynamicAssessment.pixelsPerYard,
+        calibrationConfidence: dynamicAssessment.confidenceLabel,
+        calibrationSource: dynamicAssessment.sourceLabel,
+        calibrationFlag: dynamicAssessment.calibrationFlag,
+        goodLinePairs: dynamicAssessment.goodLinePairs,
+        rejectionReason: dynamicAssessment.rejectionReason,
+        ...dynamicAssessment.details,
       },
     }
     logInfo('calibration_resolved', resolved)
+    logCalibrationSource(resolved)
     return resolved
   }
 
-  const dynamicFailureReason = dynamicPixelsPerYard === null
-    ? 'dynamic_pixels_per_yard_unavailable'
-    : `dynamic_confidence_${dynamicConfidence || 'missing'}`
+  const dynamicFailureReason = dynamicAssessment.reason
 
   if (athleteHeight) {
     logInfo('calibration_source_fallback', {
@@ -1234,10 +1253,13 @@ function resolveCalibration(
         reason: 'body_based_calibration_accepted',
         details: {
           method: bodyBasedCalibration.method,
+          pixelsPerYard: bodyBasedCalibration.pixelsPerYard,
+          dynamicFailureReason,
           ...bodyBasedCalibration.details,
         },
       }
       logInfo('calibration_resolved', resolved)
+      logCalibrationSource(resolved)
       return resolved
     }
 
@@ -1266,10 +1288,13 @@ function resolveCalibration(
       reason: 'node_reference_calibration',
       details: {
         cameraAngle,
+        pixelsPerYard: staticPixelsPerYard,
+        dynamicFailureReason,
         matchedCalibration: staticCalibration ?? {},
       },
     }
     logInfo('calibration_resolved', resolved)
+    logCalibrationSource(resolved)
     return resolved
   }
 
@@ -1288,10 +1313,12 @@ function resolveCalibration(
       dynamicFailureReason,
       athleteHeightProvided: Boolean(athleteHeight),
       staticCalibrationFound: Boolean(staticCalibration),
+      calibrationFlag: 'unreliable',
       cameraAngle,
     },
   }
   logInfo('calibration_resolved', resolved)
+  logCalibrationSource(resolved)
   return resolved
 }
 
