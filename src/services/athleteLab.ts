@@ -416,3 +416,219 @@ export async function pollRunAnalysisResult(
   options.onStageChange?.("timed_out", finalUpload);
   return { stage: "timed_out", upload: finalUpload, result: null };
 }
+
+function parseConfidenceFlags(value: unknown): PipelineConfidenceFlag[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((entry) => {
+    const record = parseRecord(entry);
+    const metric = typeof record.metric === "string" ? record.metric : "Unknown metric";
+    const reason = typeof record.reason === "string" ? record.reason : "No reason provided";
+    return [{ metric, reason, ...record }];
+  });
+}
+
+function parseDetectedErrors(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => parseRecord(entry));
+}
+
+function parsePhaseScores(value: unknown): Record<string, number> {
+  return Object.entries(parseRecord(value)).reduce<Record<string, number>>((acc, [key, raw]) => {
+    if (typeof raw === "number" && Number.isFinite(raw)) acc[key] = raw;
+    return acc;
+  }, {});
+}
+
+function formatMeasurement(value: unknown): string | null {
+  const record = parseRecord(value);
+  const numeric = parseNumber(record.value);
+  const unit = typeof record.unit === "string" ? record.unit : "";
+  if (numeric === null) return null;
+  return `${numeric}${unit ? ` ${unit}` : ""}`;
+}
+
+function formatContextField(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractVideoIdentifier(videoUrl: string | null, uploadId: string): string {
+  if (!videoUrl) return uploadId;
+
+  try {
+    const parsed = new URL(videoUrl);
+    const lastSegment = parsed.pathname.split("/").filter(Boolean).pop();
+    if (lastSegment) return decodeURIComponent(lastSegment);
+  } catch {
+    const fallbackSegment = videoUrl.split("/").filter(Boolean).pop();
+    if (fallbackSegment && !fallbackSegment.includes(":")) return decodeURIComponent(fallbackSegment);
+  }
+
+  if (videoUrl.length > 20) {
+    return `…${videoUrl.slice(-20)}`;
+  }
+
+  return videoUrl || uploadId;
+}
+
+function normalizeCalibrationSource(value: unknown): Exclude<AdminHistoryCalibrationFilter, "all"> {
+  if (typeof value !== "string") return "none";
+  const normalized = value.trim().toLowerCase().replace(/[-\s]+/g, "_");
+  if (normalized === "dynamic" || normalized === "body_based" || normalized === "static") {
+    return normalized;
+  }
+  return "none";
+}
+
+function getCalibrationSummary(metricResults: PipelineMetricResult[]): AdminHistoryCalibrationSummary | null {
+  for (const metric of metricResults) {
+    const detail = parseRecord(metric.detail);
+    const source = detail.calibrationSource ?? detail.calibration_source;
+    const confidence = detail.calibrationConfidence ?? detail.calibration_confidence;
+    const pixelsPerYard = parseNumber(detail.pixelsPerYard ?? detail.pixels_per_yard);
+    const rawPixelValue = parseNumber(detail.rawPixelValue ?? detail.raw_pixel_value ?? detail.pixelValue ?? detail.pixel_value);
+    const details = parseRecord(detail.calibrationDetails ?? detail.calibration_details);
+
+    if (typeof source === "string" || confidence !== undefined || pixelsPerYard !== null || Object.keys(details).length > 0) {
+      return {
+        source: typeof source === "string" ? source : null,
+        normalizedSource: normalizeCalibrationSource(source),
+        confidence: typeof confidence === "number" || typeof confidence === "string" ? confidence : null,
+        pixelsPerYard,
+        rawPixelValue,
+        details: Object.keys(details).length > 0 ? details : Object.keys(detail).length > 0 ? detail : null,
+      };
+    }
+  }
+
+  return null;
+}
+
+function normalizeHistoryRow(upload: UploadHistoryRow, result: ResultHistoryRow | null): AdminHistoryRecord {
+  const metricResults = parseMetricResults(result?.metric_results);
+  const phaseScores = parsePhaseScores(result?.phase_scores);
+  const context = parseRecord(upload.analysis_context);
+  const nodeName = upload.athlete_lab_nodes?.name?.trim() || "Unknown node";
+
+  return {
+    uploadId: upload.id,
+    resultId: result?.id ?? null,
+    nodeId: upload.node_id,
+    nodeName,
+    nodeVersion: upload.node_version,
+    status: (upload.status ?? "pending") as PipelineUploadStatus,
+    errorMessage: upload.error_message,
+    uploadCreatedAt: upload.created_at,
+    analyzedAt: result?.analyzed_at ?? null,
+    videoUrl: upload.video_url,
+    videoIdentifier: extractVideoIdentifier(upload.video_url, upload.id),
+    aggregateScore: result?.aggregate_score ?? null,
+    phaseScores,
+    phaseBreakdown: Object.entries(phaseScores).map(([id, score]) => ({ id, name: id, score: Math.round(score) })),
+    metricResults,
+    confidenceFlags: parseConfidenceFlags(result?.confidence_flags),
+    detectedErrors: parseDetectedErrors(result?.detected_errors),
+    feedback: result?.feedback ?? "",
+    calibration: getCalibrationSummary(metricResults),
+    analysisContext: {
+      athleteHeightText: formatMeasurement(context.athlete_height),
+      athleteWingspanText: formatMeasurement(context.athlete_wingspan),
+      cameraAngle: formatContextField(context.camera_angle) ?? formatContextField(upload.analysis_context && parseRecord(upload.analysis_context).camera_angle),
+      routeDirection: formatContextField(context.route_direction),
+      raw: context,
+    },
+  };
+}
+
+function diffMillis(a: string | null, b: string | null): number {
+  const aMs = a ? new Date(a).getTime() : Number.NaN;
+  const bMs = b ? new Date(b).getTime() : Number.NaN;
+  if (!Number.isFinite(aMs) || !Number.isFinite(bMs)) return Number.POSITIVE_INFINITY;
+  return Math.abs(aMs - bMs);
+}
+
+function resolveFallbackResult(upload: UploadHistoryRow, results: ResultHistoryRow[]): ResultHistoryRow | null {
+  if (!upload.node_id) return null;
+
+  const candidates = results.filter((result) => result.node_id === upload.node_id && result.athlete_id === FIXED_TEST_ATHLETE_ID);
+  if (candidates.length === 0) return null;
+
+  return candidates.sort((a, b) => diffMillis(a.analyzed_at, upload.created_at) - diffMillis(b.analyzed_at, upload.created_at))[0] ?? null;
+}
+
+export async function fetchAdminTestHistory(options: FetchAdminHistoryOptions = {}): Promise<AdminHistoryRecord[]> {
+  const limit = options.limit ?? ADMIN_HISTORY_LIMIT;
+  const { data: uploads, error: uploadError } = await supabase
+    .from("athlete_uploads")
+    .select("id, node_id, node_version, video_url, analysis_context, created_at, status, error_message, athlete_lab_nodes(name)")
+    .eq("athlete_id", FIXED_TEST_ATHLETE_ID)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (uploadError) throw uploadError;
+
+  const typedUploads = (uploads ?? []) as unknown as UploadHistoryRow[];
+  if (typedUploads.length === 0) return [];
+
+  const uploadIds = typedUploads.map((upload) => upload.id);
+  const nodeIds = Array.from(new Set(typedUploads.map((upload) => upload.node_id).filter((value): value is string => Boolean(value))));
+
+  const { data: linkedResults, error: linkedError } = await supabase
+    .from("athlete_lab_results")
+    .select("id, upload_id, node_id, athlete_id, aggregate_score, phase_scores, metric_results, confidence_flags, detected_errors, feedback, analyzed_at")
+    .in("upload_id", uploadIds);
+
+  if (linkedError) throw linkedError;
+
+  const { data: fallbackResults, error: fallbackError } = await supabase
+    .from("athlete_lab_results")
+    .select("id, upload_id, node_id, athlete_id, aggregate_score, phase_scores, metric_results, confidence_flags, detected_errors, feedback, analyzed_at")
+    .eq("athlete_id", FIXED_TEST_ATHLETE_ID)
+    .in("node_id", nodeIds)
+    .order("analyzed_at", { ascending: false })
+    .limit(limit * 3);
+
+  if (fallbackError) throw fallbackError;
+
+  const linkedByUpload = new Map<string, ResultHistoryRow>();
+  ((linkedResults ?? []) as unknown as ResultHistoryRow[]).forEach((row) => {
+    if (row.upload_id) linkedByUpload.set(row.upload_id, row);
+  });
+
+  const fallbackPool = (fallbackResults ?? []) as unknown as ResultHistoryRow[];
+  return typedUploads.map((upload) => normalizeHistoryRow(upload, linkedByUpload.get(upload.id) ?? resolveFallbackResult(upload, fallbackPool)));
+}
+
+export function filterAndSortAdminHistory(records: AdminHistoryRecord[], filters: AdminHistoryFilters): AdminHistoryRecord[] {
+  const now = Date.now();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const todayMs = startOfToday.getTime();
+  const last7DaysMs = now - 7 * 24 * 60 * 60 * 1000;
+
+  const filtered = records.filter((record) => {
+    if (filters.nodeId !== "all" && record.nodeId !== filters.nodeId) return false;
+    if (filters.status !== "all" && record.status !== filters.status) return false;
+    if (filters.calibrationSource !== "all" && (record.calibration?.normalizedSource ?? "none") !== filters.calibrationSource) return false;
+
+    const timestamp = record.analyzedAt ?? record.uploadCreatedAt;
+    const dateMs = timestamp ? new Date(timestamp).getTime() : Number.NaN;
+
+    if (filters.dateRange === "today" && (!Number.isFinite(dateMs) || dateMs < todayMs)) return false;
+    if (filters.dateRange === "last_7_days" && (!Number.isFinite(dateMs) || dateMs < last7DaysMs)) return false;
+
+    return true;
+  });
+
+  return filtered.sort((a, b) => {
+    if (filters.sort === "score_asc") return (a.aggregateScore ?? Number.POSITIVE_INFINITY) - (b.aggregateScore ?? Number.POSITIVE_INFINITY);
+    if (filters.sort === "score_desc") return (b.aggregateScore ?? Number.NEGATIVE_INFINITY) - (a.aggregateScore ?? Number.NEGATIVE_INFINITY);
+    if (filters.sort === "node_name_asc") return a.nodeName.localeCompare(b.nodeName);
+
+    const aDate = new Date(a.analyzedAt ?? a.uploadCreatedAt ?? 0).getTime();
+    const bDate = new Date(b.analyzedAt ?? b.uploadCreatedAt ?? 0).getTime();
+    return filters.sort === "date_asc" ? aDate - bDate : bDate - aDate;
+  });
+}
