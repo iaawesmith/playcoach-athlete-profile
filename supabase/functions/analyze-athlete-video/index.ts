@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import keypointLibrary from '../../../src/constants/keypointLibrary.json' with { type: 'json' }
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -103,15 +102,6 @@ type ConfidenceCheckResult = {
   diagnostics: ConfidenceDiagnostics
 }
 
-type KeypointLibraryEntry = {
-  index: number
-  name: string
-  group: string
-  sub_group: string
-  side: 'left' | 'right' | 'center' | string
-  football_use: string | null
-}
-
 type BilateralSide = 'left' | 'right'
 
 type BilateralDecisionSource = 'override' | 'fixed_bilateral' | 'route_direction' | 'confidence_auto'
@@ -133,12 +123,7 @@ type BilateralDecision = {
   rightAverageConfidence: number | null
 }
 
-const KEYPOINT_LIBRARY = (keypointLibrary as { keypoints: KeypointLibraryEntry[] }).keypoints
-const KEYPOINT_BY_INDEX = new Map<number, KeypointLibraryEntry>(
-  KEYPOINT_LIBRARY.map((entry) => [entry.index, entry])
-)
-
-const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap(KEYPOINT_LIBRARY)
+const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap()
 
 type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
 
