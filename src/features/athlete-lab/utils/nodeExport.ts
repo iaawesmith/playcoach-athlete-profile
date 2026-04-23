@@ -285,6 +285,25 @@ function generateBadges(node: TrainingNode): string {
   return out;
 }
 
+function generateKnowledgeBase(node: TrainingNode): string {
+  const knowledgeBase = node.knowledge_base ?? {};
+  const entries = Object.entries(knowledgeBase).filter(([, sections]) => Array.isArray(sections) && sections.length > 0);
+
+  if (entries.length === 0) {
+    return "## Admin Guidance / Knowledge Base\n\nNo tab guidance configured.";
+  }
+
+  let out = "## Admin Guidance / Knowledge Base\n";
+  for (const [tabKey, sections] of entries) {
+    out += `\n### ${tabKey.replace(/_/g, " ")}\n`;
+    sections.forEach((section, index) => {
+      out += `\n#### ${index + 1}. ${section.sectionTitle || "Untitled Section"}\n${section.content?.trim() || "Not configured"}\n`;
+    });
+  }
+
+  return out;
+}
+
 function generateTrainingStatus(node: TrainingNode): string {
   const metrics = node.key_metrics ?? [];
   const maxIdx = getMaxKeypointIndex(metrics);
@@ -386,10 +405,10 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
 
   const tabOrder: TabKey[] = ["basics", "videos", "overview", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges", "training_status"];
 
-  const sections = tabOrder.map(key => TAB_GENERATORS[key](node)).join("\n\n---\n\n");
+  const sections = [...tabOrder.map(key => TAB_GENERATORS[key](node)), generateKnowledgeBase(node)].join("\n\n---\n\n");
 
   const fullText = `${readiness}\n\n---\n\n${sections}`;
   const wordCount = fullText.split(/\s+/).length;
 
-  return `# AthleteLab Node — Full Configuration Export\n# Node: ${node.name}\n# Status: ${node.status === "live" ? "Live" : "Draft"}\n# Version: ${node.node_version ?? 1}\n# Solution Class: ${node.solution_class || "Not configured"}\n# Copied: ${ts()}\n# Approximate word count: ${wordCount} words\n\n---\n\n${fullText}`;
+  return `# AthleteLab Node — Full Configuration Export\n# Node: ${node.name}\n# Status: ${node.status === "live" ? "Live" : "Draft"}\n# Version: ${node.node_version ?? 1}\n# Solution Class: ${node.solution_class || "Not configured"}\n# Includes tab exports plus admin guidance / knowledge base\n# Copied: ${ts()}\n# Approximate word count: ${wordCount} words\n\n---\n\n${fullText}`;
 }
