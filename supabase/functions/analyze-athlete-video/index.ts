@@ -260,6 +260,24 @@ type PipelineLogData = {
       percent_below: number
       status: 'RELIABLE' | 'MARGINAL' | 'UNRELIABLE'
     }>
+    auto_zoom_applied?: boolean
+    auto_zoom_reason?: string
+    auto_zoom_factor?: number
+    auto_zoom_final_fill_ratio?: number
+    auto_zoom_crop_rect?: JsonRecord
+    auto_zoom_padding?: JsonRecord
+    movement_direction?: string
+    movement_confidence?: number
+    person_detection_confidence?: number
+    safety_backoff_applied?: boolean
+    athlete_framing_message?: string
+    mean_keypoint_confidence_before_auto_zoom?: number
+    mean_keypoint_confidence_after_auto_zoom?: number
+    calibration_confidence?: string
+    calibration_details?: JsonRecord
+    calibration_flag?: string
+    rejection_reason?: string
+    good_line_pairs?: number
   }
   metrics?: Array<{
     name: string
