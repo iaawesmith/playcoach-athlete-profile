@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Public admin test uploads can view athlete video test clips metadata" ON storage.objects;
+DROP POLICY IF EXISTS "Public admin test uploads can replace athlete video test clips" ON storage.objects;
