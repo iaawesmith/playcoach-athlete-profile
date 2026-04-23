@@ -315,7 +315,12 @@ async function fetchPipelineResult(uploadId: string, node: TrainingNode): Promis
   const row = data ?? await fallbackQuery();
   if (!row) return null;
 
-  const phaseScores = parseRecord(row.phase_scores) as Record<string, number>;
+  const phaseScores = Object.entries(parseRecord(row.phase_scores)).reduce<Record<string, number>>((acc, [key, value]) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
   return {
     uploadId,
     resultId: row.id ?? null,
