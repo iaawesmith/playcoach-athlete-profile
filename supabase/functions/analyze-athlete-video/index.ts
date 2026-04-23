@@ -880,10 +880,12 @@ function resolveBreakPhaseDetFrequency(phaseBreakdown: unknown): number | null {
 
   if (!breakPhase) return null
 
-  return clampDetFrequency(
+  const overrideValue = clampDetFrequency(
     breakPhase.det_frequency ?? breakPhase.detection_frequency,
-    NaN,
+    Number.NaN,
   )
+
+  return Number.isFinite(overrideValue) ? overrideValue : null
 }
 
 function resolveDetectionFrequency(nodeConfig: any, context: JsonRecord): {
