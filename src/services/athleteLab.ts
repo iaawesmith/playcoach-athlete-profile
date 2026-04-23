@@ -535,10 +535,11 @@ export async function submitRunAnalysisJob(
 
   let signedVideoUrl = externalVideoUrl?.trim() ?? "";
   let storagePath: string | null = null;
+  let preparationNote: string | undefined;
 
   if (uploadedFile) {
     const prepared = await prepareVideoForUpload(uploadedFile, options);
-    const preparationNote = prepared.note;
+    preparationNote = prepared.note;
 
     ensureNotAborted(options.signal);
     emitProgress(options, "uploading", "Uploading video...");
@@ -580,7 +581,7 @@ export async function submitRunAnalysisJob(
   const upload = await fetchUploadStatus(uploadId);
   options.onProgressMessage?.("");
   options.onStageChange?.(upload.status === "pending" ? "queued" : "processing");
-    return { uploadId, upload, videoUrl: signedVideoUrl, storagePath, preparationNote };
+  return { uploadId, upload, videoUrl: signedVideoUrl, storagePath, preparationNote };
 }
 
 export async function fetchUploadStatus(uploadId: string): Promise<PipelineUploadSnapshot> {
