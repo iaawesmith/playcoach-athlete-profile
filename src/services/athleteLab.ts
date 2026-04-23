@@ -86,7 +86,7 @@ export async function setNodeStatus(id: string, status: NodeStatus): Promise<Tra
 export interface AnalysisContext {
   camera_angle: string;
   people_in_video: string;
-  route_direction: string;
+  route_direction?: string;
   catch_included: boolean;
   catch_status: string;
   athlete_level: string;

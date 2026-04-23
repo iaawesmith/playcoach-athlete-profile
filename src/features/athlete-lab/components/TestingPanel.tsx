@@ -21,7 +21,7 @@ interface TestingPanelProps {
 
 type CameraAngleOption = "sideline" | "behind_qb" | "endzone" | "other";
 type PeopleOption = "solo" | "with_defender" | "multiple";
-type RouteDirectionOption = "left" | "right" | "both";
+type BreakDirectionOption = "left" | "right" | "both" | "straight";
 type CatchOption = "yes" | "no" | "partial";
 type AthleteLevelOption = "youth" | "high_school" | "college" | "professional";
 type MeasurementUnit = "inches" | "cm";
@@ -153,7 +153,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [contextEnabled, setContextEnabled] = useState(true);
   const [cameraAngle, setCameraAngle] = useState<CameraAngleOption>("sideline");
   const [peopleInVideo, setPeopleInVideo] = useState<PeopleOption>("solo");
-  const [routeDirection, setRouteDirection] = useState<RouteDirectionOption>("left");
+  const [breakDirection, setBreakDirection] = useState<BreakDirectionOption>("left");
   const [catchStatus, setCatchStatus] = useState<CatchOption>("yes");
   const [athleteLevel, setAthleteLevel] = useState<AthleteLevelOption>("high_school");
   const [focusArea, setFocusArea] = useState("");
@@ -181,6 +181,11 @@ export function TestingPanel({ node }: TestingPanelProps) {
     }
   };
 
+  const buildRouteDirectionPayload = (value: BreakDirectionOption): Pick<AnalysisContext, "route_direction"> | Record<string, never> => {
+    if (value === "straight") return {};
+    return { route_direction: value };
+  };
+
   const buildContext = (): AnalysisContext & Record<string, unknown> => {
     const parsedHeight = athleteHeight.trim() ? Number(athleteHeight) : Number.NaN;
     const parsedWingspan = athleteWingspan.trim() ? Number(athleteWingspan) : Number.NaN;
@@ -188,7 +193,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     return {
       camera_angle: cameraAngle,
       people_in_video: peopleInVideo,
-      route_direction: routeDirection,
+      ...buildRouteDirectionPayload(breakDirection),
       catch_included: catchStatus !== "no",
       catch_status: catchStatus,
       athlete_level: athleteLevel,
@@ -257,7 +262,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         analysisContext: contextEnabled ? buildContext() : {
           camera_angle: cameraAngle,
           people_in_video: peopleInVideo,
-          route_direction: routeDirection,
+          ...buildRouteDirectionPayload(breakDirection),
           catch_included: catchStatus !== "no",
           catch_status: catchStatus,
           athlete_level: athleteLevel,
@@ -305,11 +310,16 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const copyContext = () => {
     const cameraLabel: Record<CameraAngleOption, string> = { sideline: "Sideline", behind_qb: "Behind QB", endzone: "Endzone", other: "Other" };
     const peopleLabel: Record<PeopleOption, string> = { solo: "Just Me", with_defender: "Me + Defender", multiple: "Multiple People" };
-    const routeLabel: Record<RouteDirectionOption, string> = { left: "Left", right: "Right", both: "Both" };
+    const breakLabel: Record<BreakDirectionOption, string> = {
+      left: "Athlete Breaks Left",
+      right: "Athlete Breaks Right",
+      both: "Both Directions",
+      straight: "No Break / Straight Route",
+    };
     const catchLabel: Record<CatchOption, string> = { yes: "Yes", no: "No", partial: "Partial" };
     const levelLabel: Record<AthleteLevelOption, string> = { youth: "Youth (Under 14)", high_school: "High School", college: "College", professional: "Professional" };
 
-    const text = `# Analysis Context\nCamera Angle: ${cameraLabel[cameraAngle]}\nPeople in Video: ${peopleLabel[peopleInVideo]}\nRoute Direction: ${routeLabel[routeDirection]}\nCatch Included: ${catchLabel[catchStatus]}\nAthlete Level: ${levelLabel[athleteLevel]}\nAthlete Height: ${athleteHeight.trim() ? `${athleteHeight.trim()} ${athleteHeightUnit}` : "Not provided"}\nAthlete Wingspan: ${athleteWingspan.trim() ? `${athleteWingspan.trim()} ${athleteWingspanUnit}` : "Not provided"}\nEnd Seconds: ${endSeconds.trim() || node.clip_duration_max}\nFocus Area: ${focusArea.trim() || "Not specified"}\nPerformance Description: ${videoDesc.trim() || "Not specified"}`;
+    const text = `# Analysis Context\nCamera Angle: ${cameraLabel[cameraAngle]}\nPeople in Video: ${peopleLabel[peopleInVideo]}\nBreak Direction: ${breakLabel[breakDirection]}\nCatch Included: ${catchLabel[catchStatus]}\nAthlete Level: ${levelLabel[athleteLevel]}\nAthlete Height: ${athleteHeight.trim() ? `${athleteHeight.trim()} ${athleteHeightUnit}` : "Not provided"}\nAthlete Wingspan: ${athleteWingspan.trim() ? `${athleteWingspan.trim()} ${athleteWingspanUnit}` : "Not provided"}\nEnd Seconds: ${endSeconds.trim() || node.clip_duration_max}\nFocus Area: ${focusArea.trim() || "Not specified"}\nPerformance Description: ${videoDesc.trim() || "Not specified"}`;
     navigator.clipboard.writeText(text);
     setContextCopied(true);
     setTimeout(() => setContextCopied(false), 1500);
@@ -372,13 +382,14 @@ export function TestingPanel({ node }: TestingPanelProps) {
             </div>
 
             <div>
-              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Route Direction</label>
-              <RadioPills value={routeDirection} onChange={(v) => setRouteDirection(v as RouteDirectionOption)} options={[
-                { value: "left", label: "Left" },
-                { value: "right", label: "Right" },
-                { value: "both", label: "Both" },
+              <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Break Direction</label>
+              <RadioPills value={breakDirection} onChange={(v) => setBreakDirection(v as BreakDirectionOption)} options={[
+                { value: "left", label: "Athlete Breaks Left" },
+                { value: "right", label: "Athlete Breaks Right" },
+                { value: "straight", label: "No Break / Straight Route" },
+                { value: "both", label: "Both Directions" },
               ]} />
-              <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Used by bilateral keypoint override during metric calculation.</p>
+              <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Indicates the direction the athlete cuts at the break point. For routes with a break, this determines which foot plants (outside foot) and which side&apos;s keypoints are measured. For straight routes with no break, select &quot;No Break / Straight Route.&quot;</p>
             </div>
 
             <div>
