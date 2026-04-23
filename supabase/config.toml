@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.admin-test-upload]
 verify_jwt = false
+
+[functions.admin-get-upload-status]
+verify_jwt = false
+
+[functions.admin-get-pipeline-result]
+verify_jwt = false
