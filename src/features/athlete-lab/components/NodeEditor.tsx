@@ -75,6 +75,10 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
 /* Critical tabs that auto-draft when changed on a live node */
 const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt", "training_status"];
 
+/* Tabs hidden by default — re-enabled with the Show Advanced Tabs toggle */
+const ADVANCED_TAB_KEYS: TabKey[] = ["mechanics", "errors", "checkpoints", "reference", "scoring"];
+const ADVANCED_TABS_STORAGE_KEY = "athleteLab.showAdvancedTabs";
+
 /* ── Shared style constants ── */
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
 const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
@@ -94,17 +98,20 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "Videos", detail: "At least 1 reference video is required" });
   }
 
-  // At least 4 metrics and weights sum to 100
-  if (node.key_metrics.length < 4) {
-    issues.push({ label: "Metrics", detail: `At least 4 metrics required (currently ${node.key_metrics.length})` });
+  // Active-only metric checks (inactive metrics are preserved but excluded from scoring)
+  const activeMetrics = (node.key_metrics ?? []).filter((m) => m.active !== false);
+
+  // At least 4 active metrics and active weights sum to 100
+  if (activeMetrics.length < 4) {
+    issues.push({ label: "Metrics", detail: `At least 4 active metrics required (currently ${activeMetrics.length})` });
   }
-  const totalWeight = node.key_metrics.reduce((s, m) => s + m.weight, 0);
+  const totalWeight = activeMetrics.reduce((s, m) => s + m.weight, 0);
   if (totalWeight !== 100) {
-    issues.push({ label: "Metrics", detail: `Metric weights must add up to 100% (currently ${totalWeight}%)` });
+    issues.push({ label: "Metrics", detail: `Active metric weights must add up to 100% (currently ${totalWeight}%)` });
   }
 
-  // Keypoint mapping completeness for each metric
-  for (const m of node.key_metrics) {
+  // Keypoint mapping completeness for each active metric
+  for (const m of activeMetrics) {
     const km = m.keypoint_mapping;
     if (!km || !km.calculation_type) {
       issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: missing keypoint mapping` });
@@ -151,9 +158,9 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
   if (!node.solution_class || node.solution_class.trim().length === 0) {
     issues.push({ label: "Training Status", detail: "Solution class not configured" });
   } else {
-    // Check solution class supports all keypoint indices
+    // Check solution class supports all keypoint indices (active metrics only)
     const sc = node.solution_class;
-    for (const m of node.key_metrics) {
+    for (const m of activeMetrics) {
       const indices = m.keypoint_mapping?.keypoint_indices ?? [];
       if (sc === "body" && indices.some(i => i >= 17)) {
         const needsFeet = indices.some(i => i >= 17 && i <= 22);
@@ -299,6 +306,113 @@ function StatusModal({ mode, blockingItems, onConfirm, onCancel, toggling }: {
   );
 }
 
+/* ── Active-only Metrics Section ──
+ * Shows only metrics with active !== false in the editor. Inactive metrics
+ * are listed below in a collapsible "Hidden metrics" row with a Reactivate
+ * button. Saves merge active edits + untouched inactive entries back into a
+ * single key_metrics array (preserving original ordering of inactive items).
+ */
+function ActiveMetricsSection({
+  allMetrics,
+  onChange,
+  onConfirmDelete,
+  phases,
+}: {
+  allMetrics: KeyMetric[];
+  onChange: (m: KeyMetric[]) => void;
+  onConfirmDelete: (opts: { title: string; body: string; confirmLabel: string; onConfirm: () => void }) => void;
+  phases: PhaseNote[];
+}) {
+  const [showHidden, setShowHidden] = useState(false);
+
+  const activeIndices: number[] = [];
+  const inactiveIndices: number[] = [];
+  allMetrics.forEach((m, i) => {
+    if (m.active === false) inactiveIndices.push(i);
+    else activeIndices.push(i);
+  });
+
+  const activeMetrics = activeIndices.map((i) => allMetrics[i]);
+  const inactiveMetrics = inactiveIndices.map((i) => allMetrics[i]);
+
+  const handleActiveChange = (next: KeyMetric[]) => {
+    // Preserve inactive entries in their original positions; replace active
+    // slots with the edited list (in order). New metrics added past the
+    // original active count are appended.
+    const merged: KeyMetric[] = [];
+    let activeCursor = 0;
+    const inactiveSet = new Set(inactiveIndices);
+    for (let i = 0; i < allMetrics.length; i++) {
+      if (inactiveSet.has(i)) {
+        merged.push(allMetrics[i]);
+      } else if (activeCursor < next.length) {
+        merged.push({ ...next[activeCursor], active: true });
+        activeCursor++;
+      }
+    }
+    while (activeCursor < next.length) {
+      merged.push({ ...next[activeCursor], active: true });
+      activeCursor++;
+    }
+    onChange(merged);
+  };
+
+  const reactivate = (originalIndex: number) => {
+    const next = allMetrics.map((m, i) => (i === originalIndex ? { ...m, active: true } : m));
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-6">
+      <KeyMetricsEditor
+        metrics={activeMetrics}
+        onChange={handleActiveChange}
+        onConfirmDelete={onConfirmDelete}
+        phases={phases}
+      />
+
+      {inactiveMetrics.length > 0 && (
+        <div className="rounded-xl border border-outline-variant/15 overflow-hidden" style={{ backgroundColor: '#131920' }}>
+          <button
+            onClick={() => setShowHidden((v) => !v)}
+            className="w-full px-4 py-3 flex items-center justify-between text-on-surface-variant text-[10px] font-semibold uppercase tracking-[0.15em] hover:text-on-surface transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>visibility_off</span>
+              Hidden metrics ({inactiveMetrics.length})
+            </span>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, transform: showHidden ? "rotate(180deg)" : undefined, transition: "transform 0.2s" }}>expand_more</span>
+          </button>
+          {showHidden && (
+            <div className="px-4 pb-4 space-y-2">
+              <p className="text-on-surface-variant/60 text-[11px] leading-snug">
+                These metrics are preserved in storage but excluded from scoring and the editor. Reactivate to bring them back.
+              </p>
+              {inactiveMetrics.map((m, idx) => {
+                const originalIndex = inactiveIndices[idx];
+                return (
+                  <div key={originalIndex} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#1A2029' }}>
+                    <span className="text-on-surface-variant/40 text-[10px] font-mono w-4 text-center shrink-0">{originalIndex + 1}</span>
+                    <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{m.name || "Untitled Metric"}</p>
+                    <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{m.unit}</span>
+                    <span className="text-on-surface-variant/40 text-[10px] font-medium shrink-0">{m.weight}%</span>
+                    <button
+                      onClick={() => reactivate(originalIndex)}
+                      className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border border-primary-container/30 text-primary-container hover:bg-primary-container/10 active:scale-95 transition-all shrink-0"
+                    >
+                      Reactivate
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
   const [draft, setDraft] = useState<TrainingNode>(node);
@@ -310,7 +424,26 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ title: string; body: string; confirmLabel: string; onConfirm: () => void } | null>(null);
+  const [showAdvancedTabs, setShowAdvancedTabs] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
+  });
   const criticalChanged = useRef(false);
+
+  /* Persist advanced-tabs preference + auto-bounce off hidden tabs when toggled off */
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ADVANCED_TABS_STORAGE_KEY, showAdvancedTabs ? "true" : "false");
+    }
+    if (!showAdvancedTabs && ADVANCED_TAB_KEYS.includes(tab)) {
+      setTab("basics");
+    }
+  }, [showAdvancedTabs, tab]);
+
+  const visibleTabs = useMemo(
+    () => (showAdvancedTabs ? TABS : TABS.filter((t) => !ADVANCED_TAB_KEYS.includes(t.key))),
+    [showAdvancedTabs]
+  );
 
   useEffect(() => {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults
@@ -485,6 +618,18 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             <span className="material-symbols-outlined" style={{ fontSize: 12 }}>expand_more</span>
           </button>
           <button
+            onClick={() => setShowAdvancedTabs((v) => !v)}
+            title={showAdvancedTabs ? "Hide advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)" : "Show advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border cursor-pointer hover:brightness-110 active:scale-95 transition-all ${
+              showAdvancedTabs
+                ? "border-primary-container/30 bg-primary-container/10 text-primary-container"
+                : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
+            }`}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>tune</span>
+            Advanced Tabs
+          </button>
+          <button
             onClick={save}
             disabled={saving || !dirty}
             className="h-10 px-6 rounded-full kinetic-gradient text-[#00460a] font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2"
@@ -511,7 +656,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
       {/* ── Tab row ── */}
       <div className="px-6 pt-3 pb-2 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 border-b border-outline-variant/10" style={{ backgroundColor: '#131920' }}>
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <div key={t.key} className="flex items-center gap-0 shrink-0">
             <button
               onClick={() => setTab(t.key)}
@@ -730,7 +875,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "metrics" && (
-          <KeyMetricsEditor metrics={draft.key_metrics} onChange={(m) => updateWithCriticalTrack("key_metrics", m)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} />
+          <ActiveMetricsSection
+            allMetrics={draft.key_metrics}
+            onChange={(m) => updateWithCriticalTrack("key_metrics", m)}
+            onConfirmDelete={(opts) => setConfirmModal(opts)}
+            phases={draft.phase_breakdown}
+          />
         )}
 
         {tab === "scoring" && (

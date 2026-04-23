@@ -252,10 +252,23 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
                     </span>
                   )}
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <button onClick={() => startEdit(i)} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <button onClick={() => startEdit(i)} title="Edit metric" className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" style={{ backgroundColor: '#111720' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
                     </button>
-                    <button onClick={() => onConfirmDelete({ title: "Delete Metric?", body: `Deleting Metric ${i + 1}${m.name ? ` (${m.name})` : ""} will remove it from the scoring pipeline. This cannot be undone.`, confirmLabel: "Delete Metric", onConfirm: () => { onChange(metrics.filter((_, j) => j !== i)); setEditIdx(null); } })} className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
+                    <button
+                      onClick={() => {
+                        const next = [...metrics];
+                        next[i] = { ...next[i], active: false };
+                        onChange(next);
+                        setEditIdx(null);
+                      }}
+                      title="Deactivate (preserved in storage, excluded from scoring)"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-amber-400 transition-colors"
+                      style={{ backgroundColor: '#111720' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>visibility_off</span>
+                    </button>
+                    <button onClick={() => onConfirmDelete({ title: "Delete Metric?", body: `Deleting Metric ${i + 1}${m.name ? ` (${m.name})` : ""} will remove it from the scoring pipeline. This cannot be undone.`, confirmLabel: "Delete Metric", onConfirm: () => { onChange(metrics.filter((_, j) => j !== i)); setEditIdx(null); } })} title="Delete metric" className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-red-400 transition-colors" style={{ backgroundColor: '#111720' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
                     </button>
                   </div>

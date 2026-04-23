@@ -2074,7 +2074,10 @@ async function calculateAllMetrics(
 ) {
   const results: any[] = []
 
-  for (const metric of metrics) {
+  // Filter out metrics flagged as inactive (preserved in storage, excluded from scoring)
+  const activeMetrics = (metrics ?? []).filter((m: any) => m?.active !== false)
+
+  for (const metric of activeMetrics) {
     const mapping = metric.keypoint_mapping
     const metricContext = {
       uploadId,
