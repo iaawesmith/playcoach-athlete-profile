@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import {
   type AnalysisContext,
+  cancelRunAnalysis,
   pollRunAnalysisResult,
   submitRunAnalysisJob,
 } from "@/services/athleteLab";
@@ -35,6 +36,7 @@ const STAGE_LABELS: Record<PipelineRunStage, string> = {
   processing: "Running production pipeline",
   fetching_results: "Fetching results",
   complete: "Complete",
+  cancelled: "Cancelled",
   failed: "Pipeline failed",
   timed_out: "Polling timed out",
 };
@@ -46,6 +48,7 @@ const STAGE_ICONS: Record<PipelineRunStage, string> = {
   processing: "bolt",
   fetching_results: "database",
   complete: "check_circle",
+  cancelled: "block",
   failed: "error",
   timed_out: "hourglass_top",
 };
@@ -163,6 +166,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [athleteWingspanUnit, setAthleteWingspanUnit] = useState<MeasurementUnit>("inches");
   const [endSeconds, setEndSeconds] = useState(node.clip_duration_max.toString());
   const [contextCopied, setContextCopied] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const isRunning = ["uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
@@ -238,6 +242,24 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setRunStage("idle");
   };
 
+  const handleCancel = async () => {
+    if (!activeUpload || isCancelling) return;
+
+    setIsCancelling(true);
+    setError(null);
+
+    try {
+      const cancelledUpload = await cancelRunAnalysis(activeUpload.id);
+      setActiveUpload(cancelledUpload);
+      setResult(null);
+      setRunStage("cancelled");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   const handleRun = async () => {
     if (!hasInput || isRunning) return;
 
@@ -276,6 +298,12 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
       const polled = await pollRunAnalysisResult(submission.uploadId, node, {
         onStageChange: (stage, upload) => {
+          if (stage === "cancelled") {
+            setRunStage("cancelled");
+            if (upload) setActiveUpload(upload);
+            return;
+          }
+
           setRunStage(stage);
           if (upload) setActiveUpload(upload);
         },
@@ -290,6 +318,12 @@ export function TestingPanel({ node }: TestingPanelProps) {
           errorMessage: polled.upload.error_message,
         });
         setRunStage("complete");
+        return;
+      }
+
+      if (polled.stage === "cancelled") {
+        setRunStage("cancelled");
+        setError(null);
         return;
       }
 
@@ -327,6 +361,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
   const statusTone = runStage === "complete"
     ? "text-primary"
+    : runStage === "cancelled"
+      ? "text-on-surface-variant"
     : runStage === "timed_out"
       ? "text-yellow-300"
       : runStage === "failed"
@@ -584,18 +620,36 @@ export function TestingPanel({ node }: TestingPanelProps) {
           {runStage === "timed_out" && (
             <p className="mt-3 text-xs text-yellow-200">Polling gave up after 240 seconds. This does not mean the pipeline failed — the job may still complete and appear in results later.</p>
           )}
+          {runStage === "cancelled" && (
+            <p className="mt-3 text-xs text-on-surface-variant">This run was cancelled before completion. No final analysis results will be written for this upload.</p>
+          )}
         </div>
 
-        <button
-          onClick={handleRun}
-          disabled={!hasInput || isRunning}
-          className="flex h-11 items-center gap-2 rounded-full kinetic-gradient px-8 text-xs font-black uppercase tracking-[0.2em] text-primary-foreground transition-all duration-150 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-        >
-          <span className={cn("material-symbols-outlined", isRunning && "animate-pulse")} style={{ fontSize: 16 }}>
-            {isRunning ? STAGE_ICONS[runStage] : "play_arrow"}
-          </span>
-          {isRunning ? STAGE_LABELS[runStage] : "Run Analysis"}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleRun}
+            disabled={!hasInput || isRunning}
+            className="flex h-11 items-center gap-2 rounded-full kinetic-gradient px-8 text-xs font-black uppercase tracking-[0.2em] text-primary-foreground transition-all duration-150 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+          >
+            <span className={cn("material-symbols-outlined", isRunning && "animate-pulse")} style={{ fontSize: 16 }}>
+              {isRunning ? STAGE_ICONS[runStage] : "play_arrow"}
+            </span>
+            {isRunning ? STAGE_LABELS[runStage] : "Run Analysis"}
+          </button>
+
+          {activeUpload && (activeUpload.status === "pending" || activeUpload.status === "processing") && runStage !== "cancelled" && (
+            <button
+              onClick={handleCancel}
+              disabled={isCancelling}
+              className="flex h-11 items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-high px-6 text-xs font-black uppercase tracking-[0.2em] text-on-surface transition-all duration-150 active:scale-95 hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-50"
+            >
+              <span className={cn("material-symbols-outlined", isCancelling && "animate-pulse")} style={{ fontSize: 16 }}>
+                {isCancelling ? "hourglass_top" : "block"}
+              </span>
+              {isCancelling ? "Cancelling" : "Cancel Run"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -628,9 +682,11 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
       {!result && !error && !isRunning && (
         <div className="flex flex-col items-center space-y-4 rounded-xl border border-white/5 bg-surface-container p-8 text-center">
-          <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 48 }}>analytics</span>
+          <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 48 }}>{runStage === "cancelled" ? "block" : "analytics"}</span>
           <p className="max-w-md text-sm text-on-surface-variant">
-            Run the real production pipeline to inspect aggregate score, phase scores, metric calibration detail, confidence flags, and generated feedback here.
+            {runStage === "cancelled"
+              ? "This test run was intentionally stopped. Start another run whenever you want to re-enter the full production pipeline."
+              : "Run the real production pipeline to inspect aggregate score, phase scores, metric calibration detail, confidence flags, and generated feedback here."}
           </p>
           <div className="mt-2 grid w-full max-w-lg grid-cols-2 gap-3 sm:grid-cols-3">
             {[
