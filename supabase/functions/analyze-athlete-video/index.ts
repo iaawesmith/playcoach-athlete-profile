@@ -1860,7 +1860,7 @@ async function callClaude(
   errorResults: any,
   upload: any,
   context: any
-) {
+): Promise<ClaudeCallResult> {
   const variables = {
     mastery_score: scoreResult.aggregate_score?.toString() || 'N/A',
     phase_scores: formatPhaseScores(scoreResult.phase_scores, nodeConfig.phase_breakdown),
@@ -1882,6 +1882,26 @@ async function callClaude(
   let prompt = nodeConfig.llm_prompt_template
   for (const [key, value] of Object.entries(variables)) {
     prompt = prompt.replaceAll(`{{${key}}}`, value as string)
+  }
+
+  const claudeLog: PipelineLogData['claude_api'] = {
+    model: 'claude-sonnet-4-5',
+    system_instructions_present: Boolean(nodeConfig.llm_system_instructions),
+    system_instructions_chars: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions.length : 0,
+    variables_injected: Object.entries(variables).map(([name, value]) => ({
+      name,
+      value_summary: summarizeValue(value),
+      present: typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined,
+    })),
+    missing_variables: Object.entries(variables)
+      .filter(([, value]) => typeof value !== 'string' || value.trim().length === 0)
+      .map(([name]) => name),
+    template_tokens: Math.ceil((nodeConfig.llm_prompt_template || '').length / 4),
+    system_tokens: Math.ceil((nodeConfig.llm_system_instructions || '').length / 4),
+    variable_tokens: Math.ceil(Object.values(variables).join(' ').length / 4),
+    prompt_tokens: Math.ceil(prompt.length / 4),
+    target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+    status: 'FAILED',
   }
 
   logInfo('claude_request_prepared', {
@@ -1954,6 +1974,13 @@ async function callClaude(
     throw new Error(`Claude request failed: ${response.status}`)
   }
 
+  const usage = data.usage && typeof data.usage === 'object' ? data.usage as Record<string, unknown> : {}
+  const inputTokens = typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined
+  const outputTokens = typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined
+  claudeLog.response_tokens = outputTokens
+  claudeLog.total_tokens = (inputTokens ?? 0) + (outputTokens ?? 0) || undefined
+  if (inputTokens !== undefined) claudeLog.prompt_tokens = inputTokens
+
   const content = Array.isArray(data.content) ? data.content : []
   const firstBlock = content[0]
   const feedback =
@@ -1970,7 +1997,13 @@ async function callClaude(
     })
   }
 
-  return feedback
+  claudeLog.word_count = feedback.trim().length > 0 ? feedback.trim().split(/\s+/).length : 0
+  claudeLog.truncated = typeof claudeLog.target_words === 'number' && typeof claudeLog.word_count === 'number'
+    ? claudeLog.word_count > claudeLog.target_words
+    : false
+  claudeLog.status = 'COMPLETE'
+
+  return { feedback, log: claudeLog }
 }
 
 
@@ -2046,7 +2079,8 @@ async function writeResults(
   scoreResult: any,
   metricResults: any[],
   errorResults: any,
-  feedback: string
+  feedback: string,
+  logData: PipelineLogData,
 ) {
   const { error } = await supabase
     .from('athlete_lab_results')
@@ -2059,6 +2093,7 @@ async function writeResults(
       phase_scores: scoreResult.phase_scores,
       metric_results: metricResults,
       feedback,
+      result_data: { log_data: logData },
       confidence_flags: metricResults
         .filter(m => m.status === 'flagged')
         .map(m => ({ metric: m.name, reason: m.reason })),
