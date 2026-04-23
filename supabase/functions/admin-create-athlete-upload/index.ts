@@ -1,6 +1,10 @@
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.49.8/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
 const FIXED_TEST_ATHLETE_ID = "8f42b1c3-5d9e-4a7b-b2e1-9c3f4d5a6e7b";
 
