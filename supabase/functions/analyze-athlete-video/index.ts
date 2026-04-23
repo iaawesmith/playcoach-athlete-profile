@@ -220,6 +220,16 @@ type ClaudeCallResult = {
   log: PipelineLogData['claude_api']
 }
 
+type PoseQualityAudit = {
+  personDetected: boolean
+  averageKeypointConfidence: number
+  reliableFramePercentage: number
+  mostCommonIssue: string
+  usableData: boolean
+  passedMetricCount: number
+  lowConfidenceMetricCount: number
+}
+
 function createCancellationError(uploadId: string): PipelineCancellationError {
   const error = new Error(`Upload ${uploadId} was cancelled`) as PipelineCancellationError
   error.code = 'UPLOAD_CANCELLED'
@@ -253,6 +263,62 @@ function summarizePersonCount(keypoints: VideoKeypoints): { firstFrame: number; 
   }, 0)
 
   return { firstFrame, maxAcrossFrames }
+}
+
+function clampPercentage(value: number) {
+  return Math.max(0, Math.min(100, value))
+}
+
+function buildPoseQualityAudit(
+  personCountSummary: { firstFrame: number; maxAcrossFrames: number },
+  keypointConfidence: PipelineLogData['rtmlib'] extends { keypoint_confidence?: infer T } ? T : never,
+  metricResults: any[],
+  aggregateScore: number | null | undefined,
+): PoseQualityAudit {
+  const confidenceEntries = Array.isArray(keypointConfidence) ? keypointConfidence : []
+  const averageKeypointConfidence = confidenceEntries.length > 0
+    ? Number((confidenceEntries.reduce((sum, entry) => sum + entry.mean_confidence, 0) / confidenceEntries.length).toFixed(2))
+    : 0
+
+  const reliableFramePercentage = confidenceEntries.length > 0
+    ? Number((100 - (confidenceEntries.reduce((sum, entry) => sum + entry.percent_below, 0) / confidenceEntries.length)).toFixed(1))
+    : 0
+
+  const scoredMetrics = metricResults.filter((metric) => metric?.status === 'scored')
+  const flaggedMetrics = metricResults.filter((metric) => metric?.status === 'flagged')
+  const lowConfidenceMetricCount = flaggedMetrics.filter((metric) => typeof metric?.reason === 'string' && metric.reason.includes('confidence')).length
+  const passedMetricCount = scoredMetrics.length
+  const personDetected = personCountSummary.maxAcrossFrames > 0
+  const usableData = (typeof aggregateScore === 'number' && aggregateScore > 0) || passedMetricCount >= 2
+
+  let mostCommonIssue = 'Body not fully visible'
+  if (!personDetected) {
+    mostCommonIssue = 'No person detected in frame'
+  } else if (averageKeypointConfidence < 0.35 || reliableFramePercentage < 30) {
+    mostCommonIssue = 'Athlete too small / too far in frame'
+  } else if (averageKeypointConfidence < 0.45 || reliableFramePercentage < 45) {
+    mostCommonIssue = 'Motion blur'
+  }
+
+  if (confidenceEntries.some((entry) => entry.index <= 16 && entry.status === 'UNRELIABLE') && reliableFramePercentage < 40) {
+    mostCommonIssue = 'Body not fully visible'
+  }
+
+  if (lowConfidenceMetricCount >= Math.max(2, Math.ceil(metricResults.length * 0.6))) {
+    mostCommonIssue = averageKeypointConfidence < 0.4
+      ? 'Athlete too small / too far in frame'
+      : mostCommonIssue
+  }
+
+  return {
+    personDetected,
+    averageKeypointConfidence,
+    reliableFramePercentage: clampPercentage(reliableFramePercentage),
+    mostCommonIssue,
+    usableData,
+    passedMetricCount,
+    lowConfidenceMetricCount,
+  }
 }
 
 Deno.serve(async (req) => {
