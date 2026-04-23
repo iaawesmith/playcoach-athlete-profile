@@ -1,173 +1,135 @@
 
-Implement a browser-first video preparation flow that removes unsupported FFmpeg work from the Edge Function, preserves cancellation, and makes Run Analysis feel live from the first second.
+Fix the missing Analysis Log by wiring `log_data` through the production pipeline end-to-end. Right now the UI is behaving correctly: the data simply is not being persisted or returned.
 
-## What will change
+### Why it is not populating
 
-### 1. Remove unsupported video transcoding from the Edge Function
-Update `supabase/functions/analyze-athlete-video/index.ts` to stop using any subprocess-based video preparation.
+The production Run Analysis flow currently drops the log payload in multiple places:
 
-Changes:
-- Delete `prepareVideoForCloudRun()` and all `Deno.Command`, `Deno.makeTempDir`, `Deno.writeFile`, `Deno.readFile`, and storage re-upload logic tied to FFmpeg
-- Pass `upload.video_url` directly to Cloud Run
-- Keep all existing status updates, progress writes, result creation, and cancellation checkpoints intact
-- Keep server-side progress messages focused on server work only:
-  - `Loading model on server...`
-  - `Processing frames X of Y...`
-  - `Running calibration...`
-  - `Calculating metrics...`
-  - `Generating coaching feedback...`
-  - `Writing analysis results...`
-  - `Analysis complete`
+1. `AnalysisLog` expects `result?.log_data`
+   - `TestingPanel.tsx` passes `result?.log_data` into `AnalysisLog`
+   - `AnalysisLog.tsx` shows the empty-state warning when that field is missing
 
-This resolves the runtime error immediately and keeps the backend orchestration clean.
+2. The frontend result normalizer never maps `log_data`
+   - `src/services/athleteLab.ts`
+   - `normalizePipelineResult()` returns score/metrics/errors/feedback, but no `log_data`
 
-### 2. Add lightweight native browser-side 30fps decimation
-Implement client-side preprocessing before upload in `src/services/athleteLab.ts`, using a native path first.
+3. The result-fetching Edge Function never selects or returns it
+   - `supabase/functions/admin-get-pipeline-result/index.ts`
+   - `selectClause` excludes both `log_data` and `result_data`
+   - response payload returns no `log_data`
 
-Primary approach:
-- Hidden `HTMLVideoElement`
-- `canvas.captureStream(30)`
-- `MediaRecorder`
+4. The production analysis Edge Function never persists it
+   - `supabase/functions/analyze-athlete-video/index.ts`
+   - `writeResults()` inserts aggregate score, metrics, flags, errors, and feedback
+   - it does not insert any structured pipeline log into `athlete_lab_results`
 
-Behavior:
-- Only preprocess local uploaded files, not pasted external URLs
-- Normalize clips to 30fps before calling `admin-test-upload`
-- Apply reasonable compression settings for short test clips
-- Preserve the original filename pattern while marking the processed file clearly if needed
-- Add feature detection and graceful fallback:
-  - if native browser APIs are supported, use them
-  - if they fail or the browser lacks required support, upload the original file unchanged and surface a clear non-blocking status message
-- Do not add a heavy WASM package in this pass
+So the immediate root cause is: the pipeline log is neither saved nor returned.
 
-Only if native testing shows clear quality/sync issues on common mobile browsers should a small fallback dependency be considered in a later iteration.
+### What to build
 
-### 3. Extend the client run lifecycle with local progress stages
-Expand the run-stage model so the UI can distinguish local work from server work.
+Implement a structured `log_data` object in the production analysis flow and return it with each completed result so the Analysis Log panel can render the full debugging view.
 
-Likely additions:
-- `preparing_video`
-- `uploading`
-- existing `queued`
-- existing `processing`
-- existing `fetching_results`
+### Implementation steps
 
-Progress sequence:
-```text
-Compressing video to 30 fps...
-Uploading video...
-Queued for analysis...
-Loading model on server...
-Processing frames X of Y...
-Running calibration...
-Calculating metrics...
-Generating coaching feedback...
-Writing analysis results...
-Analysis complete
-```
+1. Build a structured pipeline log inside `analyze-athlete-video`
+   - Add a `logData` accumulator matching the frontend `AnalysisLogData` shape:
+     - `timestamp`
+     - `preflight`
+     - `rtmlib`
+     - `metrics`
+     - `aggregate`
+     - `error_detection`
+     - `claude_api`
+   - Populate it from values already available in the function:
+     - preflight checks from `runPreflight()`
+     - Cloud Run metadata (`frame_count`, `fps`, calibration/progress context)
+     - phase windows from `buildPhaseWindows()`
+     - metric evaluation details from `metricResults`
+     - aggregate score summary from `scoreResult`
+     - detected errors from `errorResults`
+     - Claude prompt/response metadata already being logged server-side
 
-This avoids the blank/generic feeling before backend polling begins.
+2. Persist the log with the result row
+   - Reuse the existing `athlete_lab_results.result_data` JSON column for backward-compatible storage
+   - Save a structured payload such as:
+     ```text
+     {
+       log_data: { ...full structured pipeline log... }
+     }
+     ```
+   - This avoids requiring a schema change unless a dedicated `log_data` column is preferred later
 
-### 4. Refactor the service layer to support preprocessing and cancellation
-Update `src/services/athleteLab.ts` so submission handles native preprocessing and exposes progress cleanly to the UI.
+3. Return the log from `admin-get-pipeline-result`
+   - Expand `selectClause` to include `result_data`
+   - Extract `log_data` from `result_data`
+   - Return it in the function response as:
+     - `result.log_data`
+   - Keep all current fields unchanged
 
-Changes:
-- Add a browser-side helper to preprocess a `File` to 30fps
-- Add stage/progress callbacks to `submitRunAnalysisJob()`
-- Keep `uploadTestClip()` as the upload helper, but make it upload the processed file when available
-- Preserve existing polling behavior for `complete`, `failed`, `cancelled`, and `timed_out`
-- Continue normalizing `progress_message` from the backend
+4. Map the log in the frontend service layer
+   - Update `normalizePipelineResult()` in `src/services/athleteLab.ts`
+   - Read `row.log_data` if returned directly
+   - Fallback to `row.result_data?.log_data` for compatibility
+   - Assign it to `PipelineAnalysisResult.log_data`
 
-Add practical cancellation behavior for the local phase:
-- If the user cancels during local preprocessing or upload before an upload row exists, abort local work and transition cleanly to `cancelled`
-- Once an upload row exists, use the existing `admin-cancel-upload` flow
-- Ensure stale async work cannot overwrite a later cancelled state
+5. Keep the UI unchanged, but make it start working
+   - `TestingPanel.tsx` already passes `result?.log_data`
+   - `AnalysisLog.tsx` already renders the structured sections
+   - No UX redesign needed; once data flows through, the panel should populate automatically
 
-### 5. Upgrade the Testing Panel progress experience
-Update `src/features/athlete-lab/components/TestingPanel.tsx` to show meaningful progress from the moment the run starts.
+### Files to update
 
-Changes:
-- Show local progress immediately:
-  - `Compressing video to 30 fps...`
-  - `Uploading video...`
-- Then switch to backend-driven progress using `activeUpload.progress_message`
-- Keep the segmented progress bar style already used in this panel
-- Improve stage labels so they reflect the real current step instead of generic “Running production pipeline”
-- Preserve the current Cancel button behavior and visibility during active local/server stages
-- Keep the clean cancelled state with no results shown
-- Ensure rerun/retry fully reset local progress, upload state, and error state
-
-Progress source priority:
-1. active local preprocessing/upload message
-2. `activeUpload.progress_message`
-3. fallback label from the current stage
-
-### 6. Keep Cloud Run progress integration intact
-Do not remove the progress-message architecture already added.
-
-Ensure:
-- `analyze-athlete-video` continues writing `progress_message` to `athlete_uploads`
-- `callCloudRun()` still maps any returned `progress_updates` into `progress_message`
-- frontend polling continues to display those updates in near real time
-
-This preserves backward compatibility with the existing database column and admin status helpers.
-
-## Files to update
-
-### Frontend
-- `src/features/athlete-lab/components/TestingPanel.tsx`
-- `src/services/athleteLab.ts`
-- `src/features/athlete-lab/types.ts`
-
-### Backend
 - `supabase/functions/analyze-athlete-video/index.ts`
+- `supabase/functions/admin-get-pipeline-result/index.ts`
+- `src/services/athleteLab.ts`
 
-### Likely unchanged
-- `supabase/functions/admin-create-athlete-upload/index.ts`
-- `supabase/functions/admin-get-upload-status/index.ts`
-- `supabase/functions/admin-cancel-upload/index.ts`
-- `supabase/migrations/20260423054423_c0314065-fdeb-4da4-bf1c-658dfe5bf448.sql`
+### Data mapping details
 
-## Technical details
+Use the existing frontend type as the contract:
 
-### Native browser preprocessing design
-Build a small utility around:
-- object URL for the selected file
-- off-DOM video element
-- offscreen or hidden canvas
-- canvas stream at 30fps
-- MediaRecorder blob output
-- conversion back to a `File`
+- `AnalysisLogData` in `src/features/athlete-lab/types.ts`
 
-Guardrails:
-- short clips only, matching the current Athlete Lab test-run use case
-- no dependency added unless native behavior proves unreliable
-- preserve audio only if it is straightforward and stable; otherwise prioritize route-analysis utility and visual correctness over audio retention
-- include timeout/error handling so preprocessing never traps the user in a dead state
+Recommended field mapping:
 
-### Cancellation model
-Use a run token / abortable controller pattern in the client so:
-- cancel during preprocessing stops frame pumping and recording
-- cancel during upload prevents later completion callbacks from reviving the run
-- backend cancellation remains unchanged after upload creation
+- `preflight.checks`
+  - from `runPreflight()` output
+- `preflight.pipeline_stopped`, `stop_reason`
+  - when preflight fails
+- `rtmlib.solution_class`
+  - from node config / request payload
+- `rtmlib.total_frames`, `source_fps`
+  - from Cloud Run response
+- `rtmlib.phase_windows`
+  - from `buildPhaseWindows()`
+- `metrics[]`
+  - derived from each metric result, including status, value, deviation, scoring, skip/flag reason
+- `aggregate`
+  - from aggregate score computation
+- `error_detection[]`
+  - from `detectErrors()`
+- `claude_api`
+  - from existing prompt/response/token metadata already being logged during Claude generation
 
 ### Backward compatibility
-- existing `progress_message` column stays optional
-- external video URLs still work
-- complete/failed/cancelled/timed_out flows remain supported
-- if preprocessing is unsupported, the run still proceeds with the original file rather than breaking submission
 
-## Validation
+- No change to completed/failed/cancelled behavior
+- No need to alter the Run Analysis UI flow
+- Existing rows without `result_data.log_data` will still show the current empty-state message
+- New runs will populate the full Analysis Log
 
-1. Select a short local clip and verify the UI first shows `Compressing video to 30 fps...`
-2. Confirm the UI then shows `Uploading video...`
-3. Confirm the backend progress text appears once the upload is queued/processing
-4. Confirm the Edge Function no longer triggers the subprocess runtime error
-5. Confirm Cancel works:
-   - during local preprocessing
-   - during upload
-   - during pending
-   - during processing
-6. Confirm cancelled runs show the clean cancelled state and no final results
-7. Confirm external video URLs still bypass preprocessing and work as before
-8. Test with a short ~6 second clip and verify the processed upload is reduced to a 30fps-equivalent browser-generated asset
-9. Confirm overall runtime improves because Cloud Run receives the lower-frame-rate input
+### Validation
+
+1. Run a fresh analysis in Athlete Lab
+2. Confirm `athlete_lab_results.result_data` contains `log_data`
+3. Confirm `admin-get-pipeline-result` response includes `result.log_data`
+4. Confirm `Analysis Log` renders sections instead of “Log data not available”
+5. Confirm flagged/skipped metrics appear in the log so missing-metric debugging becomes possible
+6. Confirm failed/cancelled runs still do not falsely show completed log output
+
+### Expected outcome
+
+After this change, the Analysis Log section will stop showing the placeholder warning for new completed runs and will expose the full pipeline diagnostics needed to understand:
+- why a metric was scored, flagged, or skipped
+- whether preflight or confidence thresholds suppressed output
+- how phase windows were built
+- what Claude received and returned
