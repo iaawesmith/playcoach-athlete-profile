@@ -294,7 +294,7 @@ export interface AnalysisResult {
   log_data?: AnalysisLogData;
 }
 
-export type PipelineUploadStatus = "pending" | "processing" | "complete" | "failed";
+export type PipelineUploadStatus = "pending" | "processing" | "complete" | "failed" | "cancelled";
 
 export type PipelineRunStage =
   | "idle"
@@ -303,6 +303,7 @@ export type PipelineRunStage =
   | "processing"
   | "fetching_results"
   | "complete"
+  | "cancelled"
   | "failed"
   | "timed_out";
 
@@ -371,7 +372,7 @@ export type AdminHistoryDateRange = "today" | "last_7_days" | "all";
 
 export type AdminHistoryCalibrationFilter = "all" | "dynamic" | "body_based" | "static" | "none";
 
-export type AdminHistoryStatusFilter = "all" | "complete" | "failed";
+export type AdminHistoryStatusFilter = "all" | "complete" | "failed" | "cancelled";
 
 export type AdminHistorySortOption = "date_desc" | "date_asc" | "score_asc" | "score_desc" | "node_name_asc";
 

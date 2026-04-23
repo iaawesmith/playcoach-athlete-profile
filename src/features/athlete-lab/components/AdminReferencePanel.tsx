@@ -464,6 +464,7 @@ function scoreTone(value: number | null): string {
 }
 
 function statusTone(status: string): string {
+  if (status === "cancelled") return "bg-surface-container-high text-on-surface";
   if (status === "failed") return "bg-error-dim/15 text-error-dim";
   if (status === "complete") return "bg-primary-container/20 text-primary-container";
   return "bg-surface-container-lowest text-on-surface-variant";
@@ -604,6 +605,7 @@ function RecentTestRunsSection() {
             <option value="all">All</option>
             <option value="complete">Complete</option>
             <option value="failed">Failed</option>
+            <option value="cancelled">Cancelled</option>
           </select>
         </label>
 

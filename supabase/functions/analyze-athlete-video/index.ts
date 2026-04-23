@@ -92,6 +92,14 @@ type ConfidenceCheckResult = {
   diagnostics: ConfidenceDiagnostics
 }
 
+type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
+
+function createCancellationError(uploadId: string): PipelineCancellationError {
+  const error = new Error(`Upload ${uploadId} was cancelled`) as PipelineCancellationError
+  error.code = 'UPLOAD_CANCELLED'
+  return error
+}
+
 function logInfo(event: string, details: JsonRecord = {}) {
   console.info(JSON.stringify({ level: 'info', event, ...details }))
 }
@@ -131,6 +139,7 @@ Deno.serve(async (req) => {
 
     // Update status to processing immediately
     await updateUploadStatus(upload.id, 'processing')
+    await ensureNotCancelled(upload.id)
 
     // STEP 1: Fetch full node config
     const nodeConfig = await fetchNodeConfig(upload.node_id)
@@ -151,6 +160,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: preflightResult.reason }), { status: 400 })
     }
     logInfo('preflight_passed', { uploadId })
+    await ensureNotCancelled(upload.id)
 
     // STEP 3: Select analysis context settings
     const context = upload.analysis_context || {}
@@ -185,6 +195,7 @@ Deno.serve(async (req) => {
       firstFramePersonCount: personCountSummary.firstFrame,
       maxFramePersonCount: personCountSummary.maxAcrossFrames,
     })
+    await ensureNotCancelled(upload.id)
 
     // STEP 5: Apply temporal smoothing to keypoints
     const smoothedKeypoints = applyTemporalSmoothing(rtmlibResult.keypoints)
@@ -243,6 +254,7 @@ Deno.serve(async (req) => {
       skipped: metricResults.filter((metric) => metric.status === 'skipped').length,
       failed: metricResults.filter((metric) => metric.status === 'failed').length,
     })
+    await ensureNotCancelled(upload.id)
 
     // STEP 9: Calculate aggregate score
     const scoreResult = calculateAggregateScore(
@@ -255,6 +267,7 @@ Deno.serve(async (req) => {
     const errorResults = detectErrors(nodeConfig.common_errors, metricResults)
 
     // STEP 11: Call Claude API
+    await ensureNotCancelled(upload.id)
     const feedback = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
     logInfo('claude_feedback_received', {
       uploadId,
@@ -262,6 +275,7 @@ Deno.serve(async (req) => {
     })
 
     // STEP 12: Write results
+    await ensureNotCancelled(upload.id)
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback)
     logInfo('results_written', {
       uploadId,
@@ -277,6 +291,12 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     const err = error as Error
+
+    if ((err as PipelineCancellationError).code === 'UPLOAD_CANCELLED') {
+      logInfo('pipeline_cancelled', { uploadId, status: 'cancelled' })
+      return new Response(JSON.stringify({ success: true, cancelled: true, uploadId }), { status: 200 })
+    }
+
     console.error('Pipeline error:', {
       uploadId,
       message: err.message,
@@ -1693,6 +1713,22 @@ async function writeResults(
     })
 
   if (error) throw new Error(`Failed to write results: ${error.message}`)
+}
+
+async function ensureNotCancelled(uploadId: string) {
+  const { data, error } = await supabase
+    .from('athlete_uploads')
+    .select('status')
+    .eq('id', uploadId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to verify upload status: ${error.message}`)
+  }
+
+  if (data?.status === 'cancelled') {
+    throw createCancellationError(uploadId)
+  }
 }
 
 async function updateUploadStatus(uploadId: string, status: string, error?: string) {
