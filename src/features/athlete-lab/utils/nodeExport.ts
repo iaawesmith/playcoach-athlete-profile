@@ -138,7 +138,7 @@ function generateMetrics(node: TrainingNode): string {
       missing.push("entire keypoint_mapping");
     }
 
-    out += `\n### Metric ${i + 1}: ${m.name || "Untitled"} (${m.weight}%)\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (metrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}\n`;
+    out += `\n### Metric ${i + 1}: ${m.name || "Untitled"} (${m.weight}%)\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nBody Groups: ${km?.body_groups?.length ? km.body_groups.join(", ") : "None"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (metrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}\n`;
   });
   return out;
 }
@@ -151,7 +151,7 @@ function generateScoring(node: TrainingNode): string {
   if (!renorm) {
     renormLine += `\nMax score when catch excluded: ${100 - catchWeight}%`;
   }
-  return `## Scoring\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMin Metrics Threshold: ${node.min_metrics_threshold ?? 50}%\n${renormLine}\n\nScore Bands:\n  90-100: ${bands.elite}\n  75-89: ${bands.varsity}\n  60-74: ${bands.developing}\n  Below 60: ${bands.needs_work}`;
+  return `## Scoring\n\nScoring Formula Description:\n${node.scoring_rules?.trim() || "Not configured"}\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMin Metrics Threshold: ${node.min_metrics_threshold ?? 50}%\n${renormLine}\n\nScore Bands:\n  90-100: ${bands.elite}\n  75-89: ${bands.varsity}\n  60-74: ${bands.developing}\n  Below 60: ${bands.needs_work}`;
 }
 
 function generateErrors(node: TrainingNode): string {
@@ -184,7 +184,8 @@ function generateReference(node: TrainingNode): string {
   const rawFallback = node.reference_fallback_behavior ?? "pixel_warning";
   const fallbackLabel = fallbackMap[rawFallback] ?? rawFallback;
 
-  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\n`;
+  const camera = parseCameraSettings(node.camera_guidelines);
+  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\nGeneric Fallback Filming Instructions: ${node.reference_filming_instructions?.trim() || "Not configured"}\n`;
 
   for (const angle of ANGLES) {
     const cal = cals.find(c => c.camera_angle === angle.key);
@@ -230,7 +231,7 @@ function generateCamera(node: TrainingNode): string {
     }
   }
 
-  out += `\nSkill-Specific Filming Notes:\n${cam.skill_specific_filming_notes?.trim() || "Not configured"}\n\nGeneric Camera Fallback Instructions:\n${cam.camera_filming_instructions?.trim() || "Not configured"}`;
+  out += `\nAthlete Filming Instructions:\n${cam.camera_filming_instructions?.trim() || "Not configured"}`;
   return out;
 }
 
@@ -246,7 +247,7 @@ function generateCheckpoints(node: TrainingNode): string {
   let out = `## Checkpoints\n\nCount: ${cps.length} defined\nSegmentation Method: ${seg === "proportional" ? "Proportional" : "Checkpoint-triggered"}\n`;
   cps.forEach((cp, i) => {
     const phaseName = cp.phase_id ? (phases.find(p => p.id === cp.phase_id)?.name ?? "Unknown") : "Not assigned";
-    out += `\n### Checkpoint ${i + 1}: ${cp.name} (Priority ${cp.priority})\nPhase: ${phaseName}\nTransition Role: ${cp.phase_transition_role}\nTrigger Condition: ${cp.trigger_condition || "Not configured"}\nRequired Keypoints: ${cp.required_keypoint_indices.join(", ")} — ${kpNames(cp.required_keypoint_indices)}\nConfidence Threshold: ${cp.confidence_threshold}\n`;
+    out += `\n### Checkpoint ${i + 1}: ${cp.name} (Priority ${cp.priority})\nDescription: ${cp.description?.trim() || "Not configured"}\nPhase: ${phaseName}\nTransition Role: ${cp.phase_transition_role}\nTrigger Condition: ${cp.trigger_condition || "Not configured"}\nRequired Keypoints: ${cp.required_keypoint_indices.join(", ")} — ${kpNames(cp.required_keypoint_indices)}\nConfidence Threshold: ${cp.confidence_threshold}\n`;
   });
   return out;
 }
@@ -279,8 +280,27 @@ function generateBadges(node: TrainingNode): string {
     const conditionLine = op === "+-"
       ? `Condition: within ± ${b.condition_count} of ${b.condition_threshold}\nRequired Count: ${b.condition_count} analyses`
       : `Threshold: ${b.condition_threshold}\nRequired Count: ${b.condition_count} analyses`;
-    out += `\n### ${b.icon} ${b.name} — ${b.rarity}\nDescription: ${b.description || "Not configured"}\nCondition Type: ${condTypeMap[b.condition_type] ?? b.condition_type}\n${conditionLine}\nMetric: ${metricName}\n`;
+    out += `\n### ${b.icon} ${b.name} — ${b.rarity}\nDescription: ${b.description || "Not configured"}\nCondition Type: ${condTypeMap[b.condition_type] ?? b.condition_type}\nOperator: ${op || "Not configured"}\n${conditionLine}\nMetric: ${metricName}\nCustom Condition: ${b.condition_custom?.trim() || "Not configured"}\nLegacy Condition Text: ${b.condition?.trim() || "Not configured"}\nSequence Order: ${b.sequence_order}\n`;
   }
+  return out;
+}
+
+function generateKnowledgeBase(node: TrainingNode): string {
+  const knowledgeBase = node.knowledge_base ?? {};
+  const entries = Object.entries(knowledgeBase).filter(([, sections]) => Array.isArray(sections) && sections.length > 0);
+
+  if (entries.length === 0) {
+    return "## Admin Guidance / Knowledge Base\n\nNo tab guidance configured.";
+  }
+
+  let out = "## Admin Guidance / Knowledge Base\n";
+  for (const [tabKey, sections] of entries) {
+    out += `\n### ${tabKey.replace(/_/g, " ")}\n`;
+    sections.forEach((section, index) => {
+      out += `\n#### ${index + 1}. ${section.sectionTitle || "Untitled Section"}\n${section.content?.trim() || "Not configured"}\n`;
+    });
+  }
+
   return out;
 }
 
@@ -385,10 +405,10 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
 
   const tabOrder: TabKey[] = ["basics", "videos", "overview", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges", "training_status"];
 
-  const sections = tabOrder.map(key => TAB_GENERATORS[key](node)).join("\n\n---\n\n");
+  const sections = [...tabOrder.map(key => TAB_GENERATORS[key](node)), generateKnowledgeBase(node)].join("\n\n---\n\n");
 
   const fullText = `${readiness}\n\n---\n\n${sections}`;
   const wordCount = fullText.split(/\s+/).length;
 
-  return `# AthleteLab Node — Full Configuration Export\n# Node: ${node.name}\n# Status: ${node.status === "live" ? "Live" : "Draft"}\n# Version: ${node.node_version ?? 1}\n# Solution Class: ${node.solution_class || "Not configured"}\n# Copied: ${ts()}\n# Approximate word count: ${wordCount} words\n\n---\n\n${fullText}`;
+  return `# AthleteLab Node — Full Configuration Export\n# Node: ${node.name}\n# Status: ${node.status === "live" ? "Live" : "Draft"}\n# Version: ${node.node_version ?? 1}\n# Solution Class: ${node.solution_class || "Not configured"}\n# Includes tab exports plus admin guidance / knowledge base\n# Copied: ${ts()}\n# Approximate word count: ${wordCount} words\n\n---\n\n${fullText}`;
 }
