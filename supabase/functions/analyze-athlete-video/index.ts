@@ -989,10 +989,201 @@ function getCalibrationConfidenceLabel(calibration: CloudRunCalibrationInput): s
   return null
 }
 
+function getCalibrationSourceLabel(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.calibrationSource
+  if (typeof camelValue === 'string' && camelValue.trim().length > 0) return camelValue.trim().toLowerCase()
+
+  const snakeValue = calibration.calibration_source
+  if (typeof snakeValue === 'string' && snakeValue.trim().length > 0) return snakeValue.trim().toLowerCase()
+
+  return null
+}
+
+function getCalibrationDetailsRecord(calibration: CloudRunCalibrationInput): JsonRecord {
+  const camelValue = calibration.calibrationDetails
+  if (camelValue && typeof camelValue === 'object' && !Array.isArray(camelValue)) {
+    return camelValue as JsonRecord
+  }
+
+  const snakeValue = calibration.calibration_details
+  if (snakeValue && typeof snakeValue === 'object' && !Array.isArray(snakeValue)) {
+    return snakeValue as JsonRecord
+  }
+
+  return {}
+}
+
+function getCalibrationFlagLabel(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.calibrationFlag
+  if (typeof camelValue === 'string' && camelValue.trim().length > 0) return camelValue.trim().toLowerCase()
+
+  const snakeValue = calibration.calibration_flag
+  if (typeof snakeValue === 'string' && snakeValue.trim().length > 0) return snakeValue.trim().toLowerCase()
+
+  return null
+}
+
+function getGoodLinePairsValue(calibration: CloudRunCalibrationInput): number | null {
+  const camelValue = calibration.goodLinePairs
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue) && camelValue >= 0) return camelValue
+
+  const snakeValue = calibration.good_line_pairs
+  if (typeof snakeValue === 'number' && Number.isFinite(snakeValue) && snakeValue >= 0) return snakeValue
+
+  return null
+}
+
+function getCalibrationRejectionReason(calibration: CloudRunCalibrationInput): string | null {
+  const camelValue = calibration.rejectionReason
+  if (typeof camelValue === 'string' && camelValue.trim().length > 0) return camelValue.trim()
+
+  const snakeValue = calibration.rejection_reason
+  if (typeof snakeValue === 'string' && snakeValue.trim().length > 0) return snakeValue.trim()
+
+  return null
+}
+
+function isDynamicCalibrationTrusted(calibration: CloudRunCalibrationInput): {
+  accepted: boolean
+  reason: string
+  sourceLabel: string | null
+  confidenceLabel: string | null
+  goodLinePairs: number | null
+  pixelsPerYard: number | null
+  calibrationFlag: string | null
+  details: JsonRecord
+  rejectionReason: string | null
+} {
+  const pixelsPerYard = getPixelsPerYardValue(calibration)
+  const confidenceLabel = getCalibrationConfidenceLabel(calibration)
+  const sourceLabel = getCalibrationSourceLabel(calibration)
+  const details = getCalibrationDetailsRecord(calibration)
+  const calibrationFlag = getCalibrationFlagLabel(calibration)
+  const goodLinePairs = getGoodLinePairsValue(calibration)
+  const rejectionReason = getCalibrationRejectionReason(calibration)
+  const trustedBySource = sourceLabel === 'dynamic'
+  const trustedByConfidence = confidenceLabel === 'dynamic' || confidenceLabel === 'trusted'
+  const withinExpectedRange = pixelsPerYard !== null && pixelsPerYard >= 40 && pixelsPerYard <= 120
+  const linePairThresholdMet = goodLinePairs === null || goodLinePairs >= 8
+  const explicitlyUnreliable = calibrationFlag === 'unreliable'
+
+  if (pixelsPerYard === null) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_pixels_per_yard_unavailable',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (!withinExpectedRange) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_pixels_per_yard_out_of_range',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (!linePairThresholdMet) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_line_pair_count_below_threshold',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (explicitlyUnreliable) {
+    return {
+      accepted: false,
+      reason: rejectionReason || 'dynamic_marked_unreliable',
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  if (!trustedBySource && !trustedByConfidence) {
+    return {
+      accepted: false,
+      reason: rejectionReason || `dynamic_confidence_${confidenceLabel || 'missing'}`,
+      sourceLabel,
+      confidenceLabel,
+      goodLinePairs,
+      pixelsPerYard,
+      calibrationFlag,
+      details,
+      rejectionReason,
+    }
+  }
+
+  return {
+    accepted: true,
+    reason: 'cloud_run_dynamic_calibration',
+    sourceLabel,
+    confidenceLabel,
+    goodLinePairs,
+    pixelsPerYard,
+    calibrationFlag,
+    details,
+    rejectionReason,
+  }
+}
+
+function logCalibrationSource(calibration: ResolvedCalibration) {
+  const details = calibration.details
+  const pixelsPerYard = calibration.pixelsPerYard
+  const goodLinePairs = typeof details.goodLinePairs === 'number' && Number.isFinite(details.goodLinePairs)
+    ? details.goodLinePairs
+    : typeof details.good_line_pairs === 'number' && Number.isFinite(details.good_line_pairs)
+      ? details.good_line_pairs
+      : null
+
+  let message = 'Calibration source: none (raw pixels)'
+
+  if (calibration.source === 'dynamic') {
+    message = `Calibration source: dynamic (${goodLinePairs ?? 'unknown'} line pairs, ${pixelsPerYard !== null ? pixelsPerYard.toFixed(1) : 'n/a'} px/yard)`
+  } else if (calibration.source === 'body_based') {
+    message = 'Calibration source: body-based (using athlete height)'
+  } else if (calibration.source === 'static') {
+    message = `Calibration source: static (${pixelsPerYard !== null ? pixelsPerYard.toFixed(1) : 'n/a'} px/yard from node config)`
+  }
+
+  logInfo('calibration_source_selected', {
+    source: calibration.source,
+    pixelsPerYard,
+    confidence: calibration.confidence,
+    message,
+    details,
+  })
+}
+
 function getCalibrationMetricDetail(calibration: ResolvedCalibration): JsonRecord {
   return {
     calibrationSource: calibration.source,
     calibrationConfidence: calibration.confidence,
+    pixelsPerYard: calibration.pixelsPerYard,
+    calibrationFlag: calibration.details.calibrationFlag ?? calibration.details.calibration_flag ?? null,
     calibrationDetails: calibration.details,
   }
 }
