@@ -1,85 +1,90 @@
 
-Implement a lightweight cancellation flow for admin test runs that marks the upload as cancelled, stops UI polling immediately, and makes the analysis function exit early at safe checkpoints.
+Implement a focused export-audit pass for Athlete Lab so every tab’s copy output and the full node export reflect the current editable fields.
+
+### Audit findings
+
+Current export coverage is out of sync with the editor in several places:
+
+- Scoring tab: `scoring_rules` is editable but not exported in `generateScoring()`
+- Metrics tab: metric `description` and `keypoint_mapping.body_groups` are editable but not exported
+- Checkpoints tab: checkpoint `description` is editable but not exported
+- Reference tab:
+  - `reference_filming_instructions` is editable but not exported
+  - tab-specific `skill_specific_filming_notes` is stored in `camera_guidelines` and currently appears under Camera export instead of Reference
+- Copy All Node currently inherits those same omissions because it reuses the tab generators
+- Full node export also omits `knowledge_base` / tab help content even though it is stored on the node; this should be explicitly decided during implementation rather than left accidental
 
 ### What will change
 
-1. Add cancellation support to the upload status model
-   - Extend the client types so `PipelineUploadStatus` includes `cancelled`
-   - Extend `PipelineRunStage` with a matching `cancelled` stage
-   - Update any status-label/icon/tone mappings that currently only handle pending, processing, complete, failed, and timed_out
-   - Do a compatibility sweep for any UI/history components that render upload status so `cancelled` does not appear as a broken or unknown state
+1. Build a field-to-export audit matrix
+   - Compare each editable tab against its generator in `src/features/athlete-lab/utils/nodeExport.ts`
+   - Use the visible NodeEditor tab sections plus sub-editors as source of truth
+   - Mark each field as:
+     - exported correctly
+     - exported in wrong tab
+     - missing from tab export
+     - intentionally excluded
 
-2. Add a backend helper to request cancellation
-   - Create a focused Edge Function such as `admin-cancel-upload`
-   - Accept `uploadId`
-   - Validate input with Zod
-   - Use service-role credentials
-   - Load the upload row, verify it belongs to the fixed admin test athlete, and only allow cancellation when status is `pending` or `processing`
-   - Update the row to `cancelled`
-   - Return the normalized upload snapshot
-   - Keep RLS unchanged by routing this status update through the backend helper rather than a client-side table update
+2. Align each tab export with the tab UI
+   - Basics: confirm current coverage is complete
+   - Videos: confirm current coverage is complete
+   - Overview: confirm current coverage is complete
+   - Phases: confirm current coverage is complete
+   - Mechanics: confirm current coverage is complete
+   - Metrics: add missing metric description and body group output
+   - Scoring: add scoring formula description and preserve current confidence/band settings
+   - Errors: confirm current coverage is complete
+   - Reference: add missing fallback filming instructions and move/reference skill-specific filming notes so the Reference copy reflects what the user sees on that tab
+   - Camera: keep only camera-owned settings and avoid duplicating Reference-owned copy unless useful as a cross-reference
+   - Checkpoints: add missing checkpoint description
+   - Prompt: confirm current coverage is complete
+   - Badges: expand export if needed so operator/custom-condition details are unambiguous
+   - Training Status: confirm current coverage is complete
 
-3. Keep status reads on the existing backend-helper path
-   - Reuse `admin-get-upload-status` so the UI continues reading status through the backend helper pattern
-   - Ensure `cancelled` is returned cleanly by the existing normalization code in `src/services/athleteLab.ts`
+3. Fix full node export consistency
+   - Update `generateFullNodeMarkdown()` so it automatically includes the corrected tab outputs
+   - Ensure the full export is complete for audit purposes without losing readability
+   - Add a dedicated final section for intentionally non-tab data if needed
 
-4. Update the athleteLab service layer for cancellation
-   - Add `cancelRunAnalysis(uploadId)` in `src/services/athleteLab.ts` to call the new backend helper
-   - Update `pollRunAnalysisResult()` so if a polled upload comes back as `cancelled`, it exits immediately with stage `cancelled`
-   - Preserve existing behavior for complete, failed, and timed_out
-   - Keep the result fetch logic unchanged for completed runs only
+4. Decide and handle associated non-visual node fields
+   - Review whether `knowledge_base` should appear in Copy All Node
+   - If included, add a clearly labeled “Admin Guidance / Knowledge Base” section grouped by tab
+   - If excluded, document that exclusion in the export header so audit users know it is intentional
 
-5. Add a Cancel Run action in the Testing Panel
-   - Show a `Cancel Run` button only when the active upload is in `pending` or `processing`
-   - Disable the button while the cancel request is in flight
-   - On click:
-     - call the cancel helper
-     - update `activeUpload`
-     - set the stage to `cancelled`
-     - stop any further polling updates from changing the UI back to processing
-   - Add a clear cancelled-state presentation in the status panel and error/result area so the run feels intentionally stopped, not failed
+5. Preserve copy button behavior
+   - Keep `NodeEditor` copy-tab behavior unchanged in UX
+   - Keep `NodeReadinessBar` “Copy Node” behavior unchanged in UX
+   - Only improve underlying markdown completeness and correctness
 
-6. Add early-exit cancellation checks inside `analyze-athlete-video`
-   - Add a helper like `ensureNotCancelled(uploadId)` that reads the latest `athlete_uploads.status` using service-role access
-   - Call it at safe checkpoints in the pipeline:
-     - after switching to `processing`
-     - after preflight
-     - after Cloud Run returns
-     - after metric calculation
-     - before Claude
-     - before writing results / before final completion update
-   - If the upload is `cancelled`, stop early and return a non-error success response indicating cancellation
-   - Do not write `athlete_lab_results` after cancellation
-   - Do not overwrite `cancelled` with `failed` in the catch path
+### Files to update
 
-### Important implementation detail
+- `src/features/athlete-lab/utils/nodeExport.ts`
+- Possibly `src/features/athlete-lab/components/NodeEditor.tsx` only if a small label/help tweak is needed after the audit
+- Possibly `src/features/athlete-lab/components/NodeReadinessBar.tsx` only if the full-export description should clarify included sections
 
-The database column is already a text status field, so this may not require a schema migration unless an existing migration added an unseen check/constraint outside the surfaced schema. The implementation will verify that first; if a constraint exists, update it to allow `cancelled`. Otherwise, the change is code-level only.
+### Technical details
 
-### Files likely to change
+Audit source-of-truth mapping will be based on these editor surfaces:
 
-- `src/features/athlete-lab/types.ts`
-- `src/services/athleteLab.ts`
-- `src/features/athlete-lab/components/TestingPanel.tsx`
-- `supabase/functions/analyze-athlete-video/index.ts`
-- `supabase/functions/admin-cancel-upload/index.ts`
-- `supabase/config.toml` if the new helper needs an explicit function entry
-- Possibly a migration file only if a status constraint needs expansion
+- `NodeEditor.tsx`
+- `KeyMetricsEditor.tsx`
+- `CheckpointsEditor.tsx`
+- `CameraEditor.tsx`
+- `LlmPromptEditor.tsx`
+- `BadgesEditor.tsx`
 
-### Behavior after implementation
+Primary implementation work will be in:
 
-1. User starts a test run as usual
-2. While status is `pending` or `processing`, a `Cancel Run` button appears
-3. Clicking it marks the upload row as `cancelled` through a backend helper
-4. The UI immediately stops polling and switches to a polished cancelled state
-5. The analysis function notices the cancelled status at the next checkpoint and exits without writing final results
-6. RLS remains strict; no table policies are loosened
+- `generateMetrics()`
+- `generateScoring()`
+- `generateReference()`
+- `generateCheckpoints()`
+- `generateFullNodeMarkdown()`
 
 ### Validation
 
-1. Start a run and confirm the cancel button appears only for `pending`/`processing`
-2. Click cancel and confirm the upload row status becomes `cancelled`
-3. Confirm the UI stops polling immediately and shows `Cancelled`
-4. Confirm the analysis function exits early once it reaches the next cancellation checkpoint
-5. Confirm no `athlete_lab_results` row is written for a cancelled run
-6. Confirm completed and failed runs still behave exactly as before
+1. For every tab except Run Analysis, click Copy Tab and verify every editable field on that tab appears in the markdown
+2. Click Copy Node and verify the combined export contains all tab fields with no missing sections
+3. Confirm Reference vs Camera ownership is clear and no field is silently dropped
+4. Confirm the markdown stays readable for audit/review use, not just technically complete
+5. Confirm no tab copy throws and no copy button UX changes regress
