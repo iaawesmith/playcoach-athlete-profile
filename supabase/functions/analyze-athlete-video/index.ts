@@ -1792,7 +1792,7 @@ async function callCloudRun(payload: {
     response = await fetch(rtmlibUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),
     })
   } catch (err) {
     throw new Error(
@@ -1868,6 +1868,7 @@ async function ensureNotCancelled(uploadId: string) {
   }
 
   if (data?.status === 'cancelled') {
+    await setUploadProgress(uploadId, 'Analysis cancelled.')
     throw createCancellationError(uploadId)
   }
 }
