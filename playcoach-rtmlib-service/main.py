@@ -169,8 +169,11 @@ def enrich_response_metadata(
     base_response: dict[str, Any],
     decision: AutoZoomDecision,
     calibration_result: dict[str, Any],
+    mean_confidence_before: float | None,
+    mean_confidence_after: float | None,
 ) -> dict[str, Any]:
-    base_response.update(
+    metadata = build_response_defaults()
+    metadata.update(
         {
             'auto_zoom_applied': decision.enabled,
             'auto_zoom_reason': decision.reason,
@@ -185,11 +188,19 @@ def enrich_response_metadata(
             'safety_backoff_applied': decision.safety_backoff_applied,
             'coordinate_transform': decision.transform,
             'athlete_framing_message': decision.athlete_message,
+            'mean_keypoint_confidence_before_auto_zoom': mean_confidence_before,
+            'mean_keypoint_confidence_after_auto_zoom': mean_confidence_after,
             'calibration_source': calibration_result.get('source'),
+            'calibration_confidence': calibration_result.get('confidence'),
             'calibration_details': calibration_result.get('details'),
+            'calibration_flag': calibration_result.get('flag'),
+            'good_line_pairs': calibration_result.get('good_line_pairs'),
+            'rejection_reason': calibration_result.get('rejection_reason')
+            or (calibration_result.get('details') or {}).get('rejection_reason'),
             'pixels_per_yard': calibration_result.get('pixels_per_yard'),
         }
     )
+    base_response.update(metadata)
     return base_response
 
 
