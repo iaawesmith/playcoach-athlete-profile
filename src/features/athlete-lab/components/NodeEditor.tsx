@@ -317,7 +317,26 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ title: string; body: string; confirmLabel: string; onConfirm: () => void } | null>(null);
+  const [showAdvancedTabs, setShowAdvancedTabs] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
+  });
   const criticalChanged = useRef(false);
+
+  /* Persist advanced-tabs preference + auto-bounce off hidden tabs when toggled off */
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ADVANCED_TABS_STORAGE_KEY, showAdvancedTabs ? "true" : "false");
+    }
+    if (!showAdvancedTabs && ADVANCED_TAB_KEYS.includes(tab)) {
+      setTab("basics");
+    }
+  }, [showAdvancedTabs, tab]);
+
+  const visibleTabs = useMemo(
+    () => (showAdvancedTabs ? TABS : TABS.filter((t) => !ADVANCED_TAB_KEYS.includes(t.key))),
+    [showAdvancedTabs]
+  );
 
   useEffect(() => {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults
