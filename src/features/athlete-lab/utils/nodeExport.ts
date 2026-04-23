@@ -280,7 +280,7 @@ function generateBadges(node: TrainingNode): string {
     const conditionLine = op === "+-"
       ? `Condition: within ± ${b.condition_count} of ${b.condition_threshold}\nRequired Count: ${b.condition_count} analyses`
       : `Threshold: ${b.condition_threshold}\nRequired Count: ${b.condition_count} analyses`;
-    out += `\n### ${b.icon} ${b.name} — ${b.rarity}\nDescription: ${b.description || "Not configured"}\nCondition Type: ${condTypeMap[b.condition_type] ?? b.condition_type}\n${conditionLine}\nMetric: ${metricName}\n`;
+    out += `\n### ${b.icon} ${b.name} — ${b.rarity}\nDescription: ${b.description || "Not configured"}\nCondition Type: ${condTypeMap[b.condition_type] ?? b.condition_type}\nOperator: ${op || "Not configured"}\n${conditionLine}\nMetric: ${metricName}\nCustom Condition: ${b.condition_custom?.trim() || "Not configured"}\nLegacy Condition Text: ${b.condition?.trim() || "Not configured"}\nSequence Order: ${b.sequence_order}\n`;
   }
   return out;
 }
