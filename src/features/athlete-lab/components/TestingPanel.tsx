@@ -114,6 +114,37 @@ function formatNumber(value: number | null | undefined) {
   return Number.isInteger(value) ? value.toString() : value.toFixed(2);
 }
 
+function buildPoseQualityAudit(result: PipelineAnalysisResult) {
+  const logData = result.log_data;
+  const rtmlib = logData?.rtmlib;
+  const metrics = result.metricResults;
+  const lowConfidenceFlags = result.confidenceFlags.filter((flag) => flag.reason.toLowerCase().includes("confidence"));
+  const lowConfidenceMetrics = metrics.filter((metric) => metric.status === "flagged" && (metric.reason ?? "").toLowerCase().includes("confidence"));
+  const reliableFramePercentage = typeof rtmlib?.reliable_frame_percentage === "number"
+    ? rtmlib.reliable_frame_percentage
+    : typeof rtmlib?.keypoint_confidence?.length === "number" && rtmlib.keypoint_confidence.length > 0
+      ? Math.max(0, 100 - (rtmlib.keypoint_confidence.reduce((sum, entry) => sum + entry.percent_below, 0) / rtmlib.keypoint_confidence.length))
+      : null;
+  const averageKeypointConfidence = typeof rtmlib?.average_keypoint_confidence === "number"
+    ? rtmlib.average_keypoint_confidence
+    : typeof rtmlib?.keypoint_confidence?.length === "number" && rtmlib.keypoint_confidence.length > 0
+      ? rtmlib.keypoint_confidence.reduce((sum, entry) => sum + entry.mean_confidence, 0) / rtmlib.keypoint_confidence.length
+      : null;
+  const personDetected = typeof rtmlib?.person_detected === "boolean"
+    ? rtmlib.person_detected
+    : Boolean(rtmlib?.total_frames && (rtmlib.keypoint_confidence?.length ?? 0) > 0);
+  const isLowConfidence = (result.aggregateScore ?? 0) === 0 || lowConfidenceMetrics.length >= Math.max(2, Math.ceil(Math.max(metrics.length, 1) * 0.6));
+
+  if (!isLowConfidence) return null;
+
+  return {
+    personDetected,
+    averageKeypointConfidence,
+    reliableFramePercentage,
+    mostCommonIssue: rtmlib?.most_common_issue ?? (lowConfidenceFlags.length > 0 ? lowConfidenceFlags[0]?.reason : "Pose quality too low for reliable scoring"),
+  };
+}
+
 function calibrationSummary(metric: PipelineMetricResult) {
   const detail = metric.detail;
   if (!detail) return null;
@@ -175,6 +206,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
   const isRunning = ["preparing_video", "uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
+  const poseQualityAudit = result ? buildPoseQualityAudit(result) : null;
 
   const handleFileSelect = (file: File) => {
     setUploadedFile(file);
@@ -975,6 +1007,36 @@ export function TestingPanel({ node }: TestingPanelProps) {
               )}
             </div>
           </div>
+
+          {poseQualityAudit && (
+            <div className="rounded-xl border border-primary-container/10 bg-primary-container/5 p-5">
+              <h4 className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>videocam</span>
+                Pose Quality Audit
+              </h4>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Person detected</p>
+                  <p className="mt-1 text-sm font-semibold text-on-surface">{poseQualityAudit.personDetected ? "Yes" : "No"}</p>
+                </div>
+                <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Average keypoint confidence</p>
+                  <p className="mt-1 text-sm font-semibold text-on-surface">{formatNumber(poseQualityAudit.averageKeypointConfidence)}</p>
+                </div>
+                <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Reliable keypoint frames</p>
+                  <p className="mt-1 text-sm font-semibold text-on-surface">{poseQualityAudit.reliableFramePercentage == null ? "—" : `${poseQualityAudit.reliableFramePercentage.toFixed(1)}%`}</p>
+                </div>
+                <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Most common issue</p>
+                  <p className="mt-1 text-sm font-semibold text-on-surface">{poseQualityAudit.mostCommonIssue}</p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-on-surface">
+                Try filming closer (10–15 yards away), perpendicular to the route, and make sure your full body is in frame from head to toe.
+              </p>
+            </div>
+          )}
 
           <div className="rounded-xl border border-white/5 bg-surface-container p-5">
             <h4 className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">

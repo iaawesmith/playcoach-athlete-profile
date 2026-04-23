@@ -144,6 +144,10 @@ type PipelineLogData = {
     total_frames?: number
     source_fps?: number
     processing_time_ms?: number
+    person_detected?: boolean
+    average_keypoint_confidence?: number
+    reliable_frame_percentage?: number
+    most_common_issue?: string
     phase_windows?: Array<{
       phase: string
       start: number
@@ -211,13 +215,24 @@ type PipelineLogData = {
     word_count?: number
     target_words?: number
     truncated?: boolean
-    status?: 'COMPLETE' | 'FAILED'
+    skipped_reason?: string
+    status?: 'COMPLETE' | 'FAILED' | 'SKIPPED'
   }
 }
 
 type ClaudeCallResult = {
   feedback: string
   log: PipelineLogData['claude_api']
+}
+
+type PoseQualityAudit = {
+  personDetected: boolean
+  averageKeypointConfidence: number
+  reliableFramePercentage: number
+  mostCommonIssue: string
+  usableData: boolean
+  passedMetricCount: number
+  lowConfidenceMetricCount: number
 }
 
 function createCancellationError(uploadId: string): PipelineCancellationError {
@@ -253,6 +268,62 @@ function summarizePersonCount(keypoints: VideoKeypoints): { firstFrame: number; 
   }, 0)
 
   return { firstFrame, maxAcrossFrames }
+}
+
+function clampPercentage(value: number) {
+  return Math.max(0, Math.min(100, value))
+}
+
+function buildPoseQualityAudit(
+  personCountSummary: { firstFrame: number; maxAcrossFrames: number },
+  keypointConfidence: PipelineLogData['rtmlib'] extends { keypoint_confidence?: infer T } ? T : never,
+  metricResults: any[],
+  aggregateScore: number | null | undefined,
+): PoseQualityAudit {
+  const confidenceEntries = Array.isArray(keypointConfidence) ? keypointConfidence : []
+  const averageKeypointConfidence = confidenceEntries.length > 0
+    ? Number((confidenceEntries.reduce((sum, entry) => sum + entry.mean_confidence, 0) / confidenceEntries.length).toFixed(2))
+    : 0
+
+  const reliableFramePercentage = confidenceEntries.length > 0
+    ? Number((100 - (confidenceEntries.reduce((sum, entry) => sum + entry.percent_below, 0) / confidenceEntries.length)).toFixed(1))
+    : 0
+
+  const scoredMetrics = metricResults.filter((metric) => metric?.status === 'scored')
+  const flaggedMetrics = metricResults.filter((metric) => metric?.status === 'flagged')
+  const lowConfidenceMetricCount = flaggedMetrics.filter((metric) => typeof metric?.reason === 'string' && metric.reason.includes('confidence')).length
+  const passedMetricCount = scoredMetrics.length
+  const personDetected = personCountSummary.maxAcrossFrames > 0
+  const usableData = (typeof aggregateScore === 'number' && aggregateScore > 0) || passedMetricCount >= 2
+
+  let mostCommonIssue = 'Body not fully visible'
+  if (!personDetected) {
+    mostCommonIssue = 'No person detected in frame'
+  } else if (averageKeypointConfidence < 0.35 || reliableFramePercentage < 30) {
+    mostCommonIssue = 'Athlete too small / too far in frame'
+  } else if (averageKeypointConfidence < 0.45 || reliableFramePercentage < 45) {
+    mostCommonIssue = 'Motion blur'
+  }
+
+  if (confidenceEntries.some((entry) => entry.index <= 16 && entry.status === 'UNRELIABLE') && reliableFramePercentage < 40) {
+    mostCommonIssue = 'Body not fully visible'
+  }
+
+  if (lowConfidenceMetricCount >= Math.max(2, Math.ceil(metricResults.length * 0.6))) {
+    mostCommonIssue = averageKeypointConfidence < 0.4
+      ? 'Athlete too small / too far in frame'
+      : mostCommonIssue
+  }
+
+  return {
+    personDetected,
+    averageKeypointConfidence,
+    reliableFramePercentage: clampPercentage(reliableFramePercentage),
+    mostCommonIssue,
+    usableData,
+    passedMetricCount,
+    lowConfidenceMetricCount,
+  }
 }
 
 Deno.serve(async (req) => {
@@ -443,22 +514,52 @@ Deno.serve(async (req) => {
       metrics_skipped: metricResults.filter((metric) => metric.status !== 'scored').length,
       metrics_total: metricResults.length,
     }
+    const poseQualityAudit = buildPoseQualityAudit(
+      personCountSummary,
+      logData.rtmlib?.keypoint_confidence,
+      metricResults,
+      scoreResult.aggregate_score,
+    )
+    if (logData.rtmlib) {
+      logData.rtmlib.person_detected = poseQualityAudit.personDetected
+      logData.rtmlib.average_keypoint_confidence = poseQualityAudit.averageKeypointConfidence
+      logData.rtmlib.reliable_frame_percentage = poseQualityAudit.reliableFramePercentage
+      logData.rtmlib.most_common_issue = poseQualityAudit.mostCommonIssue
+    }
 
     // STEP 10: Error auto-detection
     await setUploadProgress(upload.id, 'Checking for common route errors...')
     const errorResults = detectErrors(nodeConfig.common_errors, metricResults)
+    logData.error_detection = buildErrorDetectionLog(nodeConfig.common_errors, metricResults, errorResults)
 
     // STEP 11: Call Claude API
     await ensureNotCancelled(upload.id)
-    await setUploadProgress(upload.id, 'Generating coaching feedback...')
-    const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
-    const feedback = claudeResult.feedback
-    logData.claude_api = claudeResult.log
-    logData.error_detection = buildErrorDetectionLog(nodeConfig.common_errors, metricResults, errorResults)
-    logInfo('claude_feedback_received', {
-      uploadId,
-      feedbackLength: feedback.length,
-    })
+    let feedback = 'Pose confidence was too low to generate coaching feedback. Please try a clearer video — stand 10–15 yards away, film perpendicular to your route, and make sure your full body stays in frame.'
+    if (!poseQualityAudit.usableData) {
+      logData.claude_api = {
+        model: 'claude-sonnet-4-5',
+        status: 'SKIPPED',
+        skipped_reason: 'Pose confidence too low to generate reliable coaching feedback.',
+        target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+      }
+      logInfo('claude_skipped_low_confidence', {
+        uploadId,
+        aggregateScore: scoreResult.aggregate_score,
+        passedMetricCount: poseQualityAudit.passedMetricCount,
+        lowConfidenceMetricCount: poseQualityAudit.lowConfidenceMetricCount,
+        averageKeypointConfidence: poseQualityAudit.averageKeypointConfidence,
+        reliableFramePercentage: poseQualityAudit.reliableFramePercentage,
+      })
+    } else {
+      await setUploadProgress(upload.id, 'Generating coaching feedback...')
+      const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+      feedback = claudeResult.feedback
+      logData.claude_api = claudeResult.log
+      logInfo('claude_feedback_received', {
+        uploadId,
+        feedbackLength: feedback.length,
+      })
+    }
 
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
