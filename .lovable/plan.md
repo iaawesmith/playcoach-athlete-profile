@@ -1,89 +1,118 @@
 
-Rewire the AthleteLab Run Analysis tab to submit real analysis jobs through the production upload pipeline, while keeping the existing context form and simulated function deployed but no longer used by this tab.
+Build a cross-node Recent Test Runs history view inside the Admin Reference Testing section so admins can inspect and compare real pipeline runs for the fixed test athlete without changing Run Analysis itself.
 
-### What will be built
+### What will be added
 
-1. Add reliable upload-to-result linkage
-   - Add a nullable `upload_id uuid` column on `public.athlete_lab_results`
-   - Add a foreign key from `athlete_lab_results.upload_id` to `athlete_uploads.id`
-   - Update the production function’s results insert so each completed run writes `upload_id`
-   - Use `upload_id` as the primary result lookup path in the UI
-   - If no result row is found immediately after completion, keep a safe fallback query by athlete/node/time ordering for resilience
+1. Extend the AthleteLab service layer for admin history
+   - Add a new history fetcher in `src/services/athleteLab.ts` scoped to the fixed test athlete ID already used by Run Analysis.
+   - Query `athlete_uploads` as the base dataset, ordered by `created_at desc`, limited to 25 by default.
+   - Join in:
+     - `athlete_lab_nodes` for node name
+     - `athlete_lab_results` primarily by `upload_id`
+   - Keep a fallback lookup for older records lacking `upload_id` using athlete/node plus nearest `analyzed_at` ordering.
+   - Normalize each row into a UI-friendly shape with:
+     - upload metadata
+     - node name/version
+     - aggregate score / phase scores / metric results
+     - confidence flags / detected errors / feedback
+     - derived calibration summary from the first metric containing calibration metadata
 
-2. Add a backend helper for admin test submissions
-   - Create a dedicated backend function for Run Analysis submissions
-   - It will accept the node, signed video URL, timing, camera angle, and full `analysis_context`
-   - It will insert into `athlete_uploads` using the fixed test athlete ID the user approved
-   - This avoids client-side RLS issues and preserves the real webhook-triggered production path
+2. Add dedicated history types
+   - Extend `src/features/athlete-lab/types.ts` with admin history-specific types rather than overloading the Run Analysis result type.
+   - Include:
+     - history row model
+     - filter option types
+     - sort option types
+     - parsed calibration summary fields
+   - Ensure optional/missing context fields are handled safely so absent values render as `N/A` or blank instead of causing runtime issues.
 
-3. Move Run Analysis uploads onto the real storage path
-   - Change file uploads from `athlete-media/test-videos/*` to `athlete-videos/test-clips/*`
-   - Use naming like `test-clips/{node-id}-{timestamp}.{ext}`
-   - Generate a 24-hour signed URL after upload
-   - Keep MIME-based file selection (`video/*`) so `.mp4`, `.mov`, and `.MOV` continue to work
+3. Add a Recent Test Runs section to Admin Reference
+   - Update `src/features/athlete-lab/components/AdminReferencePanel.tsx`.
+   - Keep the existing Manual Test Upload tool intact.
+   - Add a second block below it titled something like `RECENT TEST RUNS`.
+   - Keep styling aligned with the current AthleteLab admin aesthetic:
+     - dark surface hierarchy
+     - ghost borders only
+     - Material Symbols only
+     - no dashboard/chart treatment
 
-4. Replace simulated submission in `TestingPanel`
-   - Remove the tab’s dependency on `athlete-lab-analyze`
-   - On submit:
-     - upload local file if provided
-     - create signed URL
-     - call the new backend helper
-     - receive the created `athlete_uploads.id`
-   - Keep the existing Analysis Context inputs and forward them into `analysis_context`
-   - Include `camera_angle`, `start_seconds`, and `end_seconds` in the real upload payload
+4. Build filters and sort controls
+   - Add controls above the table for:
+     - Node: defaults to `All Nodes`
+     - Date range: default to `Last 7 Days`
+     - Calibration source: `All / Dynamic / Body Based / Static / None`
+     - Status: `All / Complete / Failed`
+     - Sort: `Newest`, `Oldest`, `Aggregate Score ↑`, `Aggregate Score ↓`, `Node Name A–Z`
+   - Implement filtering/sorting client-side on the fetched result set.
+   - Populate node options dynamically from returned runs.
 
-5. Add real pipeline polling with clear states
-   - Poll `athlete_uploads` by ID until `complete`, `failed`, or 240 seconds elapsed
-   - Show distinct stages such as uploading, queued, processing, fetching results, complete, failed, and timed out
-   - Make timeout messaging explicit: polling stopped after 240 seconds, but the pipeline may still be running and results may appear later
-   - Keep retry available without clearing the entered context unnecessarily
+5. Build the history table
+   - Use the project table primitive from `src/components/ui/table.tsx`, but restyle with the project’s dark admin palette instead of default shadcn presentation.
+   - Columns:
+     - Date/Time
+     - Node Name
+     - Node Version
+     - Status
+     - Video
+     - Athlete Height
+     - Athlete Wingspan
+     - Camera Angle
+     - Route Direction
+     - Calibration Source
+     - Calibration Confidence
+     - Aggregate Score
+   - Default ordering: newest first.
+   - Failed runs stay visible in the same list with stronger error styling.
 
-6. Fetch and render real result data
-   - After upload completion, fetch the linked `athlete_lab_results` row using `upload_id`
-   - Replace the simulated result view with a real pipeline result view showing:
-     - aggregate score
-     - phase scores
-     - full metric results
+6. Add expandable row detail for debugging
+   - Make each row expandable/collapsible inline.
+   - Expanded content will show:
+     - full `metric_results`
+     - metric `detail` objects
+     - calibration detail block
      - confidence flags
      - detected errors
-     - feedback text
-   - Surface calibration metadata per metric:
-     - `calibrationSource`
-     - `calibrationConfidence`
-     - `calibrationDetails`
-     - resolved `pixelsPerYard`
-     - raw pixel value when present in detail
+     - phase scores breakdown
+     - feedback text in a nested collapsible area
+     - upload status and `error_message`
+   - Reuse presentation patterns already established in `TestingPanel.tsx` for:
+     - score badges
+     - calibration summaries
+     - confidence/error sections
+     - JSON detail formatting
 
-7. Improve result and error UX
-   - Show `athlete_uploads.error_message` clearly when the pipeline fails
-   - Distinguish upload/signing/backend submission failures from downstream pipeline failures
-   - If polling times out, preserve the upload ID and show a “check later” state instead of a failure state
-   - Keep the Analysis Log area compatible with the new flow, but do not block migration on log enhancements
+### Display and parsing rules
 
-### Files and systems to update
+- Date filter default: `Last 7 Days` on initial render.
+- Video identifier:
+  - first try filename extraction from `video_url`
+  - if that fails, show truncated URL tail like `…last-20-characters`
+  - if URL is missing/unusable, fall back to upload ID
+- Missing context fields:
+  - display `N/A` or blank gracefully for fields like route direction, wingspan, or camera angle when absent
+  - never assume all nodes populate all context keys
+- Calibration summary:
+  - derive from the first metric whose detail includes calibration metadata
+  - expose source, confidence, pixels-per-yard, and nested calibration details when present
 
-- `src/features/athlete-lab/components/TestingPanel.tsx`
+### Files to update
+
 - `src/services/athleteLab.ts`
+  - add fetcher, joining/fallback logic, normalization helpers, and display helpers
 - `src/features/athlete-lab/types.ts`
-- `supabase/functions/analyze-athlete-video/index.ts` for `upload_id` on results writes only
-- one new backend function for privileged admin test upload creation
-- database migration for `athlete_lab_results.upload_id`
-
-### Technical notes
-
-- The `upload_id` addition is a small additive schema change and is worth including for reliable linkage
-- No changes to metric calculations, calibration resolver logic, node config, or Cloud Run
-- No changes to the existing Analysis Context form fields beyond passing them into the real upload flow
-- The old `athlete-lab-analyze` function remains deployed for now but is no longer used by Run Analysis
-- Storage policy may need a minimal adjustment if browser uploads to `athlete-videos/test-clips/*` are currently blocked by existing rules
+  - add admin history row/filter/sort/calibration types
+- `src/features/athlete-lab/components/AdminReferencePanel.tsx`
+  - add Recent Test Runs UI, filters, table, expandable details, loading/empty/error states
 
 ### Validation after implementation
 
-1. Run Analysis uploads land in `athlete-videos/test-clips/*`
-2. Uploaded files get a 24-hour signed URL
-3. Submitting creates a real `athlete_uploads` row through the backend helper
-4. The webhook triggers the production pipeline
-5. Polling shows correct intermediate states
-6. Successful runs resolve a linked `athlete_lab_results.upload_id`
-7. The UI shows real metric output including calibration metadata
-8. Timeout state clearly says polling gave up, not that the pipeline failed
+1. Recent runs for the fixed test athlete appear across all nodes.
+2. Default view shows only the last 7 days.
+3. Most recent runs appear first by default.
+4. Node column clearly identifies which skill was tested.
+5. Node/date/calibration/status filters work correctly.
+6. Sort controls reorder the visible rows correctly.
+7. Expanding a row reveals full metric, calibration, confidence, error, feedback, and phase detail.
+8. Failed runs remain visible and show `error_message`.
+9. Missing analysis context fields render safely as `N/A` or blank.
+10. Video identifier never dumps a full long URL when filename parsing fails.
