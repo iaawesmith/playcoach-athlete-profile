@@ -382,6 +382,28 @@ export async function fetchUploadStatus(uploadId: string): Promise<PipelineUploa
   return upload;
 }
 
+export async function cancelRunAnalysis(uploadId: string): Promise<PipelineUploadSnapshot> {
+  const { data, error } = await supabase.functions.invoke("admin-cancel-upload", {
+    body: { uploadId },
+  });
+
+  if (error) {
+    throw new Error(error.message || "Failed to cancel analysis run.");
+  }
+
+  const record = parseRecord(data);
+  if (typeof record.error === "string" && record.error) {
+    throw new Error(record.error);
+  }
+
+  const upload = normalizeUploadSnapshot(record.upload);
+  if (!upload) {
+    throw new Error("Failed to cancel analysis run.");
+  }
+
+  return upload;
+}
+
 async function fetchPipelineResult(uploadId: string, node: TrainingNode): Promise<PipelineAnalysisResult | null> {
   const { data, error } = await supabase.functions.invoke("admin-get-pipeline-result", {
     body: {
@@ -417,6 +439,11 @@ export async function pollRunAnalysisResult(
       options.onStageChange?.("fetching_results", latestUpload);
       const result = await fetchPipelineResult(uploadId, node);
       return { stage: "complete", upload: latestUpload, result };
+    }
+
+    if (latestUpload.status === "cancelled") {
+      options.onStageChange?.("cancelled", latestUpload);
+      return { stage: "cancelled", upload: latestUpload, result: null };
     }
 
     if (latestUpload.status === "failed") {
