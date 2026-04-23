@@ -3160,6 +3160,7 @@ async function writeResults(
   errorResults: any,
   feedback: string,
   logData: PipelineLogData,
+  cloudRunMetadata: CloudRunMetadata,
 ) {
   const { error } = await supabase
     .from('athlete_lab_results')
@@ -3172,7 +3173,10 @@ async function writeResults(
       phase_scores: scoreResult.phase_scores,
       metric_results: metricResults,
       feedback,
-      result_data: { log_data: logData },
+      result_data: {
+        ...(Object.keys(cloudRunMetadata).length > 0 ? cloudRunMetadata : {}),
+        log_data: logData,
+      },
       confidence_flags: metricResults
         .filter(m => m.status === 'flagged')
         .map(m => ({ metric: m.name, reason: m.reason })),
