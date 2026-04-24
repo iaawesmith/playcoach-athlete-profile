@@ -910,6 +910,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             segmentationMethod={draft.segmentation_method ?? "proportional"}
             onSegmentationMethodChange={(m) => update("segmentation_method", m)}
             onConfirmDelete={(opts) => setConfirmModal(opts)}
+            advancedEnabled={showAdvancedTabs}
           />
         )}
 
@@ -1760,13 +1761,17 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
   );
 }
 
-function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete }: {
+function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete, advancedEnabled }: {
   phases: PhaseNote[];
   onChange: (p: PhaseNote[]) => void;
   segmentationMethod: SegmentationMethod;
   onSegmentationMethodChange: (m: SegmentationMethod) => void;
   onConfirmDelete: ConfirmDeleteFn;
+  advancedEnabled: boolean;
 }) {
+  // When advanced tabs are off, treat segmentation as "proportional" in the UI
+  // without dirtying the form (DB value preserved until user explicitly saves).
+  const effectiveSegmentationMethod: SegmentationMethod = advancedEnabled ? segmentationMethod : "proportional";
   useEffect(() => {
     const needsIds = phases.some(p => !p.id);
     if (needsIds) {
@@ -1816,7 +1821,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
 
   const totalWeight = phases.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   const remaining = 100 - totalWeight;
-  const isProportional = segmentationMethod === "proportional";
+  const isProportional = effectiveSegmentationMethod === "proportional";
 
   const renderFields = (p: PhaseNote, setP: (v: PhaseNote) => void) => (
     <div className="space-y-3 pt-3">
@@ -1869,12 +1874,25 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
           <label className={LABEL_CLASS}>Segmentation Method</label>
           <SectionTooltip tip="Proportional: divides clip frames by the percentage weights you set per phase. Checkpoint-triggered: phase boundaries are set by specific body position events defined in the Checkpoints tab." />
         </div>
-        <div className="flex rounded-xl overflow-hidden border border-outline-variant/20" style={{ backgroundColor: '#0E1319' }}>
-          <button onClick={() => onSegmentationMethodChange("proportional")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${isProportional ? "bg-primary-container/15 text-primary-container border-r border-primary-container/30" : "text-on-surface-variant hover:text-on-surface border-r border-outline-variant/20"}`}>Proportional</button>
-          <button onClick={() => onSegmentationMethodChange("checkpoint")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${!isProportional ? "bg-primary-container/15 text-primary-container" : "text-on-surface-variant hover:text-on-surface"}`}>Checkpoint-triggered</button>
-        </div>
-        {!isProportional && (
-          <p className="text-on-surface-variant/50 text-xs leading-snug">Phase boundaries will be determined by Checkpoints. Proportion weights are ignored.</p>
+        {advancedEnabled ? (
+          <>
+            <div className="flex rounded-xl overflow-hidden border border-outline-variant/20" style={{ backgroundColor: '#0E1319' }}>
+              <button onClick={() => onSegmentationMethodChange("proportional")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${isProportional ? "bg-primary-container/15 text-primary-container border-r border-primary-container/30" : "text-on-surface-variant hover:text-on-surface border-r border-outline-variant/20"}`}>Proportional</button>
+              <button onClick={() => onSegmentationMethodChange("checkpoint")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${!isProportional ? "bg-primary-container/15 text-primary-container" : "text-on-surface-variant hover:text-on-surface"}`}>Checkpoint-triggered</button>
+            </div>
+            {!isProportional && (
+              <p className="text-on-surface-variant/50 text-xs leading-snug">Phase boundaries will be determined by Checkpoints. Proportion weights are ignored.</p>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="rounded-xl overflow-hidden border border-primary-container/30" style={{ backgroundColor: '#0E1319' }}>
+              <div className="py-2 text-center text-[10px] font-bold uppercase tracking-[0.15em] bg-primary-container/15 text-primary-container">
+                ● Proportional
+              </div>
+            </div>
+            <p className="text-on-surface-variant/50 text-xs leading-snug">Advanced segmentation coming soon when Advanced Tabs is enabled.</p>
+          </>
         )}
       </div>
 
