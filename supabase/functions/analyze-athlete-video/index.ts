@@ -2797,6 +2797,24 @@ function resolveBilateralSelection(
     }
   }
 
+  // bilateral: "none" — metric's keypoint_indices already span both sides
+  // (e.g. [23,24] hips, [27,28] ankles, [19,20] index fingers). Use base indices
+  // verbatim; do NOT mirror or pick a single side. Must be checked before
+  // route/auto branches so bilateral pairs aren't collapsed.
+  if (bilateralOverride === 'none' || bilateralMode === 'none') {
+    logBilateralDecision(metricName, 'override', 'left', leftIndices, rightIndices, baseIndices, null, null)
+    return {
+      side: 'left',
+      source: 'override',
+      baseIndices,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: baseIndices,
+      leftAverageConfidence: null,
+      rightAverageConfidence: null,
+    }
+  }
+
   if (bilateralMode === 'left' || bilateralMode === 'right') {
     const side: BilateralSide = bilateralMode
     const effectiveIndices = side === 'left' ? leftIndices : rightIndices
@@ -2850,24 +2868,7 @@ function resolveBilateralSelection(
     leftAverageConfidence: autoChoice.leftAverageConfidence,
     rightAverageConfidence: autoChoice.rightAverageConfidence,
   }
-  }
-
-  // bilateral: "none" — metric's keypoint_indices already span both sides
-  // (e.g. [23,24] hips, [27,28] ankles, [19,20] index fingers). Use base indices
-  // verbatim; do NOT mirror or pick a single side.
-  if (bilateralOverride === 'none' || bilateralMode === 'none') {
-    logBilateralDecision(metricName, 'override', 'left', leftIndices, rightIndices, baseIndices, null, null)
-    return {
-      side: 'left',
-      source: 'override',
-      baseIndices,
-      leftIndices,
-      rightIndices,
-      effectiveIndices: baseIndices,
-      leftAverageConfidence: null,
-      rightAverageConfidence: null,
-    }
-  }
+}
 
 function scoreMetric(value: number, eliteTarget: number, tolerance: number): number {
   const deviation = Math.abs(value - eliteTarget)
