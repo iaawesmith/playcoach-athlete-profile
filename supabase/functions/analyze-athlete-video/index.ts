@@ -881,6 +881,12 @@ async function runPreflight(upload: any, nodeConfig: any) {
       result: duration < nodeConfig.clip_duration_min || duration > nodeConfig.clip_duration_max ? 'FAIL' as const : 'PASS' as const,
     },
     {
+      name: 'Launch clip cap',
+      expected: `<= ${MAX_CLIP_WINDOW_SECONDS}s (3-second clips are currently supported; longer clips coming soon)`,
+      actual: `${duration}s`,
+      result: duration > MAX_CLIP_WINDOW_SECONDS ? 'FAIL' as const : 'PASS' as const,
+    },
+    {
       name: 'Node status',
       expected: 'live',
       actual: nodeConfig.status || 'unknown',

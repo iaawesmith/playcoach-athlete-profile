@@ -16,6 +16,8 @@ import { SectionTooltip } from "./SectionTooltip";
 import { AnalysisLog } from "./AnalysisLog";
 import { cn } from "@/lib/utils";
 
+const MAX_CLIP_WINDOW_SECONDS = 3;
+
 interface TestingPanelProps {
   node: TrainingNode;
 }
@@ -198,7 +200,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [athleteHeightUnit, setAthleteHeightUnit] = useState<MeasurementUnit>("inches");
   const [athleteWingspan, setAthleteWingspan] = useState("");
   const [athleteWingspanUnit, setAthleteWingspanUnit] = useState<MeasurementUnit>("inches");
-  const [endSeconds, setEndSeconds] = useState(node.clip_duration_max.toString());
+  const [endSeconds, setEndSeconds] = useState(
+    Math.min(node.clip_duration_max, MAX_CLIP_WINDOW_SECONDS).toString(),
+  );
   const [contextCopied, setContextCopied] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [localProgressMessage, setLocalProgressMessage] = useState("");
