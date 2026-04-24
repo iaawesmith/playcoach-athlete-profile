@@ -340,9 +340,11 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
     try {
       const parsedEndSeconds = endSeconds.trim() ? Number(endSeconds) : Number.NaN;
+      const effectiveMax = Math.min(node.clip_duration_max, MAX_CLIP_WINDOW_SECONDS);
+      const effectiveMin = Math.min(node.clip_duration_min, effectiveMax);
       const normalizedEndSeconds = Number.isFinite(parsedEndSeconds)
-        ? Math.min(Math.max(parsedEndSeconds, node.clip_duration_min), node.clip_duration_max)
-        : node.clip_duration_max;
+        ? Math.min(Math.max(parsedEndSeconds, effectiveMin), effectiveMax)
+        : effectiveMax;
 
       const submission = await submitRunAnalysisJob(
         {
@@ -715,14 +717,14 @@ export function TestingPanel({ node }: TestingPanelProps) {
           <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Clip End Seconds</label>
           <input
             type="number"
-            min={node.clip_duration_min}
-            max={node.clip_duration_max}
+            min={Math.min(node.clip_duration_min, MAX_CLIP_WINDOW_SECONDS)}
+            max={MAX_CLIP_WINDOW_SECONDS}
             step="0.1"
             value={endSeconds}
             onChange={(e) => setEndSeconds(e.target.value)}
             className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
           />
-          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">Start seconds are fixed at 0. End seconds are clamped to this node’s allowed clip window of {node.clip_duration_min}–{node.clip_duration_max}s.</p>
+          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">3-second clips are currently supported; longer clips coming soon. Start seconds are fixed at 0; end seconds are clamped to {MAX_CLIP_WINDOW_SECONDS}s.</p>
         </div>
 
         <div className="rounded-xl border border-white/5 bg-surface-container-high/50 p-4">
