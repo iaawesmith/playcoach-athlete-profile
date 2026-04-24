@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import type {
   PipelineAnalysisResult,
   PipelineMetricResult,
