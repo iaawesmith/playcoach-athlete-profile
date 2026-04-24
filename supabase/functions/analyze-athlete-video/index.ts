@@ -858,7 +858,7 @@ async function fetchNodeConfig(nodeId: string) {
   const { data, error } = await supabase
     .from('athlete_lab_nodes')
     .select(`
-      id, name, status, node_version,
+      id, name, position, status, node_version,
       clip_duration_min, clip_duration_max,
       solution_class, performance_mode, det_frequency,
       det_frequency_solo, det_frequency_defender, det_frequency_multiple,
@@ -866,6 +866,7 @@ async function fetchNodeConfig(nodeId: string) {
       llm_prompt_template, llm_system_instructions,
       llm_tone, llm_max_words,
       scoring_rules, score_bands, scoring_renormalize_on_skip,
+      confidence_handling, min_metrics_threshold,
       camera_guidelines,
       key_metrics,
       phase_breakdown,
@@ -2885,7 +2886,11 @@ function calculateAggregateScore(
   const skipped = metricResults.filter(m => m.status === 'skipped')
   const flagged = metricResults.filter(m => m.status === 'flagged')
 
-  const confidenceHandling = nodeConfig.scoring_rules?.confidence_handling || 'skip'
+  // A1: Read scoring config from node columns (correct source of truth) instead
+  // of from the legacy `scoring_rules` text blob, which has no parsed fields.
+  // Previously this silently fell back to defaults ('skip' / 50) regardless of
+  // what admins configured in the editor.
+  const confidenceHandling = nodeConfig.confidence_handling || 'skip'
   const renormalize = nodeConfig.scoring_renormalize_on_skip !== false
 
   // Handle flagged metrics based on confidence_handling rule
@@ -2906,7 +2911,24 @@ function calculateAggregateScore(
   const totalMetrics = metricResults.length
   const skippedCount = skipped.length + (confidenceHandling === 'skip' ? flagged.length : 0)
   const skippedPercent = (skippedCount / totalMetrics) * 100
-  const minThreshold = nodeConfig.scoring_rules?.min_metrics_threshold || 50
+  const minThreshold = nodeConfig.min_metrics_threshold ?? 50
+
+  // Observability: surface the actual scoring config that was applied, so
+  // admin tests can verify the node's configured values were honored
+  // (catches the silent-fallback class of bug previously introduced by
+  // reading from the wrong column).
+  logInfo('scoring_config_applied', {
+    nodeId: nodeConfig.id,
+    nodeName: nodeConfig.name,
+    confidence_handling: confidenceHandling,
+    min_metrics_threshold: minThreshold,
+    renormalize_on_skip: renormalize,
+    total_metrics: totalMetrics,
+    scored_count: scored.length,
+    flagged_count: flagged.length,
+    skipped_count: skipped.length,
+    skipped_percent: Number(skippedPercent.toFixed(1)),
+  })
 
   if (skippedPercent > minThreshold) {
     return {
@@ -3012,6 +3034,10 @@ async function callClaude(
       : '',
     athlete_name: context.athlete_name || 'Athlete',
     node_name: nodeConfig.name,
+    // A4: position now wired from nodeConfig (was previously omitted, so any
+    // {{position}} token in a prompt template silently rendered as the literal
+    // placeholder string instead of the node's configured position).
+    position: nodeConfig.position || '',
     athlete_level: context.athlete_level || 'high_school',
     focus_area: context.focus_area || '',
     skipped_metrics: scoreResult.skipped_metrics
@@ -3019,8 +3045,26 @@ async function callClaude(
       : ''
   }
 
+  // Observability: surface which template variables were resolved with real
+  // values vs left empty. Lets admins confirm new vars (e.g. {{position}})
+  // are actually wired before they edit prompt templates that rely on them.
+  const template = nodeConfig.llm_prompt_template || ''
+  logInfo('variables_injected', {
+    nodeId: nodeConfig.id,
+    template_length: template.length,
+    variables: Object.entries(variables).map(([name, value]) => {
+      const stringValue = String(value ?? '')
+      return {
+        name,
+        present: stringValue.length > 0,
+        used_in_template: template.includes(`{{${name}}}`),
+        value_summary: stringValue.length > 80 ? `${stringValue.slice(0, 80)}…` : stringValue,
+      }
+    }),
+  })
+
   // Inject variables into template
-  let prompt = nodeConfig.llm_prompt_template
+  let prompt = template
   for (const [key, value] of Object.entries(variables)) {
     prompt = prompt.replaceAll(`{{${key}}}`, value as string)
   }

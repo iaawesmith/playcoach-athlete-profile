@@ -1,59 +1,127 @@
-## Ticket 2 — GFE streaming keepalive for /analyze (shipped)
 
-**Status:** implemented and deployed.
+# Group A — Execution Plan (already approved, switching to build mode)
 
-Two files changed (no changes to `pose.py`, `auto_zoom.py`, `calibration.py`, `video.py`, or `schema.py`):
+All four fixes pre-approved in the prior turn. Pre-execution recon already completed: confirmed the analyzer's bilateral-resolution branch already supports `'none'` at runtime (lines 2800–2816 of `analyze-athlete-video/index.ts`), so A2 is a pure type-side fix — no edge function change needed.
 
-- `mediapipe-service/app/main.py` — `/analyze` now returns a `StreamingResponse` (NDJSON). An `asyncio.Queue` coordinates a `keepalive_loop` (yields `{"type":"keepalive"}` every 10s, `log.debug("keepalive yield")`) and a `run_pipeline` task that calls `_build_response` and emits a single `{"type":"result"}` or `{"type":"error"}` line. Both paths log `log.info("stream complete")` in `finally` before putting the SENTINEL.
-- `supabase/functions/analyze-athlete-video/index.ts` — `callCloudRun` now consumes the NDJSON stream via `response.body.getReader()` + `TextDecoder`, ignores `keepalive` lines, captures `result`, throws on `error`. The 300s `AbortController` ceiling now bounds the entire stream lifetime. `logWarn` reused for parse failures.
+## Files touched (4 files, 6 surgical edits)
 
-API contract preserved: same `AnalyzeResponse` shape, delivered as the final line of the stream.
+### A1 — `supabase/functions/analyze-athlete-video/index.ts`
 
----
+**Edit 1 — SELECT statement (lines 860–869).** Add `position`, `confidence_handling`, `min_metrics_threshold`.
 
-## Ticket 3 — 6-second clip support (deferred)
+```diff
+     .select(`
+-      id, name, status, node_version,
++      id, name, position, status, node_version,
+       clip_duration_min, clip_duration_max,
+       solution_class, performance_mode, det_frequency,
+       det_frequency_solo, det_frequency_defender, det_frequency_multiple,
+       tracking_enabled, segmentation_method,
+       llm_prompt_template, llm_system_instructions,
+       llm_tone, llm_max_words,
+-      scoring_rules, score_bands, scoring_renormalize_on_skip,
++      scoring_rules, score_bands, scoring_renormalize_on_skip,
++      confidence_handling, min_metrics_threshold,
+       camera_guidelines,
+```
 
-**Status:** deferred for launch. Clip window hard-capped at 3s in `main.py`
-(`MAX_WINDOW_SECONDS = 3.0`), edge preflight (`MAX_CLIP_WINDOW_SECONDS = 3`,
-new "Launch clip cap" check in `runPreflight`), and `TestingPanel.tsx` UI
-(constant, default state, submit clamp, input min/max, helper text).
+**Edit 2 — Scoring config reads + new observability log (lines 2888–2909).**
 
-**Diagnosis (current run, upload 66ea5e98, 6s Slant clip):**
-- Cloud Run instance dies mid-pose-loop ~2 minutes into processing.
-- No `stream complete` log emitted from `run_pipeline()` finally block.
-- No `analyze done` line.
-- No FastAPI exception traceback.
-- Container exits silently — consistent with SIGKILL from the platform
-  (OOM or CPU throttle), not a Python-level crash.
-- Keepalives were firing during the window (Ticket 2 working as designed) —
-  the death is inside the pose loop, not a GFE timeout.
+```diff
+-  const confidenceHandling = nodeConfig.scoring_rules?.confidence_handling || 'skip'
++  const confidenceHandling = nodeConfig.confidence_handling || 'skip'
+   const renormalize = nodeConfig.scoring_renormalize_on_skip !== false
+   ...
+-  const minThreshold = nodeConfig.scoring_rules?.min_metrics_threshold || 50
++  const minThreshold = nodeConfig.min_metrics_threshold ?? 50
++
++  logInfo('scoring_config_applied', {
++    nodeId: nodeConfig.id,
++    nodeName: nodeConfig.name,
++    confidence_handling: confidenceHandling,
++    min_metrics_threshold: minThreshold,
++    renormalize_on_skip: renormalize,
++    total_metrics: totalMetrics,
++    scored_count: scored.length,
++    flagged_count: flagged.length,
++    skipped_count: skipped.length,
++  })
+```
 
-**Candidate fixes to investigate (separate session):**
-1. Memory bump: Cloud Run instance from current limit to 16 GiB. Cheapest first try.
-2. `TARGET_FPS` reduction in `video.py` from 30 → 15. Halves frame count fed
-   to pose loop, roughly halves peak memory and pose-loop wall time.
-   Trade-off: lower temporal resolution for metric calculations — needs
-   validation against existing reference clips.
-3. Pose loop chunking: process frames in batches of N with intermediate
-   yields, instead of one synchronous `run_with_skip` call across all frames.
-   Bounds peak memory regardless of clip length.
+### A4 — same file, variables object (lines 3013–3015)
 
-**Side effects to revisit when 6s unlocks:**
-- Slant node `clip_duration_min` was lowered from **4 → 3** and
-  `clip_duration_max` from **15 → 3** in the launch migration so the
-  existing "Clip duration" preflight check would pass alongside the new
-  "Launch clip cap" check. **This change is intentional and persistent.**
-  When the 3s ceiling is removed, restore Slant's intended bounds (4–15s
-  was the pre-launch config) or whatever the new product spec dictates.
-- The TestingPanel input `min` is `Math.min(node.clip_duration_min, 3)`
-  rather than raw `node.clip_duration_min` — same revisit point.
+```diff
+     athlete_name: context.athlete_name || 'Athlete',
+     node_name: nodeConfig.name,
++    position: nodeConfig.position || '',
+     athlete_level: context.athlete_level || 'high_school',
+```
 
-**Smoke test (post-deploy of Cloud Run):**
-- Upload `66ea5e98-ff65-4d20-9e9e-232753d198aa` reset to
-  `start_seconds=0, end_seconds=3, status='pending'` in the launch migration.
-- Trigger is **manual** (no INSERT/UPDATE trigger added) — invoke
-  `analyze-athlete-video` from terminal with the upload row as the
-  webhook payload to start the run.
+### A2 — `src/features/athlete-lab/types.ts` (lines 2 & 4)
 
-**Requires fresh debugging session** with Cloud Run console access for
-memory/CPU graphs at the moment of kill.
+```diff
+-export type BilateralMode = "auto" | "left" | "right";
++export type BilateralMode = "auto" | "left" | "right" | "none";
+
+-export type BilateralOverride = "auto" | "force_left" | "force_right";
++export type BilateralOverride = "auto" | "force_left" | "force_right" | "none";
+```
+
+### A2 — `src/features/athlete-lab/components/KeyMetricsEditor.tsx` (lines 44–54)
+
+Add `"none"` to both option lists:
+
+```diff
+ const BILATERAL_OPTIONS: ... = [
+   { value: "auto", label: "Node Default (Auto)" },
+   { value: "left", label: "Node Default (Left)" },
+   { value: "right", label: "Node Default (Right)" },
++  { value: "none", label: "Not bilateral (center / both-sides keypoints)" },
+ ];
+
+ const BILATERAL_OVERRIDE_OPTIONS: ... = [
+   ...existing three...
++  { value: "none", label: "Not bilateral",
++    description: "Use the metric's keypoint indices verbatim. No mirroring, no side selection. Use for center keypoints (nose, hip-center) or metrics that intentionally span both sides (e.g. hip width, ankle stance width)." },
+ ];
+```
+
+### A3 — `src/features/athlete-lab/components/CameraEditor.tsx` (lines 64–72)
+
+Replace BODY_PART_GROUPS with MediaPipe Pose 33-landmark mapping (decomposed arms, single-model note):
+
+```diff
+-const BODY_PART_GROUPS: BodyPartGroup[] = [
+-  { label: "Head and Face", ..., indexRange: [0, 4] },
+-  { label: "Shoulders and Arms", ..., indexRange: [5, 10] },
+-  { label: "Hips", ..., indexRange: [11, 12] },
+-  { label: "Knees", ..., indexRange: [13, 14] },
+-  { label: "Ankles", ..., indexRange: [15, 16] },
+-  { label: "Feet (Heel/Toe)", ..., indexRange: [17, 22], requiresModel: "Body with Feet" },
+-  { label: "Hands", ..., indexRange: [91, 132], requiresModel: "Wholebody" },
+-];
++// MediaPipe Pose 33-landmark map. All landmarks come from one model;
++// `requiresModel` retained on the interface for forward compat (HandLandmarker).
++const BODY_PART_GROUPS: BodyPartGroup[] = [
++  { label: "Face", humanLabel: "Head must be clearly visible and facing camera", indexRange: [0, 10] },
++  { label: "Shoulders", humanLabel: "Both shoulders visible", indexRange: [11, 12] },
++  { label: "Elbows", humanLabel: "Both elbows clearly visible", indexRange: [13, 14] },
++  { label: "Wrists", humanLabel: "Both wrists clearly visible at catch point", indexRange: [15, 16] },
++  { label: "Hands (approximation)", humanLabel: "Pinky / index / thumb landmarks from MediaPipe Pose. Approximation only — for precise finger tracking, future versions can layer in MediaPipe HandLandmarker.", indexRange: [17, 22] },
++  { label: "Hips", humanLabel: "Full hip width visible", indexRange: [23, 24] },
++  { label: "Knees", humanLabel: "Both knees clearly visible", indexRange: [25, 26] },
++  { label: "Ankles", humanLabel: "Both ankles clearly visible", indexRange: [27, 28] },
++  { label: "Feet (heel + toe)", humanLabel: "Plant foot heel and toe clearly visible — required for break-foot timing and stance width", indexRange: [29, 32] },
++];
+```
+
+## Post-execution
+
+1. Run `bun run build` and report TS + build status.
+2. Report GOOD / PARTIAL / BAD with full diffs.
+3. Provide sample log structures for `scoring_config_applied` and `variables_injected[].position`.
+4. Present Group B plan.
+
+## A2 confirmation (per your "pause if non-trivial" guard)
+
+I re-grepped the analyzer before acting. The runtime side-resolution code at `analyze-athlete-video/index.ts:2800–2816` **already handles** `bilateral === 'none'` and `bilateral_override === 'none'` with a clean early-return that uses `baseIndices` verbatim. The frontend types are simply lagging — the analyzer was built expecting `'none'` to exist. **Zero edge function code change required for A2.** Type-only fix on the frontend. Proceeding without pause.

@@ -1,7 +1,10 @@
 export type CalculationType = "angle" | "distance" | "velocity" | "acceleration" | "frame_delta";
-export type BilateralMode = "auto" | "left" | "right";
+// 'none' = the metric's keypoint indices already span both sides (e.g. hips
+// [23,24]) or reference a center keypoint (nose, hip-center). The analyzer
+// uses base indices verbatim — no mirroring, no side selection.
+export type BilateralMode = "auto" | "left" | "right" | "none";
 
-export type BilateralOverride = "auto" | "force_left" | "force_right";
+export type BilateralOverride = "auto" | "force_left" | "force_right" | "none";
 
 export interface KeypointMapping {
   body_groups: string[];
