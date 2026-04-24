@@ -83,6 +83,9 @@ export function LlmPromptEditor({
   }, [promptTemplate, onPromptChange]);
 
   const hasTemplateVars = /\{\{[a-z_]+\}\}/.test(promptTemplate);
+  const knownVarNames = new Set(TEMPLATE_VARIABLES.map(t => t.var.replace(/[{}]/g, "")));
+  const usedVarMatches = Array.from(promptTemplate.matchAll(/\{\{([a-z_]+)\}\}/g));
+  const unknownVars = Array.from(new Set(usedVarMatches.map(m => m[1]).filter(v => !knownVarNames.has(v))));
   const wordGuidance = getWordGuidance(maxWords);
 
   return (
@@ -139,6 +142,15 @@ export function LlmPromptEditor({
             <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 14 }}>warning</span>
             <p className="text-amber-300 text-xs leading-snug">
               No template variables detected — Claude will generate generic feedback without actual metric data. Add at least {"{{mastery_score}}"} and {"{{metric_results}}"}.
+            </p>
+          </div>
+        )}
+        {/* Unknown-variable warning */}
+        {unknownVars.length > 0 && (
+          <div className="flex items-start gap-2 mt-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 14 }}>warning</span>
+            <p className="text-amber-300 text-xs leading-snug">
+              Unknown template variable{unknownVars.length > 1 ? "s" : ""}: {unknownVars.map(v => <code key={v} className="font-mono text-amber-200 mx-0.5">{`{{${v}}}`}</code>)}. These will be sent to Claude as literal text — they are not injected by the Edge Function. Remove them or pick from the variables list above.
             </p>
           </div>
         )}
