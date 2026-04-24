@@ -910,6 +910,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             segmentationMethod={draft.segmentation_method ?? "proportional"}
             onSegmentationMethodChange={(m) => update("segmentation_method", m)}
             onConfirmDelete={(opts) => setConfirmModal(opts)}
+            advancedEnabled={showAdvancedTabs}
           />
         )}
 
@@ -1760,13 +1761,17 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
   );
 }
 
-function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete }: {
+function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete, advancedEnabled }: {
   phases: PhaseNote[];
   onChange: (p: PhaseNote[]) => void;
   segmentationMethod: SegmentationMethod;
   onSegmentationMethodChange: (m: SegmentationMethod) => void;
   onConfirmDelete: ConfirmDeleteFn;
+  advancedEnabled: boolean;
 }) {
+  // When advanced tabs are off, treat segmentation as "proportional" in the UI
+  // without dirtying the form (DB value preserved until user explicitly saves).
+  const effectiveSegmentationMethod: SegmentationMethod = advancedEnabled ? segmentationMethod : "proportional";
   useEffect(() => {
     const needsIds = phases.some(p => !p.id);
     if (needsIds) {
