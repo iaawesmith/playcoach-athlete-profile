@@ -332,6 +332,56 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
             </button>
           </div>
 
+          {/* Section 0: Scoring Configuration */}
+          <CollapsibleSection title="0. Scoring Configuration" status={deriveSectionStatus("scoring_config", logData)}>
+            {logData.scoring_config ? (
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg bg-surface-container-high px-3 py-2">
+                    <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-1">Confidence handling</div>
+                    <span className="inline-block rounded-full bg-surface-container-lowest px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-on-surface">
+                      {logData.scoring_config.confidence_handling}
+                    </span>
+                  </div>
+                  <div className="rounded-lg bg-surface-container-high px-3 py-2">
+                    <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-1">Renormalize on skip</div>
+                    <div className={`${MONO} text-on-surface`}>{logData.scoring_config.renormalize_on_skip ? "Yes" : "No"}</div>
+                  </div>
+                  <div className="rounded-lg bg-surface-container-high px-3 py-2">
+                    <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-1">Min metrics threshold</div>
+                    <div className={`${MONO} text-on-surface`}>{logData.scoring_config.min_metrics_threshold}%</div>
+                  </div>
+                  <div className="rounded-lg bg-surface-container-high px-3 py-2">
+                    <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-1">Skipped vs threshold</div>
+                    <div
+                      className={`${MONO}`}
+                      style={{
+                        color: logData.scoring_config.skipped_percent > logData.scoring_config.min_metrics_threshold
+                          ? STATUS_COLORS.ERROR
+                          : "inherit",
+                      }}
+                    >
+                      {logData.scoring_config.skipped_percent}% / {logData.scoring_config.min_metrics_threshold}%
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-surface-container-high px-3 py-2">
+                  <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-1">Metric outcomes</div>
+                  <div className={`${MONO} text-on-surface`}>
+                    {logData.scoring_config.scored_count} scored · {logData.scoring_config.flagged_count} flagged · {logData.scoring_config.skipped_count} skipped of {logData.scoring_config.total_metrics}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-3 py-3">
+                <div className="text-yellow-300 text-xs font-bold uppercase tracking-widest mb-1">Observability gap</div>
+                <div className={`${MONO} ${DIM}`}>
+                  scoring_config missing from log_data. Edge function did not surface the scoring snapshot for this run — admins cannot verify which confidence_handling, threshold, or renormalize values were applied.
+                </div>
+              </div>
+            )}
+          </CollapsibleSection>
+
           {/* Section 1: Pre-Flight */}
           <CollapsibleSection title="1. Pre-Flight Validation" status={deriveSectionStatus("preflight", logData)}>
             {logData.preflight?.checks?.length ? (
