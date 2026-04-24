@@ -377,7 +377,51 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
         <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => setM({ ...m, description: e.target.value })} placeholder="e.g. Distance between receiver and nearest defender at catch point" />
       </div>
 
-      {/* Elite Target + Tolerance + Weight row */}
+      {/* Internal Documentation (admin-only, never sent to LLM) */}
+      <div className="rounded-xl border border-outline-variant/15 bg-[#0E1319]/60">
+        <button
+          type="button"
+          onClick={() => setShowInternalDoc((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className={LABEL_CLASS}>Internal Documentation</span>
+            <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/60">Admin-only</span>
+            <SectionTooltip tip={TOOLTIPS.internalDocumentation} />
+            {m.internal_documentation?.trim() && (
+              <span className="text-[9px] uppercase tracking-widest text-primary-container/80">• content</span>
+            )}
+          </div>
+          <span className="material-symbols-outlined text-on-surface-variant text-base">
+            {showInternalDoc ? "expand_less" : "expand_more"}
+          </span>
+        </button>
+        {showInternalDoc && (
+          <div className="px-4 pb-4 space-y-3">
+            <p className="text-[10px] text-on-surface-variant/70 leading-relaxed">
+              Markdown supported. Never shown to athletes. Never sent to the AI. Use for derivation notes, technical limitations, and upgrade paths. Travels with config exports.
+            </p>
+            <textarea
+              className={`${INPUT_CLASS} min-h-[200px] resize-y font-mono text-xs leading-relaxed`}
+              value={m.internal_documentation ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setM({ ...m, internal_documentation: v === "" ? undefined : v });
+              }}
+              placeholder={"# What this measures\n\n...\n\n# Technical limitations\n\n...\n\n# Upgrade path\n\n..."}
+            />
+            {m.internal_documentation?.trim() && (
+              <div className="rounded-lg border border-outline-variant/10 bg-[#151a1e] p-4">
+                <div className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 mb-2">Preview</div>
+                <div className="text-on-surface text-xs leading-relaxed space-y-2 [&_h1]:text-base [&_h1]:font-bold [&_h1]:uppercase [&_h1]:tracking-wide [&_h1]:mt-3 [&_h1]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:mt-2 [&_h2]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_code]:bg-surface-container-highest [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_a]:text-primary [&_a]:underline [&_strong]:font-bold [&_em]:italic">
+                  <ReactMarkdown>{m.internal_documentation}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         <div>
           <div className="flex items-center gap-1.5 mb-2">
