@@ -768,6 +768,9 @@ Deno.serve(async (req) => {
       metrics_skipped: metricResults.filter((metric) => metric.status !== 'scored').length,
       metrics_total: metricResults.length,
     }
+    if (scoreResult.scoring_config_applied) {
+      logData.scoring_config = scoreResult.scoring_config_applied
+    }
     const poseQualityAudit = buildPoseQualityAudit(
       personCountSummary,
       logData.rtmlib?.keypoint_confidence,
