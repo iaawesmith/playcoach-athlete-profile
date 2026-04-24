@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import type { KeyMetric, KeypointMapping, CalculationType, BilateralMode, BilateralOverride, PhaseNote } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
@@ -12,7 +13,8 @@ type ConfirmDeleteFn = (opts: { title: string; body: string; confirmLabel: strin
 const TOOLTIPS = {
   name: "The athlete-facing label for this measurement. Appears in results ('Your Break Angle score was 84/100') and in AI coaching feedback. Keep it under 4 words — specific and sport-accurate.",
   unit: "The unit displayed alongside measured values. Must match the Calculation Type in Keypoint Mapping: Angle → degrees, Distance → yards, Velocity → mph, Acceleration → mph/s, Frame Delta → frames.",
-  description: "Passed to the AI as context when generating athlete feedback. Explain what this measurement represents on the field, what good looks like, and what goes wrong when it is done incorrectly. Include the elite target value and why it matters. Aim for 2-3 sentences.",
+  description: "Passed to the AI as coaching context. Keep this to 2-3 sentences describing what the metric measures and what elite looks like. For long-form engineering notes, derivations, and upgrade paths, use Internal Documentation below — that field is admin-only and never sent to the AI.",
+  internalDocumentation: "Admin-only engineering documentation. Never shown to athletes, never sent to AI. Use markdown to record what the metric measures, derivation of the elite target, technical limitations (e.g. pixel-based calc without depth), and upgrade paths (world-landmarks, multi-pose, HandLandmarker). Travels with config exports for engineering review.",
   eliteTarget: "The benchmark value representing elite-level performance. Every athlete result is scored as a deviation from this number. Base this on actual measurement of elite footage — not assumption. This is the most important number in the metric card.",
   weight: "How much this metric contributes to the overall Mastery Score. All metric weights in the node must sum to exactly 100. Higher weight = greater influence on the final score. Never assign less than 5% or more than 30% to a single metric.",
   tolerance: "The acceptable deviation from the Elite Target before scoring penalties apply. A value within tolerance scores at or near 100. Accounts for natural movement variance and measurement noise. Recommended ranges: Angle ±2-5°, Distance ±0.3-0.7 yards, Velocity ±1-2 mph, Frame Delta ±1-2 frames.",
@@ -314,6 +316,7 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
 }) {
   const [mappingOpen, setMappingOpen] = useState(false);
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [showInternalDoc, setShowInternalDoc] = useState(false);
   const km = m.keypoint_mapping ?? getDefaultMapping();
   const setKm = (newKm: KeypointMapping) => setM({ ...m, keypoint_mapping: newKm });
 
@@ -374,7 +377,51 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
         <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={m.description} onChange={(e) => setM({ ...m, description: e.target.value })} placeholder="e.g. Distance between receiver and nearest defender at catch point" />
       </div>
 
-      {/* Elite Target + Tolerance + Weight row */}
+      {/* Internal Documentation (admin-only, never sent to LLM) */}
+      <div className="rounded-xl border border-outline-variant/15 bg-[#0E1319]/60">
+        <button
+          type="button"
+          onClick={() => setShowInternalDoc((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className={LABEL_CLASS}>Internal Documentation</span>
+            <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/60">Admin-only</span>
+            <SectionTooltip tip={TOOLTIPS.internalDocumentation} />
+            {m.internal_documentation?.trim() && (
+              <span className="text-[9px] uppercase tracking-widest text-primary-container/80">• content</span>
+            )}
+          </div>
+          <span className="material-symbols-outlined text-on-surface-variant text-base">
+            {showInternalDoc ? "expand_less" : "expand_more"}
+          </span>
+        </button>
+        {showInternalDoc && (
+          <div className="px-4 pb-4 space-y-3">
+            <p className="text-[10px] text-on-surface-variant/70 leading-relaxed">
+              Markdown supported. Never shown to athletes. Never sent to the AI. Use for derivation notes, technical limitations, and upgrade paths. Travels with config exports.
+            </p>
+            <textarea
+              className={`${INPUT_CLASS} min-h-[200px] resize-y font-mono text-xs leading-relaxed`}
+              value={m.internal_documentation ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setM({ ...m, internal_documentation: v === "" ? undefined : v });
+              }}
+              placeholder={"# What this measures\n\n...\n\n# Technical limitations\n\n...\n\n# Upgrade path\n\n..."}
+            />
+            {m.internal_documentation?.trim() && (
+              <div className="rounded-lg border border-outline-variant/10 bg-[#151a1e] p-4">
+                <div className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 mb-2">Preview</div>
+                <div className="text-on-surface text-xs leading-relaxed space-y-2 [&_h1]:text-base [&_h1]:font-bold [&_h1]:uppercase [&_h1]:tracking-wide [&_h1]:mt-3 [&_h1]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:mt-2 [&_h2]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_code]:bg-surface-container-highest [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_a]:text-primary [&_a]:underline [&_strong]:font-bold [&_em]:italic">
+                  <ReactMarkdown>{m.internal_documentation}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         <div>
           <div className="flex items-center gap-1.5 mb-2">
