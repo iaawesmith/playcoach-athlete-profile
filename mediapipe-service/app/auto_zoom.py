@@ -11,6 +11,7 @@ Strategy:
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,13 +20,27 @@ import numpy as np
 
 from .pose import LANDMARK_COUNT, PoseEngine, PoseFrame
 
-SAMPLE_COUNT = 6
+
+def _resolve_sample_count() -> int:
+    """AUTOZOOM_SAMPLE_COUNT env override, clamped to [3, 12]. Default 4."""
+    raw = os.environ.get("AUTOZOOM_SAMPLE_COUNT", "4")
+    try:
+        val = int(raw)
+    except (TypeError, ValueError):
+        val = 4
+    return max(3, min(12, val))
+
+
+SAMPLE_COUNT = _resolve_sample_count()
 FILL_THRESHOLD = 0.30
 TARGET_FILL = 0.45
 MAX_FACTOR = 1.75
 MIN_VIS = 0.5
 HIP_LEFT = 23
 HIP_RIGHT = 24
+# Below this zoom factor, the visual change is small enough that re-probing
+# for safety backoff isn't worth the detect cost.
+POST_PROBE_MIN_FACTOR = 1.15
 
 
 @dataclass
@@ -163,21 +178,25 @@ def decide_and_apply(
         resized = cv2.resize(cropped, (width, height), interpolation=cv2.INTER_LINEAR)
         processed.append(resized)
 
-    # Re-evaluate mean confidence on the same sample indices, post-zoom.
-    post_results = [engine.detect(processed[i]) for i in idxs]
-    state.mean_conf_after = _mean_conf(post_results)
+    # Skip the post-zoom probe entirely when the visual change is marginal.
+    if factor < POST_PROBE_MIN_FACTOR:
+        state.mean_conf_after = state.mean_conf_before
+    else:
+        # Re-evaluate mean confidence on the same sample indices, post-zoom.
+        post_results = [engine.detect(processed[i]) for i in idxs]
+        state.mean_conf_after = _mean_conf(post_results)
 
-    # Safety backoff: if confidence drops materially, revert.
-    if state.mean_conf_before > 0 and state.mean_conf_after < state.mean_conf_before * 0.85:
-        state.applied = False
-        state.safety_backoff = True
-        state.reason = (
-            f"safety backoff: conf {state.mean_conf_before:.2f} -> {state.mean_conf_after:.2f}"
-        )
-        state.factor = 1.0
-        state.crop_rect = None
-        state.padding = None
-        return frames, state
+        # Safety backoff: if confidence drops materially, revert.
+        if state.mean_conf_before > 0 and state.mean_conf_after < state.mean_conf_before * 0.85:
+            state.applied = False
+            state.safety_backoff = True
+            state.reason = (
+                f"safety backoff: conf {state.mean_conf_before:.2f} -> {state.mean_conf_after:.2f}"
+            )
+            state.factor = 1.0
+            state.crop_rect = None
+            state.padding = None
+            return frames, state
 
     state.applied = True
     state.factor = round(factor, 4)
