@@ -488,9 +488,21 @@ function clampPercentage(value: number) {
   return Math.max(0, Math.min(100, value))
 }
 
+type KeypointConfidenceEntry = {
+  index: number
+  name: string
+  mean_confidence: number
+  min_confidence: number
+  min_frame: number
+  frames_below: number
+  total_frames: number
+  percent_below: number
+  status: 'RELIABLE' | 'MARGINAL' | 'UNRELIABLE'
+}
+
 function buildPoseQualityAudit(
   personCountSummary: { firstFrame: number; maxAcrossFrames: number },
-  keypointConfidence: PipelineLogData['rtmlib'] extends { keypoint_confidence?: infer T } ? T : never,
+  keypointConfidence: KeypointConfidenceEntry[] | undefined,
   metricResults: any[],
   aggregateScore: number | null | undefined,
 ): PoseQualityAudit {
@@ -1101,7 +1113,8 @@ function resolveBreakPhaseDetFrequency(phaseBreakdown: unknown): number | null {
 
   const breakPhase = phaseBreakdown.find((phase) => {
     if (!phase || typeof phase !== 'object') return false
-    const name = typeof (phase as JsonRecord).name === 'string' ? (phase as JsonRecord).name.trim().toLowerCase() : ''
+    const rawName = (phase as JsonRecord).name
+    const name = typeof rawName === 'string' ? rawName.trim().toLowerCase() : ''
     return name === 'break'
   }) as JsonRecord | undefined
 
