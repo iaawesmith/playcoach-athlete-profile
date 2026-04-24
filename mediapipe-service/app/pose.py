@@ -52,6 +52,22 @@ class PoseEngine:
         self._next_ts_ms = 0
         self._ts_lock = threading.Lock()
 
+    def reserve_timestamp_range(self, n_frames: int, fps: float) -> int:
+        """Atomically reserve a contiguous timestamp range for a batch of frames.
+
+        Returns the base timestamp (ms). Callers should compute per-frame
+        timestamps as `base + i * frame_interval_ms`. This guarantees global
+        monotonicity across requests on the same landmarker instance, which
+        VIDEO mode requires for the entire lifetime of the PoseLandmarker.
+        """
+        if fps <= 0:
+            fps = 1.0
+        frame_interval_ms = max(1, int(round(1000 / fps)))
+        with self._ts_lock:
+            base = self._next_ts_ms
+            self._next_ts_ms = base + max(0, n_frames) * frame_interval_ms
+        return base
+
     def detect(self, frame_bgr: np.ndarray, timestamp_ms: int | None = None) -> PoseFrame:
         if timestamp_ms is None:
             with self._ts_lock:
@@ -119,11 +135,14 @@ def run_with_skip(
     if fps <= 0:
         fps = 1.0
 
+    frame_interval_ms = max(1, int(round(1000 / fps)))
+    base = engine.reserve_timestamp_range(len(frames), fps)
+
     results: list[PoseFrame] = []
     last: PoseFrame = PoseFrame(detected=False)
     for i, frame in enumerate(frames):
         if i % det_frequency == 0:
-            timestamp_ms = int(i * 1000 / fps)
+            timestamp_ms = base + i * frame_interval_ms
             last = engine.detect(frame, timestamp_ms)
         results.append(last)
     return results
