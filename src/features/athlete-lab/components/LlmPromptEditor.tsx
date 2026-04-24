@@ -38,8 +38,6 @@ function SectionDivider({ label }: { label: string }) {
 interface LlmPromptEditorProps {
   promptTemplate: string;
   onPromptChange: (v: string) => void;
-  tone: string;
-  onToneChange: (v: string) => void;
   maxWords: number;
   onMaxWordsChange: (v: number) => void;
   systemInstructions: string;
@@ -48,7 +46,6 @@ interface LlmPromptEditorProps {
 
 export function LlmPromptEditor({
   promptTemplate, onPromptChange,
-  tone, onToneChange,
   maxWords, onMaxWordsChange,
   systemInstructions, onSystemInstructionsChange,
 }: LlmPromptEditorProps) {
@@ -155,33 +152,6 @@ export function LlmPromptEditor({
       <SectionDivider label="Coaching Settings" />
 
       <div className="p-5 rounded-xl border border-outline-variant/20 space-y-5 bg-[#1A2029]">
-        {/* Tone */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-3">
-            <label className={LABEL_CLASS}>Tone</label>
-            <SectionTooltip tip="Sets the default communication style. Claude adjusts tone, vocabulary, and emphasis based on this setting without rewriting your prompt." />
-          </div>
-          <div className="flex gap-2">
-            {TONE_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onToneChange(opt.value)}
-                className={`flex-1 px-3 py-3 rounded-xl border text-left transition-all ${
-                  tone === opt.value
-                    ? "border-primary-container/40 bg-primary-container/10"
-                    : "border-outline-variant/20 bg-surface-container hover:border-outline-variant/30"
-                }`}
-              >
-                <span className={`text-xs font-bold uppercase tracking-widest block mb-1 ${tone === opt.value ? "text-primary-container" : "text-on-surface"}`}>
-                  {opt.label}
-                </span>
-                <span className="text-on-surface-variant/50 text-[10px] leading-relaxed block">{opt.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Max Words */}
         <div>
           <div className="flex items-center gap-1.5 mb-2">
