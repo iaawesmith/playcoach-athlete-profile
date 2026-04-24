@@ -228,7 +228,7 @@ function generateCamera(node: TrainingNode): string {
     }
   }
 
-  let out = `## Camera Requirements\n\nMin FPS: ${cam.camera_min_fps}\nMin Resolution: ${cam.camera_min_resolution}\nRecommended Distance: ${cam.camera_min_distance ?? "not set"} to ${cam.camera_max_distance ?? "not set"} yards\n\nAuto-Reject Rules:\n  Athlete frame size: less than ${cam.auto_reject_athlete_too_small_threshold}% of frame height${cam.auto_reject_athlete_too_small ? "" : " (DISABLED)"}\n  Keypoint confidence: less than ${cam.auto_reject_keypoint_confidence_threshold}${cam.auto_reject_keypoint_confidence_low ? "" : " (DISABLED)"}\n  Duration: outside ${node.clip_duration_min}s to ${node.clip_duration_max}s range${cam.auto_reject_duration_out_of_range ? "" : " (DISABLED)"}\n  Resolution: below minimum${cam.auto_reject_resolution_below_min ? "" : " (DISABLED)"}\n`;
+  let out = `## Filming Guidance\n\nMin FPS: ${cam.camera_min_fps}\nMin Resolution: ${cam.camera_min_resolution}\nRecommended Distance: ${cam.camera_min_distance ?? "not set"} to ${cam.camera_max_distance ?? "not set"} yards\nDuration Range: ${node.clip_duration_min}s to ${node.clip_duration_max}s (read-only — set in Basics tab)\n`;
 
   if (bodyPartGroups.size > 0) {
     out += `\nRequired Visible Body Parts (derived from Metrics keypoint mappings):\n`;

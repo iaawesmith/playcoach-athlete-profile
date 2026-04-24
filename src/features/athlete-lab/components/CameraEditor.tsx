@@ -336,33 +336,6 @@ export function CameraEditor({ node, value, onChange }: CameraEditorProps) {
   );
 }
 
-/* ── Auto-Reject Row ── */
-function AutoRejectRow({ label, tooltip, enabled, onToggle, children }: {
-  label: string;
-  tooltip: string;
-  enabled: boolean;
-  onToggle: (v: boolean) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="py-3 border-b border-outline-variant/10 last:border-b-0">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="text-on-surface text-sm font-semibold uppercase tracking-wide">{label}</span>
-          <SectionTooltip tip={tooltip} />
-        </div>
-        <button
-          type="button"
-          onClick={() => onToggle(!enabled)}
-          className={`relative w-10 h-5 rounded-full transition-colors ${enabled ? "bg-primary-container" : "bg-outline-variant/30"}`}
-        >
-          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-surface transition-transform ${enabled ? "left-[22px]" : "left-0.5"}`} />
-        </button>
-      </div>
-      {children}
-    </div>
-  );
-}
 
 /* ── Completeness checks for Camera tab ── */
 export function checkCameraCompleteness(node: TrainingNode): Array<{ label: string; detail: string }> {
