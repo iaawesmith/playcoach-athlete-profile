@@ -24,7 +24,7 @@ from .schema import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("mediapipe-service")
 
-MAX_WINDOW_SECONDS = 30.0
+MAX_WINDOW_SECONDS = 3.0
 KEEPALIVE_INTERVAL_S = 10.0
 
 

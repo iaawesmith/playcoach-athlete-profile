@@ -8,6 +8,8 @@ const supabase = createClient(
 const RTMLIB_FALLBACK =
   'https://rtmlib-service-874407535869.us-central1.run.app'
 
+const MAX_CLIP_WINDOW_SECONDS = 3
+
 type JsonRecord = Record<string, unknown>
 type Point = [number, number]
 type PersonKeypoints = Point[]
