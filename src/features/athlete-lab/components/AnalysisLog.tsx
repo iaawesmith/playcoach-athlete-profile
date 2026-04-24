@@ -31,9 +31,10 @@ function statusBadge(status: LogStatus) {
 }
 
 function deriveOverallStatus(logData: AnalysisLogData): LogStatus {
+  const poseEngineLog = logData.rtmlib;
   if (logData.preflight?.checks?.some(c => c.result === "FAIL")) return "ERROR";
   if (logData.claude_api?.status === "FAILED") return "ERROR";
-  if (logData.rtmlib?.keypoint_confidence?.some(kp => kp.status === "UNRELIABLE")) return "WARN";
+  if (poseEngineLog?.keypoint_confidence?.some(kp => kp.status === "UNRELIABLE")) return "WARN";
   if (logData.metrics?.some(m => m.status === "SKIPPED" || m.status === "FLAGGED")) return "WARN";
   if (logData.preflight?.checks?.some(c => c.result === "WARN")) return "WARN";
   return "PASS";
@@ -47,7 +48,7 @@ function deriveSectionStatus(section: string, logData: AnalysisLogData): LogStat
       if (checks.some(c => c.result === "WARN")) return "WARN";
       return "PASS";
     }
-    case "rtmlib": {
+    case "pose_engine": {
       const kps = logData.rtmlib?.keypoint_confidence ?? [];
       if (kps.some(kp => kp.status === "UNRELIABLE")) return "WARN";
       if (kps.some(kp => kp.status === "MARGINAL")) return "WARN";
@@ -138,8 +139,8 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string
     md += `🛑 PIPELINE STOPPED — ${logData.preflight.stop_reason}\n\n`;
   }
 
-  // rtmlib
-  md += `---\n\n## rtmlib Output\n\n`;
+  // Pose Engine Output
+  md += `---\n\n## Pose Engine Output\n\n`;
   const r = logData.rtmlib;
   if (r) {
     md += `Solution Class: ${r.solution_class ?? "N/A"}\nModel: ${r.model ?? "N/A"}\nBackend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nProcessing time: ${r.processing_time_ms ?? "N/A"}ms\n\n`;
@@ -235,11 +236,11 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
               <p className="text-on-surface-variant/60 text-xs max-w-md">
                 {hasResult
                   ? "Edge Function must return log_data in results payload for the full pipeline log to appear here."
-                  : "Run a video above to see the full pipeline log here — including rtmlib output, metric calculations, confidence scores, error detection results, and Claude API details."}
+                  : "Run a video above to see the full pipeline log here — including pose engine output, metric calculations, confidence scores, error detection results, and Claude API details."}
               </p>
             </div>
             <div className="space-y-2 w-full max-w-xs">
-              {["Pre-Flight Validation", "rtmlib Output", "Metric Calculations", "Error Detection", "Claude API"].map((label) => (
+              {["Pre-Flight Validation", "Pose Engine Output", "Metric Calculations", "Error Detection", "Claude API"].map((label) => (
                 <div key={label} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-high/50">
                   <span className="text-on-surface-variant/20 text-sm">○</span>
                   <span className="text-on-surface-variant/30 text-[10px] font-semibold uppercase tracking-widest">{label}</span>
@@ -327,8 +328,8 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
             )}
           </CollapsibleSection>
 
-          {/* Section 2: rtmlib */}
-          <CollapsibleSection title="2. rtmlib Output" status={deriveSectionStatus("rtmlib", logData)}>
+          {/* Section 2: Pose Engine */}
+          <CollapsibleSection title="2. Pose Engine Output" status={deriveSectionStatus("pose_engine", logData)}>
             {logData.rtmlib ? (
               <div className="space-y-4">
                 <div className={`${MONO} space-y-1`}>
@@ -386,7 +387,7 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
                 ) : null}
               </div>
             ) : (
-              <span className={`${MONO} ${DIM}`}>No rtmlib data</span>
+              <span className={`${MONO} ${DIM}`}>No pose engine data</span>
             )}
           </CollapsibleSection>
 

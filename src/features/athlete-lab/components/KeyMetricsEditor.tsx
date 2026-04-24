@@ -214,6 +214,13 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
 
   return (
     <div className="space-y-4">
+      {/* MediaPipe transition banner — Phase 0 */}
+      <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-900/20 border border-amber-500/20">
+        <span className="material-symbols-outlined text-amber-400 shrink-0 mt-0.5" style={{ fontSize: 16 }}>info</span>
+        <p className="text-amber-200/90 text-[11px] leading-snug">
+          Using <span className="font-bold">MediaPipe Pose (33 landmarks)</span>. Existing metrics that referenced COCO-WholeBody indices may need remapping in Phase 1.
+        </p>
+      </div>
       <div className={`text-xs font-semibold ${totalClass}`} style={totalWeight === 100 ? { textShadow: '0 0 8px rgba(0,230,57,0.4)' } : undefined}>
         {totalText}
       </div>

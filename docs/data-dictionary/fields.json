@@ -5,7 +5,7 @@
     "maintainer": "iaawesmith",
     "github_repo": "https://github.com/iaawesmith/playcoach-athlete-profile",
     "keypoint_library": "https://github.com/iaawesmith/playcoach-athlete-profile/blob/main/src/constants/keypointLibrary.json",
-    "description": "Source of truth for all AthleteLab fields, Supabase columns, and rtmlib/MMPose pipeline alignment.",
+    "description": "Source of truth for all AthleteLab fields, Supabase columns, and MediaPipe pose pipeline alignment.",
     "schema_note": "All node tab data is stored as JSONB columns inside athlete_lab_nodes. There are no separate tables for metrics, phases, videos, mechanics, or errors. The supabase_column values reflect the JSONB path within athlete_lab_nodes.",
     "changelog": {
       "1.0.0": "Initial release \u2014 44 fields across 12 tabs",
