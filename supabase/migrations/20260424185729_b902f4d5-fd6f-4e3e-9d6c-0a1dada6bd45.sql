@@ -1,0 +1,1 @@
+UPDATE public.athlete_lab_nodes SET status = 'draft' WHERE id = '75ed4b18-8a22-440e-9a23-b86204956056';
