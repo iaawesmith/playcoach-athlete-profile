@@ -426,7 +426,21 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
 
   const tabOrder: TabKey[] = ["basics", "videos", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges", "training_status"];
 
-  const sections = [...tabOrder.map(key => TAB_GENERATORS[key](node)), generateKnowledgeBase(node)].join("\n\n---\n\n");
+  // The trailing knowledge-base block is admin-authored markdown (headings,
+  // bullets, bold) intended for internal reference, NOT pipeline config.
+  // Without an explicit boundary it can read like stray markup tacked onto
+  // the end of Training Status. Insert a labeled block so admins and the
+  // LLM both see it as a separate, non-config payload.
+  const adminGuidanceBoundary = [
+    "# ADMIN GUIDANCE — non-config notes authored by admins for internal reference.",
+    "# Not part of the node config the pipeline reads. Safe to ignore for analysis.",
+  ].join("\n");
+
+  const tabSections = tabOrder.map(key => TAB_GENERATORS[key](node));
+  const sections = [
+    ...tabSections,
+    `${adminGuidanceBoundary}\n\n${generateKnowledgeBase(node)}`,
+  ].join("\n\n---\n\n");
 
   const fullText = `${readiness}\n\n---\n\n${sections}`;
   const wordCount = fullText.split(/\s+/).length;
