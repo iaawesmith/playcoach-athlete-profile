@@ -118,6 +118,8 @@ function generateMechanics(node: TrainingNode): string {
 function generateMetrics(node: TrainingNode): string {
   const metrics = node.key_metrics ?? [];
   const phases = node.phase_breakdown ?? [];
+  // Intentional: export is a full config snapshot for engineering review,
+  // so it includes ALL metrics (active + inactive) — disabled state is auditable.
   const weightSum = metrics.reduce((s, m) => s + m.weight, 0);
   const maxIdx = getMaxKeypointIndex(metrics);
   const requiredClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "None (no keypoints)";
