@@ -2211,6 +2211,12 @@ async function calculateAllMetrics(
           mapping.temporal_window || 10
         )
         break
+      case 'distance_variance':
+        metricValue = calculateDistanceVariance(
+          phaseFrames, personIndex, bilateralDecision.effectiveIndices,
+          mapping.temporal_window || 10, calibration, fallbackBehavior, metric.name
+        )
+        break
     }
 
     if (metricValue.status === 'skipped') {
@@ -2571,6 +2577,115 @@ function calculateFrameDelta(
   return {
     value: eventFrame - anchorFrame,
     detail: { temporalWindow, indices, personIdx, anchorFrame, eventFrame },
+  }
+}
+
+// DISTANCE VARIANCE: standard deviation of inter-keypoint distance across the
+// temporal window. Low value = stable (e.g. hips remain composed during a cut),
+// high value = unstable (rocking, leaning, posture loss). Computed in yards
+// when calibration is available; falls back to pixel std-dev with a warning
+// flag when not, matching the calibration-fallback pattern of calculateDistance.
+function calculateDistanceVariance(
+  frames: VideoKeypoints, personIdx: number,
+  indices: number[], temporalWindow: number,
+  calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior,
+  metricName: string
+): MetricValueResult {
+  if (indices.length < 2) {
+    return {
+      value: null,
+      reason: 'distance_variance_requires_two_indices',
+      detail: { indices },
+    }
+  }
+
+  const window = frames.slice(0, Math.min(temporalWindow, frames.length))
+  if (window.length < 5) {
+    return {
+      value: null,
+      reason: 'insufficient_temporal_window',
+      detail: { requestedWindow: temporalWindow, actualWindow: window.length, minimum: 5 },
+    }
+  }
+
+  const pixelDistances: number[] = []
+  for (const frame of window) {
+    const kps = frame?.[personIdx]
+    if (!kps) continue
+    const p1 = kps[indices[0]]
+    const p2 = kps[indices[1]]
+    if (!p1 || !p2 || p1[0] <= 0 || p2[0] <= 0) continue
+    pixelDistances.push(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]))
+  }
+
+  if (pixelDistances.length < 5) {
+    return {
+      value: null,
+      reason: 'insufficient_valid_frames',
+      detail: { temporalWindow, validFrames: pixelDistances.length, minimum: 5 },
+    }
+  }
+
+  const pixelStdDev = standardDeviation(pixelDistances)
+  const pixelMean = average(pixelDistances)
+  const pixelMin = Math.min(...pixelDistances)
+  const pixelMax = Math.max(...pixelDistances)
+  const calibrationDetail = getCalibrationMetricDetail(calibration)
+
+  const observability = {
+    metricName,
+    framesUsed: pixelDistances.length,
+    pixelStdDev: Number(pixelStdDev.toFixed(3)),
+    pixelMean: Number(pixelMean.toFixed(3)),
+    pixelMin: Number(pixelMin.toFixed(3)),
+    pixelMax: Number(pixelMax.toFixed(3)),
+    indices,
+    pixelsPerYard: calibration.pixelsPerYard,
+  }
+
+  if (!calibration.pixelsPerYard || calibration.pixelsPerYard <= 0) {
+    if (fallbackBehavior === 'disable_distance') {
+      logInfo('distance_variance_calculated', { ...observability, status: 'skipped', reason: 'no_calibration_available' })
+      return {
+        value: null,
+        status: 'skipped',
+        reason: 'no_calibration_available',
+        detail: { ...observability, ...calibrationDetail },
+      }
+    }
+    logInfo('distance_variance_calculated', { ...observability, warning: 'uncalibrated_pixel_value' })
+    return {
+      value: pixelStdDev,
+      reason: 'missing_calibration',
+      detail: { ...observability, warning: 'uncalibrated_pixel_value', ...calibrationDetail },
+    }
+  }
+
+  const yardStdDev = pixelStdDev / calibration.pixelsPerYard
+  const yardMean = pixelMean / calibration.pixelsPerYard
+  const yardMin = pixelMin / calibration.pixelsPerYard
+  const yardMax = pixelMax / calibration.pixelsPerYard
+
+  logInfo('distance_variance_calculated', {
+    ...observability,
+    stdDev_yd: Number(yardStdDev.toFixed(4)),
+    mean_yd: Number(yardMean.toFixed(4)),
+    min_yd: Number(yardMin.toFixed(4)),
+    max_yd: Number(yardMax.toFixed(4)),
+    range_yd: Number((yardMax - yardMin).toFixed(4)),
+  })
+
+  return {
+    value: yardStdDev,
+    detail: {
+      ...observability,
+      stdDev_yd: yardStdDev,
+      mean_yd: yardMean,
+      min_yd: yardMin,
+      max_yd: yardMax,
+      range_yd: yardMax - yardMin,
+      ...calibrationDetail,
+    },
   }
 }
 
