@@ -232,9 +232,7 @@ function generateCamera(node: TrainingNode): string {
     out += `\nRequired Visible Body Parts (derived from Metrics keypoint mappings):\n`;
     for (const [group, data] of bodyPartGroups) {
       const idxArr = Array.from(data.indices);
-      const needsWholebody = idxArr.some(i => i >= 23);
       out += `  ${group} (indices: ${idxArr.join(", ")})\n  Required for: ${data.metrics.join(", ")}\n`;
-      if (needsWholebody) out += `  NOTE: Requires Wholebody solution class\n`;
     }
   }
 
@@ -321,31 +319,17 @@ function generateTrainingStatus(node: TrainingNode): string {
   let compatibility = "COMPATIBLE";
   if (!node.solution_class) {
     compatibility = "NOT CONFIGURED";
-  } else {
-    for (const m of metrics) {
-      const indices = m.keypoint_mapping?.keypoint_indices ?? [];
-      if (node.solution_class === "body" && indices.some(i => i >= 17)) {
-        const needed = indices.some(i => i >= 23) ? "Wholebody" : "Body_with_feet";
-        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 17))} which requires ${needed} but node is configured for ${capitalize(node.solution_class!)}`;
-        break;
-      }
-      if (node.solution_class === "body_with_feet" && indices.some(i => i >= 91)) {
-        compatibility = `MISMATCH — ${m.name} uses keypoint index ${Math.max(...indices.filter(i => i >= 91))} which requires Wholebody but node is configured for ${capitalize(node.solution_class!)}`;
-        break;
-      }
-    }
+  } else if (maxIdx > 32) {
+    compatibility = `MISMATCH — node uses keypoint index ${maxIdx} which is outside the MediaPipe Pose 33-landmark schema (0–32)`;
   }
 
   const dfSolo = node.det_frequency_solo ?? 2;
   const dfDefender = node.det_frequency_defender ?? 1;
   const dfMultiple = node.det_frequency_multiple ?? 1;
   const dfFallback = node.det_frequency ?? 2;
-  const te = node.tracking_enabled ? "True" : "False";
   const pmMode = node.performance_mode ?? "balanced";
 
-  const pipelineRef = rawClass
-    ? `\n\nPipeline Reference (rtmlib instantiation):\n\`\`\`python\nfrom rtmlib import PoseTracker, ${configuredClass}\n\n# Solo analysis (1 person)\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${dfSolo},  # solo\n    tracking=${te},\n    mode='${pmMode}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\n# With defender (2 people)\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${dfDefender},  # with_defender\n    tracking=${te},\n    mode='${pmMode}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\n# Multiple people\npose_tracker = PoseTracker(\n    ${configuredClass},\n    det_frequency=${dfMultiple},  # multiple\n    tracking=${te},\n    mode='${pmMode}',\n    backend='onnxruntime',\n    device='cuda'\n)\n\`\`\``
-    : "";
+  const pipelineRef = "";
 
   return `## Training Status\n\nSolution Class: ${configuredClass}\nPerformance Mode: ${pmMode}\nDetection Frequency:\n  Solo: ${dfSolo} frames\n  With Defender: ${dfDefender} frames\n  Multiple People: ${dfMultiple} frames\n  No Context Fallback (treated as solo): ${dfFallback} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across all metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
 }
