@@ -1,113 +1,68 @@
 
 
-## Merge Overview into Basics — Safe & Reversible
+## Fix Live/Draft confusion in AthleteLab Node Editor
 
-Move the Overview field into the Basics tab as a prominent description block, then permanently hide the standalone Overview tab. The `overview` database column and all reads/writes of it stay exactly as today — only the editor UI changes.
-
----
-
-### How the Basics tab will look after the merge
-
-```
-BASICS
-─────────────────────────────────────────────
-Route / Skill Name                          ⓘ
-[ Slant Route                              ]
-
-────────────────────────────────────────────
-Icon / Visual Diagram                       ⓘ
-[icon] [ Upload / Replace ]
-
-────────────────────────────────────────────
-Description / Overview                      ⓘ          ← NEW position
-Athlete-facing intro shown at the top of the
-training feed before they film. 2–3 sentences.
-┌──────────────────────────────────────────┐
-│  The slant route is a quick inside-      │
-│  breaking route used to exploit zone     │
-│  coverage gaps...                        │
-│                                          │   ← min-h 220px,
-│                                          │     resize-y, larger
-│                                          │     than today's tab
-└──────────────────────────────────────────┘
-
-────────────────────────────────────────────
-Clip Duration                               ⓘ
-[ Min: 5 sec ]   [ Max: 30 sec ]
-
-────────────────────────────────────────────
-Node Version  v3              Last Saved  Apr 24, 2026
-```
-
-The new field uses the same `LABEL_CLASS` heading style as siblings, with a one-line helper subtitle underneath the label so its purpose is obvious without opening the tooltip. The textarea sits at `min-h-[220px]` (slightly larger than the old standalone tab's 200px) and uses `resize-y` so coaches can expand it. Same surface and ghost-border styling as other Basics inputs.
-
-Order in Basics, top to bottom:
-1. Route / Skill Name
-2. Icon / Visual Diagram
-3. **Description / Overview** ← inserted here
-4. Clip Duration
-5. Version footer
+Two real problems, one clean fix.
 
 ---
 
-### Files to be modified (UI only)
+### Problem 1 — Saves on a Live node sometimes leave status as "Live" when they shouldn't
+
+Today, auto-draft on save only fires when the user edits fields routed through `updateWithCriticalTrack`. That covers Metrics, Scoring, Phase data, LLM Prompt, and Training Status. **Everything else** — Basics, Videos, Camera, Badges, phase descriptions, segmentation method, clip duration, reference calibrations, errors, checkpoints, mechanics — saves while keeping the node Live with no warning. Since most of those still affect the athlete experience or the analysis pipeline (e.g. reference videos, camera guidelines, phase narratives, clip duration, badges shown to athletes), an admin reasonably expects re-validation.
+
+The mismatch you're seeing — sidebar shows amber while header says "Live" — is the symptom of this split: the editor `draft` and the parent `node` go out of sync briefly after save when one path auto-drafts and the other doesn't.
+
+**Fix: any save on a Live node auto-bumps it to Draft.**
+
+- Replace the conditional `shouldAutoDraft = node.status === "live" && criticalChanged.current` with `shouldAutoDraft = node.status === "live"`.
+- Remove the `criticalChanged` ref and `updateWithCriticalTrack` wrapper entirely (replace all 20+ call sites with plain `update`). Less code, no field-by-field opt-in to track, no possibility of drift.
+- Toast copy becomes: *"Saved — node moved to Draft. Review the readiness checks and re-activate when ready."*
+- Sidebar amber/green dot already reads `node.status`, so once the parent `onUpdated(updated)` fires with `status=draft`, all three indicators (sidebar dot, header chip, readiness bar button) update together in the same render.
+
+This is the safest behavior for the pipeline: a saved Live node always gets human re-confirmation before athletes upload against the new config.
+
+---
+
+### Problem 2 — Two status buttons doing the same thing
+
+Both buttons call `handleStatusToggle` and open the same modal:
+- **Header chip** (NodeEditor.tsx line 611): pill showing "Live"/"Draft" with a chevron.
+- **Readiness bar button** (NodeReadinessBar.tsx line 299): "Set Live" / "Set to Draft" with rocket/pause icon.
+
+**Fix: remove the header chip's toggle behavior; keep the readiness bar as the single Live/Draft control.**
+
+- The header chip becomes a **read-only status badge** (no `onClick`, no chevron, no hover state). It still shows current status at a glance because it's always visible at the top of the editor — useful context, just not a control.
+- The readiness bar button stays as the only place to flip Live/Draft. It's the right home because:
+  - It already enforces the "score must hit 100% to go Live" gate (header chip didn't show that gate, leading to the second source of confusion).
+  - It sits directly under the readiness checklist, so admins make the decision in context.
+  - It shows the pause/rocket affordance with the correct disabled state.
+- Title-bar order after the change: `[icon] [Node Name]   [status badge] [Advanced Tabs] [Save Node]`.
+
+---
+
+### Files modified
 
 | File | Change |
 |---|---|
-| `src/features/athlete-lab/components/NodeEditor.tsx` | (a) Insert the Description / Overview block inside the `tab === "basics"` panel between the Icon section and Clip Duration. (b) Delete the `tab === "overview"` JSX panel (the textarea moves, not duplicated). (c) Remove the `"overview"` entry from the `TABS` array so it never renders in the tab row. (d) Remove `"overview"` from the `TabKey` union type. (e) If the persisted `tab` state ever lands on `"overview"` from an older session, fall back to `"basics"` (one-line guard in the existing tab-normalization effect, line ~438). |
-| `src/features/athlete-lab/components/NodeReadinessBar.tsx` | Remove `"overview"` from the local `TabKey` union type (no other references — readiness logic never required Overview content). |
-| `src/features/athlete-lab/utils/nodeExport.ts` | Remove `"overview"` from the local `TabKey` union, the `TAB_GENERATORS` map, the `TAB_LABELS` map, and the `tabOrder` array. **Keep `generateOverview()` working but inline its output into `generateBasics()`** so the exported markdown still contains the overview text under the Basics section heading — no information loss in exports. |
-| `src/features/athlete-lab/components/EnhancementsTab.tsx` | Drop `"Overview"` from the `TAB_OPTIONS` list and its tag color map. (Cosmetic only — does not delete any existing enhancement records that reference "Overview"; they continue to render with a default tag style.) |
-| `src/features/athlete-lab/components/DataDictionaryTab.tsx` | Drop the `Overview` entry from the local label/color map. Same cosmetic guard as above. |
-
-No other files touched. The Save handler at line 503 (`overview: draft.overview,...`) stays exactly as-is — the field reads from and writes to `draft.overview` from its new home in Basics.
+| `src/features/athlete-lab/components/NodeEditor.tsx` | (a) Drop `criticalChanged` ref + `updateWithCriticalTrack`; replace ~20 call sites with `update`. (b) Simplify `save()` — auto-draft on every Live save. (c) Update toast copy. (d) Convert header status pill (line 611–622) to a read-only badge: remove `onClick`, remove `cursor-pointer hover:brightness-110 active:scale-95`, remove the `expand_more` chevron. |
+| `src/features/athlete-lab/components/NodeReadinessBar.tsx` | No code change. Single source of truth confirmed for the Live/Draft control. |
 
 ---
 
-### What stays exactly the same
+### What stays the same
 
-- **Database:** `athlete_lab_nodes.overview TEXT NOT NULL DEFAULT ''` — column, default, RLS, and every row's content untouched. **No migration.**
-- **Type system:** `TrainingNode.overview: string` in `src/features/athlete-lab/types.ts` is unchanged.
-- **Pipeline:** the edge function (`analyze-athlete-video`) and `athlete-lab-analyze` already do not depend on Overview content for scoring — no change.
-- **LLM prompt variables:** `overview` continues to be available to the prompt template via the same `draft.overview` value.
-- **Athlete-facing rendering:** any consumer that reads `node.overview` continues to work.
-- **Show Advanced Tabs toggle:** unchanged. As required, Overview is **not** added to `ADVANCED_TAB_KEYS` — turning Advanced Tabs ON does not bring back the Overview tab. The data lives in Basics permanently.
-
----
-
-### Note on "rich text"
-
-The current Overview tab uses a plain `<textarea>` (line 863), not a rich-text editor. To honor the principle "Keep the full rich text editor functionality," the merged field preserves the same textarea contract (multi-line, unlimited length, `resize-y`) at a slightly larger default height. If you want a true rich-text editor (bold/italic/lists), say the word and I'll add it as a separate enhancement — it would be a new dependency and is intentionally out of scope here to keep this change reversible and zero-risk.
+- Database `status` column, RLS, and all server-side checks — untouched.
+- The `StatusModal` for go-live / go-draft / blocking — same component, same flows.
+- The readiness gate (must hit 100% to go Live) — unchanged.
+- The sidebar amber/green dot — unchanged; will now be in sync because every save path produces the same status.
+- All field editors and their `update(...)` calls keep working; we're just removing the wrapper that tagged "critical" fields.
 
 ---
 
-### Reversibility
+### Why this is the right call
 
-To restore Overview as its own tab later:
-1. Re-add `"overview"` to the `TABS` array, `TabKey` union, and the `nodeExport.ts` maps.
-2. Move the Description / Overview JSX block from inside the `basics` panel back into a `tab === "overview"` panel.
-3. The DB column and every row's text are still there — nothing to migrate.
-
-Total revert: ~15 lines across the same files.
-
----
-
-### Safety guarantees
-
-1. **No data deleted.** No SQL, no migrations, no column drops, no row updates.
-2. **Field contract preserved.** Same `draft.overview` → `update("overview", …)` → save path.
-3. **Exports preserved.** `nodeExport.ts` still emits the overview text (folded under the Basics heading) so AI prompts and audit exports lose nothing.
-4. **No pipeline impact.** The edge function never required the Overview tab to exist.
-5. **Old sessions safe.** A user whose `tab` state is `"overview"` (from a prior session) is auto-routed to `"basics"` on next render.
-
----
-
-### Approval checkpoint
-
-Please confirm before build:
-1. **Field label** — `Description / Overview` (recommended) or `Route Story`?
-2. **Helper subtitle under the label** — keep the one-line helper (recommended) or icon-only tooltip like the other Basics fields?
-3. **Plain textarea is fine for now** (matches today's behavior) — or do you want a true rich-text editor added in this same change?
-
-Once you approve, I'll switch to Build mode and apply exactly the changes above.
+- **One source of truth for status:** every save on a Live node returns to Draft. No more "did my edit count as critical?" guessing.
+- **One button for status:** eliminates the duplicate control that's currently confusing you, without losing visibility (badge still visible up top).
+- **Pipeline safety:** prevents the exact friction you flagged — saving, assuming Live, uploading a video, and the analysis running against an unintended config.
+- **Reversible:** if you ever want a "minor edit, stay Live" path, we can re-introduce a single explicit "Save & keep Live" secondary action — but that's an additive future choice, not a regression.
 
