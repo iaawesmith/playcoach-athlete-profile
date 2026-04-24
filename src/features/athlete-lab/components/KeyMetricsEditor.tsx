@@ -45,12 +45,14 @@ const BILATERAL_OPTIONS: { value: BilateralMode; label: string }[] = [
   { value: "auto", label: "Node Default (Auto)" },
   { value: "left", label: "Node Default (Left)" },
   { value: "right", label: "Node Default (Right)" },
+  { value: "none", label: "Not bilateral (center / both-sides keypoints)" },
 ];
 
 const BILATERAL_OVERRIDE_OPTIONS: { value: BilateralOverride; label: string; description: string }[] = [
   { value: "auto", label: "Auto (confidence)", description: "Uses the metric/node setting, then route direction, then confidence-based side choice." },
   { value: "force_left", label: "Force Left", description: "Always uses the derived left-side indices for this metric." },
   { value: "force_right", label: "Force Right", description: "Always uses the derived right-side indices for this metric." },
+  { value: "none", label: "Not bilateral", description: "Use the metric's keypoint indices verbatim. No mirroring or side selection. Use for center keypoints (nose, hip-center) or metrics that intentionally span both sides (e.g. hip width, ankle stance width)." },
 ];
 
 const GROUP_NAMES: Record<string, string> = { body: "BODY", feet: "FEET", hands: "HANDS", face: "FACE" };

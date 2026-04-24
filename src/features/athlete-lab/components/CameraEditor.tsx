@@ -61,14 +61,22 @@ interface BodyPartGroup {
   requiresModel?: string;
 }
 
+// MediaPipe Pose 33-landmark index map. All ranges below match MediaPipe's
+// canonical landmark ordering (face cluster 0–10, upper body 11–22, lower
+// body 23–32). All landmarks come from a single MediaPipe Pose model, so
+// `requiresModel` is no longer used by any group; it remains on the
+// interface for forward compatibility (e.g. layering MediaPipe HandLandmarker
+// for precise finger tracking in a future version).
 const BODY_PART_GROUPS: BodyPartGroup[] = [
-  { label: "Head and Face", humanLabel: "Head must be clearly visible and facing camera", indexRange: [0, 4] },
-  { label: "Shoulders and Arms", humanLabel: "Full upper body from shoulders to wrists", indexRange: [5, 10] },
-  { label: "Hips", humanLabel: "Full hip width visible", indexRange: [11, 12] },
-  { label: "Knees", humanLabel: "Both knees clearly visible", indexRange: [13, 14] },
-  { label: "Ankles", humanLabel: "Both ankles clearly visible", indexRange: [15, 16] },
-  { label: "Feet (Heel/Toe)", humanLabel: "Plant foot and heel clearly visible — requires a pose model that supports feet keypoints", indexRange: [17, 22], requiresModel: "Body with Feet" },
-  { label: "Hands", humanLabel: "Both hands clearly visible at catch point — requires a pose model that supports hand keypoints", indexRange: [91, 132], requiresModel: "Wholebody" },
+  { label: "Face", humanLabel: "Head must be clearly visible and facing camera", indexRange: [0, 10] },
+  { label: "Shoulders", humanLabel: "Both shoulders visible", indexRange: [11, 12] },
+  { label: "Elbows", humanLabel: "Both elbows clearly visible", indexRange: [13, 14] },
+  { label: "Wrists", humanLabel: "Both wrists clearly visible at catch point", indexRange: [15, 16] },
+  { label: "Hands (approximation)", humanLabel: "Pinky / index / thumb landmarks from MediaPipe Pose. Approximation only — for precise finger tracking, future versions can layer in MediaPipe HandLandmarker.", indexRange: [17, 22] },
+  { label: "Hips", humanLabel: "Full hip width visible", indexRange: [23, 24] },
+  { label: "Knees", humanLabel: "Both knees clearly visible", indexRange: [25, 26] },
+  { label: "Ankles", humanLabel: "Both ankles clearly visible", indexRange: [27, 28] },
+  { label: "Feet (heel + toe)", humanLabel: "Plant foot heel and toe clearly visible — required for break-foot timing and stance width", indexRange: [29, 32] },
 ];
 
 function getKeypointName(index: number): string {
