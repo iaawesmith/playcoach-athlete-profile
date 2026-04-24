@@ -337,8 +337,12 @@ function generateKnowledgeBase(node: TrainingNode): string {
 }
 
 function generateTrainingStatus(node: TrainingNode): string {
-  const metrics = node.key_metrics ?? [];
-  const maxIdx = getMaxKeypointIndex(metrics);
+  // Solution-class compatibility must be computed against active metrics
+  // only — inactive metrics are excluded from scoring, so an inactive
+  // metric referencing a high keypoint index must not force a pose-engine
+  // upgrade. Mirrors the readiness-bar logic and the Metrics tab export.
+  const activeMetrics = getActiveMetrics(node);
+  const maxIdx = getMaxKeypointIndex(activeMetrics);
   const derivedClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "N/A";
   const rawClass = node.solution_class || "";
   const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -356,10 +360,11 @@ function generateTrainingStatus(node: TrainingNode): string {
   const dfMultiple = node.det_frequency_multiple ?? 1;
   const dfFallback = node.det_frequency ?? 2;
   const pmMode = node.performance_mode ?? "balanced";
+  const poseEngine = node.pose_engine ?? "mediapipe";
 
   const pipelineRef = "";
 
-  return `## Training Status\n\nSolution Class: ${configuredClass}\nPerformance Mode: ${pmMode}\nDetection Frequency:\n  Solo: ${dfSolo} frames\n  With Defender: ${dfDefender} frames\n  Multiple People: ${dfMultiple} frames\n  No Context Fallback (treated as solo): ${dfFallback} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across all metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
+  return `## Training Status\n\nPose Engine: ${poseEngine}\nSolution Class: ${configuredClass}\nPerformance Mode: ${pmMode}\nDetection Frequency:\n  Solo: ${dfSolo} frames\n  With Defender: ${dfDefender} frames\n  Multiple People: ${dfMultiple} frames\n  No Context Fallback (treated as solo): ${dfFallback} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across active metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
 }
 
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
