@@ -2652,16 +2652,19 @@ function checkConfidence(
 }
 
 function buildMirrorIndexMap(): Map<number, number> {
+  // MediaPipe Pose 33-landmark mirror pairs.
+  // CONTRACT: each pair MUST be ordered [leftIndex, rightIndex] where leftIndex < rightIndex.
+  //   `mapIndicesToSide` relies on this ordering (via `index < mirrored`) to identify which
+  //   side a base index belongs to. See Ticket 7 backlog: refactor to explicit left/right
+  //   sets to remove the L<R ordering coupling.
+  // Source of truth: src/constants/keypointLibrary.json → mirror_pairs.
+  // Sync manually if the MediaPipe schema changes.
   const mirrorPairs: Array<[number, number]> = [
-    [1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14], [15, 16],
-    [17, 20], [18, 21], [19, 22],
-    [24, 35], [25, 34], [26, 33], [27, 32], [28, 31],
-    [36, 45], [37, 46], [38, 43], [39, 42], [40, 41],
-    [50, 52], [53, 62], [54, 61], [55, 60], [56, 59], [57, 64], [58, 63],
-    [65, 69], [66, 68], [73, 70], [74, 77], [75, 76], [80, 78],
-    [91, 112], [92, 113], [93, 114], [94, 115], [95, 116], [96, 117], [97, 118], [98, 119], [99, 120],
-    [100, 121], [101, 122], [102, 123], [103, 124], [104, 125], [105, 126], [106, 127], [107, 128],
-    [108, 129], [109, 130], [110, 131], [111, 132],
+    [1, 4], [2, 5], [3, 6], [7, 8], [9, 10],
+    [11, 12], [13, 14], [15, 16],
+    [17, 18], [19, 20], [21, 22],
+    [23, 24], [25, 26], [27, 28],
+    [29, 30], [31, 32],
   ]
 
   const mirrorMap = new Map<number, number>()
@@ -2834,8 +2837,24 @@ function resolveBilateralSelection(
     leftAverageConfidence: autoChoice.leftAverageConfidence,
     rightAverageConfidence: autoChoice.rightAverageConfidence,
   }
-}
+  }
 
+  // bilateral: "none" — metric's keypoint_indices already span both sides
+  // (e.g. [23,24] hips, [27,28] ankles, [19,20] index fingers). Use base indices
+  // verbatim; do NOT mirror or pick a single side.
+  if (bilateralOverride === 'none' || bilateralMode === 'none') {
+    logBilateralDecision(metricName, 'override', 'left', leftIndices, rightIndices, baseIndices, null, null)
+    return {
+      side: 'left',
+      source: 'override',
+      baseIndices,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: baseIndices,
+      leftAverageConfidence: null,
+      rightAverageConfidence: null,
+    }
+  }
 
 function scoreMetric(value: number, eliteTarget: number, tolerance: number): number {
   const deviation = Math.abs(value - eliteTarget)
