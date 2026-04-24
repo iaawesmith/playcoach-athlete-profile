@@ -59,7 +59,7 @@ class AnalyzeResponse(BaseModel):
     auto_zoom_crop_rect: CropRect | None = None
     auto_zoom_padding: Padding | None = None
 
-    # Motion
+    # Motion (hard-coded in v1 — motion.py removed)
     movement_direction: Literal["left_to_right", "right_to_left", "stationary"] = "stationary"
     movement_confidence: float = 0.0
 

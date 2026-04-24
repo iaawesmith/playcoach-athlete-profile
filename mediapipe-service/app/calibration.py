@@ -37,15 +37,9 @@ def estimate(pose_frames: list[PoseFrame]) -> tuple[float | None, str, dict[str,
     for pf in pose_frames:
         if not pf.detected:
             continue
-        if (
-            pf.scores[11] >= MIN_VISIBILITY
-            and pf.scores[12] >= MIN_VISIBILITY
-        ):
+        if pf.scores[11] >= MIN_VISIBILITY and pf.scores[12] >= MIN_VISIBILITY:
             shoulder_pxs.append(_dist(pf.keypoints[11], pf.keypoints[12]))
-        if (
-            pf.scores[23] >= MIN_VISIBILITY
-            and pf.scores[24] >= MIN_VISIBILITY
-        ):
+        if pf.scores[23] >= MIN_VISIBILITY and pf.scores[24] >= MIN_VISIBILITY:
             hip_pxs.append(_dist(pf.keypoints[23], pf.keypoints[24]))
 
     frames_used = max(len(shoulder_pxs), len(hip_pxs))
@@ -56,7 +50,6 @@ def estimate(pose_frames: list[PoseFrame]) -> tuple[float | None, str, dict[str,
             "reason": "no frames met visibility threshold",
         }
 
-    # Use the most-reliable 30% (median of the top tier of each measurement).
     shoulder_med = _percentile(shoulder_pxs, 0.5) if shoulder_pxs else 0.0
     hip_med = _percentile(hip_pxs, 0.5) if hip_pxs else 0.0
 
@@ -64,7 +57,6 @@ def estimate(pose_frames: list[PoseFrame]) -> tuple[float | None, str, dict[str,
     if shoulder_med > 0:
         estimates.append((shoulder_med / SHOULDER_YARDS, len(shoulder_pxs) * 1.0))
     if hip_med > 0:
-        # Slightly down-weight hip — more occlusion-prone.
         estimates.append((hip_med / HIP_YARDS, len(hip_pxs) * 0.8))
 
     if not estimates:

@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# System deps: ffmpeg for video decode, libgl/libglib for OpenCV, curl for model fetch
+# System deps: ffmpeg for video container support, libgl/libglib for OpenCV, curl for model fetch
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         libgl1 \

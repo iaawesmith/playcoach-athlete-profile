@@ -7,7 +7,7 @@ import time
 from fastapi import FastAPI, HTTPException
 
 from . import auto_zoom as az
-from . import calibration, motion, video
+from . import calibration, video
 from .pose import LANDMARK_COUNT, PoseEngine, run_with_skip
 from .schema import (
     AnalyzeRequest,
@@ -76,7 +76,7 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         )
 
         with PoseEngine() as engine:
-            # 1) Auto-zoom decision (uses pose on a small sample internally).
+            # 1) Auto-zoom decision.
             processed_frames, zoom = az.decide_and_apply(engine, frames, width, height)
 
             progress.append(
@@ -106,10 +106,6 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         # 4) Body-based calibration.
         ppy, calib_conf, calib_details = calibration.estimate(original_space)
 
-        # 5) Motion estimation.
-        direction, motion_conf = motion.estimate(original_space, width)
-
-    # Detection rate as a stand-in for person_detection_confidence.
     detected_frac = (
         sum(1 for pf in original_space if pf.detected) / max(1, len(original_space))
     )
@@ -135,8 +131,9 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         auto_zoom_final_fill_ratio=zoom.final_fill_ratio,
         auto_zoom_crop_rect=CropRect(**zoom.crop_rect) if zoom.crop_rect else None,
         auto_zoom_padding=Padding(**zoom.padding) if zoom.padding else None,
-        movement_direction=direction,
-        movement_confidence=motion_conf,
+        # Motion is hard-coded in v1 — motion.py removed.
+        movement_direction="stationary",
+        movement_confidence=0.0,
         person_detection_confidence=round(detected_frac, 3),
         safety_backoff_applied=zoom.safety_backoff,
         athlete_framing_message=(
