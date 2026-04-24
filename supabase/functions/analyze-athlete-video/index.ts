@@ -8,6 +8,8 @@ const supabase = createClient(
 const RTMLIB_FALLBACK =
   'https://rtmlib-service-874407535869.us-central1.run.app'
 
+const MAX_CLIP_WINDOW_SECONDS = 3
+
 type JsonRecord = Record<string, unknown>
 type Point = [number, number]
 type PersonKeypoints = Point[]
@@ -877,6 +879,12 @@ async function runPreflight(upload: any, nodeConfig: any) {
       expected: `${nodeConfig.clip_duration_min}-${nodeConfig.clip_duration_max}s`,
       actual: `${duration}s`,
       result: duration < nodeConfig.clip_duration_min || duration > nodeConfig.clip_duration_max ? 'FAIL' as const : 'PASS' as const,
+    },
+    {
+      name: 'Launch clip cap',
+      expected: `<= ${MAX_CLIP_WINDOW_SECONDS}s (3-second clips are currently supported; longer clips coming soon)`,
+      actual: `${duration}s`,
+      result: duration > MAX_CLIP_WINDOW_SECONDS ? 'FAIL' as const : 'PASS' as const,
     },
     {
       name: 'Node status',
