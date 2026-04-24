@@ -2,7 +2,14 @@ import type { TrainingNode, MechanicsSection, Checkpoint, KeyMetric } from "../t
 import { parseCameraSettings } from "../components/CameraEditor";
 import { migrateCheckpoints } from "../components/CheckpointsEditor";
 import { computeCategories, computeScore } from "../components/NodeReadinessBar";
+import { partitionMetricsByActive, getActiveMetrics } from "./metrics";
 import keypointLibrary from "@/constants/keypointLibrary.json";
+
+// Active vs. inactive metrics: this module uses the shared helpers in
+// `./metrics` (getActiveMetrics, partitionMetricsByActive) so that scoring
+// math, solution-class derivation, and LLM-facing output never include
+// inactive metrics. The `m.active !== false` filter is centralized there —
+// do not duplicate it inline in new generators.
 
 type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status";
 
