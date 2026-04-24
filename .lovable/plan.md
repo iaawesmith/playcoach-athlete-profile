@@ -1,69 +1,55 @@
 
 
-## Add-on: globally monotonic timestamps via `reserve_timestamp_range`
+## Smoke test execution
 
-VIDEO mode requires timestamps to be non-decreasing across the landmarker's entire lifetime, not just within one request. Today `run_with_skip` starts at frame index 0 every call, so the second `/analyze` on a warm container will throw `RuntimeError: Input timestamp must be monotonically increasing` and surface as a 503.
+Two-call smoke test against upload `66ea5e98-ff65-4d20-9e9e-232753d198aa` on warm revision `mediapipe-service-00009-dbr`. Validates singleton + VIDEO mode + cross-request timestamp monotonicity via `reserve_timestamp_range`.
 
-### Change — `mediapipe-service/app/pose.py` only
+### Sequence
 
-**1. Add public helper on `PoseEngine`:**
+1. Migration: `UPDATE athlete_uploads SET status='pending', error_message=NULL, progress_message=NULL WHERE id='66ea5e98-ff65-4d20-9e9e-232753d198aa'`
+2. **Call 1** — invoke `analyze-athlete-video` with `{ type:'INSERT', table:'athlete_uploads', record:{ id:'66ea5e98-…' } }`. Capture invoke wall time.
+3. Pull `mediapipe-service` Cloud Run log tail + `analyze-athlete-video` Edge Function logs for the Call 1 window.
+4. Query `athlete_lab_results` (newest row for this upload) and `athlete_uploads` final state.
+5. Same migration to reset to `pending`.
+6. **Call 2** — same invocation, immediately after. Capture invoke wall time.
+7. Pull Cloud Run + Edge Function logs for Call 2 window.
+8. Query results + final state again.
 
-```python
-def reserve_timestamp_range(self, n_frames: int, fps: float) -> int:
-    frame_interval_ms = max(1, int(round(1000 / fps)))
-    with self._ts_lock:
-        base = self._next_ts_ms
-        self._next_ts_ms = base + n_frames * frame_interval_ms
-    return base
-```
+### Per-call report
 
-**2. Update `run_with_skip` to use the helper:**
+- HTTP status from Cloud Run `/analyze` (extracted from edge function log of the response)
+- Cloud Run wall duration (edge function timing)
+- `frame_count`, `fps`
+- Keypoints dims `[F × 1 × 33 × 2]`, scores dims `[F × 1 × 33]`
+- Mean keypoint confidence across all frames × landmarks
+- Calibration: `source`, `confidence`, `pixels_per_yard`
+- Auto-zoom: `applied`, `factor`, `crop_rect`
+- Warnings
+- `pipeline_result` written to `athlete_lab_results`? (row id, `aggregate_score`)
+- Final `athlete_uploads.status`: `complete` / `failed` / stuck
+- Exact error text + stack trace for index-out-of-bounds on indices 99/120
+- Edge Function: clean rejection (`failed` + structured `error_message`) or uncaught 500
 
-```python
-def run_with_skip(engine, frames, det_frequency, fps):
-    if det_frequency < 1:
-        det_frequency = 1
-    if fps <= 0:
-        fps = 1.0
+### Raw Cloud Run log tail (per call)
 
-    frame_interval_ms = max(1, int(round(1000 / fps)))
-    base = engine.reserve_timestamp_range(len(frames), fps)
+For each call, paste the unfiltered `mediapipe-service` log tail covering the window from `analyze start` through handler completion. Specifically extract the `timestamp_ms` values MediaPipe receives. Compare:
 
-    results = []
-    last = PoseFrame(detected=False)
-    for i, frame in enumerate(frames):
-        if i % det_frequency == 0:
-            timestamp_ms = base + i * frame_interval_ms
-            last = engine.detect(frame, timestamp_ms)
-        results.append(last)
-    return results
-```
+- Call 1: first and last timestamps passed to `detect_for_video`
+- Call 2: first timestamp passed to `detect_for_video`
 
-### Why this works
+Pass condition: Call 2's first timestamp > Call 1's last timestamp. This proves `reserve_timestamp_range` is anchoring above prior request state.
 
-- `reserve_timestamp_range` reads and advances `_next_ts_ms` atomically under `_ts_lock`, returning a base above all prior activity.
-- The full range is reserved up-front, so even if `auto_zoom`'s untimestamped `detect()` calls have advanced the counter (existing fallback bumps by 1ms per call), the next `run_with_skip` anchors safely above them.
-- No private attribute access from outside the class — clean public contract.
-- Cloud Run concurrency=1 means no real contention, but the lock keeps it correct under any future config.
+If MediaPipe timestamps aren't directly logged today (the codebase doesn't currently log per-frame ts), report what's observable: the `analyze start` line, any auto-zoom log lines, the response line, and inferred ordering from request sequence + response success. If Call 2 succeeds with 200, monotonicity held; if it 503s with `Input timestamp must be monotonically increasing`, the fix didn't reach the actual call site.
 
-### Out of scope
+### Classification
 
-- `main.py`, `auto_zoom.py`, `video.py`, `calibration.py`, `schema.py` — untouched
-- Response schema — unchanged
-- No new logging
-- `detect()` signature and auto-counter fallback — unchanged
+- **GOOD** — both calls 200 in 5–15s, real keypoints (mean confidence > 0.3), pipeline ends `failed` with clean index-out-of-bounds on 99/120 from Hands Extension at Catch metric. Singleton + VIDEO + cross-request monotonicity all validated.
+- **PARTIAL** — both calls 200 in 5–15s, but mean confidence ≈ 0. Singleton fix works; clip quality is a separate ticket.
+- **BAD** — either call 503/timeout, OR Call 2 fails with monotonicity error (would mean `auto_zoom`'s untimestamped detect path bypassed reservation). Capture exact stage and full log tail.
 
 ### Files modified
 
-- `mediapipe-service/app/pose.py` (one new method, one updated function)
+- One migration, run twice (between Call 1 and Call 2) to reset upload status.
 
-### Smoke test plan (after redeploy)
-
-Hit `/analyze` against the test clip **twice in a row** on the warm container. Both should return 200 in 5–15s. Classify per the prior matrix:
-
-- **GOOD** — both calls 200, real keypoints, Slant scoring fails cleanly with index-out-of-bounds on hand landmarks (indices 99, 120). Validates singleton + VIDEO mode + cross-request monotonicity.
-- **PARTIAL** — both calls 200 but mean keypoint scores ≈ 0. Fix works; clip quality is a separate triage.
-- **BAD** — second call 503s with monotonicity error in logs. `auto_zoom`'s untimestamped `detect()` path needs explicit timestamps too; next ticket.
-
-Report includes: response duration for each call, `frame_count`, `fps`, keypoints/scores dimensions, mean keypoint confidence, calibration block, auto-zoom block, end-to-end status (`pipeline_result` written? `status='complete'`?), and any scoring-node errors.
+No application code changes. No schema changes. Pure observation.
 
