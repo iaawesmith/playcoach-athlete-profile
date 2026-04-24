@@ -25,7 +25,7 @@ interface Enhancement {
 /* ------------------------------------------------------------------ */
 
 const TAB_OPTIONS = [
-  "All Tabs", "Basics", "Videos", "Overview", "Phases", "Mechanics",
+  "All Tabs", "Basics", "Videos", "Phases", "Mechanics",
   "Metrics", "Scoring", "Errors", "Reference", "Camera", "Checkpoints",
   "LLM Prompt", "Badges", "Training Status", "Run Analysis",
   "Admin Reference", "Global / Cross-Tab",
@@ -43,7 +43,6 @@ const URGENCY_ORDER: Record<Urgency, number> = { critical: 0, high: 1, medium: 2
 const TAB_COLORS: Record<string, string> = {
   "Basics": "bg-slate-500/20 text-slate-300",
   "Videos": "bg-slate-500/20 text-slate-300",
-  "Overview": "bg-slate-500/20 text-slate-300",
   "Phases": "bg-teal-500/20 text-teal-300",
   "Mechanics": "bg-teal-500/20 text-teal-300",
   "Metrics": "bg-emerald-500/20 text-emerald-300",

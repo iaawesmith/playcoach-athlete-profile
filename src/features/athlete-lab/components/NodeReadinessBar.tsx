@@ -5,7 +5,7 @@ import { checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEd
 import { SectionTooltip } from "./SectionTooltip";
 import { generateFullNodeMarkdown } from "../utils/nodeExport";
 
-type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
 
 interface ReadinessCheck {
   label: string;
