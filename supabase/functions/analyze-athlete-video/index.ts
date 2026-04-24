@@ -3263,9 +3263,10 @@ async function callCloudRun(payload: {
   }
 
   if (streamError) {
+    const err: { status: number; detail: unknown } = streamError
     throw new Error(
-      `Cloud Run pipeline error ${streamError.status}: ${
-        typeof streamError.detail === 'string' ? streamError.detail : JSON.stringify(streamError.detail)
+      `Cloud Run pipeline error ${err.status}: ${
+        typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
       } (RTMLIB_URL: ${rtmlibUrl})`
     )
   }
