@@ -491,8 +491,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const save = async () => {
     setSaving(true);
     try {
-      const shouldAutoDraft = node.status === "live" && criticalChanged.current;
-      const isLiveSave = node.status === "live" && !shouldAutoDraft;
+      const shouldAutoDraft = node.status === "live";
       const updates: Partial<TrainingNode> = {
         name: draft.name,
         icon_url: draft.icon_url,
@@ -533,15 +532,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
       if (shouldAutoDraft) {
         updates.status = "draft";
       }
-      if (isLiveSave) {
-        updates.node_version = (draft.node_version ?? 1) + 1;
-      }
       const updated = await updateNode(draft.id, updates);
       onUpdated(updated);
       setDirty(false);
-      criticalChanged.current = false;
       if (shouldAutoDraft) {
-        toast("Node set to Draft — pipeline config was changed. Review and re-activate when ready.");
+        toast("Saved — node moved to Draft. Review the readiness checks and re-activate when ready.");
+      } else {
+        toast.success("Node saved");
       }
     } catch {
       // error handling
