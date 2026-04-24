@@ -1,6 +1,14 @@
-"""MediaPipe Pose Landmarker (Lite) wrapper. 33 landmarks per frame."""
+"""MediaPipe Pose Landmarker (Lite) wrapper. 33 landmarks per frame.
+
+Module-level singleton: one PoseLandmarker is constructed eagerly on first
+`get_engine()` call (typically warmed at FastAPI startup) and reused for the
+container's lifetime. Running mode is VIDEO for sequential-frame speed and
+landmark stability; callers must pass monotonically non-decreasing
+timestamps to `detect()`.
+"""
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 
 import mediapipe as mp
@@ -25,38 +33,41 @@ class PoseFrame:
 
 
 class PoseEngine:
-    """Context-managed MediaPipe PoseLandmarker (image mode)."""
+    """MediaPipe PoseLandmarker (VIDEO mode), constructed eagerly."""
 
     def __init__(self, model_path: str = MODEL_PATH) -> None:
         self.model_path = model_path
-        self._landmarker: mp_vision.PoseLandmarker | None = None
-
-    def __enter__(self) -> "PoseEngine":
-        base_options = mp_python.BaseOptions(model_asset_path=self.model_path)
+        base_options = mp_python.BaseOptions(model_asset_path=model_path)
         options = mp_vision.PoseLandmarkerOptions(
             base_options=base_options,
-            running_mode=mp_vision.RunningMode.IMAGE,
+            running_mode=mp_vision.RunningMode.VIDEO,
             num_poses=1,
             min_pose_detection_confidence=0.5,
             min_pose_presence_confidence=0.5,
             min_tracking_confidence=0.5,
         )
         self._landmarker = mp_vision.PoseLandmarker.create_from_options(options)
-        return self
+        # Monotonic timestamp counter for callers that don't supply one
+        # (VIDEO mode requires non-decreasing timestamps across detect calls).
+        self._next_ts_ms = 0
+        self._ts_lock = threading.Lock()
 
-    def __exit__(self, exc_type, exc, tb) -> None:
-        if self._landmarker is not None:
-            self._landmarker.close()
-            self._landmarker = None
-
-    def detect(self, frame_bgr: np.ndarray) -> PoseFrame:
-        if self._landmarker is None:
-            raise RuntimeError("PoseEngine used outside of context manager")
+    def detect(self, frame_bgr: np.ndarray, timestamp_ms: int | None = None) -> PoseFrame:
+        if timestamp_ms is None:
+            with self._ts_lock:
+                timestamp_ms = self._next_ts_ms
+                self._next_ts_ms += 1
+        else:
+            # Keep the auto-counter ahead of any externally-supplied timestamp
+            # so subsequent default-timestamp calls remain monotonic.
+            with self._ts_lock:
+                if timestamp_ms >= self._next_ts_ms:
+                    self._next_ts_ms = timestamp_ms + 1
 
         h, w = frame_bgr.shape[:2]
         rgb = np.ascontiguousarray(frame_bgr[:, :, ::-1])
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-        result = self._landmarker.detect(mp_image)
+        result = self._landmarker.detect_for_video(mp_image, timestamp_ms)
 
         pose_landmarks = result.pose_landmarks
         if not pose_landmarks:
@@ -76,17 +87,43 @@ class PoseEngine:
         return PoseFrame(detected=True, keypoints=kps[:LANDMARK_COUNT], scores=scs[:LANDMARK_COUNT])
 
 
+# --- Module-level singleton ---------------------------------------------------
+
+_ENGINE: PoseEngine | None = None
+_ENGINE_LOCK = threading.Lock()
+
+
+def get_engine() -> PoseEngine:
+    """Lazily construct and return the process-wide PoseEngine singleton."""
+    global _ENGINE
+    if _ENGINE is None:
+        with _ENGINE_LOCK:
+            if _ENGINE is None:
+                _ENGINE = PoseEngine()
+    return _ENGINE
+
+
 def run_with_skip(
-    engine: PoseEngine, frames: list[np.ndarray], det_frequency: int
+    engine: PoseEngine,
+    frames: list[np.ndarray],
+    det_frequency: int,
+    fps: float,
 ) -> list[PoseFrame]:
-    """Run pose detection every det_frequency-th frame; forward-fill in between."""
+    """Run pose detection every det_frequency-th frame; forward-fill in between.
+
+    Timestamps passed to MediaPipe are derived from frame index and fps and are
+    monotonically non-decreasing across detect calls (required by VIDEO mode).
+    """
     if det_frequency < 1:
         det_frequency = 1
+    if fps <= 0:
+        fps = 1.0
 
     results: list[PoseFrame] = []
     last: PoseFrame = PoseFrame(detected=False)
     for i, frame in enumerate(frames):
         if i % det_frequency == 0:
-            last = engine.detect(frame)
+            timestamp_ms = int(i * 1000 / fps)
+            last = engine.detect(frame, timestamp_ms)
         results.append(last)
     return results
