@@ -213,6 +213,13 @@ function generateReference(node: TrainingNode): string {
   const fallbackLabel = fallbackMap[rawFallback] ?? rawFallback;
 
   const camera = parseCameraSettings(node.camera_guidelines);
+  // skill_specific_filming_notes is physically stored inside the
+  // camera_guidelines JSON blob (parsed above). The optional top-level
+  // `node.skill_specific_filming_notes` field on the TrainingNode type has
+  // no DB column and is not written by any UI surface — it is dead/unbacked
+  // and the camera_guidelines JSON is the canonical source. If a top-level
+  // column is added later, prefer it via `node.skill_specific_filming_notes
+  // ?? camera.skill_specific_filming_notes`.
   let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\nGeneric Fallback Filming Instructions: ${node.reference_filming_instructions?.trim() || "Not configured"}\n`;
 
   for (const angle of ANGLES) {
