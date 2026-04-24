@@ -1,48 +1,29 @@
-## Close-out: revert state + document streaming fix ticket
+## Ticket 2: GFE streaming keepalive for /analyze
 
-Three-turn smoke test ended at Turn 2 with diagnostic clarity. MediaPipe ran cleanly to ~26s into the 6s clip; SIGTERM at ~32s with no Python exception, no OOM, no Cloud Run 600s timeout hit. Root cause: **Google Front End (GFE) ~30s idle timeout** — FastAPI `/analyze` holds the full response until processing completes (~38s for a 6s clip), GFE drops the connection.
+### Status
 
-This plan does **not** implement the streaming fix. It restores pre-test state and documents the ticket for tomorrow.
+Queued for tomorrow. Smoke test from prior session ended with diagnostic clarity but not a working 6s clip. State has been reverted: Slant node = `draft`, test upload `66ea5e98-…` = `pending`.
 
-### Step 1 — Single migration: revert Slant + reset upload
+### Problem
 
-One migration file containing both UPDATEs:
+Google Front End (GFE) drops Cloud Run connections after ~30s of zero response bytes. FastAPI `/analyze` returns one large JSON at the end, so any clip processing >30s wall time gets a 503 even though the container completes the work.
 
-```sql
-UPDATE public.athlete_lab_nodes
-SET status = 'draft'
-WHERE id = '75ed4b18-8a22-440e-9a23-b86204956056';
+### Evidence
 
-UPDATE public.athlete_uploads
-SET status = 'pending',
-    error_message = NULL,
-    progress_message = NULL
-WHERE id = '66ea5e98-ff65-4d20-9e9e-232753d198aa';
-```
+- 1s clip: `total_s=9.01` succeeds end-to-end, returns 200.
+- 6s clip (predicted `total_s≈38s`): observed SIGTERM at ~32s with no Python exception, no OOM, and Cloud Run's own request budget (600s) nowhere near exhausted.
+- `landmark_projection_calculator` warning at +26s into the request confirms the pose loop was still actively running when the connection dropped.
+- The Edge Function 300s `AbortController` fix (already shipped) did NOT trigger — confirming the cutoff is upstream of our edge function, on the GFE → Cloud Run path. That fix stays in place as a hard ceiling but is not the bottleneck.
 
-### Step 2 — Verify end state
+### Fix
 
-After migration applies, SELECT both rows and confirm:
-- `athlete_lab_nodes` Slant row: `status = 'draft'`
-- `athlete_uploads` test row: `status = 'pending'`, `error_message = NULL`, `progress_message = NULL`
-- Nothing else touched. No code changes. No edge function redeploys. No Cloud Run revisions.
+Convert `/analyze` to `StreamingResponse` (NDJSON). Emit a small JSON keepalive line every ~10s during processing so GFE keeps the socket open, then emit the final result line at the end. Edge Function reads the stream, ignores keepalives, parses the final line as `AnalyzeResponse`. API contract is preserved at the semantic level; transport changes from single-shot JSON to NDJSON stream.
 
-### Step 3 — Document Ticket 2 in `.lovable/plan.md`
+### Pseudocode (do not implement until tomorrow)
 
-Replace the current Edge Function timeout fix content (already deployed) with the new Ticket 2 spec:
-
-**Ticket 2: GFE streaming keepalive for /analyze**
-
-Problem: GFE drops Cloud Run connections after ~30s of zero response bytes. FastAPI `/analyze` returns one large JSON at the end, so any clip processing >30s wall time gets a 503 even though the container completes the work.
-
-Evidence: 1s clip total_s=9.01 succeeds. 6s clip predicted total_s≈38s, observed SIGTERM at ~32s with no Python error and no OOM. `landmark_projection_calculator` warning at +26s confirms pose loop was actively running. The Edge Function 300s AbortController fix did NOT trigger — confirming the cutoff is upstream of our edge function, on the GFE→Cloud Run path.
-
-Fix: Convert `/analyze` to `StreamingResponse` (NDJSON). Emit a small JSON keepalive line every ~10s during processing, then emit the final result line. Edge Function reads the stream, ignores keepalives, and parses the final line as `AnalyzeResponse`.
-
-Pseudocode (for tomorrow — do not implement now):
+`mediapipe-service/app/main.py`:
 
 ```text
-# main.py
 from fastapi.responses import StreamingResponse
 import json, asyncio, time
 
@@ -56,8 +37,8 @@ async def analyze(req: AnalyzeRequest):
             await yield_queue.put({"type": "keepalive", "ts": time.time()})
 
     async def run_pipeline():
-        # existing analyze() body, but instead of returning,
-        # push final result and sentinel to queue
+        # existing analyze() body, but instead of `return response`,
+        # push final result and sentinel into the queue
         ...
         await yield_queue.put({"type": "result", "data": response.dict()})
         await yield_queue.put(None)  # sentinel
@@ -73,29 +54,57 @@ async def analyze(req: AnalyzeRequest):
                 yield (json.dumps(item) + "\n").encode()
         finally:
             keepalive_task.cancel()
+            # let pipeline_task finish or cancel cleanly on client disconnect
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 ```
 
+`supabase/functions/analyze-athlete-video/index.ts` — `callCloudRun()`:
+
 ```text
-# supabase/functions/analyze-athlete-video/index.ts callCloudRun()
-# Read response body line-by-line via response.body.getReader() + TextDecoder.
-# Parse each line as JSON. Ignore {type:"keepalive"} lines.
-# Parse {type:"result", data:{...}} as the AnalyzeResponse.
-# Keep the existing 300s AbortController as a hard ceiling.
+# Keep existing 300s AbortController as hard ceiling.
+# Replace `await response.json()` with line-by-line read:
+#   const reader = response.body!.getReader()
+#   const decoder = new TextDecoder()
+#   let buf = ''
+#   let final: AnalyzeResponse | null = null
+#   while (true) {
+#     const { value, done } = await reader.read()
+#     if (done) break
+#     buf += decoder.decode(value, { stream: true })
+#     const lines = buf.split('\n')
+#     buf = lines.pop() ?? ''
+#     for (const line of lines) {
+#       if (!line.trim()) continue
+#       const msg = JSON.parse(line)
+#       if (msg.type === 'keepalive') continue
+#       if (msg.type === 'result') final = msg.data
+#     }
+#   }
+#   if (!final) throw new Error('Cloud Run stream ended without result')
+#   return final
 ```
 
-Validation plan for tomorrow:
+### Validation plan
+
 1. Deploy streaming refactor to mediapipe-service.
-2. Smoke test 1s clip — must still succeed with same `analyze done` log.
-3. Smoke test 6s clip — expect success around total_s≈38s with keepalives visible in Cloud Run request logs.
-4. If green, queue Slant keypoint index remap (Hands Extension idx 99/120, break-angle [23,25,27]) as Ticket 3.
+2. Smoke test 1s clip — must still succeed with same `analyze done` log line and same response shape.
+3. Smoke test 6s clip — expect success around `total_s≈38s` with keepalive lines visible in Cloud Run request logs.
+4. If green, queue Slant keypoint index remap (Hands Extension idx 99/120, break-angle [23, 25, 27]) as Ticket 3.
 
-Out of scope for this ticket: TARGET_FPS reduction, segmentation-mask probe, keypoint remap. Decide those after streaming is proven.
+### Out of scope for this ticket
 
-### Files modified
+- TARGET_FPS reduction (Ticket 4 candidate, decide after streaming is proven)
+- Segmentation-mask probe optimization
+- Slant keypoint remap (Ticket 3)
+- Sandbox-curl ingress investigation (debug-tool concern only)
 
-- One new migration file under `supabase/migrations/` containing the two UPDATE statements
-- `.lovable/plan.md` — replace contents with Ticket 2 documentation above
+### Queue (updated)
 
-No application code. No service redeploy. No edge function redeploy.
+1. ✅ Ticket 1 deployed (00010-gdp): per-stage timers + auto_zoom trim
+2. ✅ Edge Function 300s AbortController shipped (didn't fix the issue but is correct hardening)
+3. ✅ Smoke test closed cleanly: Slant → draft, upload → pending
+4. → **Ticket 2** (this doc): GFE streaming keepalive in `/analyze`
+5. → Re-run 6s smoke test, classify GOOD / PARTIAL / BAD
+6. → Ticket 3: Slant keypoint index remap (99 / 120 / [23,25,27])
+7. → Ticket 4 (data-driven): TARGET_FPS reduction OR segmentation-mask probe
