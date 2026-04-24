@@ -427,8 +427,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
   });
-  const criticalChanged = useRef(false);
-
   /* Persist advanced-tabs preference + auto-bounce off hidden tabs when toggled off */
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -479,7 +477,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     };
     setDraft(normalizedNode);
     setDirty(false);
-    criticalChanged.current = false;
   }, [node.id]);
 
   const update = useCallback(<K extends keyof TrainingNode>(key: K, value: TrainingNode[K]) => {
@@ -487,19 +484,14 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     setDirty(true);
   }, []);
 
-  /* Track critical field changes */
-  const updateWithCriticalTrack = useCallback(<K extends keyof TrainingNode>(key: K, value: TrainingNode[K]) => {
-    update(key, value);
-    if (node.status === "live") {
-      criticalChanged.current = true;
-    }
-  }, [update, node.status]);
+  /* Alias retained for backward compatibility; behaves identically to `update`.
+     Auto-draft on save is now unconditional for any save on a Live node. */
+  const updateWithCriticalTrack = update;
 
   const save = async () => {
     setSaving(true);
     try {
-      const shouldAutoDraft = node.status === "live" && criticalChanged.current;
-      const isLiveSave = node.status === "live" && !shouldAutoDraft;
+      const shouldAutoDraft = node.status === "live";
       const updates: Partial<TrainingNode> = {
         name: draft.name,
         icon_url: draft.icon_url,
@@ -540,15 +532,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
       if (shouldAutoDraft) {
         updates.status = "draft";
       }
-      if (isLiveSave) {
-        updates.node_version = (draft.node_version ?? 1) + 1;
-      }
       const updated = await updateNode(draft.id, updates);
       onUpdated(updated);
       setDirty(false);
-      criticalChanged.current = false;
       if (shouldAutoDraft) {
-        toast("Node set to Draft — pipeline config was changed. Review and re-activate when ready.");
+        toast("Saved — node moved to Draft. Review the readiness checks and re-activate when ready.");
+      } else {
+        toast.success("Node saved");
       }
     } catch {
       // error handling
@@ -608,9 +598,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <h1 className="text-on-surface font-black uppercase tracking-tighter text-xl">{draft.name || "New Node"}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleStatusToggle}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border cursor-pointer hover:brightness-110 active:scale-95 transition-all ${
+          <div
+            title={isLive ? "Node is Live — athlete uploads trigger analysis. Use the readiness bar below to change status." : "Node is in Draft — use the readiness bar below to set Live."}
+            aria-label={isLive ? "Status: Live" : "Status: Draft"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border ${
               isLive
                 ? "border-primary-container/30 bg-primary-container/10 text-primary-container"
                 : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
@@ -618,8 +609,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           >
             <span className={`w-2 h-2 rounded-full ${isLive ? "bg-primary-container" : "bg-on-surface-variant/50"}`} />
             {isLive ? "Live" : "Draft"}
-            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>expand_more</span>
-          </button>
+          </div>
           <button
             onClick={() => setShowAdvancedTabs((v) => !v)}
             title={showAdvancedTabs ? "Hide advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)" : "Show advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)"}
