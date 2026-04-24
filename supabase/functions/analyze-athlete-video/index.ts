@@ -488,9 +488,21 @@ function clampPercentage(value: number) {
   return Math.max(0, Math.min(100, value))
 }
 
+type KeypointConfidenceEntry = {
+  index: number
+  name: string
+  mean_confidence: number
+  min_confidence: number
+  min_frame: number
+  frames_below: number
+  total_frames: number
+  percent_below: number
+  status: 'RELIABLE' | 'MARGINAL' | 'UNRELIABLE'
+}
+
 function buildPoseQualityAudit(
   personCountSummary: { firstFrame: number; maxAcrossFrames: number },
-  keypointConfidence: PipelineLogData['rtmlib'] extends { keypoint_confidence?: infer T } ? T : never,
+  keypointConfidence: KeypointConfidenceEntry[] | undefined,
   metricResults: any[],
   aggregateScore: number | null | undefined,
 ): PoseQualityAudit {
@@ -1101,7 +1113,8 @@ function resolveBreakPhaseDetFrequency(phaseBreakdown: unknown): number | null {
 
   const breakPhase = phaseBreakdown.find((phase) => {
     if (!phase || typeof phase !== 'object') return false
-    const name = typeof (phase as JsonRecord).name === 'string' ? (phase as JsonRecord).name.trim().toLowerCase() : ''
+    const rawName = (phase as JsonRecord).name
+    const name = typeof rawName === 'string' ? rawName.trim().toLowerCase() : ''
     return name === 'break'
   }) as JsonRecord | undefined
 
@@ -2784,6 +2797,24 @@ function resolveBilateralSelection(
     }
   }
 
+  // bilateral: "none" — metric's keypoint_indices already span both sides
+  // (e.g. [23,24] hips, [27,28] ankles, [19,20] index fingers). Use base indices
+  // verbatim; do NOT mirror or pick a single side. Must be checked before
+  // route/auto branches so bilateral pairs aren't collapsed.
+  if (bilateralOverride === 'none' || bilateralMode === 'none') {
+    logBilateralDecision(metricName, 'override', 'left', leftIndices, rightIndices, baseIndices, null, null)
+    return {
+      side: 'left',
+      source: 'override',
+      baseIndices,
+      leftIndices,
+      rightIndices,
+      effectiveIndices: baseIndices,
+      leftAverageConfidence: null,
+      rightAverageConfidence: null,
+    }
+  }
+
   if (bilateralMode === 'left' || bilateralMode === 'right') {
     const side: BilateralSide = bilateralMode
     const effectiveIndices = side === 'left' ? leftIndices : rightIndices
@@ -2837,24 +2868,7 @@ function resolveBilateralSelection(
     leftAverageConfidence: autoChoice.leftAverageConfidence,
     rightAverageConfidence: autoChoice.rightAverageConfidence,
   }
-  }
-
-  // bilateral: "none" — metric's keypoint_indices already span both sides
-  // (e.g. [23,24] hips, [27,28] ankles, [19,20] index fingers). Use base indices
-  // verbatim; do NOT mirror or pick a single side.
-  if (bilateralOverride === 'none' || bilateralMode === 'none') {
-    logBilateralDecision(metricName, 'override', 'left', leftIndices, rightIndices, baseIndices, null, null)
-    return {
-      side: 'left',
-      source: 'override',
-      baseIndices,
-      leftIndices,
-      rightIndices,
-      effectiveIndices: baseIndices,
-      leftAverageConfidence: null,
-      rightAverageConfidence: null,
-    }
-  }
+}
 
 function scoreMetric(value: number, eliteTarget: number, tolerance: number): number {
   const deviation = Math.abs(value - eliteTarget)
@@ -3249,9 +3263,10 @@ async function callCloudRun(payload: {
   }
 
   if (streamError) {
+    const err: { status: number; detail: unknown } = streamError
     throw new Error(
-      `Cloud Run pipeline error ${streamError.status}: ${
-        typeof streamError.detail === 'string' ? streamError.detail : JSON.stringify(streamError.detail)
+      `Cloud Run pipeline error ${err.status}: ${
+        typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
       } (RTMLIB_URL: ${rtmlibUrl})`
     )
   }

@@ -90,8 +90,9 @@ Deno.serve(async (req) => {
   });
 });
 
+// deno-lint-ignore no-explicit-any
 async function fetchFallbackResult(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   selectClause: string,
   athleteId: string,
   nodeId: string,
