@@ -1,4 +1,4 @@
-export type CalculationType = "angle" | "distance" | "velocity" | "acceleration" | "frame_delta";
+export type CalculationType = "angle" | "distance" | "velocity" | "acceleration" | "frame_delta" | "distance_variance";
 // 'none' = the metric's keypoint indices already span both sides (e.g. hips
 // [23,24]) or reference a center keypoint (nose, hip-center). The analyzer
 // uses base indices verbatim — no mirroring, no side selection.

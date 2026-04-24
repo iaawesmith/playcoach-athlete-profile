@@ -39,6 +39,7 @@ const CALC_OPTIONS: { value: CalculationType; label: string; desc: string }[] = 
   { value: "velocity", label: "VELOCITY", desc: "Speed of keypoint movement. Temporal Window minimum: 3 frames." },
   { value: "acceleration", label: "ACCELERATION", desc: "Rate of velocity change. Temporal Window minimum: 5 frames." },
   { value: "frame_delta", label: "FRAME DELTA", desc: "Frames between two body position events. Temporal Window minimum: 10 frames." },
+  { value: "distance_variance", label: "DISTANCE VARIANCE", desc: "Standard deviation of inter-keypoint distance across the temporal window. Low value = stable (e.g. composed hips during a cut). Requires 2 keypoints + Reference tab scale calibration. Temporal Window minimum: 5 frames." },
 ];
 
 const BILATERAL_OPTIONS: { value: BilateralMode; label: string }[] = [
