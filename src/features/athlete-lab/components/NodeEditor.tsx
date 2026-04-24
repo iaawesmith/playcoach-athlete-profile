@@ -447,7 +447,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   );
 
   useEffect(() => {
-    // Normalize metrics on load: ensure keypoint_mapping fields have defaults
+    // Normalize metrics on load: ensure keypoint_mapping fields have defaults.
+    // Resyncs whenever node.id or node.updated_at changes — covers both selecting
+    // a different node AND receiving fresh content from a parent refresh after
+    // an out-of-band DB change. Skips while the local draft is dirty so an
+    // in-flight admin edit isn't clobbered by a background refresh.
+    if (dirty) return;
     const normalizedNode = {
       ...node,
       det_frequency: node.det_frequency ?? 2,
@@ -477,7 +482,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     };
     setDraft(normalizedNode);
     setDirty(false);
-  }, [node.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id, node.updated_at]);
 
   const update = useCallback(<K extends keyof TrainingNode>(key: K, value: TrainingNode[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));
