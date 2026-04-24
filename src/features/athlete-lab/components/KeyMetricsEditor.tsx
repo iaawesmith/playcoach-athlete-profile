@@ -156,15 +156,37 @@ function getKeypointValidation(calcType: CalculationType | null, count: number):
       return count >= 1 && count <= 2
         ? { valid: true, message: `✓ Valid for ${calcType === "velocity" ? "Velocity" : "Acceleration"}` }
         : { valid: false, message: `⚠ ${calcType === "velocity" ? "Velocity" : "Acceleration"} requires 1 or 2 keypoints (${count} selected)` };
+    case "distance_variance":
+      return count === 2
+        ? { valid: true, message: "✓ Valid for Distance Variance" }
+        : { valid: false, message: `⚠ Distance Variance requires exactly 2 keypoints — typically a bilateral pair such as L/R hip (${count} selected)` };
+    default: {
+      const _exhaustive: never = calcType;
+      return { valid: false, message: `⚠ Unknown calculation type: ${String(_exhaustive)}` };
+    }
   }
 }
 
 function getTemporalWarning(calcType: CalculationType | null, window: number): string | null {
   if (!calcType) return null;
-  if (calcType === "velocity" && window < 3) return "Velocity requires minimum 3 frames";
-  if (calcType === "acceleration" && window < 5) return "Acceleration requires minimum 5 frames";
-  if (calcType === "frame_delta" && window < 10) return "Frame Delta requires minimum 10 frames";
-  return null;
+  switch (calcType) {
+    case "velocity":
+      return window < 3 ? "Velocity requires minimum 3 frames" : null;
+    case "acceleration":
+      return window < 5 ? "Acceleration requires minimum 5 frames" : null;
+    case "frame_delta":
+      return window < 10 ? "Frame Delta requires minimum 10 frames" : null;
+    case "distance_variance":
+      return window < 5 ? "Distance Variance requires minimum 5 frames" : null;
+    case "angle":
+    case "distance":
+      return null;
+    default: {
+      const _exhaustive: never = calcType;
+      void _exhaustive;
+      return null;
+    }
+  }
 }
 
 interface KeyMetricsEditorProps {
