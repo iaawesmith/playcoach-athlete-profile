@@ -2,7 +2,14 @@ import type { TrainingNode, MechanicsSection, Checkpoint, KeyMetric } from "../t
 import { parseCameraSettings } from "../components/CameraEditor";
 import { migrateCheckpoints } from "../components/CheckpointsEditor";
 import { computeCategories, computeScore } from "../components/NodeReadinessBar";
+import { partitionMetricsByActive, getActiveMetrics } from "./metrics";
 import keypointLibrary from "@/constants/keypointLibrary.json";
+
+// Active vs. inactive metrics: this module uses the shared helpers in
+// `./metrics` (getActiveMetrics, partitionMetricsByActive) so that scoring
+// math, solution-class derivation, and LLM-facing output never include
+// inactive metrics. The `m.active !== false` filter is centralized there —
+// do not duplicate it inline in new generators.
 
 type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status";
 
@@ -55,7 +62,7 @@ function header(node: TrainingNode, tabName: string): string {
 
 function generateBasics(node: TrainingNode): string {
   const overviewText = node.overview?.trim() || "Not configured";
-  return `## Basics\n\nNode Name: ${node.name}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
+  return `## Basics\n\nNode Name: ${node.name}\nPosition: ${node.position ?? "Not configured"}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
 }
 
 function generateVideos(node: TrainingNode): string {
@@ -116,22 +123,26 @@ function generateMechanics(node: TrainingNode): string {
 }
 
 function generateMetrics(node: TrainingNode): string {
-  const metrics = node.key_metrics ?? [];
+  const allMetrics = node.key_metrics ?? [];
   const phases = node.phase_breakdown ?? [];
-  // Intentional: export is a full config snapshot for engineering review,
-  // so it includes ALL metrics (active + inactive) — disabled state is auditable.
-  const weightSum = metrics.reduce((s, m) => s + m.weight, 0);
-  const maxIdx = getMaxKeypointIndex(metrics);
+  const { active: activeMetrics, inactive: inactiveMetrics } = partitionMetricsByActive(node);
+
+  // Active metrics drive scoring math, weight-sum validation, and the
+  // solution-class derivation. Inactive metrics are rendered separately
+  // below so admins can audit disabled state without those metrics
+  // polluting the LLM-facing view of "what this node measures."
+  const activeWeightSum = activeMetrics.reduce((s, m) => s + m.weight, 0);
+  const totalWeightSum = allMetrics.reduce((s, m) => s + m.weight, 0);
+  const maxIdx = getMaxKeypointIndex(activeMetrics);
   const requiredClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "None (no keypoints)";
 
-  let out = `## Metrics\n\nCount: ${metrics.length} metrics\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\nSolution Class Required: ${requiredClass}\n`;
+  let out = `## Metrics\n\nCount: ${activeMetrics.length} active, ${inactiveMetrics.length} inactive (${allMetrics.length} total)\nActive Weight Sum: ${activeWeightSum}% ${activeWeightSum === 100 ? "PASS" : "FAIL"}\nTotal Including Inactive: ${totalWeightSum}% (informational)\nSolution Class Required: ${requiredClass} (derived from active metrics only)\n`;
 
-  metrics.forEach((m, i) => {
+  const renderMetric = (m: KeyMetric, idx: number, isActive: boolean): string => {
     const km = m.keypoint_mapping;
     const phaseName = km?.phase_id ? (phases.find(p => p.id === km.phase_id)?.name ?? "Unknown") : null;
     const phaseStatus = phaseName ? `${phaseName} ASSIGNED` : "MISSING";
 
-    // Check mapping completeness
     let mappingStatus = "INCOMPLETE";
     const missing: string[] = [];
     if (km) {
@@ -147,8 +158,16 @@ function generateMetrics(node: TrainingNode): string {
     const internalDocsBlock = internalDocs
       ? `\nInternal Documentation (admin-only, not sent to LLM):\n${internalDocs}\n`
       : `\nInternal Documentation: Not configured\n`;
-    out += `\n### Metric ${i + 1}: ${m.name || "Untitled"} (${m.weight}%)\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nBody Groups: ${km?.body_groups?.length ? km.body_groups.join(", ") : "None"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (metrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}${internalDocsBlock}`;
-  });
+    return `\n### Metric ${idx + 1}: ${m.name || "Untitled"} (${m.weight}%)\nActive: ${isActive ? "Yes" : "No"}\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nBody Groups: ${km?.body_groups?.length ? km.body_groups.join(", ") : "None"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (allMetrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}${internalDocsBlock}`;
+  };
+
+  activeMetrics.forEach((m, i) => { out += renderMetric(m, i, true); });
+
+  if (inactiveMetrics.length > 0) {
+    out += `\n### Inactive Metrics (preserved in storage, excluded from scoring)\n`;
+    inactiveMetrics.forEach((m, i) => { out += renderMetric(m, i, false); });
+  }
+
   return out;
 }
 
@@ -194,6 +213,13 @@ function generateReference(node: TrainingNode): string {
   const fallbackLabel = fallbackMap[rawFallback] ?? rawFallback;
 
   const camera = parseCameraSettings(node.camera_guidelines);
+  // skill_specific_filming_notes is physically stored inside the
+  // camera_guidelines JSON blob (parsed above). The optional top-level
+  // `node.skill_specific_filming_notes` field on the TrainingNode type has
+  // no DB column and is not written by any UI surface — it is dead/unbacked
+  // and the camera_guidelines JSON is the canonical source. If a top-level
+  // column is added later, prefer it via `node.skill_specific_filming_notes
+  // ?? camera.skill_specific_filming_notes`.
   let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\nGeneric Fallback Filming Instructions: ${node.reference_filming_instructions?.trim() || "Not configured"}\n`;
 
   for (const angle of ANGLES) {
@@ -311,8 +337,12 @@ function generateKnowledgeBase(node: TrainingNode): string {
 }
 
 function generateTrainingStatus(node: TrainingNode): string {
-  const metrics = node.key_metrics ?? [];
-  const maxIdx = getMaxKeypointIndex(metrics);
+  // Solution-class compatibility must be computed against active metrics
+  // only — inactive metrics are excluded from scoring, so an inactive
+  // metric referencing a high keypoint index must not force a pose-engine
+  // upgrade. Mirrors the readiness-bar logic and the Metrics tab export.
+  const activeMetrics = getActiveMetrics(node);
+  const maxIdx = getMaxKeypointIndex(activeMetrics);
   const derivedClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "N/A";
   const rawClass = node.solution_class || "";
   const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -330,10 +360,11 @@ function generateTrainingStatus(node: TrainingNode): string {
   const dfMultiple = node.det_frequency_multiple ?? 1;
   const dfFallback = node.det_frequency ?? 2;
   const pmMode = node.performance_mode ?? "balanced";
+  const poseEngine = node.pose_engine ?? "mediapipe";
 
   const pipelineRef = "";
 
-  return `## Training Status\n\nSolution Class: ${configuredClass}\nPerformance Mode: ${pmMode}\nDetection Frequency:\n  Solo: ${dfSolo} frames\n  With Defender: ${dfDefender} frames\n  Multiple People: ${dfMultiple} frames\n  No Context Fallback (treated as solo): ${dfFallback} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across all metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
+  return `## Training Status\n\nPose Engine: ${poseEngine}\nSolution Class: ${configuredClass}\nPerformance Mode: ${pmMode}\nDetection Frequency:\n  Solo: ${dfSolo} frames\n  With Defender: ${dfDefender} frames\n  Multiple People: ${dfMultiple} frames\n  No Context Fallback (treated as solo): ${dfFallback} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across active metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
 }
 
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
@@ -395,7 +426,21 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
 
   const tabOrder: TabKey[] = ["basics", "videos", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges", "training_status"];
 
-  const sections = [...tabOrder.map(key => TAB_GENERATORS[key](node)), generateKnowledgeBase(node)].join("\n\n---\n\n");
+  // The trailing knowledge-base block is admin-authored markdown (headings,
+  // bullets, bold) intended for internal reference, NOT pipeline config.
+  // Without an explicit boundary it can read like stray markup tacked onto
+  // the end of Training Status. Insert a labeled block so admins and the
+  // LLM both see it as a separate, non-config payload.
+  const adminGuidanceBoundary = [
+    "# ADMIN GUIDANCE — non-config notes authored by admins for internal reference.",
+    "# Not part of the node config the pipeline reads. Safe to ignore for analysis.",
+  ].join("\n");
+
+  const tabSections = tabOrder.map(key => TAB_GENERATORS[key](node));
+  const sections = [
+    ...tabSections,
+    `${adminGuidanceBoundary}\n\n${generateKnowledgeBase(node)}`,
+  ].join("\n\n---\n\n");
 
   const fullText = `${readiness}\n\n---\n\n${sections}`;
   const wordCount = fullText.split(/\s+/).length;
