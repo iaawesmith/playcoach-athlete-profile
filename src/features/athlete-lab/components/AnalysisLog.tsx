@@ -42,6 +42,17 @@ function deriveOverallStatus(logData: AnalysisLogData): LogStatus {
 
 function deriveSectionStatus(section: string, logData: AnalysisLogData): LogStatus {
   switch (section) {
+    case "scoring_config": {
+      const sc = logData.scoring_config;
+      // Missing scoring_config means the edge function failed to surface
+      // observability for the run. The whole point of Section 0 is to PROVE
+      // scoring config was read correctly — absence is a signal, not silent
+      // success. Force WARN so admins notice.
+      if (!sc) return "WARN";
+      if (sc.skipped_percent > sc.min_metrics_threshold) return "ERROR";
+      if (sc.flagged_count > 0 || sc.skipped_count > 0) return "WARN";
+      return "PASS";
+    }
     case "preflight": {
       const checks = logData.preflight?.checks ?? [];
       if (checks.some(c => c.result === "FAIL")) return "ERROR";
