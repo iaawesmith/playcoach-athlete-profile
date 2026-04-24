@@ -306,6 +306,16 @@ type PipelineLogData = {
     metrics_skipped: number
     metrics_total: number
   }
+  scoring_config?: {
+    confidence_handling: 'skip' | 'penalize' | 'flag_only'
+    min_metrics_threshold: number
+    renormalize_on_skip: boolean
+    total_metrics: number
+    scored_count: number
+    flagged_count: number
+    skipped_count: number
+    skipped_percent: number
+  }
   error_detection?: Array<{
     name: string
     auto_detectable: boolean
