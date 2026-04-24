@@ -499,7 +499,7 @@ function CheckpointEditForm({ draft, onChange, onSave, onCancel, phases, idx, ke
       <div>
         <div className="flex items-center gap-1.5 mb-2">
           <label className={LABEL_CLASS}>Confidence Threshold</label>
-          <SectionTooltip tip="Minimum rtmlib confidence score for required keypoints. Checkpoints use 0.75 default (higher than metrics) because they are binary pass/fail events — a low-confidence detection produces an unreliable phase boundary." />
+          <SectionTooltip tip="Minimum pose-engine confidence score for required keypoints. Checkpoints use 0.75 default (higher than metrics) because they are binary pass/fail events — a low-confidence detection produces an unreliable phase boundary." />
         </div>
         <div className="flex items-center gap-3">
           <input

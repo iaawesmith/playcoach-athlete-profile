@@ -67,8 +67,8 @@ const BODY_PART_GROUPS: BodyPartGroup[] = [
   { label: "Hips", humanLabel: "Full hip width visible", indexRange: [11, 12] },
   { label: "Knees", humanLabel: "Both knees clearly visible", indexRange: [13, 14] },
   { label: "Ankles", humanLabel: "Both ankles clearly visible", indexRange: [15, 16] },
-  { label: "Feet (Heel/Toe)", humanLabel: "Plant foot and heel clearly visible — requires Body with Feet or Wholebody model", indexRange: [17, 22], requiresModel: "Body with Feet" },
-  { label: "Hands", humanLabel: "Both hands clearly visible at catch point — requires Wholebody model", indexRange: [91, 132], requiresModel: "Wholebody" },
+  { label: "Feet (Heel/Toe)", humanLabel: "Plant foot and heel clearly visible — requires a pose model that supports feet keypoints", indexRange: [17, 22], requiresModel: "Body with Feet" },
+  { label: "Hands", humanLabel: "Both hands clearly visible at catch point — requires a pose model that supports hand keypoints", indexRange: [91, 132], requiresModel: "Wholebody" },
 ];
 
 function getKeypointName(index: number): string {
@@ -204,7 +204,7 @@ export function CameraEditor({ node, value, onChange }: CameraEditorProps) {
         <div className="pt-3">
           <div className="flex items-center gap-1.5 mb-2">
             <label className={LABEL_CLASS}>Minimum Resolution</label>
-            <SectionTooltip tip="Minimum source video resolution. rtmlib model input is 384x288 — source footage below 720p provides insufficient detail for reliable keypoint extraction, especially for hand and foot keypoints." />
+            <SectionTooltip tip="Minimum source video resolution. The pose engine downsamples frames to roughly 384×288 — source footage below 720p provides insufficient detail for reliable keypoint extraction, especially for hand and foot keypoints." />
           </div>
           <select
             className={`${INPUT_CLASS} max-w-xs`}

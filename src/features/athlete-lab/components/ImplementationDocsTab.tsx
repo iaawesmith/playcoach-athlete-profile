@@ -19,8 +19,8 @@ const DEFAULT_DOCS: Omit<DocCard, "id" | "created_at" | "updated_at">[] = [
     display_order: 0,
   },
   {
-    title: "Cloud Run — rtmlib Service",
-    subtitle: "Dockerfile, FastAPI service, dynamic calibration, and deployment commands for Phase 2",
+    title: "Cloud Run — MediaPipe Service (Phase 1)",
+    subtitle: "Dockerfile, FastAPI service, dynamic calibration, and deployment commands — coming in Phase 1",
     content: "",
     display_order: 1,
   },
@@ -156,7 +156,7 @@ export function ImplementationDocsTab() {
       <div>
         <h2 className="text-on-surface font-extrabold uppercase tracking-tight text-sm">Implementation Docs</h2>
         <p className="text-on-surface-variant text-xs mt-1">
-          Technical specifications and implementation guides for the rtmlib pipeline. Each document is ready to paste into Claude or share with a developer.
+          Technical specifications and implementation guides for the analysis pipeline. Each document is ready to paste into Claude or share with a developer.
         </p>
       </div>
 

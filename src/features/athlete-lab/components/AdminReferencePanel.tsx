@@ -74,7 +74,7 @@ const PROMPT_TAB_CONFIG: Record<
   agent_briefing: {
     title: "Agent Briefing Prompt",
     subtitle:
-      "Paste this into any new Claude conversation to instantly onboard an agent on AthleteLab, the rtmlib pipeline, and node configuration standards.",
+      "Paste this into any new Claude conversation to instantly onboard an agent on AthleteLab, the analysis pipeline, and node configuration standards.",
     placeholder: "[Agent briefing prompt will be added here]",
     tabKey: "agent_briefing",
   },
@@ -97,25 +97,25 @@ const DEFAULT_LINKS: Omit<ReferenceLink, "id">[] = [
   {
     title: "Keypoint Library",
     url: "https://github.com/iaawesmith/playcoach-athlete-profile/blob/main/src/constants/keypointLibrary.json",
-    description: "Full 133-keypoint COCO-WholeBody schema used by the analysis pipeline",
+    description: "MediaPipe Pose 33-landmark schema used by the analysis pipeline",
     display_order: 0,
   },
   {
-    title: "rtmlib Documentation",
-    url: "https://github.com/Tau-J/rtmlib",
-    description: "RTMPose/RTMW lightweight deployment library",
+    title: "MediaPipe Pose Documentation",
+    url: "https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker",
+    description: "MediaPipe Pose Landmarker — official solution and model card",
     display_order: 1,
   },
   {
-    title: "MMPose Model Zoo",
-    url: "https://github.com/open-mmlab/mmpose/tree/dev-1.x/projects/rtmpose",
-    description: "Full RTMPose model performance benchmarks and download links",
+    title: "MediaPipe Pose Landmarks",
+    url: "https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models",
+    description: "Reference for the 33 pose landmarks and their indices",
     display_order: 2,
   },
   {
     title: "Data Dictionary (GitHub)",
     url: "https://github.com/iaawesmith/playcoach-athlete-profile/blob/main/docs/data-dictionary/fields.json",
-    description: "Live fields.json — AthleteLab, Supabase, and MMPose alignment status",
+    description: "Live fields.json — AthleteLab, Supabase, and pose-engine alignment status",
     display_order: 3,
   },
   {
