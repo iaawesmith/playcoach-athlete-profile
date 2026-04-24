@@ -69,7 +69,19 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
 
     progress: list[ProgressUpdate] = []
 
+    # Per-stage timers (seconds). Logged in the final structured "analyze done" line.
+    t_download = 0.0
+    t_decode = 0.0
+    t_autozoom = 0.0
+    t_pose_loop = 0.0
+    t_reverse_map = 0.0
+    t_calibration = 0.0
+
+    download_start = time.perf_counter()
     with video.download_to_tmp(req.video_url) as local_path:
+        t_download = time.perf_counter() - download_start
+
+        decode_start = time.perf_counter()
         frames, width, height = await asyncio.to_thread(
             video.decode_window,
             local_path,
@@ -77,6 +89,7 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
             req.end_seconds,
             video.TARGET_FPS,
         )
+        t_decode = time.perf_counter() - decode_start
         if not frames:
             raise HTTPException(status_code=422, detail="no frames decoded from window")
 
@@ -93,9 +106,11 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         engine = get_engine()
 
         # 1) Auto-zoom decision.
+        autozoom_start = time.perf_counter()
         processed_frames, zoom = await asyncio.to_thread(
             az.decide_and_apply, engine, frames, width, height
         )
+        t_autozoom = time.perf_counter() - autozoom_start
 
         progress.append(
             ProgressUpdate(
@@ -107,9 +122,11 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         )
 
         # 2) Pose loop on processed frames.
+        pose_loop_start = time.perf_counter()
         pose_results = await asyncio.to_thread(
             run_with_skip, engine, processed_frames, req.det_frequency, video.TARGET_FPS
         )
+        t_pose_loop = time.perf_counter() - pose_loop_start
 
         progress.append(
             ProgressUpdate(
@@ -121,10 +138,14 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         )
 
         # 3) Reverse-map landmarks back to original video coords.
+        reverse_start = time.perf_counter()
         original_space = az.reverse_map_landmarks(pose_results, zoom, width, height)
+        t_reverse_map = time.perf_counter() - reverse_start
 
         # 4) Body-based calibration.
+        calibration_start = time.perf_counter()
         ppy, calib_conf, calib_details = calibration.estimate(original_space)
+        t_calibration = time.perf_counter() - calibration_start
 
     detected_frac = (
         sum(1 for pf in original_space if pf.detected) / max(1, len(original_space))
@@ -166,12 +187,21 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         progress_updates=progress,
     )
 
+    total_s = time.time() - t0
     log.info(
-        "analyze done frames=%d zoom=%s ppy=%s elapsed=%.2fs landmarks=%d",
+        "analyze done frames=%d zoom=%s ppy=%s "
+        "download_s=%.2f decode_s=%.2f autozoom_s=%.2f pose_loop_s=%.2f "
+        "reverse_map_s=%.2f calibration_s=%.2f total_s=%.2f landmarks=%d",
         len(original_space),
         zoom.applied,
         ppy,
-        time.time() - t0,
+        t_download,
+        t_decode,
+        t_autozoom,
+        t_pose_loop,
+        t_reverse_map,
+        t_calibration,
+        total_s,
         LANDMARK_COUNT,
     )
     return response
