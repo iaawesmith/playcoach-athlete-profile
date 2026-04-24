@@ -2195,7 +2195,7 @@ function MechanicsEditor({ value, onChange, phases, metrics, onConfirmDelete }: 
 
                 {/* Auto-generated metric summary */}
                 {(() => {
-                  const phaseMetrics = metrics.filter(m => m.keypoint_mapping?.phase_id === sec.phase_id && sec.phase_id);
+                  const phaseMetrics = metrics.filter(m => m.active !== false && m.keypoint_mapping?.phase_id === sec.phase_id && sec.phase_id);
                   if (phaseMetrics.length === 0) return null;
                   const totalWeight = phaseMetrics.reduce((s, m) => s + m.weight, 0);
                   let names: string;
@@ -2291,12 +2291,14 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const scConflicts = sc ? getSolutionClassWarnings(sc, node.key_metrics, false) : [];
   readiness.push({ label: "Solution class supports all keypoints", ok: !!sc && scConflicts.length === 0, detail: scConflicts.length > 0 ? `${scConflicts.length} conflict(s)` : "All metrics compatible", tab: "training_status" });
 
-  const allMapped = node.key_metrics.length > 0 && node.key_metrics.every(m => m.keypoint_mapping?.calculation_type);
-  readiness.push({ label: "All metrics have keypoint mapping", ok: allMapped, detail: allMapped ? `${node.key_metrics.length} metrics mapped` : "Some metrics missing mapping", tab: "metrics" });
-  const totalWeight = node.key_metrics.reduce((s, m) => s + m.weight, 0);
-  readiness.push({ label: "Metric weights sum to 100%", ok: totalWeight === 100, detail: `Currently ${totalWeight}%`, tab: "metrics" });
-  const allPhased = node.key_metrics.length > 0 && node.key_metrics.every(m => m.keypoint_mapping?.phase_id);
-  readiness.push({ label: "All metrics have phase assigned", ok: allPhased, detail: allPhased ? "All assigned" : "Some missing phase", tab: "metrics" });
+  // Active-only — keeps Pipeline-Setup expanded view consistent with top NodeReadinessBar
+  const activeMetricsForReadiness = (node.key_metrics ?? []).filter((m) => m.active !== false);
+  const allMapped = activeMetricsForReadiness.length > 0 && activeMetricsForReadiness.every(m => m.keypoint_mapping?.calculation_type);
+  readiness.push({ label: "All active metrics have keypoint mapping", ok: allMapped, detail: allMapped ? `${activeMetricsForReadiness.length} active metrics mapped` : "Some active metrics missing mapping", tab: "metrics" });
+  const totalWeight = activeMetricsForReadiness.reduce((s, m) => s + m.weight, 0);
+  readiness.push({ label: "Active metric weights sum to 100%", ok: totalWeight === 100, detail: `Currently ${totalWeight}%`, tab: "metrics" });
+  const allPhased = activeMetricsForReadiness.length > 0 && activeMetricsForReadiness.every(m => m.keypoint_mapping?.phase_id);
+  readiness.push({ label: "All active metrics have phase assigned", ok: allPhased, detail: allPhased ? "All assigned" : "Some missing phase", tab: "metrics" });
 
   readiness.push({ label: "At least 4 phases defined", ok: node.phase_breakdown.length >= 4, detail: `${node.phase_breakdown.length} phases`, tab: "phases" });
   const segMethod = node.segmentation_method ?? "proportional";
@@ -2927,11 +2929,15 @@ interface ScoringEditorProps {
 function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidenceHandling, onConfidenceHandlingChange, minMetricsThreshold, onMinMetricsThresholdChange, scoreBands, onScoreBandsChange, renormalizeOnSkip, onRenormalizeOnSkipChange }: ScoringEditorProps) {
   const [simValues, setSimValues] = useState<Record<string, number>>({});
 
-  const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
+  // Active-only — inactive metrics are preserved but excluded from scoring
+  // (matches NodeReadinessBar / validateForLive)
+  const activeMetrics = metrics.filter((m) => m.active !== false);
+  const inactiveCount = metrics.length - activeMetrics.length;
+  const totalWeight = activeMetrics.reduce((sum, m) => sum + m.weight, 0);
   const weightValid = totalWeight === 100;
 
-  const simulatedScore = metrics.length > 0 && weightValid
-    ? Math.round(metrics.reduce((sum, m) => {
+  const simulatedScore = activeMetrics.length > 0 && weightValid
+    ? Math.round(activeMetrics.reduce((sum, m) => {
         const val = simValues[m.name] ?? 0;
         return sum + (val * m.weight) / 100;
       }, 0))
@@ -2943,7 +2949,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
     return "#ef4444";
   };
 
-  const flaggedCount = Math.ceil(metrics.length * minMetricsThreshold / 100);
+  const flaggedCount = Math.ceil(activeMetrics.length * minMetricsThreshold / 100);
 
   const CONFIDENCE_OPTIONS: { value: ConfidenceHandling; label: string; recommended?: boolean; description: string }[] = [
     { value: "skip", label: "SKIP", recommended: true, description: "Exclude low-confidence metrics from the aggregate score and redistribute their weight proportionally across remaining metrics. Produces the most accurate score from available data." },
@@ -2987,43 +2993,50 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
           </span>
         </div>
 
-        {metrics.length === 0 ? (
+        {activeMetrics.length === 0 ? (
           <div className="text-center py-6">
             <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 32 }}>analytics</span>
-            <p className="text-on-surface-variant text-xs mt-2">No metrics defined yet. Add metrics in the Metrics tab.</p>
+            <p className="text-on-surface-variant text-xs mt-2">No active metrics defined. Add or activate metrics in the Metrics tab.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-on-surface-variant text-[9px] uppercase tracking-[0.3em] border-b border-outline-variant/15">
-                  <th className="text-left py-2 pr-4 font-semibold">Metric</th>
-                  <th className="text-right py-2 px-3 font-semibold">Weight</th>
-                  <th className="text-right py-2 px-3 font-semibold">If Score = 90</th>
-                  <th className="text-right py-2 pl-3 font-semibold">Contribution</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.map((m) => {
-                  const contribution = (90 * m.weight) / 100;
-                  return (
-                    <tr key={m.name} className="border-b border-outline-variant/10 last:border-0">
-                      <td className="py-2.5 pr-4 text-on-surface font-medium">{m.name || "Unnamed"}</td>
-                      <td className="py-2.5 px-3 text-right text-on-surface">{m.weight}%</td>
-                      <td className="py-2.5 px-3 text-right text-on-surface-variant">90</td>
-                      <td className="py-2.5 pl-3 text-right font-bold text-primary-container">{contribution.toFixed(1)}</td>
-                    </tr>
-                  );
-                })}
-                <tr className="border-t border-outline-variant/20">
-                  <td className="py-2.5 pr-4 text-on-surface font-black uppercase text-[10px] tracking-widest">Total</td>
-                  <td className={`py-2.5 px-3 text-right font-black ${weightValid ? "text-primary-container" : "text-red-400"}`}>{totalWeight}%</td>
-                  <td className="py-2.5 px-3 text-right text-on-surface-variant">—</td>
-                  <td className="py-2.5 pl-3 text-right font-black text-on-surface">{weightValid ? "90.0" : "—"}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <>
+            {inactiveCount > 0 && (
+              <p className="text-on-surface-variant/60 text-[10px] uppercase tracking-widest mb-2">
+                {activeMetrics.length} active metrics scored, {inactiveCount} inactive metric{inactiveCount > 1 ? "s" : ""} excluded from scoring
+              </p>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-on-surface-variant text-[9px] uppercase tracking-[0.3em] border-b border-outline-variant/15">
+                    <th className="text-left py-2 pr-4 font-semibold">Metric</th>
+                    <th className="text-right py-2 px-3 font-semibold">Weight</th>
+                    <th className="text-right py-2 px-3 font-semibold">If Score = 90</th>
+                    <th className="text-right py-2 pl-3 font-semibold">Contribution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeMetrics.map((m) => {
+                    const contribution = (90 * m.weight) / 100;
+                    return (
+                      <tr key={m.name} className="border-b border-outline-variant/10 last:border-0">
+                        <td className="py-2.5 pr-4 text-on-surface font-medium">{m.name || "Unnamed"}</td>
+                        <td className="py-2.5 px-3 text-right text-on-surface">{m.weight}%</td>
+                        <td className="py-2.5 px-3 text-right text-on-surface-variant">90</td>
+                        <td className="py-2.5 pl-3 text-right font-bold text-primary-container">{contribution.toFixed(1)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="border-t border-outline-variant/20">
+                    <td className="py-2.5 pr-4 text-on-surface font-black uppercase text-[10px] tracking-widest">Total</td>
+                    <td className={`py-2.5 px-3 text-right font-black ${weightValid ? "text-primary-container" : "text-red-400"}`}>{totalWeight}%</td>
+                    <td className="py-2.5 px-3 text-right text-on-surface-variant">—</td>
+                    <td className="py-2.5 pl-3 text-right font-black text-on-surface">{weightValid ? "90.0" : "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -3137,7 +3150,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
           </p>
         ) : (
           (() => {
-            const catchWeight = metrics.filter(m => m.requires_catch).reduce((s, m) => s + m.weight, 0);
+            const catchWeight = activeMetrics.filter(m => m.requires_catch).reduce((s, m) => s + m.weight, 0);
             const cappedAt = 100 - catchWeight;
             return (
               <p className="text-amber-400 text-xs leading-relaxed flex items-center gap-1.5">

@@ -197,6 +197,9 @@ interface KeyMetricsEditorProps {
 }
 
 export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }: KeyMetricsEditorProps) {
+  // Intentional: editor header shows raw sum across ALL metrics (active + inactive)
+  // so the admin can see exactly what the active toggle is doing.
+  // Active-only filtering happens in NodeReadinessBar, validateForLive, and ScoringEditor.
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
