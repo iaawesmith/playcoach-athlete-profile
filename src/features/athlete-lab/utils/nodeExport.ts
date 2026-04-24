@@ -62,7 +62,7 @@ function header(node: TrainingNode, tabName: string): string {
 
 function generateBasics(node: TrainingNode): string {
   const overviewText = node.overview?.trim() || "Not configured";
-  return `## Basics\n\nNode Name: ${node.name}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
+  return `## Basics\n\nNode Name: ${node.name}\nPosition: ${node.position ?? "Not configured"}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
 }
 
 function generateVideos(node: TrainingNode): string {
