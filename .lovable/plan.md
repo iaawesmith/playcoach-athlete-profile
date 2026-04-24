@@ -1,82 +1,68 @@
 
 
-## MediaPipe Service Cutover — Minimal Edge Function Update
+## Surgical fix: warm singleton + VIDEO mode + non-blocking inference
 
-Wire the deployed Cloud Run MediaPipe service into the existing Edge Function with zero refactor. Three precise changes, then a live smoke test.
+Root cause: `PoseLandmarker` is created inside the per-request `with PoseEngine()` block. The ~17s init blocks uvicorn's event loop and Cloud Run kills the container at ~30s. Fix is a singleton warmed at startup, VIDEO mode for the loop, and `asyncio.to_thread` to keep the event loop free.
 
----
+### Change 1 — `mediapipe-service/app/pose.py`
 
-### Step 1 — Secrets
+- Remove `__enter__` / `__exit__`. `PoseEngine` becomes a plain class that owns one `PoseLandmarker`.
+- Constructor builds the landmarker eagerly with `RunningMode.VIDEO`. Same options otherwise (num_poses=1, confidences=0.5, Lite model).
+- Add module-level `_ENGINE: PoseEngine | None = None` + `threading.Lock` + `get_engine()` lazy singleton accessor.
+- `detect(frame_bgr, timestamp_ms: int) -> PoseFrame` calls `self._landmarker.detect_for_video(mp_image, timestamp_ms)`. Same RGB conversion, pixel-coord mapping, defensive padding to `LANDMARK_COUNT`.
+- `run_with_skip(engine, frames, det_frequency, fps)` — compute `timestamp_ms = int(i * 1000 / fps)` per detect call. Forward-fill on skip frames. Timestamps stay monotonic across detect calls (required by VIDEO mode).
+- Drop `close()` — singleton lives for container lifetime.
 
-1. Add new runtime secret `MEDIAPIPE_SERVICE_URL` = `https://mediapipe-service-874407535869.us-central1.run.app`
-2. Update existing `RTMLIB_URL` to the same value (so the current code path works instantly even before the dual-read deploys)
+### Change 2 — `mediapipe-service/app/main.py`
 
-Both done via the secrets tool. No code in the repo references the secret value directly — only the names.
+- Add `from contextlib import asynccontextmanager` and `import asyncio`.
+- Swap import: `from .pose import LANDMARK_COUNT, get_engine, run_with_skip`.
+- Define lifespan that calls `get_engine()` to warm the singleton at startup, log before/after.
+- Construct `app = FastAPI(title=..., version=..., lifespan=lifespan)`.
+- Convert handler to `async def analyze(req)`. Replace `with PoseEngine() as engine:` with `engine = get_engine()`.
+- Wrap CPU-bound calls in `await asyncio.to_thread(...)`:
+  - `video.decode_window(local_path, req.start_seconds, req.end_seconds, video.TARGET_FPS)`
+  - `az.decide_and_apply(engine, frames, width, height)`
+  - `run_with_skip(engine, processed_frames, req.det_frequency, video.TARGET_FPS)`
+- Keep `with video.download_to_tmp(...)` synchronous (short I/O, context manager).
+- `az.reverse_map_landmarks(...)` and `calibration.estimate(...)` stay synchronous (fast pure-Python).
+- `/health` unchanged. Response schema unchanged.
 
----
+### Why this works
 
-### Step 2 — Edge Function dual-read
+- Cold-start init moves to container boot — Cloud Run startup probe absorbs the 17s, not the 30s request budget.
+- Subsequent `/analyze` calls skip init entirely — wall time is pure inference.
+- VIDEO mode is 2–3× faster than IMAGE mode on sequential frames with more stable landmarks.
+- `asyncio.to_thread` keeps uvicorn's event loop free during inference, so health probes don't starve. Cloud Run concurrency=1 means no lock needed around `detect_for_video`.
 
-**File:** `supabase/functions/analyze-athlete-video/index.ts`
+### Out of scope
 
-In `callCloudRun()`, change the single env read to a prioritized chain:
+- `schema.py`, `calibration.py`, `auto_zoom.py`, `video.py` untouched.
+- Response shape unchanged.
+- Model stays Lite.
+- No new instrumentation logging.
+- No Edge Function or DB changes.
 
-```ts
-const base = Deno.env.get('MEDIAPIPE_SERVICE_URL')?.trim()
-  || Deno.env.get('RTMLIB_URL')?.trim()
-  || RTMLIB_FALLBACK;
-```
+### Files modified
 
-Nothing else in the function changes:
-- Variable names (`base`, `RTMLIB_FALLBACK`, function name `callCloudRun`) stay as-is — full rename comes later.
-- Request body, headers, timeout, response parsing untouched.
-- No auth header added (service is public on Cloud Run for this cutover; lockdown is a separate task).
+- `mediapipe-service/app/pose.py`
+- `mediapipe-service/app/main.py`
 
----
+### Reporting on file completion (before user redeploys)
 
-### Step 3 — Verify no stray `RTMLIB_URL` reads
+Immediately after the edits land, post a diff summary covering:
+- `pose.py`: lines removed (context manager, IMAGE-mode `detect`), lines added (singleton, lock, `get_engine`, VIDEO-mode `detect_for_video`), updated `run_with_skip` signature.
+- `main.py`: lines added (asyncio + lifespan imports, lifespan function, `get_engine` import), lines changed (FastAPI constructor, handler signature → async, `with PoseEngine` → `engine = get_engine()`, three `await asyncio.to_thread` wrappings).
 
-Grep the whole repo for `RTMLIB_URL`. Expectation: exactly one match — the fallback read inside `callCloudRun()`. If anything else turns up (other edge functions, frontend, scripts), flag it before deploying. Do NOT rename it.
+Do not wait for redeploy approval before reporting.
 
-Edge Function auto-deploys on save.
+### Smoke test outcomes (after user redeploys)
 
----
+Re-trigger Edge Function for upload `66ea5e98-ff65-4d20-9e9e-232753d198aa`. Classify result as one of:
 
-### Step 4 — Live smoke test
+- **GOOD** — `/analyze` returns 200 in 5–15s with real keypoints; Slant scoring fails cleanly with index-out-of-bounds on hand landmarks (indices 99, 120). Fix validated; next ticket is the RTMlib→MediaPipe index migration.
+- **PARTIAL** — `/analyze` returns 200 but mean keypoint scores ≈ 0 (pose detection silently failed on this clip). Fix works; video quality is a separate issue to triage.
+- **BAD** — `/analyze` still 503s. Second bug exists. Capture fresh Cloud Run logs for the new revision and report stage-level failure point.
 
-1. Query the database for the most recent `athlete_uploads` row tagged as the backyard slant clip (filter on `drill_type` / `node_id` / filename).
-2. Invoke `analyze-athlete-video` against that upload via the edge function curl tool, OR re-trigger by hitting the function directly with the existing upload ID.
-3. Tail `edge_function_logs` for `analyze-athlete-video` during the run.
-4. Report back:
-   - **MediaPipe response shape**: `frame_count`, `fps`, `keypoints` dimensions (frames × people × 33 × 2), presence of `scores`, calibration block, auto-zoom block, any `warnings` array
-   - **End-to-end status**: did the Edge Function write `pipeline_result`, update `status` to `complete`, and feed the Slant scoring node without index-out-of-bounds errors
-   - **Errors**: any 4xx/5xx from Cloud Run, any thrown exceptions in edge logs, any landmark-index errors from the (still-RTMlib-indexed) Slant node config
-
-Note on Step 4 outcome: the Slant node's keypoint indices are still on the 133-point COCO-WholeBody schema (audited previously). Smoke test will likely surface index-out-of-bounds on indices ≥ 33. That is expected and informational only — fixing it is the next ticket, not this one.
-
----
-
-### Out of scope (explicitly not touched)
-
-- `mediapipe-service/app/pose.py`, `schema.py`, `main.py`, `video.py`, `auto_zoom.py`, `calibration.py`
-- Slant node `keypoint_indices` in `athlete_lab_nodes`
-- Cloud Run IAM / ID token auth
-- Variable rename from `RTMLIB_*` → `MEDIAPIPE_*`
-- Adding `presence` / world coords to the response schema
-
----
-
-### Technical details
-
-| Action | Tool |
-|---|---|
-| Add `MEDIAPIPE_SERVICE_URL` | secrets add_secret |
-| Update `RTMLIB_URL` value | secrets update_secret |
-| Patch `callCloudRun()` | code--line_replace on `supabase/functions/analyze-athlete-video/index.ts` |
-| Verify single reference | code--search_files on `RTMLIB_URL` |
-| Find slant upload row | supabase--read_query on `athlete_uploads` |
-| Invoke function | supabase--curl_edge_functions to `/analyze-athlete-video` |
-| Tail logs | supabase--edge_function_logs for `analyze-athlete-video` |
-
-Approve and I'll execute in that order in one pass.
+Report includes: response duration, `frame_count`, `fps`, keypoints/scores dimensions, mean keypoint confidence, calibration block, auto-zoom block, end-to-end status (`pipeline_result` written? `status='complete'`?), and any scoring-node errors.
 
