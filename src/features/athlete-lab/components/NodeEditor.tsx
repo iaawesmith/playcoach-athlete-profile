@@ -794,7 +794,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                 Athlete-facing intro shown at the top of the training feed before they film. 2–3 sentences.
               </p>
               <textarea
-                className={`${INPUT_CLASS} min-h-[220px] resize-y leading-relaxed`}
+                className={`${INPUT_CLASS} min-h-[80px] resize-y leading-relaxed`}
                 value={draft.overview}
                 onChange={(e) => update("overview", e.target.value)}
                 placeholder="e.g. The slant route is a quick inside-breaking route used to exploit zone coverage gaps..."
