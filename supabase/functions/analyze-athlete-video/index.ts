@@ -3007,6 +3007,32 @@ function calculateAggregateScore(
   // what admins configured in the editor.
   const confidenceHandling = nodeConfig.confidence_handling || 'skip'
   const renormalize = nodeConfig.scoring_renormalize_on_skip !== false
+  const totalMetrics = metricResults.length
+  const minThreshold = nodeConfig.min_metrics_threshold ?? 50
+  const skippedCountForConfig = skipped.length + (confidenceHandling === 'skip' ? flagged.length : 0)
+  const skippedPercentForConfig = totalMetrics > 0
+    ? Number(((skippedCountForConfig / totalMetrics) * 100).toFixed(1))
+    : 0
+
+  // Snapshot of the scoring config actually applied to this run. Surfaced via
+  // logInfo (logs) AND returned to the caller so it can be persisted into
+  // log_data.scoring_config for the admin AnalysisLog.
+  const scoring_config_applied = {
+    confidence_handling: confidenceHandling as 'skip' | 'penalize' | 'flag_only',
+    min_metrics_threshold: minThreshold,
+    renormalize_on_skip: renormalize,
+    total_metrics: totalMetrics,
+    scored_count: scored.length,
+    flagged_count: flagged.length,
+    skipped_count: skipped.length,
+    skipped_percent: skippedPercentForConfig,
+  }
+
+  logInfo('scoring_config_applied', {
+    nodeId: nodeConfig.id,
+    nodeName: nodeConfig.name,
+    ...scoring_config_applied,
+  })
 
   // Handle flagged metrics based on confidence_handling rule
   const effectiveScored = [...scored]
@@ -3017,39 +3043,19 @@ function calculateAggregateScore(
     // 'skip' and 'flag': exclude from aggregate
   }
 
-  if (effectiveScored.length === 0) return { aggregate_score: 0, phase_scores: {} }
+  if (effectiveScored.length === 0) {
+    return { aggregate_score: 0, phase_scores: {}, scoring_config_applied }
+  }
 
   let totalWeight = effectiveScored.reduce((s, m) => s + m.weight, 0)
   let weightedSum = effectiveScored.reduce((s, m) => s + (m.score * m.weight), 0)
 
-  // Check min metrics threshold
-  const totalMetrics = metricResults.length
-  const skippedCount = skipped.length + (confidenceHandling === 'skip' ? flagged.length : 0)
-  const skippedPercent = (skippedCount / totalMetrics) * 100
-  const minThreshold = nodeConfig.min_metrics_threshold ?? 50
-
-  // Observability: surface the actual scoring config that was applied, so
-  // admin tests can verify the node's configured values were honored
-  // (catches the silent-fallback class of bug previously introduced by
-  // reading from the wrong column).
-  logInfo('scoring_config_applied', {
-    nodeId: nodeConfig.id,
-    nodeName: nodeConfig.name,
-    confidence_handling: confidenceHandling,
-    min_metrics_threshold: minThreshold,
-    renormalize_on_skip: renormalize,
-    total_metrics: totalMetrics,
-    scored_count: scored.length,
-    flagged_count: flagged.length,
-    skipped_count: skipped.length,
-    skipped_percent: Number(skippedPercent.toFixed(1)),
-  })
-
-  if (skippedPercent > minThreshold) {
+  if (skippedPercentForConfig > minThreshold) {
     return {
       aggregate_score: null,
       rejected: true,
-      reason: `Too many skipped metrics: ${skippedPercent.toFixed(0)}% > ${minThreshold}%`
+      reason: `Too many skipped metrics: ${skippedPercentForConfig.toFixed(0)}% > ${minThreshold}%`,
+      scoring_config_applied,
     }
   }
 
@@ -3074,7 +3080,8 @@ function calculateAggregateScore(
   return {
     aggregate_score: Math.round(aggregate_score),
     phase_scores,
-    skipped_metrics: skipped.map(m => m.name).join(', ')
+    skipped_metrics: skipped.map(m => m.name).join(', '),
+    scoring_config_applied,
   }
 }
 
