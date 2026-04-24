@@ -864,7 +864,7 @@ async function fetchNodeConfig(nodeId: string) {
       det_frequency_solo, det_frequency_defender, det_frequency_multiple,
       tracking_enabled, segmentation_method,
       llm_prompt_template, llm_system_instructions,
-      llm_tone, llm_max_words,
+      llm_max_words,
       scoring_rules, score_bands, scoring_renormalize_on_skip,
       confidence_handling, min_metrics_threshold,
       camera_guidelines,

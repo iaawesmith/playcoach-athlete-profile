@@ -18,11 +18,6 @@ const TEMPLATE_VARIABLES = [
   { var: "{{skipped_metrics}}", desc: "Metrics excluded from this analysis because athlete reported no catch was made. e.g. 'Catch Efficiency and YAC Burst were not evaluated on this rep.' Include a brief acknowledgment if this variable is not empty." },
 ];
 
-const TONE_OPTIONS = [
-  { value: "encouraging", label: "Encouraging", desc: "Motivational, positive framing. Leads with strengths. Best for youth athletes." },
-  { value: "direct", label: "Direct", desc: "Honest, specific, no fluff. Coach-to-athlete. Best for high school and above." },
-  { value: "technical", label: "Technical", desc: "Data-forward. References exact measurements and deviations. Best for college and elite athletes." },
-];
 
 function getWordGuidance(words: number): { text: string; color: string } {
   if (words <= 100) return { text: "Brief — 3-4 sentences. Good for quick reps and younger athletes.", color: "text-primary-container" };

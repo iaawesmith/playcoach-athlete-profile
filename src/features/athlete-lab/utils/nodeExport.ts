@@ -262,7 +262,6 @@ function generateCheckpoints(node: TrainingNode): string {
 }
 
 function generatePrompt(node: TrainingNode): string {
-  const toneMap: Record<string, string> = { encouraging: "Encouraging", direct: "Direct", technical: "Technical" };
   const template = node.llm_prompt_template ?? "";
   const sysInstructions = node.llm_system_instructions ?? "";
   const combinedText = template + "\n" + sysInstructions;
@@ -271,7 +270,7 @@ function generatePrompt(node: TrainingNode): string {
   const recommended = ["mastery_score", "metric_results", "phase_scores", "confidence_flags", "detected_errors", "athlete_name", "node_name", "athlete_level", "focus_area", "skipped_metrics"];
   const missing = recommended.filter(v => !vars.includes(v));
 
-  let out = `## LLM Prompt Configuration\n\nTone: ${toneMap[node.llm_tone ?? "direct"] ?? node.llm_tone ?? "Direct"}\nMax Feedback Length: ${node.llm_max_words ?? 150} words\n\nSystem Instructions:\n${node.llm_system_instructions?.trim() || "Not configured"}\n\nPrompt Template:\n${template.trim() || "Not configured"}\n\nVariables Detected in Template:\n${vars.length > 0 ? vars.map(v => `{{${v}}}`).join(", ") : "None detected — WARNING: no template variables found, Claude will generate generic feedback without real metric data"}\n\nRecommended Variables Not Present:\n${missing.length > 0 ? missing.map(v => `{{${v}}}`).join(", ") : "None — all key variables present"}`;
+  let out = `## LLM Prompt Configuration\n\nMax Feedback Length: ${node.llm_max_words ?? 150} words\n\nSystem Instructions:\n${node.llm_system_instructions?.trim() || "Not configured"}\n\nPrompt Template:\n${template.trim() || "Not configured"}\n\nVariables Detected in Template:\n${vars.length > 0 ? vars.map(v => `{{${v}}}`).join(", ") : "None detected — WARNING: no template variables found, Claude will generate generic feedback without real metric data"}\n\nRecommended Variables Not Present:\n${missing.length > 0 ? missing.map(v => `{{${v}}}`).join(", ") : "None — all key variables present"}`;
   return out;
 }
 

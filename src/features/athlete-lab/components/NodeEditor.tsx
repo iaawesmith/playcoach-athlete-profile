@@ -505,7 +505,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         camera_guidelines: draft.camera_guidelines,
         form_checkpoints: draft.form_checkpoints,
         llm_prompt_template: draft.llm_prompt_template,
-        llm_tone: draft.llm_tone,
+        
         llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
         badges: draft.badges,
@@ -946,8 +946,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <LlmPromptEditor
             promptTemplate={draft.llm_prompt_template}
             onPromptChange={(v) => updateWithCriticalTrack("llm_prompt_template", v)}
-            tone={draft.llm_tone ?? "direct"}
-            onToneChange={(v) => updateWithCriticalTrack("llm_tone" as keyof TrainingNode, v as never)}
             maxWords={draft.llm_max_words ?? 150}
             onMaxWordsChange={(v) => updateWithCriticalTrack("llm_max_words" as keyof TrainingNode, v as never)}
             systemInstructions={draft.llm_system_instructions ?? ""}

@@ -175,7 +175,7 @@ export interface TrainingNode {
   camera_guidelines: string;
   form_checkpoints: Checkpoint[];
   llm_prompt_template: string;
-  llm_tone: string;
+  
   llm_max_words: number;
   llm_system_instructions: string;
   badges: Badge[];
