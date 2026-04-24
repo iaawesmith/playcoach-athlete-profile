@@ -598,9 +598,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <h1 className="text-on-surface font-black uppercase tracking-tighter text-xl">{draft.name || "New Node"}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleStatusToggle}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border cursor-pointer hover:brightness-110 active:scale-95 transition-all ${
+          <div
+            title={isLive ? "Node is Live — athlete uploads trigger analysis. Use the readiness bar below to change status." : "Node is in Draft — use the readiness bar below to set Live."}
+            aria-label={isLive ? "Status: Live" : "Status: Draft"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border ${
               isLive
                 ? "border-primary-container/30 bg-primary-container/10 text-primary-container"
                 : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
@@ -608,8 +609,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           >
             <span className={`w-2 h-2 rounded-full ${isLive ? "bg-primary-container" : "bg-on-surface-variant/50"}`} />
             {isLive ? "Live" : "Draft"}
-            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>expand_more</span>
-          </button>
+          </div>
           <button
             onClick={() => setShowAdvancedTabs((v) => !v)}
             title={showAdvancedTabs ? "Hide advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)" : "Show advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)"}
