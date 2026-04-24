@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import type { KeyMetric, KeypointMapping, CalculationType, BilateralMode, BilateralOverride, PhaseNote } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
