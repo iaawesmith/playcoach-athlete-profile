@@ -1,68 +1,69 @@
 
 
-## Surgical fix: warm singleton + VIDEO mode + non-blocking inference
+## Add-on: globally monotonic timestamps via `reserve_timestamp_range`
 
-Root cause: `PoseLandmarker` is created inside the per-request `with PoseEngine()` block. The ~17s init blocks uvicorn's event loop and Cloud Run kills the container at ~30s. Fix is a singleton warmed at startup, VIDEO mode for the loop, and `asyncio.to_thread` to keep the event loop free.
+VIDEO mode requires timestamps to be non-decreasing across the landmarker's entire lifetime, not just within one request. Today `run_with_skip` starts at frame index 0 every call, so the second `/analyze` on a warm container will throw `RuntimeError: Input timestamp must be monotonically increasing` and surface as a 503.
 
-### Change 1 — `mediapipe-service/app/pose.py`
+### Change — `mediapipe-service/app/pose.py` only
 
-- Remove `__enter__` / `__exit__`. `PoseEngine` becomes a plain class that owns one `PoseLandmarker`.
-- Constructor builds the landmarker eagerly with `RunningMode.VIDEO`. Same options otherwise (num_poses=1, confidences=0.5, Lite model).
-- Add module-level `_ENGINE: PoseEngine | None = None` + `threading.Lock` + `get_engine()` lazy singleton accessor.
-- `detect(frame_bgr, timestamp_ms: int) -> PoseFrame` calls `self._landmarker.detect_for_video(mp_image, timestamp_ms)`. Same RGB conversion, pixel-coord mapping, defensive padding to `LANDMARK_COUNT`.
-- `run_with_skip(engine, frames, det_frequency, fps)` — compute `timestamp_ms = int(i * 1000 / fps)` per detect call. Forward-fill on skip frames. Timestamps stay monotonic across detect calls (required by VIDEO mode).
-- Drop `close()` — singleton lives for container lifetime.
+**1. Add public helper on `PoseEngine`:**
 
-### Change 2 — `mediapipe-service/app/main.py`
+```python
+def reserve_timestamp_range(self, n_frames: int, fps: float) -> int:
+    frame_interval_ms = max(1, int(round(1000 / fps)))
+    with self._ts_lock:
+        base = self._next_ts_ms
+        self._next_ts_ms = base + n_frames * frame_interval_ms
+    return base
+```
 
-- Add `from contextlib import asynccontextmanager` and `import asyncio`.
-- Swap import: `from .pose import LANDMARK_COUNT, get_engine, run_with_skip`.
-- Define lifespan that calls `get_engine()` to warm the singleton at startup, log before/after.
-- Construct `app = FastAPI(title=..., version=..., lifespan=lifespan)`.
-- Convert handler to `async def analyze(req)`. Replace `with PoseEngine() as engine:` with `engine = get_engine()`.
-- Wrap CPU-bound calls in `await asyncio.to_thread(...)`:
-  - `video.decode_window(local_path, req.start_seconds, req.end_seconds, video.TARGET_FPS)`
-  - `az.decide_and_apply(engine, frames, width, height)`
-  - `run_with_skip(engine, processed_frames, req.det_frequency, video.TARGET_FPS)`
-- Keep `with video.download_to_tmp(...)` synchronous (short I/O, context manager).
-- `az.reverse_map_landmarks(...)` and `calibration.estimate(...)` stay synchronous (fast pure-Python).
-- `/health` unchanged. Response schema unchanged.
+**2. Update `run_with_skip` to use the helper:**
+
+```python
+def run_with_skip(engine, frames, det_frequency, fps):
+    if det_frequency < 1:
+        det_frequency = 1
+    if fps <= 0:
+        fps = 1.0
+
+    frame_interval_ms = max(1, int(round(1000 / fps)))
+    base = engine.reserve_timestamp_range(len(frames), fps)
+
+    results = []
+    last = PoseFrame(detected=False)
+    for i, frame in enumerate(frames):
+        if i % det_frequency == 0:
+            timestamp_ms = base + i * frame_interval_ms
+            last = engine.detect(frame, timestamp_ms)
+        results.append(last)
+    return results
+```
 
 ### Why this works
 
-- Cold-start init moves to container boot — Cloud Run startup probe absorbs the 17s, not the 30s request budget.
-- Subsequent `/analyze` calls skip init entirely — wall time is pure inference.
-- VIDEO mode is 2–3× faster than IMAGE mode on sequential frames with more stable landmarks.
-- `asyncio.to_thread` keeps uvicorn's event loop free during inference, so health probes don't starve. Cloud Run concurrency=1 means no lock needed around `detect_for_video`.
+- `reserve_timestamp_range` reads and advances `_next_ts_ms` atomically under `_ts_lock`, returning a base above all prior activity.
+- The full range is reserved up-front, so even if `auto_zoom`'s untimestamped `detect()` calls have advanced the counter (existing fallback bumps by 1ms per call), the next `run_with_skip` anchors safely above them.
+- No private attribute access from outside the class — clean public contract.
+- Cloud Run concurrency=1 means no real contention, but the lock keeps it correct under any future config.
 
 ### Out of scope
 
-- `schema.py`, `calibration.py`, `auto_zoom.py`, `video.py` untouched.
-- Response shape unchanged.
-- Model stays Lite.
-- No new instrumentation logging.
-- No Edge Function or DB changes.
+- `main.py`, `auto_zoom.py`, `video.py`, `calibration.py`, `schema.py` — untouched
+- Response schema — unchanged
+- No new logging
+- `detect()` signature and auto-counter fallback — unchanged
 
 ### Files modified
 
-- `mediapipe-service/app/pose.py`
-- `mediapipe-service/app/main.py`
+- `mediapipe-service/app/pose.py` (one new method, one updated function)
 
-### Reporting on file completion (before user redeploys)
+### Smoke test plan (after redeploy)
 
-Immediately after the edits land, post a diff summary covering:
-- `pose.py`: lines removed (context manager, IMAGE-mode `detect`), lines added (singleton, lock, `get_engine`, VIDEO-mode `detect_for_video`), updated `run_with_skip` signature.
-- `main.py`: lines added (asyncio + lifespan imports, lifespan function, `get_engine` import), lines changed (FastAPI constructor, handler signature → async, `with PoseEngine` → `engine = get_engine()`, three `await asyncio.to_thread` wrappings).
+Hit `/analyze` against the test clip **twice in a row** on the warm container. Both should return 200 in 5–15s. Classify per the prior matrix:
 
-Do not wait for redeploy approval before reporting.
+- **GOOD** — both calls 200, real keypoints, Slant scoring fails cleanly with index-out-of-bounds on hand landmarks (indices 99, 120). Validates singleton + VIDEO mode + cross-request monotonicity.
+- **PARTIAL** — both calls 200 but mean keypoint scores ≈ 0. Fix works; clip quality is a separate triage.
+- **BAD** — second call 503s with monotonicity error in logs. `auto_zoom`'s untimestamped `detect()` path needs explicit timestamps too; next ticket.
 
-### Smoke test outcomes (after user redeploys)
-
-Re-trigger Edge Function for upload `66ea5e98-ff65-4d20-9e9e-232753d198aa`. Classify result as one of:
-
-- **GOOD** — `/analyze` returns 200 in 5–15s with real keypoints; Slant scoring fails cleanly with index-out-of-bounds on hand landmarks (indices 99, 120). Fix validated; next ticket is the RTMlib→MediaPipe index migration.
-- **PARTIAL** — `/analyze` returns 200 but mean keypoint scores ≈ 0 (pose detection silently failed on this clip). Fix works; video quality is a separate issue to triage.
-- **BAD** — `/analyze` still 503s. Second bug exists. Capture fresh Cloud Run logs for the new revision and report stage-level failure point.
-
-Report includes: response duration, `frame_count`, `fps`, keypoints/scores dimensions, mean keypoint confidence, calibration block, auto-zoom block, end-to-end status (`pipeline_result` written? `status='complete'`?), and any scoring-node errors.
+Report includes: response duration for each call, `frame_count`, `fps`, keypoints/scores dimensions, mean keypoint confidence, calibration block, auto-zoom block, end-to-end status (`pipeline_result` written? `status='complete'`?), and any scoring-node errors.
 
