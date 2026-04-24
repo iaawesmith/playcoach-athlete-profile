@@ -1,55 +1,79 @@
 
 
-## Smoke test execution
+## Ticket 1: Unblock 6s+ clips with per-stage timing + targeted optimizations
 
-Two-call smoke test against upload `66ea5e98-ff65-4d20-9e9e-232753d198aa` on warm revision `mediapipe-service-00009-dbr`. Validates singleton + VIDEO mode + cross-request timestamp monotonicity via `reserve_timestamp_range`.
+### Pre-work: revert Slant node to draft
 
-### Sequence
+Migration: `UPDATE athlete_lab_nodes SET status='draft' WHERE id='75ed4b18-8a22-440e-9a23-b86204956056'` so users don't hit the broken RTMlib-schema indices (99, 120 on Hands Extension; break-angle [23,25,27] remap pending) before we ship the Ticket 1 fix.
 
-1. Migration: `UPDATE athlete_uploads SET status='pending', error_message=NULL, progress_message=NULL WHERE id='66ea5e98-ff65-4d20-9e9e-232753d198aa'`
-2. **Call 1** — invoke `analyze-athlete-video` with `{ type:'INSERT', table:'athlete_uploads', record:{ id:'66ea5e98-…' } }`. Capture invoke wall time.
-3. Pull `mediapipe-service` Cloud Run log tail + `analyze-athlete-video` Edge Function logs for the Call 1 window.
-4. Query `athlete_lab_results` (newest row for this upload) and `athlete_uploads` final state.
-5. Same migration to reset to `pending`.
-6. **Call 2** — same invocation, immediately after. Capture invoke wall time.
-7. Pull Cloud Run + Edge Function logs for Call 2 window.
-8. Query results + final state again.
+### Diagnosis recap
 
-### Per-call report
+Smoke test showed 3s clip → 23.4s, 6s clip → 503 after ~35–43s. The 6s clip exceeds Cloud Run's 60s default request timeout (or pushes close enough that the proxy 503s). Without per-stage numbers we're guessing whether the cost is in download, decode, auto-zoom probe, or the main pose loop. Note: `video.DOWNLOAD_TIMEOUT_SEC` is **already 120s** — option (b) from the user's brief is a no-op, dropping it.
 
-- HTTP status from Cloud Run `/analyze` (extracted from edge function log of the response)
-- Cloud Run wall duration (edge function timing)
-- `frame_count`, `fps`
-- Keypoints dims `[F × 1 × 33 × 2]`, scores dims `[F × 1 × 33]`
-- Mean keypoint confidence across all frames × landmarks
-- Calibration: `source`, `confidence`, `pixels_per_yard`
-- Auto-zoom: `applied`, `factor`, `crop_rect`
-- Warnings
-- `pipeline_result` written to `athlete_lab_results`? (row id, `aggregate_score`)
-- Final `athlete_uploads.status`: `complete` / `failed` / stuck
-- Exact error text + stack trace for index-out-of-bounds on indices 99/120
-- Edge Function: clean rejection (`failed` + structured `error_message`) or uncaught 500
+`auto_zoom.decide_and_apply` runs at most 12 untimestamped `engine.detect()` calls (6 pre + 6 post). The main `run_with_skip` over a 6s clip at TARGET_FPS=30 and det_frequency=2 is ~90 detect calls. So the dominant cost is almost certainly the main pose loop, not auto-zoom. Per-stage timing will confirm.
 
-### Raw Cloud Run log tail (per call)
+### Changes
 
-For each call, paste the unfiltered `mediapipe-service` log tail covering the window from `analyze start` through handler completion. Specifically extract the `timestamp_ms` values MediaPipe receives. Compare:
+**1. `mediapipe-service/app/main.py` — per-stage timing**
 
-- Call 1: first and last timestamps passed to `detect_for_video`
-- Call 2: first timestamp passed to `detect_for_video`
+Wrap each major stage in `time.perf_counter()` and emit a single structured `analyze done` log line with all stage durations. Add a separate Cloud Run `--timeout=300s` recommendation in the report (infrastructure config, not code).
 
-Pass condition: Call 2's first timestamp > Call 1's last timestamp. This proves `reserve_timestamp_range` is anchoring above prior request state.
+Stages logged:
+- `download_s` — `video.download_to_tmp` context entry
+- `decode_s` — `decode_window`
+- `autozoom_s` — `az.decide_and_apply`
+- `pose_loop_s` — `run_with_skip`
+- `reverse_map_s` — `az.reverse_map_landmarks`
+- `calibration_s` — `calibration.estimate`
+- `total_s` — end-to-end
 
-If MediaPipe timestamps aren't directly logged today (the codebase doesn't currently log per-frame ts), report what's observable: the `analyze start` line, any auto-zoom log lines, the response line, and inferred ordering from request sequence + response success. If Call 2 succeeds with 200, monotonicity held; if it 503s with `Input timestamp must be monotonically increasing`, the fix didn't reach the actual call site.
+Final log line shape:
+```
+analyze done frames=180 zoom=True ppy=80.2 download_s=2.31 decode_s=1.04 autozoom_s=3.85 pose_loop_s=27.40 reverse_map_s=0.01 calibration_s=0.12 total_s=34.73
+```
 
-### Classification
+**2. `mediapipe-service/app/auto_zoom.py` — configurable probe sample count**
 
-- **GOOD** — both calls 200 in 5–15s, real keypoints (mean confidence > 0.3), pipeline ends `failed` with clean index-out-of-bounds on 99/120 from Hands Extension at Catch metric. Singleton + VIDEO + cross-request monotonicity all validated.
-- **PARTIAL** — both calls 200 in 5–15s, but mean confidence ≈ 0. Singleton fix works; clip quality is a separate ticket.
-- **BAD** — either call 503/timeout, OR Call 2 fails with monotonicity error (would mean `auto_zoom`'s untimestamped detect path bypassed reservation). Capture exact stage and full log tail.
+Currently `SAMPLE_COUNT=6`. Make it configurable via env var `AUTOZOOM_SAMPLE_COUNT` (default 6, min 3, max 12). Lower default to **4** in code (still statistically reasonable for hip centroid + fill ratio on a steady clip; cuts probe cost ~33%).
+
+Note: this addresses the user's option (a) — but rephrased. The user proposed "sample every Nth frame" which would only matter if the probe scanned all frames; it doesn't. The real probe lever is total sample count, not stride.
+
+**3. `mediapipe-service/app/auto_zoom.py` — skip post-zoom probe when factor barely moves**
+
+If `factor < 1.15`, the visual change is small enough that re-probing for safety backoff is wasted compute. Skip the post-pass; set `mean_conf_after = mean_conf_before` and `safety_backoff = False`. Saves up to 4 detect calls when zoom is marginal.
+
+**4. (Dropped) urllib timeout bump**
+
+`DOWNLOAD_TIMEOUT_SEC` is already 120s. No change needed.
+
+### Out of scope (explicitly)
+
+- `pose.py` — untouched
+- Slant keypoint index remap (separate ticket after Ticket 1 validates)
+- Replacing auto_zoom probe with segmentation mask — **acknowledged as Ticket 2 (next sprint), not planned here**
+- Cloud Run service config (timeout, memory, concurrency) — recommendation reported separately; not code-level
 
 ### Files modified
 
-- One migration, run twice (between Call 1 and Call 2) to reset upload status.
+- `supabase/migrations/<timestamp>_revert_slant_to_draft.sql` (1 line)
+- `mediapipe-service/app/main.py` (add per-stage timers + structured final log)
+- `mediapipe-service/app/auto_zoom.py` (env-configurable sample count, default lowered to 4; skip post-probe when factor<1.15)
 
-No application code changes. No schema changes. Pure observation.
+### Validation plan (after redeploy)
+
+1. Re-run two-call smoke test against upload `66ea5e98-…` (6s clip).
+2. Read fresh Cloud Run log tail. Capture the new structured `analyze done` line with all stage timings.
+3. Classify:
+   - **GOOD** — both calls 200, total_s < 30s for 6s clip, stage breakdown shows `pose_loop_s` as dominant cost (confirming hypothesis). Pipeline reaches Slant scoring (which still fails on 99/120 — that's the next ticket).
+   - **PARTIAL** — both calls 200, but total_s still > 30s. Stage timings tell us whether to escalate Cloud Run timeout, increase `det_frequency`, or move to Ticket 2 sooner.
+   - **BAD** — still 503. Stage timings will pinpoint which stage hangs (most likely download or pose_loop). Capture and report.
+4. Report includes: full Cloud Run log tail with the new timing line for each call, pose dimensions, mean confidence, calibration block, auto-zoom block, and a recommendation on whether Cloud Run timeout/memory needs bumping based on the actual numbers.
+
+### Queue (confirmed)
+
+1. ✅ Revert Slant to draft (this ticket, pre-work)
+2. ✅ Ticket 1 (this plan): timing logs + auto_zoom probe trim
+3. → Validate 6s works
+4. → Slant keypoint index remap (separate ticket)
+5. → Ticket 2 (next sprint): segmentation-mask probe replacing pose-based probe
 
