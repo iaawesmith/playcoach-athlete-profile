@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 
 from . import auto_zoom as az
 from . import calibration, video
@@ -23,6 +25,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("mediapipe-service")
 
 MAX_WINDOW_SECONDS = 30.0
+KEEPALIVE_INTERVAL_S = 10.0
 
 
 @asynccontextmanager
@@ -45,8 +48,8 @@ def health() -> dict:
     }
 
 
-@app.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
+async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
+    """Existing analyze body verbatim. Returns AnalyzeResponse or raises HTTPException."""
     t0 = time.time()
 
     if req.end_seconds <= req.start_seconds:
@@ -205,3 +208,57 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         LANDMARK_COUNT,
     )
     return response
+
+
+@app.post("/analyze")
+async def analyze(req: AnalyzeRequest):
+    """NDJSON streaming wrapper around _build_response.
+
+    Emits a `keepalive` line every KEEPALIVE_INTERVAL_S seconds while the
+    pipeline runs, then a single `result` (or `error`) line. The keepalives
+    keep the GFE socket alive past its ~30s idle-byte timeout.
+    """
+    queue: asyncio.Queue = asyncio.Queue()
+    SENTINEL = object()
+
+    async def keepalive_loop():
+        try:
+            while True:
+                await asyncio.sleep(KEEPALIVE_INTERVAL_S)
+                log.debug("keepalive yield")
+                await queue.put({"type": "keepalive", "ts": time.time()})
+        except asyncio.CancelledError:
+            return
+
+    async def run_pipeline():
+        try:
+            response = await _build_response(req)
+            await queue.put({"type": "result", "data": response.model_dump(mode="json")})
+        except HTTPException as e:
+            await queue.put({"type": "error", "status": e.status_code, "detail": e.detail})
+        except Exception as e:  # noqa: BLE001
+            log.exception("analyze pipeline failed")
+            await queue.put({"type": "error", "status": 500, "detail": str(e)})
+        finally:
+            log.info("stream complete")
+            await queue.put(SENTINEL)
+
+    async def stream():
+        pipeline_task = asyncio.create_task(run_pipeline())
+        keepalive_task = asyncio.create_task(keepalive_loop())
+        try:
+            while True:
+                item = await queue.get()
+                if item is SENTINEL:
+                    break
+                yield (json.dumps(item) + "\n").encode()
+        finally:
+            keepalive_task.cancel()
+            if not pipeline_task.done():
+                pipeline_task.cancel()
+            try:
+                await asyncio.gather(pipeline_task, keepalive_task, return_exceptions=True)
+            except Exception:
+                pass
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")

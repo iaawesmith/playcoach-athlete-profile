@@ -3167,7 +3167,73 @@ async function callCloudRun(payload: {
     )
   }
 
-  const result = await response.json() as CloudRunResponse & { progress_updates?: CloudRunProgressUpdate[] }
+  if (!response.body) {
+    throw new Error(`Cloud Run returned no response body (RTMLIB_URL: ${rtmlibUrl})`)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  let final: CloudRunResponse | null = null
+  let streamError: { status: number; detail: unknown } | null = null
+
+  const handleLine = (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed) return
+    let msg: { type?: string; data?: unknown; status?: number; detail?: unknown }
+    try {
+      msg = JSON.parse(trimmed)
+    } catch (parseErr) {
+      logWarn('cloud_run_stream_parse_failed', {
+        upload_id: payload.uploadId,
+        line_preview: trimmed.slice(0, 200),
+        error: (parseErr as Error).message,
+      })
+      return
+    }
+    if (msg.type === 'keepalive') return
+    if (msg.type === 'result') {
+      final = msg.data as CloudRunResponse
+      return
+    }
+    if (msg.type === 'error') {
+      streamError = { status: msg.status ?? 500, detail: msg.detail }
+      return
+    }
+  }
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
+      for (const line of lines) handleLine(line)
+    }
+    if (buf.length > 0) handleLine(buf)
+  } catch (err) {
+    const isAbort = (err as Error).name === 'AbortError'
+    throw new Error(
+      isAbort
+        ? `Cloud Run stream timed out after ${CLOUD_RUN_FETCH_TIMEOUT_MS / 1000}s (RTMLIB_URL: ${rtmlibUrl})`
+        : `Cloud Run stream read failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
+    )
+  }
+
+  if (streamError) {
+    throw new Error(
+      `Cloud Run pipeline error ${streamError.status}: ${
+        typeof streamError.detail === 'string' ? streamError.detail : JSON.stringify(streamError.detail)
+      } (RTMLIB_URL: ${rtmlibUrl})`
+    )
+  }
+
+  if (!final) {
+    throw new Error(`Cloud Run stream ended without result (RTMLIB_URL: ${rtmlibUrl})`)
+  }
+
+  const result = final as CloudRunResponse & { progress_updates?: CloudRunProgressUpdate[] }
 
   if (Array.isArray(result.progress_updates)) {
     const lastProgress = result.progress_updates[result.progress_updates.length - 1]
