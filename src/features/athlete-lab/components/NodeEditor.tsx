@@ -51,12 +51,11 @@ interface NodeEditorProps {
   onIconChange?: (nodeId: string, iconUrl: string | null) => void;
 }
 
-type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
-  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, and upload constraints for this node. Status controls whether athlete uploads trigger automatic analysis." },
+  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, and upload constraints for this node. Status controls whether athlete uploads trigger automatic analysis." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add elite reference videos with clip timestamps, camera angle, and type. One video must be flagged as the Reference shown to athletes alongside their results." },
-  { key: "overview", label: "Overview", icon: "description", subtitle: "Write a short athlete-facing description of this skill and why it matters. Shown at the top of the training feed before athletes film." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
   { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what rtmlib measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
@@ -438,6 +437,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     if (!showAdvancedTabs && ADVANCED_TAB_KEYS.includes(tab)) {
       setTab("basics");
     }
+    // Overview tab was merged into Basics — auto-bounce stale sessions
+    if ((tab as string) === "overview") {
+      setTab("basics");
+    }
   }, [showAdvancedTabs, tab]);
 
   const visibleTabs = useMemo(
@@ -791,6 +794,25 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
             <div className="border-t border-white/[0.11] my-6" />
 
+            {/* Description / Overview — merged in from former Overview tab */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <label className={LABEL_CLASS}>Description / Overview</label>
+                <SectionTooltip tip="A short description of what this skill is and why it matters in game situations. Shown to athletes at the top of their training feed before they film. Keep it under 3 sentences — clear, direct, and written for a 14-22 year old athlete." />
+              </div>
+              <p className="text-on-surface-variant/60 text-[11px] leading-relaxed">
+                Athlete-facing intro shown at the top of the training feed before they film. 2–3 sentences.
+              </p>
+              <textarea
+                className={`${INPUT_CLASS} min-h-[220px] resize-y leading-relaxed`}
+                value={draft.overview}
+                onChange={(e) => update("overview", e.target.value)}
+                placeholder="e.g. The slant route is a quick inside-breaking route used to exploit zone coverage gaps..."
+              />
+            </div>
+
+            <div className="border-t border-white/[0.11] my-6" />
+
             <div className="space-y-3">
               <div className="flex items-center gap-1.5">
                 <label className={LABEL_CLASS}>Clip Duration</label>
@@ -852,16 +874,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "videos" && (
           <EliteVideosEditor videos={draft.elite_videos} onChange={(v) => update("elite_videos", v)} />
-        )}
-
-        {tab === "overview" && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <label className={LABEL_CLASS}>Skill Overview</label>
-              <SectionTooltip tip="A short description of what this skill is and why it matters in game situations. Shown to athletes at the top of their training feed before they film. Keep it under 3 sentences — clear, direct, and written for a 14-22 year old athlete." />
-            </div>
-            <textarea className={`${INPUT_CLASS} min-h-[200px] resize-y`} value={draft.overview} onChange={(e) => update("overview", e.target.value)} placeholder="e.g. The slant route is a quick inside-breaking route used to exploit zone coverage gaps..." />
-          </div>
         )}
 
         {tab === "mechanics" && (

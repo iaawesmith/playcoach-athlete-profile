@@ -45,7 +45,6 @@ const GITHUB_URL =
 const TAB_COLORS: Record<string, { bg: string; text: string }> = {
   Basics: { bg: "bg-blue-900/40", text: "text-blue-300" },
   Videos: { bg: "bg-blue-900/40", text: "text-blue-300" },
-  Overview: { bg: "bg-blue-900/40", text: "text-blue-300" },
   Phases: { bg: "bg-teal-900/40", text: "text-teal-300" },
   Mechanics: { bg: "bg-teal-900/40", text: "text-teal-300" },
   Metrics: { bg: "bg-green-900/40", text: "text-green-300" },

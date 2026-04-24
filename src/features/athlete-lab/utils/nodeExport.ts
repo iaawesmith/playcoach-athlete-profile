@@ -4,7 +4,7 @@ import { migrateCheckpoints } from "../components/CheckpointsEditor";
 import { computeCategories, computeScore } from "../components/NodeReadinessBar";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
-type TabKey = "basics" | "videos" | "overview" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status";
+type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status";
 
 const kpMap = new Map<number, string>();
 for (const kp of (keypointLibrary as any).keypoints) {
@@ -52,7 +52,8 @@ function header(node: TrainingNode, tabName: string): string {
 }
 
 function generateBasics(node: TrainingNode): string {
-  return `## Basics\n\nNode Name: ${node.name}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}`;
+  const overviewText = node.overview?.trim() || "Not configured";
+  return `## Basics\n\nNode Name: ${node.name}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
 }
 
 function generateVideos(node: TrainingNode): string {
@@ -347,7 +348,6 @@ function generateTrainingStatus(node: TrainingNode): string {
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
   basics: generateBasics,
   videos: generateVideos,
-  overview: generateOverview,
   phases: generatePhases,
   mechanics: generateMechanics,
   metrics: generateMetrics,
@@ -364,7 +364,6 @@ const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
 const TAB_LABELS: Record<TabKey, string> = {
   basics: "Basics",
   videos: "Videos",
-  overview: "Overview",
   phases: "Phases",
   mechanics: "Mechanics",
   metrics: "Metrics",
@@ -403,7 +402,7 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
   }
   readiness += `\nBLOCKING ITEMS:\n${blockingItems.length > 0 ? blockingItems.join("\n") : "None — node is ready for Live"}`;
 
-  const tabOrder: TabKey[] = ["basics", "videos", "overview", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges", "training_status"];
+  const tabOrder: TabKey[] = ["basics", "videos", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges", "training_status"];
 
   const sections = [...tabOrder.map(key => TAB_GENERATORS[key](node)), generateKnowledgeBase(node)].join("\n\n---\n\n");
 
