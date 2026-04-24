@@ -477,7 +477,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     };
     setDraft(normalizedNode);
     setDirty(false);
-    criticalChanged.current = false;
   }, [node.id]);
 
   const update = useCallback(<K extends keyof TrainingNode>(key: K, value: TrainingNode[K]) => {
@@ -485,13 +484,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     setDirty(true);
   }, []);
 
-  /* Track critical field changes */
-  const updateWithCriticalTrack = useCallback(<K extends keyof TrainingNode>(key: K, value: TrainingNode[K]) => {
-    update(key, value);
-    if (node.status === "live") {
-      criticalChanged.current = true;
-    }
-  }, [update, node.status]);
+  /* Alias retained for backward compatibility; behaves identically to `update`.
+     Auto-draft on save is now unconditional for any save on a Live node. */
+  const updateWithCriticalTrack = update;
 
   const save = async () => {
     setSaving(true);
