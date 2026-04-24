@@ -58,7 +58,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add elite reference videos with clip timestamps, camera angle, and type. One video must be flagged as the Reference shown to athletes alongside their results." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
   { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
-  { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what rtmlib measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
+  { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how the Mastery Score is calculated, how low-confidence keypoints are handled, and how scores are communicated to athletes." },
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Define common mistakes, set severity levels, and configure auto-detection conditions so the pipeline can automatically confirm errors from metric output." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Define reference objects for each camera angle so the pipeline can convert pixel distances to real-world yards. Required for all Distance and Velocity metrics." },
@@ -66,7 +66,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define frame-level body position events that trigger phase boundaries. Used when Segmentation Method in the Phases tab is set to Checkpoint-triggered." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Define achievements athletes earn by hitting performance milestones. Badges appear on athlete profiles and provide motivation to improve." },
-  { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the rtmlib pose estimation engine settings for this node. These parameters are passed directly to Cloud Run and determine which model runs and how." },
+  { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the pose estimation engine settings for this node. These parameters are passed to the analysis service and determine which model runs and how." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
 ];
 
@@ -75,7 +75,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
 const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt", "training_status"];
 
 /* Tabs hidden by default — re-enabled with the Show Advanced Tabs toggle */
-const ADVANCED_TAB_KEYS: TabKey[] = ["mechanics", "errors", "checkpoints", "reference", "scoring"];
+const ADVANCED_TAB_KEYS: TabKey[] = ["mechanics", "errors", "checkpoints", "reference", "scoring", "training_status"];
 const ADVANCED_TABS_STORAGE_KEY = "athleteLab.showAdvancedTabs";
 
 /* ── Shared style constants ── */
@@ -692,10 +692,10 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                   href="https://github.com/iaawesmith/playcoach-athlete-profile/blob/main/src/constants/keypointLibrary.json"
                   target="_blank"
                   rel="noopener noreferrer"
-                  title="View the full 133-keypoint COCO-WholeBody reference used by the analysis pipeline."
+                  title="View the full keypoint reference (MediaPipe Pose, 33 landmarks) used by the analysis pipeline."
                   className="text-on-surface-variant/60 text-[11px] font-medium hover:text-on-surface-variant transition-colors shrink-0 mt-1"
                 >
-                  133 Keypoints ↗
+                  33 Keypoints ↗
                 </a>
               )}
               {tab !== "test" && (
@@ -1207,7 +1207,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         <div>
           <div className="flex items-center gap-1.5 mb-2">
             <label className={LABEL_CLASS}>Video Type</label>
-            <SectionTooltip tip="Educational — shown to athletes in the training feed before they film. Teaches the skill and what to look for. Analysis — shown to athletes alongside their results as context. Not processed by rtmlib — for visual reference only. Both — shown in both the training feed and results screen." />
+            <SectionTooltip tip="Educational — shown to athletes in the training feed before they film. Teaches the skill and what to look for. Analysis — shown to athletes alongside their results as context. Not processed by the pose engine — for visual reference only. Both — shown in both the training feed and results screen." />
           </div>
           <div className="flex gap-1">
             {TYPE_OPTIONS.map((o) => (
@@ -2315,37 +2315,12 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const allPass = failCount === 0;
 
   const scClassName = SOLUTION_CLASS_MAP[sc] ?? "Body";
-  const pipelineCode = `from rtmlib import PoseTracker, ${scClassName}
-
-# Solo analysis (1 person in frame)
-pose_tracker = PoseTracker(
-    ${scClassName},
-    det_frequency=${dfSolo},  # solo
-    tracking=${te ? "True" : "False"},
-    mode='${pm}',
-    backend='onnxruntime',
-    device='cuda'
-)
-
-# With defender (2 people in frame)
-pose_tracker = PoseTracker(
-    ${scClassName},
-    det_frequency=${dfDefender},  # with_defender
-    tracking=${te ? "True" : "False"},
-    mode='${pm}',
-    backend='onnxruntime',
-    device='cuda'
-)
-
-# Multiple people in frame
-pose_tracker = PoseTracker(
-    ${scClassName},
-    det_frequency=${dfMultiple},  # multiple
-    tracking=${te ? "True" : "False"},
-    mode='${pm}',
-    backend='onnxruntime',
-    device='cuda'
-)`;
+  /* TODO Phase 1: replace with MediaPipe Pose service code sample.
+     Legacy RTMlib snippet preserved here as a no-op string for reversibility.
+     Variables (scClassName, dfSolo, dfDefender, dfMultiple, te, pm) are kept
+     in scope so the surrounding component logic does not change. */
+  void scClassName; void dfSolo; void dfDefender; void dfMultiple; void te; void pm;
+  const pipelineCode = `# MediaPipe Pose service code sample — coming in Phase 1.\n# Legacy RTMlib sample removed during Phase 0 cleanup.`;
 
   return (
     <div className="space-y-8">
@@ -2355,7 +2330,7 @@ pose_tracker = PoseTracker(
         <div className="border-t border-outline-variant/10 pt-5 space-y-4">
           <div className="flex items-center gap-1.5 mb-2">
             <label className={LABEL_CLASS}>Solution Class</label>
-            <SectionTooltip tip="Determines which rtmlib model tier is instantiated on Cloud Run. Must support ALL keypoint indices used in this node's metrics. Selecting a tier that doesn't support your keypoints returns empty arrays — metrics fail silently with no error." />
+            <SectionTooltip tip="Determines which pose engine model tier is instantiated by the analysis service. Must support ALL keypoint indices used in this node's metrics. Selecting a tier that doesn't support your keypoints returns empty arrays — metrics fail silently with no error." />
           </div>
           <div className="space-y-3">
             {SOLUTION_CLASSES.map(opt => (
