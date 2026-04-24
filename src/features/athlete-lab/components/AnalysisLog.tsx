@@ -140,6 +140,15 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string
   const ts = logData.timestamp ?? new Date().toISOString();
   let md = `# AthleteLab Analysis Log\n# Node: ${nodeName}\n# Timestamp: ${ts}\n# Overall Status: ${overall}\n\n---\n\n`;
 
+  // Scoring Configuration (Section 0)
+  md += `## Scoring Configuration\n\n`;
+  const sc = logData.scoring_config;
+  if (sc) {
+    md += `Confidence handling: ${sc.confidence_handling}\nRenormalize on skip: ${sc.renormalize_on_skip ? "Yes" : "No"}\nMin metrics threshold: ${sc.min_metrics_threshold}%\nSkipped vs threshold: ${sc.skipped_percent}% / ${sc.min_metrics_threshold}%\nMetric outcomes: ${sc.scored_count} scored · ${sc.flagged_count} flagged · ${sc.skipped_count} skipped of ${sc.total_metrics}\n\n---\n\n`;
+  } else {
+    md += `⚠️ scoring_config missing from log_data — admin observability gap.\n\n---\n\n`;
+  }
+
   // Preflight
   md += `## Pre-Flight Validation\n\n`;
   for (const c of logData.preflight?.checks ?? []) {
