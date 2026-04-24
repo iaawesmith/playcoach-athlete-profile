@@ -47,8 +47,23 @@ class PoseEngine:
             min_tracking_confidence=0.5,
         )
         self._landmarker = mp_vision.PoseLandmarker.create_from_options(options)
+        # Monotonic timestamp counter for callers that don't supply one
+        # (VIDEO mode requires non-decreasing timestamps across detect calls).
+        self._next_ts_ms = 0
+        self._ts_lock = threading.Lock()
 
-    def detect(self, frame_bgr: np.ndarray, timestamp_ms: int) -> PoseFrame:
+    def detect(self, frame_bgr: np.ndarray, timestamp_ms: int | None = None) -> PoseFrame:
+        if timestamp_ms is None:
+            with self._ts_lock:
+                timestamp_ms = self._next_ts_ms
+                self._next_ts_ms += 1
+        else:
+            # Keep the auto-counter ahead of any externally-supplied timestamp
+            # so subsequent default-timestamp calls remain monotonic.
+            with self._ts_lock:
+                if timestamp_ms >= self._next_ts_ms:
+                    self._next_ts_ms = timestamp_ms + 1
+
         h, w = frame_bgr.shape[:2]
         rgb = np.ascontiguousarray(frame_bgr[:, :, ::-1])
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
