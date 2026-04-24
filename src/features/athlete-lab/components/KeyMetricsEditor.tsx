@@ -316,6 +316,7 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
 }) {
   const [mappingOpen, setMappingOpen] = useState(false);
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [showInternalDoc, setShowInternalDoc] = useState(false);
   const km = m.keypoint_mapping ?? getDefaultMapping();
   const setKm = (newKm: KeypointMapping) => setM({ ...m, keypoint_mapping: newKm });
 
