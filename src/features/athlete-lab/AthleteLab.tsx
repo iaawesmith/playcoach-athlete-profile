@@ -10,11 +10,22 @@ export function AthleteLab() {
   const [nodes, setNodes] = useState<TrainingNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showAdminRef, setShowAdminRef] = useState(false);
   const [pendingDeleteNode, setPendingDeleteNode] = useState<TrainingNode | null>(null);
 
   useEffect(() => {
     loadNodes();
+  }, []);
+
+  // Refetch on window focus so out-of-band DB changes (migrations, direct edits)
+  // appear without a full reload. Pairs with NodeEditor's resync-on-updated_at.
+  useEffect(() => {
+    const handleFocus = () => {
+      void refreshNodes({ silent: true });
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   const loadNodes = async () => {
@@ -29,6 +40,18 @@ export function AthleteLab() {
       // handle error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshNodes = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setRefreshing(true);
+    try {
+      const data = await fetchNodes();
+      setNodes(data);
+    } catch {
+      // handle error
+    } finally {
+      if (!silent) setRefreshing(false);
     }
   };
 
@@ -76,6 +99,19 @@ export function AthleteLab() {
         <div className="w-px h-6 bg-white/10 mx-4" />
         <span className="text-primary-container text-xs font-semibold uppercase tracking-[0.3em]">Training Node Manager</span>
         <div className="flex-1" />
+        <button
+          onClick={() => void refreshNodes()}
+          disabled={refreshing || loading}
+          title="Refetch nodes from the database (use after an out-of-band migration)"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface-variant hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <span
+            className={`material-symbols-outlined ${refreshing ? "animate-spin" : ""}`}
+            style={{ fontSize: 20 }}
+          >
+            refresh
+          </span>
+        </button>
         <button
           onClick={() => setShowAdminRef(true)}
           title="Admin Reference & Handoff Prompt"
