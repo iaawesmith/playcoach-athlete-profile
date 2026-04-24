@@ -229,6 +229,25 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [isCancelling, setIsCancelling] = useState(false);
   const [localProgressMessage, setLocalProgressMessage] = useState("");
   const [preparationNotice, setPreparationNotice] = useState<string | null>(null);
+  const [openDocs, setOpenDocs] = useState<Set<string>>(new Set());
+
+  const docByMetricName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const km of node.key_metrics) {
+      const doc = km.internal_documentation?.trim();
+      if (doc) map.set(km.name, doc);
+    }
+    return map;
+  }, [node.key_metrics]);
+
+  const toggleDoc = (key: string) => {
+    setOpenDocs((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const isRunning = ["preparing_video", "uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
