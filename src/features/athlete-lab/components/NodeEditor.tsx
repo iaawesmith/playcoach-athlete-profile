@@ -126,6 +126,8 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
           issues.push({ label: "Metrics", detail: `${m.name}: ${km.calculation_type} requires exactly 2 keypoints (${count} selected)` });
         } else if ((km.calculation_type === "velocity" || km.calculation_type === "acceleration") && (count < 1 || count > 2)) {
           issues.push({ label: "Metrics", detail: `${m.name}: ${km.calculation_type} requires 1-2 keypoints (${count} selected)` });
+        } else if (km.calculation_type === "distance_variance" && count !== 2) {
+          issues.push({ label: "Metrics", detail: `${m.name}: Distance Variance requires exactly 2 keypoints (${count} selected)` });
         }
       }
       if (!km.phase_id) {
@@ -139,6 +141,8 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
         issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for acceleration (${tw}, need ≥5)` });
       } else if (km.calculation_type === "frame_delta" && tw < 10) {
         issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for frame delta (${tw}, need ≥10)` });
+      } else if (km.calculation_type === "distance_variance" && tw < 5) {
+        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for distance variance (${tw}, need ≥5)` });
       }
     }
   }
