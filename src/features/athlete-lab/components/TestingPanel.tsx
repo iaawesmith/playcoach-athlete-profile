@@ -179,6 +179,27 @@ function calibrationSummary(metric: PipelineMetricResult) {
   };
 }
 
+function distanceVarianceSummary(metric: PipelineMetricResult) {
+  if (metric.calculation_type !== "distance_variance") return null;
+  const detail = metric.detail;
+  if (!detail || typeof detail !== "object") return null;
+  const record = detail as Record<string, unknown>;
+  const num = (key: string): number | null => {
+    const value = record[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  };
+  const stdDev = num("stdDev_yd");
+  if (stdDev === null) return null; // skipped / uncalibrated — sub-card hidden
+  return {
+    stdDev,
+    mean: num("mean_yd"),
+    min: num("min_yd"),
+    max: num("max_yd"),
+    range: num("range_yd"),
+    framesUsed: num("framesUsed"),
+  };
+}
+
 export function TestingPanel({ node }: TestingPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const localAbortRef = useRef<AbortController | null>(null);
