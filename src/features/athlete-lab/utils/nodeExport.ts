@@ -123,22 +123,26 @@ function generateMechanics(node: TrainingNode): string {
 }
 
 function generateMetrics(node: TrainingNode): string {
-  const metrics = node.key_metrics ?? [];
+  const allMetrics = node.key_metrics ?? [];
   const phases = node.phase_breakdown ?? [];
-  // Intentional: export is a full config snapshot for engineering review,
-  // so it includes ALL metrics (active + inactive) — disabled state is auditable.
-  const weightSum = metrics.reduce((s, m) => s + m.weight, 0);
-  const maxIdx = getMaxKeypointIndex(metrics);
+  const { active: activeMetrics, inactive: inactiveMetrics } = partitionMetricsByActive(node);
+
+  // Active metrics drive scoring math, weight-sum validation, and the
+  // solution-class derivation. Inactive metrics are rendered separately
+  // below so admins can audit disabled state without those metrics
+  // polluting the LLM-facing view of "what this node measures."
+  const activeWeightSum = activeMetrics.reduce((s, m) => s + m.weight, 0);
+  const totalWeightSum = allMetrics.reduce((s, m) => s + m.weight, 0);
+  const maxIdx = getMaxKeypointIndex(activeMetrics);
   const requiredClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "None (no keypoints)";
 
-  let out = `## Metrics\n\nCount: ${metrics.length} metrics\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\nSolution Class Required: ${requiredClass}\n`;
+  let out = `## Metrics\n\nCount: ${activeMetrics.length} active, ${inactiveMetrics.length} inactive (${allMetrics.length} total)\nActive Weight Sum: ${activeWeightSum}% ${activeWeightSum === 100 ? "PASS" : "FAIL"}\nTotal Including Inactive: ${totalWeightSum}% (informational)\nSolution Class Required: ${requiredClass} (derived from active metrics only)\n`;
 
-  metrics.forEach((m, i) => {
+  const renderMetric = (m: KeyMetric, idx: number, isActive: boolean): string => {
     const km = m.keypoint_mapping;
     const phaseName = km?.phase_id ? (phases.find(p => p.id === km.phase_id)?.name ?? "Unknown") : null;
     const phaseStatus = phaseName ? `${phaseName} ASSIGNED` : "MISSING";
 
-    // Check mapping completeness
     let mappingStatus = "INCOMPLETE";
     const missing: string[] = [];
     if (km) {
@@ -154,8 +158,16 @@ function generateMetrics(node: TrainingNode): string {
     const internalDocsBlock = internalDocs
       ? `\nInternal Documentation (admin-only, not sent to LLM):\n${internalDocs}\n`
       : `\nInternal Documentation: Not configured\n`;
-    out += `\n### Metric ${i + 1}: ${m.name || "Untitled"} (${m.weight}%)\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nBody Groups: ${km?.body_groups?.length ? km.body_groups.join(", ") : "None"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (metrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}${internalDocsBlock}`;
-  });
+    return `\n### Metric ${idx + 1}: ${m.name || "Untitled"} (${m.weight}%)\nActive: ${isActive ? "Yes" : "No"}\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nTemporal Window: ${m.temporal_window ?? 1} frames\nCalculation Type: ${km?.calculation_type || "Not configured"}\nBody Groups: ${km?.body_groups?.length ? km.body_groups.join(", ") : "None"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (allMetrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}${internalDocsBlock}`;
+  };
+
+  activeMetrics.forEach((m, i) => { out += renderMetric(m, i, true); });
+
+  if (inactiveMetrics.length > 0) {
+    out += `\n### Inactive Metrics (preserved in storage, excluded from scoring)\n`;
+    inactiveMetrics.forEach((m, i) => { out += renderMetric(m, i, false); });
+  }
+
   return out;
 }
 
