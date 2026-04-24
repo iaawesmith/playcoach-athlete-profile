@@ -20,13 +20,11 @@ function kpNames(indices: number[]): string {
 }
 
 function deriveRequiredSolutionClass(maxIdx: number): string {
-  // MediaPipe Pose covers all 33 landmarks (indices 0–32) with a single model.
+  // MediaPipe Pose covers all 33 landmarks (indices 0–32) with a single model,
+  // so any active metric should resolve to MediaPipe Pose.
   if (maxIdx <= 32) return "MediaPipe Pose";
-  // Legacy RTMlib mapping kept for backward compatibility with metrics that
-  // were configured against COCO-WholeBody indices (>32) before the MediaPipe transition.
-  if (maxIdx >= 91) return "Wholebody";
-  if (maxIdx >= 23) return "Body_with_feet";
-  return "Body";
+  // Out-of-range index — flag as unsupported so the readiness/export surfaces it.
+  return "Unsupported (index > 32)";
 }
 
 function getMaxKeypointIndex(metrics: KeyMetric[]): number {

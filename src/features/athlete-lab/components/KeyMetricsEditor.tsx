@@ -20,16 +20,16 @@ const TOOLTIPS = {
   tolerance: "The acceptable deviation from the Elite Target before scoring penalties apply. A value within tolerance scores at or near 100. Accounts for natural movement variance and measurement noise. Recommended ranges: Angle ±2-5°, Distance ±0.3-0.7 yards, Velocity ±1-2 mph, Frame Delta ±1-2 frames.",
   temporalWindow: "Number of consecutive frames this metric is evaluated across. Window of 1 = single snapshot (correct for Angle and Distance). Velocity requires minimum 3. Acceleration requires minimum 5. Frame Delta requires minimum 10. Setting this too low for velocity-based metrics returns null.",
   dependsOn: "Optional. Select another metric that must succeed before this one is evaluated. If the upstream metric is flagged as low confidence or skipped, this metric is automatically skipped too. Example: Post-Catch YAC Burst depends on Catch Efficiency — acceleration after the catch only matters if the catch was confirmed.",
-  keypointMapping: "Defines which body landmarks rtmlib extracts from each video frame and what calculation to apply. The analysis pipeline reads these settings directly — a metric with no keypoint mapping cannot be scored.",
-  bodyGroup: "Filter keypoints by body region. BODY is available on all models. FEET requires Body_with_feet or Wholebody. HANDS and FACE require Wholebody only.",
+  keypointMapping: "Defines which body landmarks the pose engine extracts from each video frame and what calculation to apply. The analysis pipeline reads these settings directly — a metric with no keypoint mapping cannot be scored.",
+  bodyGroup: "Filter keypoints by body region. MediaPipe Pose covers all 33 landmarks (body, feet, and approximate hand positions) in a single model.",
   selectKeypoints: "Select the body landmarks for this metric. For Angle: select exactly 3 in order — first endpoint, vertex joint, second endpoint. Distance and Frame Delta: exactly 2. Velocity and Acceleration: 1 or 2.",
   calculationType: "The mathematical operation applied to the selected keypoints. Angle measures degrees at the vertex keypoint. Distance measures space between 2 points (requires Reference tab calibration for pixel-to-yard conversion). Velocity measures movement speed. Acceleration measures rate of speed change. Frame Delta counts frames between two body position events.",
-  bilateral: "Routes break in either direction. Auto-detect uses rtmlib confidence scores to determine the active plant side per frame — recommended for all route metrics. Use Left or Right only for drills where direction is fixed.",
-  confidenceThreshold: "rtmlib returns a confidence score 0-1 per keypoint. If any keypoint falls below this threshold the metric is flagged and excluded from scoring. Default 0.70 works for most metrics. Increase to 0.80 for high-weight metrics. Never set below 0.50.",
+  bilateral: "Routes break in either direction. Auto-detect uses pose engine confidence scores to determine the active plant side per frame — recommended for all route metrics. Use Left or Right only for drills where direction is fixed.",
+  confidenceThreshold: "The pose engine returns a confidence score 0-1 per keypoint. If any keypoint falls below this threshold the metric is flagged and excluded from scoring. Default 0.70 works for most metrics. Increase to 0.80 for high-weight metrics. Never set below 0.50.",
   phase: "Assigns this metric to a movement phase. The pipeline only evaluates this metric within the frame window belonging to the selected phase. Assigning the wrong phase produces scores calculated on the wrong frames.",
-  keypointIndices: "Raw index numbers passed to the rtmlib pipeline. Auto-populated from your keypoint selection above. Verify these match your intended keypoints before going Live.",
+  keypointIndices: "Raw index numbers passed to the pose engine pipeline. Auto-populated from your keypoint selection above. Verify these match your intended keypoints before going Live.",
   quickSelect: "Common football metric presets. Clicking a preset auto-populates the keypoint selector and calculation type. You can modify the selection after loading a preset.",
-  bilateralOverride: "Controls which side's keypoints are used for this metric. AUTO uses rtmlib confidence scores to determine the active side. When athlete provides route direction before uploading, AUTO is overridden by their input. Use FORCE LEFT or FORCE RIGHT only for drills that always run one direction.",
+  bilateralOverride: "Controls which side's keypoints are used for this metric. AUTO uses pose engine confidence scores to determine the active side. When athlete provides route direction before uploading, AUTO is overridden by their input. Use FORCE LEFT or FORCE RIGHT only for drills that always run one direction.",
   requiresCatch: "When ON, this metric is excluded from scoring when the athlete indicates no catch was made in the upload flow. Prevents incomplete reps from producing misleading scores on catch-dependent measurements.",
 };
 
@@ -219,13 +219,6 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
 
   return (
     <div className="space-y-4">
-      {/* MediaPipe transition banner — Phase 0 */}
-      <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-900/20 border border-amber-500/20">
-        <span className="material-symbols-outlined text-amber-400 shrink-0 mt-0.5" style={{ fontSize: 16 }}>info</span>
-        <p className="text-amber-200/90 text-[11px] leading-snug">
-          Using <span className="font-bold">MediaPipe Pose (33 landmarks)</span>. Existing metrics that referenced COCO-WholeBody indices may need remapping in Phase 1.
-        </p>
-      </div>
       <div className={`text-xs font-semibold ${totalClass}`} style={totalWeight === 100 ? { textShadow: '0 0 8px rgba(0,230,57,0.4)' } : undefined}>
         {totalText}
       </div>

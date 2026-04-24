@@ -62,8 +62,8 @@ const PHASES: Phase[] = [
       { item_id: "cloud_run_post", title: "Cloud Run POST implemented", description: "Send video_url + full node config to Cloud Run. Handle timeout and retry logic." },
       { item_id: "phase_windowing", title: "Phase frame windowing implemented", description: "Divide total frames by proportion_weight percentages. Apply frame_buffer overlap on boundaries." },
       { item_id: "person_locking_implemented", title: "Person locking implemented", description: "When multiple people are detected in a frame, select the person with the largest bounding box area as the target athlete. Lock onto that person ID for all subsequent metric calculations in the clip. Prevents metrics from silently computing on a teammate or defender who enters frame." },
-      { item_id: "temporal_smoothing_implemented", title: "Temporal smoothing implemented", description: "Apply a moving average (window=3 frames minimum) to all keypoint coordinate timeseries before any metric calculation. Interpolate gaps where keypoint confidence falls below threshold using linear interpolation across adjacent good frames (max gap 5 frames). Critical for velocity and acceleration metrics — without smoothing, 2-5px jitter produces ~60-150px/second of false velocity signal. See MMPose audit in Architecture tab for full implementation spec." },
-      { item_id: "detection_frequency_tuned", title: "Detection frequency tuned for athletic movements", description: "Reduce det_frequency from 7 to 2 for all nodes. The slant route break occurs over 3-5 frames — det_frequency=7 means the critical break phase may receive stale bounding boxes, causing the pose estimator to receive poorly cropped input on the most important frames. For the Break phase specifically, consider det_frequency=1. See MMPose audit in Architecture tab." },
+      { item_id: "temporal_smoothing_implemented", title: "Temporal smoothing implemented", description: "Apply a moving average (window=3 frames minimum) to all keypoint coordinate timeseries before any metric calculation. Interpolate gaps where keypoint confidence falls below threshold using linear interpolation across adjacent good frames (max gap 5 frames). Critical for velocity and acceleration metrics — without smoothing, 2-5px jitter produces ~60-150px/second of false velocity signal." },
+      { item_id: "detection_frequency_tuned", title: "Detection frequency tuned for athletic movements", description: "Reduce det_frequency from 7 to 2 for all nodes. The slant route break occurs over 3-5 frames — det_frequency=7 means the critical break phase may receive stale bounding boxes, causing the pose estimator to receive poorly cropped input on the most important frames. For the Break phase specifically, consider det_frequency=1." },
       { item_id: "metric_angle", title: "Metric calculation — Angle", description: "Geometric angle at vertex keypoint from 3 [x,y] coordinates." },
       { item_id: "metric_distance", title: "Metric calculation — Distance", description: "Euclidean pixel distance × pixels_per_yard conversion from reference_calibrations." },
       { item_id: "metric_velocity", title: "Metric calculation — Velocity", description: "Displacement per frame × fps. Temporal window minimum 3." },
@@ -85,8 +85,8 @@ const PHASES: Phase[] = [
     items: [
       { item_id: "webhook_fires", title: "Webhook fires on test upload", description: "Manually INSERT a row to athlete_uploads and confirm Edge Function is triggered." },
       { item_id: "edge_receives_payload", title: "Edge Function receives payload", description: "Check Edge Function logs — confirm node_config loaded correctly." },
-      { item_id: "cloud_run_returns", title: "Cloud Run returns keypoints", description: "Confirm rtmlib processes test video and returns full keypoint arrays." },
-      { item_id: "slant_metrics_correct", title: "Slant Route metrics calculate correctly", description: "Run Break Angle calculation. Confirm result is in degrees and near expected range." },
+      { item_id: "cloud_run_returns", title: "Cloud Run returns keypoints", description: "Confirm the pose engine processes test video and returns full keypoint arrays." },
+      { item_id: "slant_metrics_correct", title: "Slant Route metrics calculate correctly", description: "Run Plant Leg Extension calculation. Confirm result is in degrees and near expected range." },
       { item_id: "claude_feedback_generated", title: "Claude feedback generated", description: "Confirm feedback string is returned, references metric values, and matches configured tone." },
       { item_id: "results_in_table", title: "Results in athlete_lab_results", description: "Confirm row written with aggregate_score, feedback, and all metric_results." },
       { item_id: "realtime_delivers", title: "Supabase Realtime delivers to device", description: "Confirm results broadcast reaches a connected test session within 20 seconds." },
@@ -255,7 +255,7 @@ export function PipelineSetupTab() {
       <div>
         <h2 className="text-on-surface font-extrabold uppercase tracking-tight text-sm">Pipeline Setup</h2>
         <p className="text-on-surface-variant text-xs mt-1 max-w-2xl">
-          Step-by-step checklist for deploying the rtmlib pose estimation pipeline from zero to first successful athlete analysis.
+          Step-by-step checklist for deploying the MediaPipe Pose estimation pipeline from zero to first successful athlete analysis.
         </p>
       </div>
 
