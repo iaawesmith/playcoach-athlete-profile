@@ -3117,7 +3117,10 @@ async function callCloudRun(payload: {
   det_frequency: number
   tracking_enabled: boolean
 }): Promise<CloudRunResponse> {
-  const rtmlibBase = Deno.env.get('RTMLIB_URL')?.trim() || RTMLIB_FALLBACK
+  const rtmlibBase =
+    Deno.env.get('MEDIAPIPE_SERVICE_URL')?.trim() ||
+    Deno.env.get('RTMLIB_URL')?.trim() ||
+    RTMLIB_FALLBACK
   const normalizedBase = rtmlibBase.replace(/\/+$/, '')
   const rtmlibUrl = normalizedBase.endsWith('/analyze')
     ? normalizedBase
