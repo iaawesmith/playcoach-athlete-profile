@@ -15,7 +15,14 @@ export interface KeypointMapping {
 
 export interface KeyMetric {
   name: string;
+  /** Short (2-3 sentence) athlete/LLM-facing description. Sent to Claude as coaching context. */
   description: string;
+  /**
+   * Admin-only documentation. Multi-paragraph markdown explaining metric derivation,
+   * technical limitations, and upgrade paths. NEVER sent to athletes or to the LLM —
+   * surfaced only inside the admin metric editor and node text exports.
+   */
+  internal_documentation?: string;
   eliteTarget: string;
   unit: string;
   weight: number;
