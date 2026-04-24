@@ -287,6 +287,23 @@ export interface AnalysisLogData {
     metrics_skipped: number;
     metrics_total: number;
   };
+  /**
+   * Snapshot of the scoring config that was actually applied to this run.
+   * Mirrors `PipelineLogData['scoring_config']` in the analyze-athlete-video
+   * edge function. Surfaced in AnalysisLog Section 0 so admins can verify the
+   * node's configured values were honored. Absence indicates missing
+   * observability (treated as WARN), not silent success.
+   */
+  scoring_config?: {
+    confidence_handling: "skip" | "penalize" | "flag_only";
+    min_metrics_threshold: number;
+    renormalize_on_skip: boolean;
+    total_metrics: number;
+    scored_count: number;
+    flagged_count: number;
+    skipped_count: number;
+    skipped_percent: number;
+  };
   error_detection?: ErrorDetectionEntry[];
   claude_api?: {
     model?: string;

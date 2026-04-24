@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import type {
   PipelineAnalysisResult,
   PipelineMetricResult,
@@ -178,6 +179,27 @@ function calibrationSummary(metric: PipelineMetricResult) {
   };
 }
 
+function distanceVarianceSummary(metric: PipelineMetricResult) {
+  if (metric.calculation_type !== "distance_variance") return null;
+  const detail = metric.detail;
+  if (!detail || typeof detail !== "object") return null;
+  const record = detail as Record<string, unknown>;
+  const num = (key: string): number | null => {
+    const value = record[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  };
+  const stdDev = num("stdDev_yd");
+  if (stdDev === null) return null; // skipped / uncalibrated — sub-card hidden
+  return {
+    stdDev,
+    mean: num("mean_yd"),
+    min: num("min_yd"),
+    max: num("max_yd"),
+    range: num("range_yd"),
+    framesUsed: num("framesUsed"),
+  };
+}
+
 export function TestingPanel({ node }: TestingPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const localAbortRef = useRef<AbortController | null>(null);
@@ -207,6 +229,25 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [isCancelling, setIsCancelling] = useState(false);
   const [localProgressMessage, setLocalProgressMessage] = useState("");
   const [preparationNotice, setPreparationNotice] = useState<string | null>(null);
+  const [openDocs, setOpenDocs] = useState<Set<string>>(new Set());
+
+  const docByMetricName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const km of node.key_metrics) {
+      const doc = km.internal_documentation?.trim();
+      if (doc) map.set(km.name, doc);
+    }
+    return map;
+  }, [node.key_metrics]);
+
+  const toggleDoc = (key: string) => {
+    setOpenDocs((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const isRunning = ["preparing_video", "uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
@@ -907,6 +948,10 @@ export function TestingPanel({ node }: TestingPanelProps) {
               {result.metricResults.map((metric) => {
                 const metricStyles = scoreClasses(metric.score ?? null);
                 const calibration = calibrationSummary(metric);
+                const variance = distanceVarianceSummary(metric);
+                const docKey = `${metric.name}::${metric.phase_id ?? metric.phase_name ?? ""}`;
+                const docMarkdown = docByMetricName.get(metric.name);
+                const isDocOpen = openDocs.has(docKey);
                 return (
                   <div key={`${metric.name}-${metric.phase_id ?? metric.phase_name ?? "metric"}`} className="rounded-xl border border-white/5 bg-surface-container-high p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -946,6 +991,57 @@ export function TestingPanel({ node }: TestingPanelProps) {
                         <p className="mt-1 text-sm font-semibold text-on-surface">{metric.reason ?? "—"}</p>
                       </div>
                     </div>
+
+                    {docMarkdown && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleDoc(docKey)}
+                          className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant hover:text-on-surface transition-colors"
+                        >
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: 14, transform: isDocOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                          >
+                            expand_more
+                          </span>
+                          Why this number?
+                        </button>
+                        {isDocOpen && (
+                          <div className="mt-2 rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 prose prose-invert prose-sm max-w-none text-on-surface-variant">
+                            <ReactMarkdown>{docMarkdown}</ReactMarkdown>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {variance && (
+                      <div className="mt-4 rounded-xl border border-yellow-500/10 bg-yellow-500/5 p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-yellow-300" style={{ fontSize: 16 }}>show_chart</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant">Distance Variance</span>
+                          {variance.framesUsed != null && (
+                            <span className="text-[10px] text-on-surface-variant/60">{variance.framesUsed} frames</span>
+                          )}
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-5">
+                          {[
+                            { label: "Std Dev", value: variance.stdDev },
+                            { label: "Mean", value: variance.mean },
+                            { label: "Min", value: variance.min },
+                            { label: "Max", value: variance.max },
+                            { label: "Range", value: variance.range },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="rounded-lg bg-surface-container-lowest px-3 py-3">
+                              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">{label}</p>
+                              <p className="mt-1 text-sm font-semibold text-on-surface">
+                                {typeof value === "number" ? `${value.toFixed(3)} yd` : "—"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {calibration && (
                       <div className="mt-4 rounded-xl border border-primary-container/10 bg-primary-container/5 p-4">
