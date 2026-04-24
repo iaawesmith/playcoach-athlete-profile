@@ -1,91 +1,101 @@
-## Edge Function fetch timeout fix for Cloud Run /analyze
+## Close-out: revert state + document streaming fix ticket
 
-### Diagnosis
+Three-turn smoke test ended at Turn 2 with diagnostic clarity. MediaPipe ran cleanly to ~26s into the 6s clip; SIGTERM at ~32s with no Python exception, no OOM, no Cloud Run 600s timeout hit. Root cause: **Google Front End (GFE) ~30s idle timeout** — FastAPI `/analyze` holds the full response until processing completes (~38s for a 6s clip), GFE drops the connection.
 
-Read `supabase/functions/analyze-athlete-video/index.ts:3110-3177`.
+This plan does **not** implement the streaming fix. It restores pre-test state and documents the ticket for tomorrow.
 
-**Findings:**
-1. **No explicit fetch timeout / AbortSignal.** The `callCloudRun()` function calls `fetch(rtmlibUrl, { method, headers, body })` with no `signal`. There is no `AbortController`, no `AbortSignal.timeout()`, no `setTimeout(controller.abort, …)`.
-2. **Current effective value:** Deno's default. In Supabase Edge Runtime (Deno Deploy lineage), unbounded `fetch()` calls are subject to the runtime's per-request wall-clock and the platform's outbound idle timeout. Empirically the Call 1 `503` showed up at ~33s wall and the sandbox direct `curl` died at ~37s — both consistent with an upstream/proxy idle/header-wait cutoff well below Cloud Run's 600s budget. Either way: there is no explicit ceiling in our code, which means we cannot reason about it and cannot extend it without one.
-3. The function then `await response.json()` — same socket, same implicit timeout window applies until the body is fully read.
+### Step 1 — Single migration: revert Slant + reset upload
 
-So Cloud Run starts the analysis, the Edge Function's socket is closed by the runtime/proxy at ~28–33s, Cloud Run sees the cancel and logs "Shutting down". Classic short-client-timeout-on-long-server-job pattern.
+One migration file containing both UPDATEs:
 
-### Fix (single-file, minimal)
+```sql
+UPDATE public.athlete_lab_nodes
+SET status = 'draft'
+WHERE id = '75ed4b18-8a22-440e-9a23-b86204956056';
 
-`supabase/functions/analyze-athlete-video/index.ts` — modify `callCloudRun()` only.
+UPDATE public.athlete_uploads
+SET status = 'pending',
+    error_message = NULL,
+    progress_message = NULL
+WHERE id = '66ea5e98-ff65-4d20-9e9e-232753d198aa';
+```
 
-1. Add a module-level constant near the top of the function:
-   ```ts
-   const CLOUD_RUN_FETCH_TIMEOUT_MS = 300_000 // 5 minutes
-   ```
-2. Wrap the `fetch` in an `AbortController` with a `setTimeout`, attach `signal`, and clear the timer in a `finally`:
-   ```ts
-   const controller = new AbortController()
-   const timeoutId = setTimeout(() => controller.abort(), CLOUD_RUN_FETCH_TIMEOUT_MS)
-   let response: Response
-   try {
-     response = await fetch(rtmlibUrl, {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify(requestPayload),
-       signal: controller.signal,
-     })
-   } catch (err) {
-     const isAbort = (err as Error).name === 'AbortError'
-     throw new Error(
-       isAbort
-         ? `Cloud Run fetch timed out after ${CLOUD_RUN_FETCH_TIMEOUT_MS / 1000}s (RTMLIB_URL: ${rtmlibUrl})`
-         : `Cloud Run fetch failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
-     )
-   } finally {
-     clearTimeout(timeoutId)
-   }
-   ```
-   The `clearTimeout` runs after the headers arrive. The body read (`response.json()`) is then unbounded relative to our timer — which is the right behavior, because once Cloud Run starts streaming the JSON we don't want to abort mid-stream.
+### Step 2 — Verify end state
 
-   If we later see body-streaming hangs, we'd add a second timer around `response.json()`. Not doing that now — out of scope for this ticket.
+After migration applies, SELECT both rows and confirm:
+- `athlete_lab_nodes` Slant row: `status = 'draft'`
+- `athlete_uploads` test row: `status = 'pending'`, `error_message = NULL`, `progress_message = NULL`
+- Nothing else touched. No code changes. No edge function redeploys. No Cloud Run revisions.
 
-3. No other changes to this function. `MEDIAPIPE_SERVICE_URL` resolution, payload shape, error messages, and `progress_updates` handling stay identical.
+### Step 3 — Document Ticket 2 in `.lovable/plan.md`
 
-### What this does NOT touch
+Replace the current Edge Function timeout fix content (already deployed) with the new Ticket 2 spec:
 
-- `mediapipe-service/app/pose.py` — untouched
-- `mediapipe-service/app/main.py` — untouched
-- `mediapipe-service/app/auto_zoom.py` — untouched
-- Cloud Run service config — untouched
-- `supabase/config.toml` — untouched (function already deploys with the right defaults)
-- Any other call site in the Edge Function — untouched (only `/analyze` is a long-running call; preflight and DB calls are millisecond-scale)
+**Ticket 2: GFE streaming keepalive for /analyze**
 
-### Secondary concern (not fixed here, just noted for follow-up)
+Problem: GFE drops Cloud Run connections after ~30s of zero response bytes. FastAPI `/analyze` returns one large JSON at the end, so any clip processing >30s wall time gets a 503 even though the container completes the work.
 
-Sandbox `curl` direct-to-Cloud-Run died at ~37s. That's not the Edge Function — it's between the public client and Cloud Run's HTTPS frontend. Possible causes: Cloud Run ingress idle timeout for non-streaming responses, GFE/L7 LB's default idle, or a sandbox-side curl default. **Acknowledged as next-next-ticket** — diagnose only after this Edge Function fix unblocks the Edge-Function-initiated path. If the smoke test confirms 6s clips succeed via the Edge Function with the 300s timeout in place, the curl-from-sandbox issue is purely a debug-tool concern and may not need fixing at all.
+Evidence: 1s clip total_s=9.01 succeeds. 6s clip predicted total_s≈38s, observed SIGTERM at ~32s with no Python error and no OOM. `landmark_projection_calculator` warning at +26s confirms pose loop was actively running. The Edge Function 300s AbortController fix did NOT trigger — confirming the cutoff is upstream of our edge function, on the GFE→Cloud Run path.
 
-### Validation plan after redeploy
+Fix: Convert `/analyze` to `StreamingResponse` (NDJSON). Emit a small JSON keepalive line every ~10s during processing, then emit the final result line. Edge Function reads the stream, ignores keepalives, and parses the final line as `AnalyzeResponse`.
 
-Edge Function deploys automatically on commit. Then re-run the existing 3-turn smoke test path:
+Pseudocode (for tomorrow — do not implement now):
 
-1. Reset upload `66ea5e98-…` to `pending`.
-2. Invoke `analyze-athlete-video` (Call 1).
-3. Capture: HTTP status, wall duration, the new structured `analyze done` log line with all six stage timings, response shape (frame_count, fps, keypoints dims, mean confidence), calibration block, auto-zoom block.
-4. Reset to `pending`. Invoke again (Call 2). Same capture.
-5. Validate decode_s extrapolation prediction: 1s baseline showed decode_s=3.62 → predicted ~22s for 6s clip. If actual decode_s scales roughly linearly, decode is the dominant scaler and the next lever for Ticket 2 is lowering `TARGET_FPS` from 30 → 15 in `video.py` (one line, ~50% cut on both decode and pose). If decode_s is sub-linear and pose_loop_s dominates, the lever is `det_frequency` or model size.
-6. Classify GOOD / PARTIAL / BAD per the previously approved criteria.
-7. Final migration: revert Slant node to `draft` AND reset upload to `pending`. End state matches pre-test exactly.
+```text
+# main.py
+from fastapi.responses import StreamingResponse
+import json, asyncio, time
+
+@app.post("/analyze")
+async def analyze(req: AnalyzeRequest):
+    yield_queue: asyncio.Queue = asyncio.Queue()
+
+    async def keepalive_loop():
+        while True:
+            await asyncio.sleep(10)
+            await yield_queue.put({"type": "keepalive", "ts": time.time()})
+
+    async def run_pipeline():
+        # existing analyze() body, but instead of returning,
+        # push final result and sentinel to queue
+        ...
+        await yield_queue.put({"type": "result", "data": response.dict()})
+        await yield_queue.put(None)  # sentinel
+
+    async def stream():
+        pipeline_task = asyncio.create_task(run_pipeline())
+        keepalive_task = asyncio.create_task(keepalive_loop())
+        try:
+            while True:
+                item = await yield_queue.get()
+                if item is None:
+                    break
+                yield (json.dumps(item) + "\n").encode()
+        finally:
+            keepalive_task.cancel()
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+```
+
+```text
+# supabase/functions/analyze-athlete-video/index.ts callCloudRun()
+# Read response body line-by-line via response.body.getReader() + TextDecoder.
+# Parse each line as JSON. Ignore {type:"keepalive"} lines.
+# Parse {type:"result", data:{...}} as the AnalyzeResponse.
+# Keep the existing 300s AbortController as a hard ceiling.
+```
+
+Validation plan for tomorrow:
+1. Deploy streaming refactor to mediapipe-service.
+2. Smoke test 1s clip — must still succeed with same `analyze done` log.
+3. Smoke test 6s clip — expect success around total_s≈38s with keepalives visible in Cloud Run request logs.
+4. If green, queue Slant keypoint index remap (Hands Extension idx 99/120, break-angle [23,25,27]) as Ticket 3.
+
+Out of scope for this ticket: TARGET_FPS reduction, segmentation-mask probe, keypoint remap. Decide those after streaming is proven.
 
 ### Files modified
 
-- `supabase/functions/analyze-athlete-video/index.ts` — `callCloudRun()` only, ~15 lines added/changed
+- One new migration file under `supabase/migrations/` containing the two UPDATE statements
+- `.lovable/plan.md` — replace contents with Ticket 2 documentation above
 
-No migrations, no service code, no config files.
-
-### Queue (updated)
-
-1. ✅ Slant flipped to `live` (Turn 1 of smoke test, still in effect)
-2. ✅ Ticket 1 deployed (00010-gdp): per-stage timers + auto_zoom trim
-3. → **This fix**: Edge Function fetch timeout 300s with AbortController
-4. → Re-run smoke test (Call 1 + Call 2) with timing capture
-5. → Final cleanup migration (Slant → draft, upload → pending)
-6. → Slant keypoint index remap (separate ticket)
-7. → Ticket 2 (data-driven, decided after smoke results): TARGET_FPS reduction OR segmentation-mask probe
-8. → (Acknowledged) Sandbox-curl ingress timeout investigation, only if needed
+No application code. No service redeploy. No edge function redeploy.
