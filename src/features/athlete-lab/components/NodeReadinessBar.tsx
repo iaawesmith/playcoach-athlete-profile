@@ -26,17 +26,34 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   const categories: ReadinessCategory[] = [];
 
   // Active-only metrics (inactive ones are preserved in storage but excluded from readiness/scoring)
-  const activeMetrics = (node.key_metrics ?? []).filter((m) => m.active !== false);
+  const allMetrics = node.key_metrics ?? [];
+  const activeMetrics = allMetrics.filter((m) => m.active !== false);
+  const inactiveCount = allMetrics.length - activeMetrics.length;
 
   // 1. METRICS & KEYPOINTS — 25%
   const metricsChecks: ReadinessCheck[] = [];
-  metricsChecks.push({ label: `${activeMetrics.length} active metrics defined (min 4)`, pass: activeMetrics.length >= 4 });
+  const activeCountLabel = inactiveCount > 0
+    ? `${activeMetrics.length} active metrics scored, ${inactiveCount} inactive metric${inactiveCount > 1 ? "s" : ""} excluded from scoring`
+    : `${activeMetrics.length} active metrics defined (min 4)`;
+  metricsChecks.push({ label: activeCountLabel, pass: activeMetrics.length >= 4 });
   const metricWeightSum = activeMetrics.reduce((s, m) => s + m.weight, 0);
   metricsChecks.push({ label: `Active weights sum to ${metricWeightSum}% (must be 100%)`, pass: metricWeightSum === 100 });
   const allMapped = activeMetrics.every(m => m.keypoint_mapping?.calculation_type && (m.keypoint_mapping?.keypoint_indices?.length ?? 0) > 0);
   metricsChecks.push({ label: "All active metrics have keypoint mapping", pass: allMapped });
   const allPhased = activeMetrics.every(m => m.keypoint_mapping?.phase_id);
   metricsChecks.push({ label: "All active metrics have phase assigned", pass: allPhased });
+  // Phase reference resolution — catches orphaned phase_ids from deleted phases
+  const phaseIds = new Set((node.phase_breakdown ?? []).map(p => p.id));
+  const orphanedRefs = activeMetrics.filter(m =>
+    m.keypoint_mapping?.phase_id && !phaseIds.has(m.keypoint_mapping.phase_id)
+  );
+  const phaseRefsValid = orphanedRefs.length === 0;
+  metricsChecks.push({
+    label: phaseRefsValid
+      ? "All metric phase references resolve to existing phases"
+      : `${orphanedRefs.length} metric${orphanedRefs.length > 1 ? "s" : ""} reference deleted phase(s): ${orphanedRefs.map(m => m.name || "Untitled").join(", ")}`,
+    pass: phaseRefsValid,
+  });
   // Keypoint counts valid
   let kpCountsValid = true;
   for (const m of activeMetrics) {
@@ -46,6 +63,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     if (km.calculation_type === "angle" && count !== 3) kpCountsValid = false;
     else if ((km.calculation_type === "distance" || km.calculation_type === "frame_delta") && count !== 2) kpCountsValid = false;
     else if ((km.calculation_type === "velocity" || km.calculation_type === "acceleration") && (count < 1 || count > 2)) kpCountsValid = false;
+    else if (km.calculation_type === "distance_variance" && count !== 2) kpCountsValid = false;
   }
   metricsChecks.push({ label: "Keypoint counts valid for calculation types", pass: kpCountsValid });
   // Temporal windows
@@ -57,6 +75,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     if (km.calculation_type === "velocity" && tw < 3) twValid = false;
     else if (km.calculation_type === "acceleration" && tw < 5) twValid = false;
     else if (km.calculation_type === "frame_delta" && tw < 10) twValid = false;
+    else if (km.calculation_type === "distance_variance" && tw < 5) twValid = false;
   }
   metricsChecks.push({ label: "Temporal windows compatible", pass: twValid });
   categories.push({

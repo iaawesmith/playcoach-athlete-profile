@@ -1044,6 +1044,24 @@ export function TestingPanel({ node }: TestingPanelProps) {
             </div>
           )}
 
+          {result.log_data?.claude_api?.status === "SKIPPED" && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+              <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 20 }}>warning</span>
+              <div className="flex-1">
+                <p className="text-amber-200 text-xs font-bold uppercase tracking-widest">
+                  Coaching feedback skipped
+                </p>
+                <p className="text-amber-100/80 text-sm leading-relaxed mt-1">
+                  {result.log_data.claude_api.skipped_reason ??
+                    "Pose confidence was too low to generate reliable coaching feedback."}
+                </p>
+                <p className="text-amber-100/60 text-xs mt-2">
+                  Metric scores below were calculated from low-confidence keypoints and may be unreliable. Re-film with the athlete 10–15 yards away, perpendicular to motion, full body in frame, then re-run.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-xl border border-white/5 bg-surface-container p-5">
             <h4 className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
               <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>sports</span>

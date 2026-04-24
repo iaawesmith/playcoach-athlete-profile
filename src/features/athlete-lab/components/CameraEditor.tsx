@@ -9,17 +9,14 @@ const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase t
 const CARD_CLASS = "p-5 rounded-xl border border-outline-variant/20 space-y-3 bg-[#1A2029]";
 
 /* ── Camera settings stored as JSON in camera_guidelines ── */
+// Note: legacy `auto_reject_*` flags were removed in Group C — they were
+// UI-only toggles never consumed by the Edge Function. parseCameraSettings
+// silently drops them on next save by spreading DEFAULT_SETTINGS first.
 export interface CameraSettings {
   camera_min_fps: number;
   camera_min_resolution: string;
   camera_min_distance: number | null;
   camera_max_distance: number | null;
-  auto_reject_athlete_too_small: boolean;
-  auto_reject_athlete_too_small_threshold: number;
-  auto_reject_duration_out_of_range: boolean;
-  auto_reject_resolution_below_min: boolean;
-  auto_reject_keypoint_confidence_low: boolean;
-  auto_reject_keypoint_confidence_threshold: number;
   camera_filming_instructions: string;
   skill_specific_filming_notes?: string;
 }
@@ -29,12 +26,6 @@ const DEFAULT_SETTINGS: CameraSettings = {
   camera_min_resolution: "720p",
   camera_min_distance: null,
   camera_max_distance: null,
-  auto_reject_athlete_too_small: true,
-  auto_reject_athlete_too_small_threshold: 15,
-  auto_reject_duration_out_of_range: true,
-  auto_reject_resolution_below_min: true,
-  auto_reject_keypoint_confidence_low: true,
-  auto_reject_keypoint_confidence_threshold: 0.65,
   camera_filming_instructions: "",
   skill_specific_filming_notes: "",
 };
@@ -43,7 +34,16 @@ export function parseCameraSettings(raw: string): CameraSettings {
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && "camera_min_fps" in parsed) {
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      // Pick only known fields — legacy auto_reject_* keys are dropped here.
+      return {
+        ...DEFAULT_SETTINGS,
+        camera_min_fps: parsed.camera_min_fps ?? DEFAULT_SETTINGS.camera_min_fps,
+        camera_min_resolution: parsed.camera_min_resolution ?? DEFAULT_SETTINGS.camera_min_resolution,
+        camera_min_distance: parsed.camera_min_distance ?? DEFAULT_SETTINGS.camera_min_distance,
+        camera_max_distance: parsed.camera_max_distance ?? DEFAULT_SETTINGS.camera_max_distance,
+        camera_filming_instructions: parsed.camera_filming_instructions ?? DEFAULT_SETTINGS.camera_filming_instructions,
+        skill_specific_filming_notes: parsed.skill_specific_filming_notes ?? DEFAULT_SETTINGS.skill_specific_filming_notes,
+      };
     }
   } catch { /* not JSON, legacy text */ }
   return { ...DEFAULT_SETTINGS };
@@ -317,85 +317,7 @@ export function CameraEditor({ node, value, onChange }: CameraEditorProps) {
         )}
       </div>
 
-      {/* ── SECTION 3: AUTO-REJECT CONDITIONS ── */}
-      <SectionDivider label="Auto-Reject Conditions" />
-
-      <div className={CARD_CLASS}>
-        <p className="text-on-surface-variant text-xs leading-relaxed mb-2">
-          Rules enforced by the Edge Function before sending to Cloud Run. Videos failing these conditions are rejected and the athlete is asked to refilm with specific guidance.
-        </p>
-
-        {/* Row 1: Athlete too small */}
-        <AutoRejectRow
-          label="Athlete Too Small in Frame"
-          tooltip="Below 15%, foot and hand keypoints return near-zero confidence. The analysis would produce meaningless scores. Recommended: 15-20%."
-          enabled={settings.auto_reject_athlete_too_small}
-          onToggle={(v) => updateField("auto_reject_athlete_too_small", v)}
-        >
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-on-surface-variant text-xs">Reject if athlete occupies less than</span>
-            <input
-              type="number"
-              step="1"
-              min="5"
-              max="50"
-              className={`${INPUT_CLASS} !w-16 !py-1.5 !px-2 text-center`}
-              value={settings.auto_reject_athlete_too_small_threshold}
-              onChange={(e) => updateField("auto_reject_athlete_too_small_threshold", parseInt(e.target.value, 10) || 15)}
-              disabled={!settings.auto_reject_athlete_too_small}
-            />
-            <span className="text-on-surface-variant text-xs">% of frame height</span>
-          </div>
-        </AutoRejectRow>
-
-        {/* Row 2: Duration out of range */}
-        <AutoRejectRow
-          label="Video Duration Out of Range"
-          tooltip="Automatically reads from Basics tab settings. Configure clip duration bounds there."
-          enabled={settings.auto_reject_duration_out_of_range}
-          onToggle={(v) => updateField("auto_reject_duration_out_of_range", v)}
-        >
-          <p className="text-on-surface-variant/60 text-xs mt-1">
-            Currently: {node.clip_duration_min}s — {node.clip_duration_max}s
-          </p>
-        </AutoRejectRow>
-
-        {/* Row 3: Resolution below minimum */}
-        <AutoRejectRow
-          label="Resolution Below Minimum"
-          tooltip="Automatically reads from Minimum Resolution setting above."
-          enabled={settings.auto_reject_resolution_below_min}
-          onToggle={(v) => updateField("auto_reject_resolution_below_min", v)}
-        >
-          <p className="text-on-surface-variant/60 text-xs mt-1">
-            Currently: below {settings.camera_min_resolution} rejected
-          </p>
-        </AutoRejectRow>
-
-        {/* Row 4: Keypoint confidence too low */}
-        <AutoRejectRow
-          label="Keypoint Confidence Too Low"
-          tooltip="Catches videos where the athlete is partially out of frame or occluded before the metric-level confidence thresholds even fire. Set lower than your lowest per-metric confidence threshold."
-          enabled={settings.auto_reject_keypoint_confidence_low}
-          onToggle={(v) => updateField("auto_reject_keypoint_confidence_low", v)}
-        >
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-on-surface-variant text-xs">Reject if average confidence below</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0.40"
-              max="0.80"
-              className={`${INPUT_CLASS} !w-20 !py-1.5 !px-2 text-center`}
-              value={settings.auto_reject_keypoint_confidence_threshold}
-              onChange={(e) => updateField("auto_reject_keypoint_confidence_threshold", parseFloat(e.target.value) || 0.65)}
-              disabled={!settings.auto_reject_keypoint_confidence_low}
-            />
-          </div>
-        </AutoRejectRow>
-      </div>
-
-      {/* ── SECTION 4: ATHLETE FILMING INSTRUCTIONS ── */}
+      {/* ── SECTION 3: ATHLETE FILMING INSTRUCTIONS ── */}
       <SectionDivider label="Athlete Filming Instructions" />
 
       <div className={CARD_CLASS}>
@@ -414,33 +336,6 @@ export function CameraEditor({ node, value, onChange }: CameraEditorProps) {
   );
 }
 
-/* ── Auto-Reject Row ── */
-function AutoRejectRow({ label, tooltip, enabled, onToggle, children }: {
-  label: string;
-  tooltip: string;
-  enabled: boolean;
-  onToggle: (v: boolean) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="py-3 border-b border-outline-variant/10 last:border-b-0">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="text-on-surface text-sm font-semibold uppercase tracking-wide">{label}</span>
-          <SectionTooltip tip={tooltip} />
-        </div>
-        <button
-          type="button"
-          onClick={() => onToggle(!enabled)}
-          className={`relative w-10 h-5 rounded-full transition-colors ${enabled ? "bg-primary-container" : "bg-outline-variant/30"}`}
-        >
-          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-surface transition-transform ${enabled ? "left-[22px]" : "left-0.5"}`} />
-        </button>
-      </div>
-      {children}
-    </div>
-  );
-}
 
 /* ── Completeness checks for Camera tab ── */
 export function checkCameraCompleteness(node: TrainingNode): Array<{ label: string; detail: string }> {

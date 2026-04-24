@@ -62,7 +62,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how the Mastery Score is calculated, how low-confidence keypoints are handled, and how scores are communicated to athletes." },
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Define common mistakes, set severity levels, and configure auto-detection conditions so the pipeline can automatically confirm errors from metric output." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Define reference objects for each camera angle so the pipeline can convert pixel distances to real-world yards. Required for all Distance and Velocity metrics." },
-  { key: "camera", label: "Camera", icon: "videocam", subtitle: "Set filming requirements and guidelines that ensure athlete videos produce reliable keypoint detection. These settings directly affect analysis accuracy." },
+  { key: "camera", label: "Filming Guidance", icon: "videocam", subtitle: "Athlete-facing filming requirements and instructions. Sets expectations for FPS, resolution, distance, and visible body parts so uploads produce reliable keypoint detection." },
   { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define frame-level body position events that trigger phase boundaries. Used when Segmentation Method in the Phases tab is set to Checkpoint-triggered." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Define achievements athletes earn by hitting performance milestones. Badges appear on athlete profiles and provide motivation to improve." },
@@ -505,7 +505,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         camera_guidelines: draft.camera_guidelines,
         form_checkpoints: draft.form_checkpoints,
         llm_prompt_template: draft.llm_prompt_template,
-        llm_tone: draft.llm_tone,
+        
         llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
         badges: draft.badges,
@@ -946,8 +946,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <LlmPromptEditor
             promptTemplate={draft.llm_prompt_template}
             onPromptChange={(v) => updateWithCriticalTrack("llm_prompt_template", v)}
-            tone={draft.llm_tone ?? "direct"}
-            onToneChange={(v) => updateWithCriticalTrack("llm_tone" as keyof TrainingNode, v as never)}
             maxWords={draft.llm_max_words ?? 150}
             onMaxWordsChange={(v) => updateWithCriticalTrack("llm_max_words" as keyof TrainingNode, v as never)}
             systemInstructions={draft.llm_system_instructions ?? ""}

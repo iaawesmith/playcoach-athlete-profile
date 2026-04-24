@@ -12,16 +12,12 @@ const TEMPLATE_VARIABLES = [
   { var: "{{detected_errors}}", desc: "Auto-detected errors that fired from Errors tab conditions. These are confirmed observations, not guesses — Claude should state them as facts." },
   { var: "{{athlete_name}}", desc: "Athlete's first name for personalized feedback." },
   { var: "{{node_name}}", desc: "The skill being analyzed. e.g. 'Slant Route'" },
+  { var: "{{position}}", desc: "Athlete position code (e.g. WR, CB, RB). Pulled from the athlete's profile or test context. Use to tailor terminology — 'release' for WR, 'jam' for CB, 'plant foot' for RB." },
   { var: "{{athlete_level}}", desc: "Athlete's self-reported experience level: Youth, High School, College, or Professional. Use to adjust technical depth and vocabulary. Pulled from athlete onboarding profile when available — set manually in Run Analysis context for testing." },
   { var: "{{focus_area}}", desc: "Optional focus area submitted by the athlete before filming. e.g. 'working on my break angle' or 'trying to improve my release'. Reference directly if provided. Empty string if not provided — do not reference if empty." },
   { var: "{{skipped_metrics}}", desc: "Metrics excluded from this analysis because athlete reported no catch was made. e.g. 'Catch Efficiency and YAC Burst were not evaluated on this rep.' Include a brief acknowledgment if this variable is not empty." },
 ];
 
-const TONE_OPTIONS = [
-  { value: "encouraging", label: "Encouraging", desc: "Motivational, positive framing. Leads with strengths. Best for youth athletes." },
-  { value: "direct", label: "Direct", desc: "Honest, specific, no fluff. Coach-to-athlete. Best for high school and above." },
-  { value: "technical", label: "Technical", desc: "Data-forward. References exact measurements and deviations. Best for college and elite athletes." },
-];
 
 function getWordGuidance(words: number): { text: string; color: string } {
   if (words <= 100) return { text: "Brief — 3-4 sentences. Good for quick reps and younger athletes.", color: "text-primary-container" };
@@ -42,8 +38,6 @@ function SectionDivider({ label }: { label: string }) {
 interface LlmPromptEditorProps {
   promptTemplate: string;
   onPromptChange: (v: string) => void;
-  tone: string;
-  onToneChange: (v: string) => void;
   maxWords: number;
   onMaxWordsChange: (v: number) => void;
   systemInstructions: string;
@@ -52,7 +46,6 @@ interface LlmPromptEditorProps {
 
 export function LlmPromptEditor({
   promptTemplate, onPromptChange,
-  tone, onToneChange,
   maxWords, onMaxWordsChange,
   systemInstructions, onSystemInstructionsChange,
 }: LlmPromptEditorProps) {
@@ -82,6 +75,9 @@ export function LlmPromptEditor({
   }, [promptTemplate, onPromptChange]);
 
   const hasTemplateVars = /\{\{[a-z_]+\}\}/.test(promptTemplate);
+  const knownVarNames = new Set(TEMPLATE_VARIABLES.map(t => t.var.replace(/[{}]/g, "")));
+  const usedVarMatches = Array.from(promptTemplate.matchAll(/\{\{([a-z_]+)\}\}/g));
+  const unknownVars = Array.from(new Set(usedVarMatches.map(m => m[1]).filter(v => !knownVarNames.has(v))));
   const wordGuidance = getWordGuidance(maxWords);
 
   return (
@@ -141,39 +137,21 @@ export function LlmPromptEditor({
             </p>
           </div>
         )}
+        {/* Unknown-variable warning */}
+        {unknownVars.length > 0 && (
+          <div className="flex items-start gap-2 mt-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 14 }}>warning</span>
+            <p className="text-amber-300 text-xs leading-snug">
+              Unknown template variable{unknownVars.length > 1 ? "s" : ""}: {unknownVars.map(v => <code key={v} className="font-mono text-amber-200 mx-0.5">{`{{${v}}}`}</code>)}. These will be sent to Claude as literal text — they are not injected by the Edge Function. Remove them or pick from the variables list above.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── SECTION 2: COACHING SETTINGS ── */}
       <SectionDivider label="Coaching Settings" />
 
       <div className="p-5 rounded-xl border border-outline-variant/20 space-y-5 bg-[#1A2029]">
-        {/* Tone */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-3">
-            <label className={LABEL_CLASS}>Tone</label>
-            <SectionTooltip tip="Sets the default communication style. Claude adjusts tone, vocabulary, and emphasis based on this setting without rewriting your prompt." />
-          </div>
-          <div className="flex gap-2">
-            {TONE_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onToneChange(opt.value)}
-                className={`flex-1 px-3 py-3 rounded-xl border text-left transition-all ${
-                  tone === opt.value
-                    ? "border-primary-container/40 bg-primary-container/10"
-                    : "border-outline-variant/20 bg-surface-container hover:border-outline-variant/30"
-                }`}
-              >
-                <span className={`text-xs font-bold uppercase tracking-widest block mb-1 ${tone === opt.value ? "text-primary-container" : "text-on-surface"}`}>
-                  {opt.label}
-                </span>
-                <span className="text-on-surface-variant/50 text-[10px] leading-relaxed block">{opt.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Max Words */}
         <div>
           <div className="flex items-center gap-1.5 mb-2">
