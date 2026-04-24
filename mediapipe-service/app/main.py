@@ -1,14 +1,16 @@
 """FastAPI entrypoint for the MediaPipe pose service."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 
 from . import auto_zoom as az
 from . import calibration, video
-from .pose import LANDMARK_COUNT, PoseEngine, run_with_skip
+from .pose import LANDMARK_COUNT, get_engine, run_with_skip
 from .schema import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -22,7 +24,16 @@ log = logging.getLogger("mediapipe-service")
 
 MAX_WINDOW_SECONDS = 30.0
 
-app = FastAPI(title="mediapipe-service", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log.info("warming pose engine")
+    _ = get_engine()
+    log.info("pose engine warm")
+    yield
+
+
+app = FastAPI(title="mediapipe-service", version="1.0.0", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -35,7 +46,7 @@ def health() -> dict:
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
+async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
     t0 = time.time()
 
     if req.end_seconds <= req.start_seconds:
@@ -59,8 +70,12 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
     progress: list[ProgressUpdate] = []
 
     with video.download_to_tmp(req.video_url) as local_path:
-        frames, width, height = video.decode_window(
-            local_path, req.start_seconds, req.end_seconds, fps=video.TARGET_FPS
+        frames, width, height = await asyncio.to_thread(
+            video.decode_window,
+            local_path,
+            req.start_seconds,
+            req.end_seconds,
+            video.TARGET_FPS,
         )
         if not frames:
             raise HTTPException(status_code=422, detail="no frames decoded from window")
@@ -75,30 +90,35 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
             )
         )
 
-        with PoseEngine() as engine:
-            # 1) Auto-zoom decision.
-            processed_frames, zoom = az.decide_and_apply(engine, frames, width, height)
+        engine = get_engine()
 
-            progress.append(
-                ProgressUpdate(
-                    message=f"Auto-zoom: {'applied' if zoom.applied else 'skipped'}",
-                    frame=total,
-                    total_frames=total,
-                    detection_every_n=req.det_frequency,
-                )
+        # 1) Auto-zoom decision.
+        processed_frames, zoom = await asyncio.to_thread(
+            az.decide_and_apply, engine, frames, width, height
+        )
+
+        progress.append(
+            ProgressUpdate(
+                message=f"Auto-zoom: {'applied' if zoom.applied else 'skipped'}",
+                frame=total,
+                total_frames=total,
+                detection_every_n=req.det_frequency,
             )
+        )
 
-            # 2) Pose loop on processed frames.
-            pose_results = run_with_skip(engine, processed_frames, req.det_frequency)
+        # 2) Pose loop on processed frames.
+        pose_results = await asyncio.to_thread(
+            run_with_skip, engine, processed_frames, req.det_frequency, video.TARGET_FPS
+        )
 
-            progress.append(
-                ProgressUpdate(
-                    message="Detected pose",
-                    frame=total,
-                    total_frames=total,
-                    detection_every_n=req.det_frequency,
-                )
+        progress.append(
+            ProgressUpdate(
+                message="Detected pose",
+                frame=total,
+                total_frames=total,
+                detection_every_n=req.det_frequency,
             )
+        )
 
         # 3) Reverse-map landmarks back to original video coords.
         original_space = az.reverse_map_landmarks(pose_results, zoom, width, height)
