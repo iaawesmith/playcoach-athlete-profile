@@ -12,6 +12,7 @@ const TEMPLATE_VARIABLES = [
   { var: "{{detected_errors}}", desc: "Auto-detected errors that fired from Errors tab conditions. These are confirmed observations, not guesses — Claude should state them as facts." },
   { var: "{{athlete_name}}", desc: "Athlete's first name for personalized feedback." },
   { var: "{{node_name}}", desc: "The skill being analyzed. e.g. 'Slant Route'" },
+  { var: "{{position}}", desc: "Athlete position code (e.g. WR, CB, RB). Pulled from the athlete's profile or test context. Use to tailor terminology — 'release' for WR, 'jam' for CB, 'plant foot' for RB." },
   { var: "{{athlete_level}}", desc: "Athlete's self-reported experience level: Youth, High School, College, or Professional. Use to adjust technical depth and vocabulary. Pulled from athlete onboarding profile when available — set manually in Run Analysis context for testing." },
   { var: "{{focus_area}}", desc: "Optional focus area submitted by the athlete before filming. e.g. 'working on my break angle' or 'trying to improve my release'. Reference directly if provided. Empty string if not provided — do not reference if empty." },
   { var: "{{skipped_metrics}}", desc: "Metrics excluded from this analysis because athlete reported no catch was made. e.g. 'Catch Efficiency and YAC Burst were not evaluated on this rep.' Include a brief acknowledgment if this variable is not empty." },
