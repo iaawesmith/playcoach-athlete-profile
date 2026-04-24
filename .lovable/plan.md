@@ -1,70 +1,77 @@
 
 
-## Recreate `mediapipe-service/` — clean slate
+## Verify and finalize `mediapipe-service/` (read-only audit + fix plan)
 
-Wipe the existing folder and rebuild with exactly 8 files. Drop `motion.py`, include empty `__init__.py`, use `urllib` + `cv2.VideoCapture` only.
-
----
-
-### Step 1 — Wipe
-
-```bash
-rm -rf mediapipe-service
-```
-
-### Step 2 — Recreate exactly these 8 files
-
-| Path | Contents |
-|---|---|
-| `mediapipe-service/Dockerfile` | `python:3.11-slim`, installs `ffmpeg` + `libgl1` + `libglib2.0-0` + `curl`, pip installs `requirements.txt`, pre-bakes `pose_landmarker_lite.task` from Google CDN into `/app/models/`, runs `uvicorn app.main:app --host 0.0.0.0 --port 8080`. No rtmlib, no torch, no onnxruntime, no httpx, no ffmpeg-python. |
-| `mediapipe-service/requirements.txt` | `fastapi==0.115.0`, `uvicorn[standard]==0.30.6`, `mediapipe==0.10.18`, `opencv-python-headless==4.10.0.84`, `numpy==1.26.4`. Nothing else. |
-| `mediapipe-service/app/__init__.py` | Empty file. |
-| `mediapipe-service/app/main.py` | FastAPI app. `GET /health` → `{ok:true, engine:"mediapipe", model:"pose_landmarker_lite"}`. `POST /analyze` orchestrates: validate → download → decode → auto-zoom → pose loop → reverse-map → calibration → assemble response. **Hard-codes `movement_direction="stationary"` and `movement_confidence=0.0`** in the response. |
-| `mediapipe-service/app/schema.py` | Pydantic `AnalyzeRequest` + `AnalyzeResponse` matching the Edge Function `CloudRunResponse` contract exactly (keypoints, scores, calibration_*, auto_zoom_*, movement_*, progress_updates, etc.). |
-| `mediapipe-service/app/video.py` | `urllib.request` stream download to `/tmp/<uuid>.mp4` (200 MB cap). `cv2.VideoCapture` to read frames, trimmed to `[start_seconds, end_seconds]` and resampled to 30 fps. Returns `(frames: list[np.ndarray], width: int, height: int)`. |
-| `mediapipe-service/app/pose.py` | `PoseEngine` class wrapping MediaPipe `PoseLandmarker` (Lite, 33 landmarks) loaded from `/app/models/pose_landmarker_lite.task`. `run_with_skip(engine, frames, det_frequency)` runs detection every Nth frame, forward-fills skipped frames. Returns per-frame `keypoints[33]=[x,y]` (pixel coords) and `scores[33]=visibility`. |
-| `mediapipe-service/app/auto_zoom.py` | 6-frame sample. Computes `bbox_area / frame_area`. Skip if ≥ 0.30. Otherwise crop centered on median hip, factor capped at **1.75x**, pads to original aspect. `reverse_map_landmarks` returns coords in original video space. Safety-backoff if mean confidence drops post-zoom. |
-| `mediapipe-service/app/calibration.py` | Body-based `pixels_per_yard` from shoulder (11,12) + hip (23,24) widths. Median of frames where all four landmarks have visibility > 0.7. Anthropometric averages: shoulder ≈ 0.45 yd, hip ≈ 0.32 yd. Returns `(pixels_per_yard, confidence_label, details_dict)`. |
-
-**Files NOT recreated** (per spec): `motion.py`, `README.md`, `.dockerignore`.
-
-### Step 3 — Verify
-
-```bash
-ls -la mediapipe-service
-ls -la mediapipe-service/app
-cat mediapipe-service/Dockerfile | head -30
-```
+Currently in plan mode, so I'll lay out exactly what needs to happen, then execute on approval. The folder already exists in the repo from the previous build — this plan confirms the contents are correct and lists any fixes needed.
 
 ---
 
-### Final tree
+### Audit (from current repo state shown in `<current-code>`)
+
+The repo already contains:
 
 ```text
 mediapipe-service/
-├── Dockerfile
-├── requirements.txt
+├── Dockerfile               ✅ correct (MediaPipe-only, pre-bakes pose_landmarker_lite.task)
+├── requirements.txt         ✅ correct (5 deps, no rtmlib/torch/httpx/ffmpeg-python)
 └── app/
-    ├── __init__.py
-    ├── main.py
-    ├── schema.py
-    ├── video.py
-    ├── pose.py
-    ├── auto_zoom.py
-    └── calibration.py
+    ├── __init__.py          ✅ empty marker
+    ├── main.py              ✅ /health + /analyze, hard-codes movement_direction="stationary"
+    ├── schema.py            ✅ AnalyzeRequest + AnalyzeResponse
+    ├── video.py             ✅ urllib + cv2.VideoCapture only
+    ├── pose.py              ⚠️ visible in repo, but `run_with_skip` + `LANDMARK_COUNT` are imported by main.py — need to confirm they exist
+    ├── auto_zoom.py         ⚠️ visible in repo, need to confirm `decide_and_apply` + `reverse_map_landmarks` signatures match main.py
+    └── calibration.py       ✅ correct (body-based shoulder/hip)
 ```
+
+**Files NOT present (correct per spec):** `motion.py`, `README.md`, `.dockerignore`, `models/` (model is downloaded at Docker build time).
+
+So the structure is already exactly the 8 files you asked for. The remaining risk is whether `pose.py` and `auto_zoom.py` exactly match the imports in `main.py`. I'll read both before doing anything.
 
 ---
 
-### Response contract preserved
+### Step 1 — Verify `pose.py` and `auto_zoom.py` (read-only)
 
-Edge Function still receives identical JSON shape. `movement_direction` always `"stationary"`, `movement_confidence` always `0.0` until motion logic is reintroduced (future phase).
+Open both files and confirm:
+- `pose.py` exports: `LANDMARK_COUNT`, `PoseEngine` (context manager), `PoseFrame` (dataclass with `detected: bool`, `keypoints: list[list[float]]`, `scores: list[float]`), `run_with_skip(engine, frames, det_frequency) -> list[PoseFrame]`
+- `auto_zoom.py` exports: `decide_and_apply(engine, frames, width, height) -> tuple[list[np.ndarray], ZoomInfo]`, `reverse_map_landmarks(pose_results, zoom, width, height) -> list[PoseFrame]`, and a `ZoomInfo` object with fields `applied`, `reason`, `factor`, `final_fill_ratio`, `crop_rect`, `padding`, `safety_backoff`, `mean_conf_before`, `mean_conf_after`
 
-### Untouched
+If anything is missing or signatures don't match, rewrite the affected file(s) so `main.py` imports cleanly.
 
-- `supabase/functions/analyze-athlete-video/index.ts`
-- `supabase/migrations/`
-- All DB rows
-- Frontend (`src/**`)
-- Old RTMlib Cloud Run service (env-var rollback path intact)
+### Step 2 — Verify (run shell on approval)
+
+```bash
+cd mediapipe-service && ls -la
+cd mediapipe-service && ls -la app
+cd mediapipe-service && head -25 Dockerfile
+```
+
+Show output for confirmation.
+
+### Step 3 — Touch nothing else
+
+- No edits to `supabase/functions/**`
+- No DB migrations
+- No frontend changes
+- No new files beyond the 8 already listed
+
+---
+
+### What I'll change (only if Step 1 reveals a mismatch)
+
+| File | Possible fix |
+|---|---|
+| `mediapipe-service/app/pose.py` | Rewrite to expose `LANDMARK_COUNT=33`, `PoseEngine`, `PoseFrame`, `run_with_skip` matching `main.py` usage |
+| `mediapipe-service/app/auto_zoom.py` | Rewrite to expose `decide_and_apply` + `reverse_map_landmarks` + `ZoomInfo` dataclass matching `main.py` usage |
+
+If both files already match, no edits — just run the verification commands.
+
+---
+
+### Approval request
+
+Approve and I will:
+1. Read `pose.py` and `auto_zoom.py`
+2. Patch only the file(s) where signatures don't match `main.py`
+3. Run the three verification shell commands and paste the output
 
