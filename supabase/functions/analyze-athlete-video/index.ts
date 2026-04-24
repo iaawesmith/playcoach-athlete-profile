@@ -3107,6 +3107,8 @@ async function callClaude(
 }
 
 
+const CLOUD_RUN_FETCH_TIMEOUT_MS = 300_000 // 5 minutes — Cloud Run /analyze can run up to ~600s
+
 async function callCloudRun(payload: {
   uploadId: string
   video_url: string
@@ -3136,17 +3138,25 @@ async function callCloudRun(payload: {
     tracking_enabled: payload.tracking_enabled,
   }
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), CLOUD_RUN_FETCH_TIMEOUT_MS)
   let response: Response
   try {
     response = await fetch(rtmlibUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload),
+      signal: controller.signal,
     })
   } catch (err) {
+    const isAbort = (err as Error).name === 'AbortError'
     throw new Error(
-      `Cloud Run fetch failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
+      isAbort
+        ? `Cloud Run fetch timed out after ${CLOUD_RUN_FETCH_TIMEOUT_MS / 1000}s (RTMLIB_URL: ${rtmlibUrl})`
+        : `Cloud Run fetch failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
     )
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   if (!response.ok) {
