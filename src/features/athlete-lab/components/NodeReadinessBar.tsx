@@ -80,7 +80,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   tsChecks.push({ label: "Solution class supports all keypoint indices", pass: scSupportsAll });
   categories.push({
     name: "Training Status", icon: "memory", weight: 20, checks: tsChecks, tab: "training_status",
-    tooltip: "rtmlib will not instantiate correctly without a solution class. Keypoint mismatch causes silent empty arrays."
+    tooltip: "The pose engine will not instantiate correctly without a configured model. Keypoint mismatch causes silent empty arrays."
   });
 
   // 3. PHASES & STRUCTURE — 15%
@@ -119,11 +119,11 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
     videoChecks.push({ label: "At least 1 camera angle calibrated", pass: hasAtLeastOne });
   } else {
-    videoChecks.push({ label: "Reference not required — Wholebody3d node", pass: true, warning: true });
+    videoChecks.push({ label: "Reference not required — 3D pose engine node", pass: true, warning: true });
   }
   categories.push({
     name: "Videos & Reference", icon: "video_library", weight: 15, checks: videoChecks, tab: "videos",
-    tooltip: "Missing timestamps causes rtmlib to process the entire video including non-skill footage."
+    tooltip: "Missing timestamps causes the pose engine to process the entire video including non-skill footage."
   });
 
   // 5. LLM PROMPT — 10%
@@ -157,7 +157,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   // 7. REFERENCE CALIBRATION — 5%
   const refChecks: ReadinessCheck[] = [];
   if (node.solution_class === "wholebody3d") {
-    refChecks.push({ label: "Not required — Wholebody3d", pass: true, warning: true });
+    refChecks.push({ label: "Not required — 3D pose engine", pass: true, warning: true });
   } else {
     const usedAngles = new Set(configuredVids.map(v => v.camera_angle).filter(Boolean) as string[]);
     const cals = node.reference_calibrations ?? [];
