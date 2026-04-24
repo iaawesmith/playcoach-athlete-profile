@@ -138,8 +138,16 @@ export interface ScoreBands {
 
 export type PerformanceMode = "performance" | "balanced" | "lightweight";
 
+export type PoseEngine = "mediapipe" | "rtmlib";
+
 export interface TrainingNode {
   id: string;
+  /**
+   * Pose estimation engine used for analysis. Defaults to "mediapipe" when not set.
+   * Read sites should use `node.pose_engine ?? "mediapipe"`.
+   * Phase 0: TypeScript-only, no DB column.
+   */
+  pose_engine?: PoseEngine;
   name: string;
   icon_url: string | null;
   position: NodePosition | null;
