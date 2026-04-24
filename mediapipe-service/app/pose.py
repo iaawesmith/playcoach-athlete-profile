@@ -135,11 +135,14 @@ def run_with_skip(
     if fps <= 0:
         fps = 1.0
 
+    frame_interval_ms = max(1, int(round(1000 / fps)))
+    base = engine.reserve_timestamp_range(len(frames), fps)
+
     results: list[PoseFrame] = []
     last: PoseFrame = PoseFrame(detected=False)
     for i, frame in enumerate(frames):
         if i % det_frequency == 0:
-            timestamp_ms = int(i * 1000 / fps)
+            timestamp_ms = base + i * frame_interval_ms
             last = engine.detect(frame, timestamp_ms)
         results.append(last)
     return results
