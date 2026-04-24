@@ -427,8 +427,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
   });
-  const criticalChanged = useRef(false);
-
   /* Persist advanced-tabs preference + auto-bounce off hidden tabs when toggled off */
   useEffect(() => {
     if (typeof window !== "undefined") {
