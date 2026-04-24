@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -41,10 +42,15 @@ app = FastAPI(title="mediapipe-service", version="1.0.0", lifespan=lifespan)
 
 @app.get("/health")
 def health() -> dict:
+    # Derive model name from the path actually loaded so /health never drifts
+    # from reality when POSE_MODEL_PATH flips Full <-> Lite.
+    model_path = os.getenv("POSE_MODEL_PATH", "/app/models/pose_landmarker_full.task")
+    model_name = os.path.splitext(os.path.basename(model_path))[0]
     return {
         "ok": True,
         "engine": "mediapipe",
-        "model": "pose_landmarker_lite",
+        "model": model_name,
+        "model_path": model_path,
     }
 
 

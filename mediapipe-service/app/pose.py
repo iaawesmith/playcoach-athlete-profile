@@ -1,13 +1,18 @@
-"""MediaPipe Pose Landmarker (Lite) wrapper. 33 landmarks per frame.
+"""MediaPipe Pose Landmarker wrapper. 33 landmarks per frame.
 
 Module-level singleton: one PoseLandmarker is constructed eagerly on first
 `get_engine()` call (typically warmed at FastAPI startup) and reused for the
 container's lifetime. Running mode is VIDEO for sequential-frame speed and
 landmark stability; callers must pass monotonically non-decreasing
 timestamps to `detect()`.
+
+Model selection: defaults to Full (higher Yoga mAP for dynamic motion).
+Set POSE_MODEL_PATH=/app/models/pose_landmarker_lite.task to revert without
+a rebuild.
 """
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import dataclass, field
 
@@ -16,7 +21,7 @@ import numpy as np
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision as mp_vision
 
-MODEL_PATH = "/app/models/pose_landmarker_lite.task"
+MODEL_PATH = os.getenv("POSE_MODEL_PATH", "/app/models/pose_landmarker_full.task")
 LANDMARK_COUNT = 33
 
 

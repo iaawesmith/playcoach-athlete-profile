@@ -19,10 +19,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-bake MediaPipe Pose Landmarker Lite model so cold starts don't pay download cost.
+# Pre-bake BOTH Lite and Full Pose Landmarker models so cold starts don't pay download cost.
+# Default load is Full (better Yoga mAP for dynamic motion); POSE_MODEL_PATH env var
+# can flip back to Lite at runtime without a rebuild. URLs pinned to /1/ for reproducibility.
 RUN mkdir -p /app/models && \
     curl -fL -o /app/models/pose_landmarker_lite.task \
-        https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task
+        https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task && \
+    curl -fL -o /app/models/pose_landmarker_full.task \
+        https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task
 
 COPY app/ /app/app/
 
