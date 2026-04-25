@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, CoachingCuesMigrationStatus } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
@@ -10,6 +10,9 @@ import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCa
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
+import { MigrateCoachingCuesModal, type PhaseCommit } from "./MigrateCoachingCuesModal";
+import { CoachingCuesMigrationBanner } from "./CoachingCuesMigrationBanner";
+import { applyConfirmedCues } from "../utils/migrateCoachingCues";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
 import { generateTabMarkdown } from "../utils/nodeExport";
