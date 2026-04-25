@@ -1,127 +1,83 @@
+# Hotfix Plan — MigrateCoachingCuesModal Rules-of-Hooks Crash
 
-# Group A — Execution Plan (already approved, switching to build mode)
+## Severity
+**Production blocker.** Modal renders blank on open in admin UI; blocks Slant migration confirmation (Action 2).
 
-All four fixes pre-approved in the prior turn. Pre-execution recon already completed: confirmed the analyzer's bilateral-resolution branch already supports `'none'` at runtime (lines 2800–2816 of `analyze-athlete-video/index.ts`), so A2 is a pure type-side fix — no edge function change needed.
+## Root cause (confirmed in source)
 
-## Files touched (4 files, 6 surgical edits)
+`src/features/athlete-lab/components/MigrateCoachingCuesModal.tsx` declares hooks both above and below an early return:
 
-### A1 — `supabase/functions/analyze-athlete-video/index.ts`
-
-**Edit 1 — SELECT statement (lines 860–869).** Add `position`, `confidence_handling`, `min_metrics_threshold`.
-
-```diff
-     .select(`
--      id, name, status, node_version,
-+      id, name, position, status, node_version,
-       clip_duration_min, clip_duration_max,
-       solution_class, performance_mode, det_frequency,
-       det_frequency_solo, det_frequency_defender, det_frequency_multiple,
-       tracking_enabled, segmentation_method,
-       llm_prompt_template, llm_system_instructions,
-       llm_tone, llm_max_words,
--      scoring_rules, score_bands, scoring_renormalize_on_skip,
-+      scoring_rules, score_bands, scoring_renormalize_on_skip,
-+      confidence_handling, min_metrics_threshold,
-       camera_guidelines,
+```text
+Line 131  useRef    (closeRef)         ← above guard
+Line 134  useMemo   (reconciliation)   ← above guard
+Line 141  useState  (drafts)           ← above guard
+Line 144  useEffect (reset drafts)     ← above guard
+Line 153  useEffect (focus)            ← above guard
+Line 157  useEffect (escape key)       ← above guard
+Line 166  if (!open) return null;      ← EARLY RETURN
+Line 174  useState  (pendingPhaseIds)  ← BELOW guard ❌
+Line 175  useState  (pendingAll)       ← BELOW guard ❌
+Line 230  useMemo   (_previewAfter)    ← BELOW guard ❌
 ```
 
-**Edit 2 — Scoring config reads + new observability log (lines 2888–2909).**
+When the modal is closed React sees 6 hooks; when it opens React sees 9 → "Rendered more hooks than during the previous render". Stack trace points at line 133 (the next `useState` after the guard) which matches `pendingPhaseIds` once line numbers shift with HMR.
 
-```diff
--  const confidenceHandling = nodeConfig.scoring_rules?.confidence_handling || 'skip'
-+  const confidenceHandling = nodeConfig.confidence_handling || 'skip'
-   const renormalize = nodeConfig.scoring_renormalize_on_skip !== false
-   ...
--  const minThreshold = nodeConfig.scoring_rules?.min_metrics_threshold || 50
-+  const minThreshold = nodeConfig.min_metrics_threshold ?? 50
+This was introduced in Step 6 (the `pendingPhaseIds` / `pendingAll` in-flight tracking additions) — they were appended after the existing `if (!open) return null` guard instead of being placed with the other hooks.
+
+## Fix
+
+Single-file change. Move the two `useState` declarations (and the `_previewAfter` `useMemo`) above the `if (!open) return null` guard. No behavioral change — these hooks already run unconditionally when the modal is open; the fix just makes them also run (harmlessly) when it's closed, which is what React requires.
+
+### Diff outline
+
+```text
+src/features/athlete-lab/components/MigrateCoachingCuesModal.tsx
+
+  // ... existing hooks (closeRef, reconciliation, drafts, 3× useEffect) ...
+
++ // [MOVED FROM BELOW EARLY RETURN] In-flight commit tracking.
++ const [pendingPhaseIds, setPendingPhaseIds] = useState<Set<string>>(new Set());
++ const [pendingAll, setPendingAll] = useState(false);
 +
-+  logInfo('scoring_config_applied', {
-+    nodeId: nodeConfig.id,
-+    nodeName: nodeConfig.name,
-+    confidence_handling: confidenceHandling,
-+    min_metrics_threshold: minThreshold,
-+    renormalize_on_skip: renormalize,
-+    total_metrics: totalMetrics,
-+    scored_count: scored.length,
-+    flagged_count: flagged.length,
-+    skipped_count: skipped.length,
-+  })
++ // [MOVED FROM BELOW EARLY RETURN] Preview helper exercise.
++ const _previewAfter = useMemo(() => { ... }, [reconciliation, drafts, phase_breakdown]);
++ void _previewAfter;
+
+  if (!open) return null;
+
+  const totalPhases = reconciliation.phases.length;
+  const confirmAllEligible = canOfferConfirmAll(reconciliation);
+
+- // [DELETED] const [pendingPhaseIds, ...] = useState(...);
+- // [DELETED] const [pendingAll, ...] = useState(...);
+  const anyPending = pendingAll || pendingPhaseIds.size > 0;
+
+  // ... handlers unchanged ...
+
+- // [DELETED] const _previewAfter = useMemo(...);
+- // [DELETED] void _previewAfter;
+
+  return ( /* unchanged JSX */ );
 ```
 
-### A4 — same file, variables object (lines 3013–3015)
+Plain values that are NOT hooks (`totalPhases`, `confirmAllEligible`, `anyPending`, `confirmedCount`, the two handler functions) stay below the early return — they don't violate the Rules of Hooks and don't need to run when the modal is closed.
 
-```diff
-     athlete_name: context.athlete_name || 'Athlete',
-     node_name: nodeConfig.name,
-+    position: nodeConfig.position || '',
-     athlete_level: context.athlete_level || 'high_school',
-```
+## Verification
 
-### A2 — `src/features/athlete-lab/types.ts` (lines 2 & 4)
+1. **Build clean**: `bunx tsc --noEmit` passes.
+2. **Manual repro**:
+   - Open Slant in `/athlete-lab`.
+   - Click migration banner → modal opens with no crash, no blank screen.
+   - Close → reopen → still works (hook count stable across mount/unmount cycles).
+   - Confirm one phase → "Saving…" state renders → confirms the moved `pendingPhaseIds` state still drives in-flight UI correctly.
+   - Confirm-all path (if eligible) exercises the moved `pendingAll` state.
+3. **Console**: zero "Rendered more hooks" warnings, zero "change in the order of Hooks" warnings.
 
-```diff
--export type BilateralMode = "auto" | "left" | "right";
-+export type BilateralMode = "auto" | "left" | "right" | "none";
+## Out of scope
 
--export type BilateralOverride = "auto" | "force_left" | "force_right";
-+export type BilateralOverride = "auto" | "force_left" | "force_right" | "none";
-```
+- The `SectionTooltip` `forwardRef` warning that also appears in the console — separate issue in `PhasesEditor`, not blocking the modal. Will flag for a follow-up but not touching in this hotfix.
+- The `onStatusChange` no-op prop cleanup — already inherited by 1c.2, not addressed here.
 
-### A2 — `src/features/athlete-lab/components/KeyMetricsEditor.tsx` (lines 44–54)
+## Ship path
 
-Add `"none"` to both option lists:
-
-```diff
- const BILATERAL_OPTIONS: ... = [
-   { value: "auto", label: "Node Default (Auto)" },
-   { value: "left", label: "Node Default (Left)" },
-   { value: "right", label: "Node Default (Right)" },
-+  { value: "none", label: "Not bilateral (center / both-sides keypoints)" },
- ];
-
- const BILATERAL_OVERRIDE_OPTIONS: ... = [
-   ...existing three...
-+  { value: "none", label: "Not bilateral",
-+    description: "Use the metric's keypoint indices verbatim. No mirroring, no side selection. Use for center keypoints (nose, hip-center) or metrics that intentionally span both sides (e.g. hip width, ankle stance width)." },
- ];
-```
-
-### A3 — `src/features/athlete-lab/components/CameraEditor.tsx` (lines 64–72)
-
-Replace BODY_PART_GROUPS with MediaPipe Pose 33-landmark mapping (decomposed arms, single-model note):
-
-```diff
--const BODY_PART_GROUPS: BodyPartGroup[] = [
--  { label: "Head and Face", ..., indexRange: [0, 4] },
--  { label: "Shoulders and Arms", ..., indexRange: [5, 10] },
--  { label: "Hips", ..., indexRange: [11, 12] },
--  { label: "Knees", ..., indexRange: [13, 14] },
--  { label: "Ankles", ..., indexRange: [15, 16] },
--  { label: "Feet (Heel/Toe)", ..., indexRange: [17, 22], requiresModel: "Body with Feet" },
--  { label: "Hands", ..., indexRange: [91, 132], requiresModel: "Wholebody" },
--];
-+// MediaPipe Pose 33-landmark map. All landmarks come from one model;
-+// `requiresModel` retained on the interface for forward compat (HandLandmarker).
-+const BODY_PART_GROUPS: BodyPartGroup[] = [
-+  { label: "Face", humanLabel: "Head must be clearly visible and facing camera", indexRange: [0, 10] },
-+  { label: "Shoulders", humanLabel: "Both shoulders visible", indexRange: [11, 12] },
-+  { label: "Elbows", humanLabel: "Both elbows clearly visible", indexRange: [13, 14] },
-+  { label: "Wrists", humanLabel: "Both wrists clearly visible at catch point", indexRange: [15, 16] },
-+  { label: "Hands (approximation)", humanLabel: "Pinky / index / thumb landmarks from MediaPipe Pose. Approximation only — for precise finger tracking, future versions can layer in MediaPipe HandLandmarker.", indexRange: [17, 22] },
-+  { label: "Hips", humanLabel: "Full hip width visible", indexRange: [23, 24] },
-+  { label: "Knees", humanLabel: "Both knees clearly visible", indexRange: [25, 26] },
-+  { label: "Ankles", humanLabel: "Both ankles clearly visible", indexRange: [27, 28] },
-+  { label: "Feet (heel + toe)", humanLabel: "Plant foot heel and toe clearly visible — required for break-foot timing and stance width", indexRange: [29, 32] },
-+];
-```
-
-## Post-execution
-
-1. Run `bun run build` and report TS + build status.
-2. Report GOOD / PARTIAL / BAD with full diffs.
-3. Provide sample log structures for `scoring_config_applied` and `variables_injected[].position`.
-4. Present Group B plan.
-
-## A2 confirmation (per your "pause if non-trivial" guard)
-
-I re-grepped the analyzer before acting. The runtime side-resolution code at `analyze-athlete-video/index.ts:2800–2816` **already handles** `bilateral === 'none'` and `bilateral_override === 'none'` with a clean early-return that uses `baseIndices` verbatim. The frontend types are simply lagging — the analyzer was built expecting `'none'` to exist. **Zero edge function code change required for A2.** Type-only fix on the frontend. Proceeding without pause.
+After fix lands and passes manual repro, Publish → Update. Then you can resume Action 2 (Slant migration confirmation).
