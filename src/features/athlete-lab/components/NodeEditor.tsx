@@ -831,12 +831,42 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "basics" && (
           <div className="space-y-4">
-             <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <label className={LABEL_CLASS}>Route / Skill Name</label>
-                <SectionTooltip tip="The name athletes see in their training feed and results. Keep it specific — 'Slant Route' not 'Route Running.'" />
+             {/* Identity row — Name + Position. Phase 1c.1 Slice 3 added the
+                 Position dropdown alongside the existing Name input. The
+                 layout is a 2-col grid on lg+ and stacks on smaller widths.
+                 Position writes to `athlete_lab_nodes.position` (text,
+                 nullable); the edge function reads it for the {{position}}
+                 prompt template variable (verified Slice 1). Optional by
+                 design — position-agnostic nodes leave it unset. */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-4">
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <label className={LABEL_CLASS}>Route / Skill Name</label>
+                  <SectionTooltip tip="The name athletes see in their training feed and results. Keep it specific — 'Slant Route' not 'Route Running.'" />
+                </div>
+                <input className={INPUT_CLASS} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
               </div>
-              <input className={INPUT_CLASS} value={draft.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Slant Route" />
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <label className={LABEL_CLASS}>Position</label>
+                  <SectionTooltip tip="The football position this node teaches skills for. Used by the prompt template ({{position}}) and by the sidebar position filter. Optional — leave unset for position-agnostic nodes." />
+                </div>
+                <select
+                  className={INPUT_CLASS}
+                  value={draft.position ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    update("position", v === "" ? null : (v as PositionValue));
+                  }}
+                >
+                  <option value="">— None —</option>
+                  {POSITION_OPTIONS.map((pos) => (
+                    <option key={pos} value={pos}>
+                      {pos}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="border-t border-white/[0.11] my-6" />
