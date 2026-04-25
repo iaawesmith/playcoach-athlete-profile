@@ -336,6 +336,8 @@ export function MigrateCoachingCuesModal({
             <div className="space-y-4">
               {reconciliation.phases.map((r, i) => {
                 const isConfirmed = !!(r.phase_id && confirmed_phase_ids.has(r.phase_id));
+                const isPhasePending = !!(r.phase_id && pendingPhaseIds.has(r.phase_id));
+                const isDisabled = !r.phase_id || isPhasePending || pendingAll;
                 const meta = PATTERN_META[r.pattern];
                 const draftValue =
                   (r.phase_id && drafts[r.phase_id]) ?? r.proposed_coaching_cues;
@@ -369,10 +371,10 @@ export function MigrateCoachingCuesModal({
                       </div>
                       <button
                         onClick={() => handleCommitPhase(r)}
-                        disabled={!r.phase_id}
+                        disabled={isDisabled}
                         className="rounded-full bg-primary-container px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#00460a] transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {isConfirmed ? "Re-confirm" : "Confirm phase"}
+                        {isPhasePending ? "Saving..." : isConfirmed ? "Re-confirm" : "Confirm phase"}
                       </button>
                     </div>
 
