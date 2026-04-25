@@ -991,8 +991,11 @@ function summarizeKeypointConfidence(scores: VideoScores) {
     })
   }
 
+  // Emit all observed indices (MediaPipe-33). Previously truncated to 17
+  // (COCO-17 era), which hid confidence stats for indices 19-28 used by
+  // active metrics (Plant Leg Extension: 23,25,27; Hip Stability: 23,24).
+  // MediaPipe landmark name lookup deferred to Phase 1c.
   return Array.from(totals.entries())
-    .slice(0, 17)
     .map(([index, summary]) => {
       const mean = summary.count > 0 ? summary.total / summary.count : 0
       const percentBelow = summary.count > 0 ? (summary.framesBelow / summary.count) * 100 : 0
@@ -1618,15 +1621,20 @@ function calculateBodyBasedCalibration(
 
     if (!Array.isArray(frameKeypoints) || !Array.isArray(frameScores)) continue
 
-    const leftShoulder = frameKeypoints[5]
-    const rightShoulder = frameKeypoints[6]
-    const leftHip = frameKeypoints[11]
-    const rightHip = frameKeypoints[12]
+    // MediaPipe Pose-33 indices: 11=L shoulder, 12=R shoulder, 23=L hip, 24=R hip.
+    // Previously used COCO-17 indices [5,6,11,12], which on MediaPipe-33 data
+    // map to ear/eye landmarks → produced impossible measurements (e.g. 186mph
+    // release speed). Anthropometric ratios below (0.259 shoulder, 0.191 hip of
+    // standing height) are landmark-agnostic and remain correct under this swap.
+    const leftShoulder = frameKeypoints[11]
+    const rightShoulder = frameKeypoints[12]
+    const leftHip = frameKeypoints[23]
+    const rightHip = frameKeypoints[24]
 
-    const leftShoulderScore = frameScores[5]
-    const rightShoulderScore = frameScores[6]
-    const leftHipScore = frameScores[11]
-    const rightHipScore = frameScores[12]
+    const leftShoulderScore = frameScores[11]
+    const rightShoulderScore = frameScores[12]
+    const leftHipScore = frameScores[23]
+    const rightHipScore = frameScores[24]
 
     const shoulderValid = isValidPoint(leftShoulder) && isValidPoint(rightShoulder)
       && Number.isFinite(leftShoulderScore) && Number.isFinite(rightShoulderScore)
