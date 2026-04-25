@@ -54,12 +54,15 @@ interface LlmPromptEditorProps {
   onMaxWordsChange: (v: number) => void;
   systemInstructions: string;
   onSystemInstructionsChange: (v: string) => void;
+  phaseContextMode: PhaseContextMode;
+  onPhaseContextModeChange: (v: PhaseContextMode) => void;
 }
 
 export function LlmPromptEditor({
   promptTemplate, onPromptChange,
   maxWords, onMaxWordsChange,
   systemInstructions, onSystemInstructionsChange,
+  phaseContextMode, onPhaseContextModeChange,
 }: LlmPromptEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [insertedVar, setInsertedVar] = useState<string | null>(null);
