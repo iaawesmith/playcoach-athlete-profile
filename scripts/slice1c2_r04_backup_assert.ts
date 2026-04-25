@@ -39,11 +39,15 @@ type FieldSpec = {
   source_column: string;
   // Function returning the canonical live value as a string (or null).
   resolveLive: (row: Record<string, unknown>) => string | null;
+  // If true, comparison is semantic-deep-equal of parsed JSON rather than byte-equal.
+  // PG's ::text on JSONB normalizes whitespace and key order in a way that differs
+  // from JS JSON.stringify, so byte-equal is the wrong invariant for JSONB sources.
+  jsonSemantic?: boolean;
 };
 
 const FIELD_SPECS: FieldSpec[] = [
   // Slice E root-column targets (10)
-  { source_column: "pro_mechanics", resolveLive: (r) => stringifyMaybeJson(r.pro_mechanics) },
+  { source_column: "pro_mechanics", resolveLive: (r) => stringifyMaybeJson(r.pro_mechanics), jsonSemantic: true },
   { source_column: "llm_tone", resolveLive: (r) => stringifyScalar(r.llm_tone) },
   { source_column: "det_frequency", resolveLive: (r) => stringifyScalar(r.det_frequency) },
   { source_column: "solution_class", resolveLive: (r) => stringifyScalar(r.solution_class) },
@@ -54,7 +58,7 @@ const FIELD_SPECS: FieldSpec[] = [
   { source_column: "reference_object", resolveLive: (r) => stringifyScalar(r.reference_object) },
   { source_column: "reference_filming_instructions", resolveLive: (r) => stringifyScalar(r.reference_filming_instructions) },
   // Slice D JSON sources (4)
-  { source_column: "camera_guidelines", resolveLive: (r) => stringifyMaybeJson(r.camera_guidelines) },
+  { source_column: "camera_guidelines", resolveLive: (r) => stringifyMaybeJson(r.camera_guidelines), jsonSemantic: true },
   {
     source_column: "camera_guidelines.skill_specific_filming_notes",
     resolveLive: (r) => {
@@ -64,7 +68,7 @@ const FIELD_SPECS: FieldSpec[] = [
       return v == null ? "" : String(v);
     },
   },
-  { source_column: "reference_calibrations", resolveLive: (r) => stringifyMaybeJson(r.reference_calibrations) },
+  { source_column: "reference_calibrations", resolveLive: (r) => stringifyMaybeJson(r.reference_calibrations), jsonSemantic: true },
   {
     source_column: "camera_guidelines.metadata_thresholds",
     resolveLive: (r) => {
@@ -85,6 +89,7 @@ const FIELD_SPECS: FieldSpec[] = [
       };
       return JSON.stringify(bundle);
     },
+    jsonSemantic: true,
   },
 ];
 
