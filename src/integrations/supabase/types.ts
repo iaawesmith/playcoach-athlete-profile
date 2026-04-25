@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      _tmp_size_test: {
+        Row: {
+          id: string
+          v: string | null
+        }
+        Insert: {
+          id?: string
+          v?: string | null
+        }
+        Update: {
+          id?: string
+          v?: string | null
+        }
+        Relationships: []
+      }
       admin_enhancements: {
         Row: {
           created_at: string
