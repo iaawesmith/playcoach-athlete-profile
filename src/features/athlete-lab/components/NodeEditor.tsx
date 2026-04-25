@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, CoachingCuesMigrationStatus } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
@@ -10,6 +10,9 @@ import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCa
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
+import { MigrateCoachingCuesModal, type PhaseCommit } from "./MigrateCoachingCuesModal";
+import { CoachingCuesMigrationBanner } from "./CoachingCuesMigrationBanner";
+import { applyConfirmedCues } from "../utils/migrateCoachingCues";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
 import { generateTabMarkdown } from "../utils/nodeExport";
@@ -427,6 +430,22 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ title: string; body: string; confirmLabel: string; onConfirm: () => void } | null>(null);
+  /* Phase 1c.1 Slice 2 — coaching cues migration modal state. Persistence
+     of confirmed_phase_ids is in-draft only for Step 4; Step 6 wires this
+     to per-phase persisted state. */
+  const [migrationModalOpen, setMigrationModalOpen] = useState(false);
+  const [confirmedPhaseIds, setConfirmedPhaseIds] = useState<Set<string>>(() => {
+    /* On mount, treat any phase that already has a non-empty coaching_cues
+       value as previously confirmed. Slice 2 deploys with all empty so this
+       is normally an empty set. */
+    const s = new Set<string>();
+    for (const p of node.phase_breakdown ?? []) {
+      if (p.id && typeof p.coaching_cues === "string" && p.coaching_cues.trim() !== "") {
+        s.add(p.id);
+      }
+    }
+    return s;
+  });
   const [showAdvancedTabs, setShowAdvancedTabs] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
@@ -498,6 +517,42 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
      Auto-draft on save is now unconditional for any save on a Live node. */
   const updateWithCriticalTrack = update;
 
+  /* ── Phase 1c.1 Slice 2 — coaching cues migration handlers ──
+     These mutate the local `draft` only. Step 4 keeps persistence out of scope;
+     the user still has to click Save Changes to write through. Step 6 will
+     promote these to direct Supabase writes if/when we want commits to be
+     auto-saved. */
+  const applyMigrationCommits = useCallback((commits: PhaseCommit[]) => {
+    if (commits.length === 0) return;
+    setDraft((d) => {
+      const map = new Map<string, { coaching_cues: string; cleaned_description: string }>();
+      for (const c of commits) {
+        map.set(c.phase_id, { coaching_cues: c.coaching_cues, cleaned_description: c.cleaned_description });
+      }
+      const nextPhases = applyConfirmedCues(d.phase_breakdown, map);
+      return { ...d, phase_breakdown: nextPhases };
+    });
+    setConfirmedPhaseIds((prev) => {
+      const next = new Set(prev);
+      for (const c of commits) next.add(c.phase_id);
+      return next;
+    });
+    setDirty(true);
+  }, []);
+
+  const handleMigrationCommitPhase = useCallback((commit: PhaseCommit) => {
+    applyMigrationCommits([commit]);
+  }, [applyMigrationCommits]);
+
+  const handleMigrationCommitAll = useCallback((commits: PhaseCommit[]) => {
+    applyMigrationCommits(commits);
+  }, [applyMigrationCommits]);
+
+  const handleMigrationStatusChange = useCallback((next: CoachingCuesMigrationStatus) => {
+    update("coaching_cues_migration_status", next);
+  }, [update]);
+
+
   const save = async () => {
     setSaving(true);
     try {
@@ -519,6 +574,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
         phase_context_mode: draft.phase_context_mode ?? "compact",
+        coaching_cues_migration_status: draft.coaching_cues_migration_status ?? "pending",
         badges: draft.badges,
         elite_videos: draft.elite_videos,
         knowledge_base: draft.knowledge_base,
@@ -879,6 +935,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "mechanics" && (
           <div className="space-y-4">
+            <CoachingCuesMigrationBanner
+              surface="mechanics"
+              status={draft.coaching_cues_migration_status ?? "pending"}
+              confirmed_count={confirmedPhaseIds.size}
+              total_phases={draft.phase_breakdown.length}
+              onOpenModal={() => setMigrationModalOpen(true)}
+            />
             <div className="flex items-center gap-1.5">
               <label className={LABEL_CLASS}>Phase Mechanics</label>
               <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
@@ -917,14 +980,23 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "phases" && (
-          <PhasesEditor
-            phases={draft.phase_breakdown}
-            onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
-            segmentationMethod={draft.segmentation_method ?? "proportional"}
-            onSegmentationMethodChange={(m) => update("segmentation_method", m)}
-            onConfirmDelete={(opts) => setConfirmModal(opts)}
-            advancedEnabled={showAdvancedTabs}
-          />
+          <div className="space-y-4">
+            <CoachingCuesMigrationBanner
+              surface="phases"
+              status={draft.coaching_cues_migration_status ?? "pending"}
+              confirmed_count={confirmedPhaseIds.size}
+              total_phases={draft.phase_breakdown.length}
+              onOpenModal={() => setMigrationModalOpen(true)}
+            />
+            <PhasesEditor
+              phases={draft.phase_breakdown}
+              onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
+              segmentationMethod={draft.segmentation_method ?? "proportional"}
+              onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+              onConfirmDelete={(opts) => setConfirmModal(opts)}
+              advancedEnabled={showAdvancedTabs}
+            />
+          </div>
         )}
 
         {tab === "reference" && (
@@ -1013,6 +1085,17 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           confirmLabel={confirmModal?.confirmLabel ?? "Delete"}
           onConfirm={() => { confirmModal?.onConfirm(); setConfirmModal(null); }}
           onCancel={() => setConfirmModal(null)}
+        />
+        <MigrateCoachingCuesModal
+          open={migrationModalOpen}
+          phase_breakdown={draft.phase_breakdown}
+          pro_mechanics={draft.pro_mechanics}
+          status={draft.coaching_cues_migration_status ?? "pending"}
+          confirmed_phase_ids={confirmedPhaseIds}
+          onCommitPhase={handleMigrationCommitPhase}
+          onCommitAll={handleMigrationCommitAll}
+          onStatusChange={handleMigrationStatusChange}
+          onClose={() => setMigrationModalOpen(false)}
         />
       </div>
     </div>
