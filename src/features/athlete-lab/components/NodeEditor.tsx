@@ -430,6 +430,22 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ title: string; body: string; confirmLabel: string; onConfirm: () => void } | null>(null);
+  /* Phase 1c.1 Slice 2 — coaching cues migration modal state. Persistence
+     of confirmed_phase_ids is in-draft only for Step 4; Step 6 wires this
+     to per-phase persisted state. */
+  const [migrationModalOpen, setMigrationModalOpen] = useState(false);
+  const [confirmedPhaseIds, setConfirmedPhaseIds] = useState<Set<string>>(() => {
+    /* On mount, treat any phase that already has a non-empty coaching_cues
+       value as previously confirmed. Slice 2 deploys with all empty so this
+       is normally an empty set. */
+    const s = new Set<string>();
+    for (const p of node.phase_breakdown ?? []) {
+      if (p.id && typeof p.coaching_cues === "string" && p.coaching_cues.trim() !== "") {
+        s.add(p.id);
+      }
+    }
+    return s;
+  });
   const [showAdvancedTabs, setShowAdvancedTabs] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
