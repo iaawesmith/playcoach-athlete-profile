@@ -518,6 +518,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         
         llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
+        phase_context_mode: draft.phase_context_mode ?? "compact",
         badges: draft.badges,
         elite_videos: draft.elite_videos,
         knowledge_base: draft.knowledge_base,
