@@ -167,6 +167,7 @@ export type Database = {
           camera_guidelines: string
           clip_duration_max: number
           clip_duration_min: number
+          coaching_cues_migration_status: string
           common_errors: Json
           confidence_handling: string
           created_at: string
@@ -211,6 +212,7 @@ export type Database = {
           camera_guidelines?: string
           clip_duration_max?: number
           clip_duration_min?: number
+          coaching_cues_migration_status?: string
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
@@ -255,6 +257,7 @@ export type Database = {
           camera_guidelines?: string
           clip_duration_max?: number
           clip_duration_min?: number
+          coaching_cues_migration_status?: string
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
