@@ -168,6 +168,29 @@ DB schema work (1c.2) starts only after both 1c.1 slices have one full week of c
 
 ---
 
+## §3.5 — Methodological note: comparison invariants across migration boundaries
+
+**Established:** 2026-04-25, during Phase 1c.2 Slice A R-04 backup-completeness assertion.
+
+When asserting parity of values captured before vs. after a migration boundary, the correct comparison invariant depends on the data shape — not on whether the column happens to be `text` or `jsonb` in Postgres:
+
+| Data shape | Correct invariant | Why |
+|---|---|---|
+| Plain text columns (markdown, prose, identifiers) | **Byte-equal** | No re-rendering occurs; any byte drift indicates real corruption. |
+| JSONB sources, or any structure that is parsed and re-serialized across the boundary | **Semantic deep-equal** of parsed objects | PostgreSQL's `::text` cast on JSONB normalizes whitespace and key order differently than JS `JSON.stringify`. Byte-equal will produce false negatives even when the data is identical. |
+| Sets of extracted tokens (e.g., `{{var}}` references in a template, enum values present, column names produced) | **Set equality** | Order and multiplicity are not invariants; membership is. Neither byte- nor deep-equal models the actual contract. |
+| Numeric resolved values (e.g., the integer `det_frequency` after fallback resolution) | **Byte-equal on the canonical string form**, or `===` on parsed numbers | Once resolved to a scalar, there is no representational ambiguity; byte-equal is sufficient and the strictest. |
+
+**Application to Phase 1c.2 assertions:**
+
+- **R-04 (backup completeness):** Mixed — text fields use byte-equal, JSONB sources use semantic deep-equal. Implemented in `scripts/slice1c2_r04_backup_assert.ts`.
+- **R-06 (`det_frequency` parity across collapse):** Byte-equal on the persisted resolved integer. The resolver outputs a scalar; no JSON re-serialization occurs.
+- **R-09 (template-variable resolution after deletes):** Set equality of `{{var}}` tokens extracted from `llm_prompt_template` and `llm_system_instructions`, cross-checked against the post-1c.2 known-variable list. Neither byte- nor deep-equal applies — the contract is "every referenced variable resolves to a non-empty value."
+
+**Discipline for future phases:** Before writing any new R-xx assertion script, name the data shape first and pick the invariant from this table. Do not default to byte-equal because the column type is `text`; do not default to deep-equal because the column type is `jsonb`. The shape of the data and what crosses the boundary determines the invariant.
+
+---
+
 ## §4 — Closing summary
 
 - **12 risks enumerated** across 1c.1 (functional), 1c.2 (deletion), 1c.3 (UI consolidation), and post-1c hygiene.
