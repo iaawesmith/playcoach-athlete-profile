@@ -163,16 +163,40 @@ export function MigrateCoachingCuesModal({
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
+  // Per-phase + bulk in-flight tracking. Step 6: while a commit is being
+  // persisted, disable the relevant buttons so the admin can't double-click
+  // and the visual state honestly reflects "saving".
+  //
+  // HOTFIX: These hooks must be declared above the `if (!open) return null`
+  // guard below. React's Rules of Hooks require the same hooks to run in the
+  // same order on every render — declaring them after an early return causes
+  // the hook count to differ between closed (6 hooks) and open (9 hooks)
+  // renders, producing the "Rendered more hooks than during the previous
+  // render" crash and a blank admin UI.
+  const [pendingPhaseIds, setPendingPhaseIds] = useState<Set<string>>(new Set());
+  const [pendingAll, setPendingAll] = useState(false);
+
+  // Build a preview of what `phase_breakdown` will look like after applying
+  // current drafts — useful for the count chip and accessible to QA. Not
+  // rendered directly but kept here so the helper is exercised by the modal.
+  // HOTFIX: Also moved above the early return for the same Rules-of-Hooks reason.
+  const _previewAfter = useMemo(() => {
+    const map = new Map<string, { coaching_cues: string; cleaned_description: string }>();
+    for (const r of reconciliation.phases) {
+      if (!r.phase_id) continue;
+      map.set(r.phase_id, {
+        coaching_cues: drafts[r.phase_id] ?? r.proposed_coaching_cues,
+        cleaned_description: r.cleaned_description,
+      });
+    }
+    return applyConfirmedCues(phase_breakdown, map);
+  }, [reconciliation, drafts, phase_breakdown]);
+  void _previewAfter;
+
   if (!open) return null;
 
   const totalPhases = reconciliation.phases.length;
   const confirmAllEligible = canOfferConfirmAll(reconciliation);
-
-  // Per-phase + bulk in-flight tracking. Step 6: while a commit is being
-  // persisted, disable the relevant buttons so the admin can't double-click
-  // and the visual state honestly reflects "saving".
-  const [pendingPhaseIds, setPendingPhaseIds] = useState<Set<string>>(new Set());
-  const [pendingAll, setPendingAll] = useState(false);
   const anyPending = pendingAll || pendingPhaseIds.size > 0;
 
   const handleCommitPhase = async (r: PhaseReconciliation) => {
