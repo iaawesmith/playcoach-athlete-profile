@@ -87,9 +87,17 @@ function generatePhases(node: TrainingNode): string {
   const seg = node.segmentation_method ?? "proportional";
   const weightSum = phases.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   const segLabel = seg === "proportional" ? "Proportional" : "Checkpoint-triggered";
-  let out = `## Phases\n\nCount: ${phases.length} phases\nSegmentation Method: ${segLabel}\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\n`;
+  // Phase 1c.1 Slice 2 — coaching_cues moved from the legacy Mechanics tab
+  // into per-phase storage. Render as its own labeled subsection only when
+  // populated so unmigrated nodes show no extra noise.
+  const migrationStatus = node.coaching_cues_migration_status ?? "pending";
+  let out = `## Phases\n\nCount: ${phases.length} phases\nSegmentation Method: ${segLabel}\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\nCoaching Cues Migration Status: ${migrationStatus}\n`;
   phases.forEach((p, i) => {
     out += `\n### Phase ${i + 1}: ${p.name} — ${p.proportion_weight ?? 0}% of clip\nDescription: ${p.description || "Not configured"}\nFrame Buffer: ${p.frame_buffer ?? 3} frames\n`;
+    const cues = p.coaching_cues?.trim();
+    if (cues) {
+      out += `\n#### Coaching Cues\n${cues}\n`;
+    }
   });
   return out;
 }
