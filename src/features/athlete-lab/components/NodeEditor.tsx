@@ -517,6 +517,42 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
      Auto-draft on save is now unconditional for any save on a Live node. */
   const updateWithCriticalTrack = update;
 
+  /* ── Phase 1c.1 Slice 2 — coaching cues migration handlers ──
+     These mutate the local `draft` only. Step 4 keeps persistence out of scope;
+     the user still has to click Save Changes to write through. Step 6 will
+     promote these to direct Supabase writes if/when we want commits to be
+     auto-saved. */
+  const applyMigrationCommits = useCallback((commits: PhaseCommit[]) => {
+    if (commits.length === 0) return;
+    setDraft((d) => {
+      const map = new Map<string, { coaching_cues: string; cleaned_description: string }>();
+      for (const c of commits) {
+        map.set(c.phase_id, { coaching_cues: c.coaching_cues, cleaned_description: c.cleaned_description });
+      }
+      const nextPhases = applyConfirmedCues(d.phase_breakdown, map);
+      return { ...d, phase_breakdown: nextPhases };
+    });
+    setConfirmedPhaseIds((prev) => {
+      const next = new Set(prev);
+      for (const c of commits) next.add(c.phase_id);
+      return next;
+    });
+    setDirty(true);
+  }, []);
+
+  const handleMigrationCommitPhase = useCallback((commit: PhaseCommit) => {
+    applyMigrationCommits([commit]);
+  }, [applyMigrationCommits]);
+
+  const handleMigrationCommitAll = useCallback((commits: PhaseCommit[]) => {
+    applyMigrationCommits(commits);
+  }, [applyMigrationCommits]);
+
+  const handleMigrationStatusChange = useCallback((next: CoachingCuesMigrationStatus) => {
+    update("coaching_cues_migration_status", next);
+  }, [update]);
+
+
   const save = async () => {
     setSaving(true);
     try {
