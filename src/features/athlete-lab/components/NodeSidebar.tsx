@@ -9,11 +9,26 @@ const POSITION_TABS: Array<{ key: "ALL" | NodePosition; label: string }> = [
   { key: "RB", label: "RB" },
 ];
 
+/**
+ * Color map for the sidebar position pill. Only the legacy 3 NodePosition
+ * grouping values have explicit colors. Slice 3 widened
+ * `TrainingNode.position` to all 11 PositionValue entries — when a node has
+ * a position outside this map (e.g. "TE", "DL"), the pill falls back to a
+ * neutral `outline-variant` tone so the sidebar renders without crashing.
+ * Designing a full 11-color palette + sidebar tab redesign is out of slice 3
+ * scope.
+ */
 const POSITION_COLORS: Record<NodePosition, string> = {
   WR: "#00e639",
   QB: "#4A90D9",
   RB: "#E88A3A",
 };
+
+const POSITION_PILL_FALLBACK = "#a8abaf";
+
+function positionPillColor(pos: string): string {
+  return (POSITION_COLORS as Record<string, string>)[pos] ?? POSITION_PILL_FALLBACK;
+}
 
 interface NodeSidebarProps {
   nodes: TrainingNode[];
@@ -118,7 +133,7 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onRequestDelet
             {node.position && (
               <span
                 className="px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider shrink-0"
-                style={{ backgroundColor: `${POSITION_COLORS[node.position]}20`, color: POSITION_COLORS[node.position] }}
+                style={{ backgroundColor: `${positionPillColor(node.position)}20`, color: positionPillColor(node.position) }}
               >
                 {node.position}
               </span>
