@@ -299,6 +299,27 @@ export type Database = {
         }
         Relationships: []
       }
+      athlete_lab_nodes_phase1c_backup: {
+        Row: {
+          content: string | null
+          id: string
+          node_id: string | null
+          source_column: string | null
+        }
+        Insert: {
+          content?: string | null
+          id?: string
+          node_id?: string | null
+          source_column?: string | null
+        }
+        Update: {
+          content?: string | null
+          id?: string
+          node_id?: string | null
+          source_column?: string | null
+        }
+        Relationships: []
+      }
       athlete_lab_results: {
         Row: {
           aggregate_score: number | null
