@@ -164,29 +164,41 @@ export function MigrateCoachingCuesModal({
   const totalPhases = reconciliation.phases.length;
   const confirmAllEligible = canOfferConfirmAll(reconciliation);
 
-  // Lifecycle preview helpers — for chip display only. Status only changes
-  // when the parent calls onStatusChange after a successful commit.
-  const advanceStatus = (newConfirmedCount: number) => {
-    const next = nextMigrationStatus(status, newConfirmedCount, totalPhases);
-    if (next !== status) onStatusChange(next);
-  };
+  // Per-phase + bulk in-flight tracking. Step 6: while a commit is being
+  // persisted, disable the relevant buttons so the admin can't double-click
+  // and the visual state honestly reflects "saving".
+  const [pendingPhaseIds, setPendingPhaseIds] = useState<Set<string>>(new Set());
+  const [pendingAll, setPendingAll] = useState(false);
+  const anyPending = pendingAll || pendingPhaseIds.size > 0;
 
-  const handleCommitPhase = (r: PhaseReconciliation) => {
+  const handleCommitPhase = async (r: PhaseReconciliation) => {
     if (!r.phase_id) return;
+    if (pendingPhaseIds.has(r.phase_id) || pendingAll) return;
     const cues = drafts[r.phase_id] ?? r.proposed_coaching_cues;
-    onCommitPhase({
-      phase_id: r.phase_id,
-      coaching_cues: cues,
-      cleaned_description: r.cleaned_description,
+    setPendingPhaseIds((prev) => {
+      const next = new Set(prev);
+      next.add(r.phase_id as string);
+      return next;
     });
-    // Compute new confirmed count assuming this phase is now confirmed.
-    const newSet = new Set(confirmed_phase_ids);
-    newSet.add(r.phase_id);
-    advanceStatus(newSet.size);
+    try {
+      await onCommitPhase({
+        phase_id: r.phase_id,
+        coaching_cues: cues,
+        cleaned_description: r.cleaned_description,
+      });
+    } catch {
+      // Parent surfaces the error; modal just clears its in-flight state.
+    } finally {
+      setPendingPhaseIds((prev) => {
+        const next = new Set(prev);
+        next.delete(r.phase_id as string);
+        return next;
+      });
+    }
   };
 
-  const handleCommitAll = () => {
-    if (!confirmAllEligible) return;
+  const handleCommitAll = async () => {
+    if (!confirmAllEligible || anyPending) return;
     const commits: PhaseCommit[] = reconciliation.phases
       .filter((r) => r.phase_id)
       .map((r) => ({
@@ -194,8 +206,14 @@ export function MigrateCoachingCuesModal({
         coaching_cues: drafts[r.phase_id as string] ?? r.proposed_coaching_cues,
         cleaned_description: r.cleaned_description,
       }));
-    onCommitAll(commits);
-    advanceStatus(totalPhases);
+    setPendingAll(true);
+    try {
+      await onCommitAll(commits);
+    } catch {
+      // Parent surfaces the error.
+    } finally {
+      setPendingAll(false);
+    }
   };
 
   const confirmedCount = reconciliation.phases.filter(
