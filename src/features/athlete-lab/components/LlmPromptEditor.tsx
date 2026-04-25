@@ -163,6 +163,42 @@ export function LlmPromptEditor({
         )}
       </div>
 
+      {/* ── SECTION 1.5: PHASE CONTEXT MODE ── */}
+      <SectionDivider label="Phase Context Mode" />
+
+      <div className="p-5 rounded-xl border border-outline-variant/20 space-y-3 bg-[#1A2029]">
+        <div className="flex items-center gap-1.5 mb-1">
+          <label className={LABEL_CLASS}>Phase Context Mode</label>
+          <SectionTooltip tip="Controls how phases are rendered into the {{phase_context}} template variable. Compact is safe for most nodes. Full sends every phase description and coaching cue and may overflow the token budget on dense nodes — the Edge Function will hard-fail with a 413 rather than truncate silently." />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {PHASE_CONTEXT_MODE_OPTIONS.map((opt) => {
+            const active = phaseContextMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onPhaseContextModeChange(opt.value)}
+                className={`text-left rounded-xl px-4 py-3 border transition-all ${
+                  active
+                    ? "border-primary-container/60 bg-primary-container/10 shadow-[0_0_8px_rgba(0,230,57,0.15)]"
+                    : "border-outline-variant/15 bg-surface-container-lowest hover:border-outline-variant/40"
+                }`}
+              >
+                <div className={`text-xs font-bold uppercase tracking-widest ${active ? "text-primary-container" : "text-on-surface"}`}>
+                  {opt.label}
+                </div>
+                <div className="text-on-surface-variant/70 text-[11px] leading-snug mt-1">{opt.help}</div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-on-surface-variant/50 text-[10px] leading-snug">
+          Use {"{{phase_context}}"} in the prompt template above to inject the rendered phase block.
+          Default is Compact. Mode applies to this node only.
+        </p>
+      </div>
+
       {/* ── SECTION 2: COACHING SETTINGS ── */}
       <SectionDivider label="Coaching Settings" />
 
