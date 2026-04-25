@@ -62,7 +62,10 @@ function header(node: TrainingNode, tabName: string): string {
 
 function generateBasics(node: TrainingNode): string {
   const overviewText = node.overview?.trim() || "Not configured";
-  return `## Basics\n\nNode Name: ${node.name}\nPosition: ${node.position ?? "Not configured"}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
+  // Phase 1c.1 Slice 2 — surface migration lifecycle so admin copy-paste
+  // captures whether per-phase coaching_cues have been confirmed yet.
+  const migrationStatus = node.coaching_cues_migration_status ?? "pending";
+  return `## Basics\n\nNode Name: ${node.name}\nPosition: ${node.position ?? "Not configured"}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nCoaching Cues Migration Status: ${migrationStatus}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
 }
 
 function generateVideos(node: TrainingNode): string {
