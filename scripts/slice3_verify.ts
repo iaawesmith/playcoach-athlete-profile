@@ -22,8 +22,10 @@ const NodeEditor = readFileSync(
   "utf8"
 );
 const types = readFileSync("src/features/athlete-lab/types.ts", "utf8");
+// The {{position}} substitution lives in the production analyze pipeline,
+// not the athlete-lab-analyze test edge function. (Slice 1 verified this.)
 const edgeFn = readFileSync(
-  "supabase/functions/athlete-lab-analyze/index.ts",
+  "supabase/functions/analyze-athlete-video/index.ts",
   "utf8"
 );
 
