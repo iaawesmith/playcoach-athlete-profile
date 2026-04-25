@@ -979,14 +979,23 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         )}
 
         {tab === "phases" && (
-          <PhasesEditor
-            phases={draft.phase_breakdown}
-            onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
-            segmentationMethod={draft.segmentation_method ?? "proportional"}
-            onSegmentationMethodChange={(m) => update("segmentation_method", m)}
-            onConfirmDelete={(opts) => setConfirmModal(opts)}
-            advancedEnabled={showAdvancedTabs}
-          />
+          <div className="space-y-4">
+            <CoachingCuesMigrationBanner
+              surface="phases"
+              status={draft.coaching_cues_migration_status ?? "pending"}
+              confirmed_count={confirmedPhaseIds.size}
+              total_phases={draft.phase_breakdown.length}
+              onOpenModal={() => setMigrationModalOpen(true)}
+            />
+            <PhasesEditor
+              phases={draft.phase_breakdown}
+              onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
+              segmentationMethod={draft.segmentation_method ?? "proportional"}
+              onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+              onConfirmDelete={(opts) => setConfirmModal(opts)}
+              advancedEnabled={showAdvancedTabs}
+            />
+          </div>
         )}
 
         {tab === "reference" && (
