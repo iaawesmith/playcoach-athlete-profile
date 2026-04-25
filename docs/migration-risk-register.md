@@ -136,6 +136,21 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
   2. Same logic for `reference`, `filming_guidance`, `training_status`, `scoring`, `checkpoint` keys → their new home tabs.
 - **Trigger to pause:** Any node where merged Phases knowledge_base content > UI display limit (truncation risk).
 
+### F-SLICE-B-1 — Body-based deletion eliminates the only calibration path that compensates for off-spec filming distance
+- **Phase:** 1c.2 Slice B → deferred to **Slice B2** (post-1c.2, gated)
+- **Severity:** Sev-3
+- **Likelihood:** High on off-spec filming, Low on on-spec filming (current real-upload distribution unknown)
+- **Status (2026-04-25):** Identified during Slice B doc reads of `calibration-source-trace.md` and `calibration-ppy-investigation.md`. **Slice B split:** B1 ships all non-calibration cleanup now (payload trim, det_frequency collapse, dead code deletion, R-08 log line); B2 (`calculateBodyBasedCalibration` deletion) deferred and gated.
+- **What happens:** The two source docs disagree on what "true ppy" means for the d1b3ab23 baseline clip. Trace assumes static (ppy=80) is ground truth and concludes body_based was inflating distances by 2.1×. Investigation argues neither path is true (static is calibrated for a different filming geometry; body_based is inflated by anthropometric assumptions) and posits true ppy is somewhere in between (~100). Without empirical resolution, deletion may either improve accuracy (if trace is right) or trade one error for a smaller error of opposite sign (if investigation is right). Cannot predict which without ground-truth measurement.
+- **Why deletion is premature:** The investigation doc's own Recommendation B explicitly conditions `body_based` deletion on "we've collected ~10 admin tests to validate that MediaPipe's `body_based` is consistently within a tightened gate range." That collection has not happened. Shipping deletion now violates the source doc's own standard.
+- **Mitigation (B1/B2 split):**
+  1. **B1 (proceed now):** all non-calibration cleanup. Calibration path unchanged. Metric value parity threshold ±5% across all metrics — any larger shift indicates non-calibration plumbing regression.
+  2. **B2 (deferred, no schedule):** `calculateBodyBasedCalibration` deletion. Pre-conditions (all three required):
+     - Slant `camera_filming_instructions` updated with explicit filming-distance specification matching static reference geometry.
+     - ≥5 admin test clips collected post-instructions-update demonstrating static accuracy on on-spec filming.
+     - Empirical resolution of trace-vs-investigation arithmetic disagreement (re-run d1b3ab23 with on-spec re-filming, OR ground-truth ppy measurement via known-distance landmark).
+- **Trigger to pause B2 if it ever proceeds:** Any pre-condition unmet, OR any of the 5 admin test clips shows static-driven distance metric outside ±50% of body_based-driven equivalent.
+
 ---
 
 ## §2 — Top 3 risks (heatmap)
