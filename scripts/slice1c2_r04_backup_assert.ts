@@ -149,6 +149,7 @@ function deepEqualJson(a: unknown, b: unknown): boolean {
 function safeParse(s: string): unknown {
   try { return JSON.parse(s); } catch { return s; }
 }
+function preview(s: string | null, around: number, span = 60): string {
   if (s == null) return "<null>";
   const start = Math.max(0, around - span);
   const end = Math.min(s.length, around + span);
