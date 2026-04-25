@@ -178,6 +178,8 @@ export interface TrainingNode {
   
   llm_max_words: number;
   llm_system_instructions: string;
+  /** Phase 1c.1 — controls how phase_breakdown is rendered into the {{phase_context}} template variable. */
+  phase_context_mode?: "off" | "names_only" | "compact" | "full";
   badges: Badge[];
   elite_videos: EliteVideo[];
   knowledge_base: Record<string, KnowledgeSection[]>;
