@@ -232,7 +232,6 @@ type PipelineLogData = {
     stop_reason?: string
   }
   rtmlib?: {
-    solution_class?: string
     model?: string
     backend?: string
     total_frames?: number
@@ -653,14 +652,10 @@ Deno.serve(async (req) => {
       video_url: upload.video_url,
       start_seconds: upload.start_seconds,
       end_seconds: upload.end_seconds,
-      solution_class: nodeConfig.solution_class,
-      performance_mode: nodeConfig.performance_mode,
       det_frequency: detFrequency,
-      tracking_enabled: nodeConfig.tracking_enabled
     })
     const cloudRunMetadata = buildCloudRunMetadata(rtmlibResult)
     logData.rtmlib = {
-      solution_class: nodeConfig.solution_class,
       backend: 'cloud_run',
       total_frames: rtmlibResult.frame_count,
       source_fps: rtmlibResult.fps,
@@ -1101,6 +1096,12 @@ function normalizePeopleInVideo(peopleInVideo: unknown): 'solo' | 'with_defender
 }
 
 function getScenarioDetFrequency(nodeConfig: any, scenario: 'solo' | 'with_defender' | 'multiple'): number {
+  // Phase 1c.2 Slice B1: resolver collapsed. Per-scenario columns are now
+  // authoritative (pre-step UPDATE persisted resolved values into them). The
+  // root `det_frequency` fallback is no longer consulted at runtime; the column
+  // is preserved in the DB until Slice E for backup symmetry only. The nested
+  // `detection_frequency` shape is retained as a defensive fallback for any
+  // legacy node config that pre-dates the per-scenario columns.
   const nested = typeof nodeConfig?.detection_frequency === 'object' && nodeConfig?.detection_frequency !== null
     ? nodeConfig.detection_frequency
     : null
@@ -1119,7 +1120,7 @@ function getScenarioDetFrequency(nodeConfig: any, scenario: 'solo' | 'with_defen
     case 'solo':
     default:
       return clampDetFrequency(
-        nodeConfig?.det_frequency_solo ?? nested?.solo ?? nodeConfig?.det_frequency,
+        nodeConfig?.det_frequency_solo ?? nested?.solo,
         2,
       )
   }
@@ -3356,10 +3357,7 @@ async function callCloudRun(payload: {
   video_url: string
   start_seconds: number
   end_seconds: number
-  solution_class: string
-  performance_mode: string
   det_frequency: number
-  tracking_enabled: boolean
 }): Promise<CloudRunResponse> {
   const rtmlibBase =
     Deno.env.get('MEDIAPIPE_SERVICE_URL')?.trim() ||
@@ -3370,15 +3368,24 @@ async function callCloudRun(payload: {
     ? normalizedBase
     : `${normalizedBase}/analyze`
 
+  // Phase 1c.2 Slice B1 (R-08 contract): MediaPipe payload trimmed to 4 keys.
+  // `solution_class`, `performance_mode`, `tracking_enabled` were accepted-but-ignored
+  // by the service (Pydantic optional, extra='ignore'). Removed from edge first per
+  // R-08 mitigation ordering. Service-side schema cleanup tracked separately.
   const requestPayload = {
     video_url: payload.video_url,
     start_seconds: payload.start_seconds,
     end_seconds: payload.end_seconds,
-    solution_class: payload.solution_class,
-    performance_mode: payload.performance_mode,
     det_frequency: payload.det_frequency,
-    tracking_enabled: payload.tracking_enabled,
   }
+
+  // Finding 5 (permanent observability for R-08): log the exact key set posted to
+  // MediaPipe before every fetch. If the contract drifts, this is the canary.
+  logInfo('mediapipe_request_payload', {
+    uploadId: payload.uploadId,
+    keys: Object.keys(requestPayload),
+    keyCount: Object.keys(requestPayload).length,
+  })
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), CLOUD_RUN_FETCH_TIMEOUT_MS)
