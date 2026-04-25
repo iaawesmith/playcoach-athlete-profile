@@ -23,7 +23,6 @@ import type { CoachingCuesMigrationStatus, PhaseNote } from "../types";
 import {
   applyConfirmedCues,
   canOfferConfirmAll,
-  nextMigrationStatus,
   reconcileNode,
   type PhaseReconciliation,
   type ReconciliationPattern,
