@@ -600,6 +600,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
       const shouldAutoDraft = node.status === "live";
       const updates: Partial<TrainingNode> = {
         name: draft.name,
+        position: draft.position,
         icon_url: draft.icon_url,
         overview: draft.overview,
         pro_mechanics: draft.pro_mechanics,
