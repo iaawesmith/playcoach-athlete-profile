@@ -301,21 +301,42 @@ export type Database = {
       }
       athlete_lab_nodes_phase1c_backup: {
         Row: {
+          audit_pattern: string | null
+          audit_reason: string | null
+          captured_at: string
           content: string | null
+          disposition: string | null
           id: string
           node_id: string
+          node_name: string | null
+          original_intent: string | null
+          slice: string | null
           source_column: string
         }
         Insert: {
+          audit_pattern?: string | null
+          audit_reason?: string | null
+          captured_at?: string
           content?: string | null
+          disposition?: string | null
           id?: string
           node_id: string
+          node_name?: string | null
+          original_intent?: string | null
+          slice?: string | null
           source_column: string
         }
         Update: {
+          audit_pattern?: string | null
+          audit_reason?: string | null
+          captured_at?: string
           content?: string | null
+          disposition?: string | null
           id?: string
           node_id?: string
+          node_name?: string | null
+          original_intent?: string | null
+          slice?: string | null
           source_column?: string
         }
         Relationships: []

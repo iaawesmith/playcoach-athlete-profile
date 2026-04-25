@@ -1,0 +1,1 @@
+ALTER TABLE public.athlete_lab_nodes_phase1c_backup ADD COLUMN IF NOT EXISTS node_name text, ADD COLUMN IF NOT EXISTS disposition text, ADD COLUMN IF NOT EXISTS audit_pattern text, ADD COLUMN IF NOT EXISTS audit_reason text, ADD COLUMN IF NOT EXISTS original_intent text, ADD COLUMN IF NOT EXISTS slice text, ADD COLUMN IF NOT EXISTS captured_at timestamptz NOT NULL DEFAULT now();
