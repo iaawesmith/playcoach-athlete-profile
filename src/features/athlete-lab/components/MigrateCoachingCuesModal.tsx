@@ -248,21 +248,7 @@ export function MigrateCoachingCuesModal({
     (r) => r.phase_id && confirmed_phase_ids.has(r.phase_id),
   ).length;
 
-  // Build a preview of what `phase_breakdown` will look like after applying
-  // current drafts — useful for the count chip and accessible to QA. Not
-  // rendered directly but kept here so the helper is exercised by the modal.
-  const _previewAfter = useMemo(() => {
-    const map = new Map<string, { coaching_cues: string; cleaned_description: string }>();
-    for (const r of reconciliation.phases) {
-      if (!r.phase_id) continue;
-      map.set(r.phase_id, {
-        coaching_cues: drafts[r.phase_id] ?? r.proposed_coaching_cues,
-        cleaned_description: r.cleaned_description,
-      });
-    }
-    return applyConfirmedCues(phase_breakdown, map);
-  }, [reconciliation, drafts, phase_breakdown]);
-  void _previewAfter;
+
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
