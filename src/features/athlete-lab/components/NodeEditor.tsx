@@ -1085,6 +1085,17 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           onConfirm={() => { confirmModal?.onConfirm(); setConfirmModal(null); }}
           onCancel={() => setConfirmModal(null)}
         />
+        <MigrateCoachingCuesModal
+          open={migrationModalOpen}
+          phase_breakdown={draft.phase_breakdown}
+          pro_mechanics={draft.pro_mechanics}
+          status={draft.coaching_cues_migration_status ?? "pending"}
+          confirmed_phase_ids={confirmedPhaseIds}
+          onCommitPhase={handleMigrationCommitPhase}
+          onCommitAll={handleMigrationCommitAll}
+          onStatusChange={handleMigrationStatusChange}
+          onClose={() => setMigrationModalOpen(false)}
+        />
       </div>
     </div>
   );
