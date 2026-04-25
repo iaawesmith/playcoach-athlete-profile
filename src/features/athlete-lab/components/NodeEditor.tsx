@@ -934,6 +934,13 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "mechanics" && (
           <div className="space-y-4">
+            <CoachingCuesMigrationBanner
+              surface="mechanics"
+              status={draft.coaching_cues_migration_status ?? "pending"}
+              confirmed_count={confirmedPhaseIds.size}
+              total_phases={draft.phase_breakdown.length}
+              onOpenModal={() => setMigrationModalOpen(true)}
+            />
             <div className="flex items-center gap-1.5">
               <label className={LABEL_CLASS}>Phase Mechanics</label>
               <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
