@@ -209,14 +209,32 @@ async function main() {
       continue;
     }
 
-    if ((live ?? "") !== (backup ?? "")) {
+    let mismatch = false;
+    let mismatchReason: "byte_mismatch" | "null_mismatch" | "json_semantic_mismatch" = "byte_mismatch";
+
+    if (spec.jsonSemantic) {
+      // Semantic deep-equal of parsed JSON. Required because PG ::text on
+      // JSONB normalizes whitespace and key order differently from JS
+      // JSON.stringify, so byte-equal is the wrong invariant for JSONB sources.
+      const liveParsed = live == null ? null : safeParse(live);
+      const backupParsed = backup == null ? null : safeParse(backup);
+      if (!deepEqualJson(liveParsed, backupParsed)) {
+        mismatch = true;
+        mismatchReason = live == null || backup == null ? "null_mismatch" : "json_semantic_mismatch";
+      }
+    } else if ((live ?? "") !== (backup ?? "")) {
+      mismatch = true;
+      mismatchReason = live == null || backup == null ? "null_mismatch" : "byte_mismatch";
+    }
+
+    if (mismatch) {
       const a = live ?? "";
       const b = backup ?? "";
       const off = firstDiffOffset(a, b);
       failures.push({
         node_id: SLANT_NODE_ID,
         field_path: spec.source_column,
-        reason: live == null || backup == null ? "null_mismatch" : "byte_mismatch",
+        reason: mismatchReason,
         source_len: live?.length ?? null,
         backup_len: backup?.length ?? null,
         first_diff_offset: off,
