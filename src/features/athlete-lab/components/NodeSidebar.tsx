@@ -133,7 +133,7 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onRequestDelet
             {node.position && (
               <span
                 className="px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider shrink-0"
-                style={{ backgroundColor: `${POSITION_COLORS[node.position]}20`, color: POSITION_COLORS[node.position] }}
+                style={{ backgroundColor: `${positionPillColor(node.position)}20`, color: positionPillColor(node.position) }}
               >
                 {node.position}
               </span>
