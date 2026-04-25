@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type {
   TrainingNode,
-  AnalysisResult,
   AnalysisLogData,
   AdminHistoryCalibrationFilter,
   AdminHistoryCalibrationSummary,
@@ -103,14 +102,11 @@ export interface AthleteMeasurement {
   unit: MeasurementUnit;
 }
 
-export async function runAnalysis(node: TrainingNode, videoDescription: string, analysisContext?: AnalysisContext): Promise<AnalysisResult> {
-  const { data, error } = await supabase.functions.invoke("athlete-lab-analyze", {
-    body: { node, videoDescription, analysis_context: analysisContext },
-  });
+// Phase 1c.2 Slice B1: `runAnalysis()` and the `athlete-lab-analyze` edge function
+// it called were the dead "synchronous Claude analysis" pre-pipeline path. The active
+// path is `pollRunAnalysisResult()` (below) which calls the live `analyze-athlete-video`
+// pipeline. Removed to eliminate the dead-data confusion documented in the audit.
 
-  if (error) throw error;
-  return data as AnalysisResult;
-}
 
 const TEST_VIDEO_FOLDER = "test-clips";
 const POLL_INTERVAL_MS = 4000;
