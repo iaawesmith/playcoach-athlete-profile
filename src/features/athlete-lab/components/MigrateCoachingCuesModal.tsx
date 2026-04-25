@@ -300,14 +300,14 @@ export function MigrateCoachingCuesModal({
           <div className="relative group">
             <button
               onClick={handleCommitAll}
-              disabled={!confirmAllEligible}
+              disabled={!confirmAllEligible || anyPending}
               className={`rounded-full px-5 py-2 text-xs font-black uppercase tracking-[0.2em] transition-all active:scale-95 ${
-                confirmAllEligible
+                confirmAllEligible && !anyPending
                   ? "bg-primary-container text-[#00460a] hover:brightness-110"
                   : "cursor-not-allowed border border-outline-variant/20 bg-surface-container text-on-surface-variant/50"
               }`}
             >
-              Confirm all
+              {pendingAll ? "Saving..." : "Confirm all"}
             </button>
             {!confirmAllEligible && (
               <div className="pointer-events-none absolute right-0 top-full mt-2 w-72 rounded-lg border border-outline-variant/20 bg-surface-container-highest p-3 text-[11px] leading-relaxed text-on-surface-variant opacity-0 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-opacity group-hover:opacity-100 z-20">
