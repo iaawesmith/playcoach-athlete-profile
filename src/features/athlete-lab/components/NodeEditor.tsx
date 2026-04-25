@@ -12,7 +12,7 @@ import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { MigrateCoachingCuesModal, type PhaseCommit } from "./MigrateCoachingCuesModal";
 import { CoachingCuesMigrationBanner } from "./CoachingCuesMigrationBanner";
-import { applyConfirmedCues } from "../utils/migrateCoachingCues";
+import { applyConfirmedCues, nextMigrationStatus } from "../utils/migrateCoachingCues";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
 import { generateTabMarkdown } from "../utils/nodeExport";
