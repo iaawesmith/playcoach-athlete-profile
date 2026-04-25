@@ -119,10 +119,13 @@ assert(
 // ─────── V3 ───────
 console.log("\nV3 — Edge function consumption regression");
 
+// The pipeline maps `nodeConfig.position` (loaded from athlete_lab_nodes)
+// into the {{position}} template variable. Slice 1 confirmed end-to-end.
 assert(
-  "V3.1 edge fn substitutes {{position}} from node.position",
-  /node\.position/.test(edgeFn) && /\{\{position\}\}|"position"/.test(edgeFn),
-  "edge function should reference node.position and the position template variable"
+  "V3.1 pipeline wires nodeConfig.position into {{position}} template variable",
+  /position:\s*nodeConfig\.position/.test(edgeFn) &&
+    /\{\{position\}\}/.test(edgeFn),
+  "expected `position: nodeConfig.position` and a {{position}} mention in the pipeline"
 );
 
 assert(
