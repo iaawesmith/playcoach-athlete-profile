@@ -52,10 +52,23 @@ export interface PhaseNote {
   id?: string;
   name: string;
   description: string;
+  /**
+   * Phase 1c.1 Slice 2 — coaching cues for this phase.
+   * Migrated from `pro_mechanics` (per-phase JSON) and from inline
+   * `— Coaching cues —` separator content embedded in `description`.
+   * Empty string is the default and produces zero Claude prompt change.
+   */
+  coaching_cues?: string;
   sequence_order?: number;
   proportion_weight?: number;
   frame_buffer?: number;
 }
+
+/**
+ * Phase 1c.1 Slice 2 — per-node lifecycle for the Mechanics → Phases coaching cues migration.
+ * Stored as `athlete_lab_nodes.coaching_cues_migration_status` text column with DB CHECK constraint.
+ */
+export type CoachingCuesMigrationStatus = "pending" | "in_progress" | "confirmed";
 
 export type SegmentationMethod = "proportional" | "checkpoint";
 
