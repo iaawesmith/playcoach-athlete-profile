@@ -961,6 +961,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             onMaxWordsChange={(v) => updateWithCriticalTrack("llm_max_words" as keyof TrainingNode, v as never)}
             systemInstructions={draft.llm_system_instructions ?? ""}
             onSystemInstructionsChange={(v) => updateWithCriticalTrack("llm_system_instructions" as keyof TrainingNode, v as never)}
+            phaseContextMode={draft.phase_context_mode ?? "compact"}
+            onPhaseContextModeChange={(v) => updateWithCriticalTrack("phase_context_mode" as keyof TrainingNode, v as never)}
           />
         )}
 
