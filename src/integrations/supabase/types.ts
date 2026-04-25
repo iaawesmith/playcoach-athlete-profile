@@ -303,20 +303,20 @@ export type Database = {
         Row: {
           content: string | null
           id: string
-          node_id: string | null
-          source_column: string | null
+          node_id: string
+          source_column: string
         }
         Insert: {
           content?: string | null
           id?: string
-          node_id?: string | null
-          source_column?: string | null
+          node_id: string
+          source_column: string
         }
         Update: {
           content?: string | null
           id?: string
-          node_id?: string | null
-          source_column?: string | null
+          node_id?: string
+          source_column?: string
         }
         Relationships: []
       }

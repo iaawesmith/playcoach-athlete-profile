@@ -1,0 +1,1 @@
+ALTER TABLE public.athlete_lab_nodes_phase1c_backup ALTER COLUMN node_id SET NOT NULL, ALTER COLUMN source_column SET NOT NULL;
