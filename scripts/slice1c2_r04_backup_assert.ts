@@ -17,7 +17,7 @@
  * Outputs a structured log to docs/phase-1c2-slice-a-r04-assertion.md.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
