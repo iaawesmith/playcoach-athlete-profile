@@ -12,7 +12,7 @@ import { LlmPromptEditor } from "./LlmPromptEditor";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { MigrateCoachingCuesModal, type PhaseCommit } from "./MigrateCoachingCuesModal";
 import { CoachingCuesMigrationBanner } from "./CoachingCuesMigrationBanner";
-import { applyConfirmedCues } from "../utils/migrateCoachingCues";
+import { applyConfirmedCues, nextMigrationStatus } from "../utils/migrateCoachingCues";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
 import { generateTabMarkdown } from "../utils/nodeExport";
@@ -517,40 +517,80 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
      Auto-draft on save is now unconditional for any save on a Live node. */
   const updateWithCriticalTrack = update;
 
-  /* ── Phase 1c.1 Slice 2 — coaching cues migration handlers ──
-     These mutate the local `draft` only. Step 4 keeps persistence out of scope;
-     the user still has to click Save Changes to write through. Step 6 will
-     promote these to direct Supabase writes if/when we want commits to be
-     auto-saved. */
-  const applyMigrationCommits = useCallback((commits: PhaseCommit[]) => {
+  /* ── Phase 1c.1 Slice 2 Step 6 — write-on-confirm persistence ──
+     Migration commits write directly to Supabase via updateNode(). The admin
+     does NOT need to click Save Changes for migration confirmations — each
+     commit is persisted immediately, and the lifecycle status advances
+     atomically in the same write.
+
+     Concurrency model: SINGLE-ADMIN, last-write-wins. Athlete Lab is admin-
+     only and there is no expectation of two admins editing the same node
+     concurrently. If two sessions did race, the later updateNode() write
+     would overwrite phase_breakdown and coaching_cues_migration_status
+     wholesale (both columns are written together, so they stay internally
+     consistent — but a concurrent edit on a different phase could be lost).
+     Optimistic concurrency (e.g. updated_at IF match) is explicitly out of
+     scope for slice 2; flag for revisit if/when multi-admin becomes real.
+
+     This function writes ONLY phase_breakdown + coaching_cues_migration_status.
+     It does not touch any other draft fields, so an in-flight admin edit on a
+     different tab is preserved (the local draft already contains those edits;
+     onUpdated() merges the persisted shape back in via the standard refresh). */
+  const persistMigrationCommits = useCallback(async (commits: PhaseCommit[]) => {
     if (commits.length === 0) return;
-    setDraft((d) => {
-      const map = new Map<string, { coaching_cues: string; cleaned_description: string }>();
-      for (const c of commits) {
-        map.set(c.phase_id, { coaching_cues: c.coaching_cues, cleaned_description: c.cleaned_description });
-      }
-      const nextPhases = applyConfirmedCues(d.phase_breakdown, map);
-      return { ...d, phase_breakdown: nextPhases };
-    });
-    setConfirmedPhaseIds((prev) => {
-      const next = new Set(prev);
-      for (const c of commits) next.add(c.phase_id);
-      return next;
-    });
-    setDirty(true);
+
+    // Derive the next phase_breakdown and confirmed-id set from the *current*
+    // draft (which is already up-to-date with any prior in-session commits).
+    const map = new Map<string, { coaching_cues: string; cleaned_description: string }>();
+    for (const c of commits) {
+      map.set(c.phase_id, { coaching_cues: c.coaching_cues, cleaned_description: c.cleaned_description });
+    }
+    const nextPhases = applyConfirmedCues(draft.phase_breakdown, map);
+    const nextConfirmedIds = new Set(confirmedPhaseIds);
+    for (const c of commits) nextConfirmedIds.add(c.phase_id);
+    const totalPhases = nextPhases.length;
+    const currentStatus = draft.coaching_cues_migration_status ?? "pending";
+    const nextStatus = nextMigrationStatus(currentStatus, nextConfirmedIds.size, totalPhases);
+
+    try {
+      const updated = await updateNode(draft.id, {
+        phase_breakdown: nextPhases,
+        coaching_cues_migration_status: nextStatus,
+      });
+      // Reflect persisted state locally without flipping `dirty` — the write
+      // is already through. Other tab-level draft edits are preserved because
+      // we only spread the two migration-related fields back in.
+      setDraft((d) => ({
+        ...d,
+        phase_breakdown: updated.phase_breakdown,
+        coaching_cues_migration_status: updated.coaching_cues_migration_status ?? nextStatus,
+      }));
+      setConfirmedPhaseIds(nextConfirmedIds);
+      onUpdated(updated);
+      toast.success(commits.length === 1 ? "Phase confirmed" : `${commits.length} phases confirmed`);
+    } catch (err) {
+      // Surface failure to the admin and leave local state unchanged so the
+      // commit can be retried. No silent loss.
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Failed to save migration: ${message}`);
+      throw err;
+    }
+  }, [draft, confirmedPhaseIds, onUpdated]);
+
+  const handleMigrationCommitPhase = useCallback(async (commit: PhaseCommit) => {
+    await persistMigrationCommits([commit]);
+  }, [persistMigrationCommits]);
+
+  const handleMigrationCommitAll = useCallback(async (commits: PhaseCommit[]) => {
+    await persistMigrationCommits(commits);
+  }, [persistMigrationCommits]);
+
+  /* Status changes from the modal are now derived inside persistMigrationCommits
+     and written atomically with phase_breakdown. The onStatusChange callback
+     is kept as a no-op for modal-internal lifecycle previews. */
+  const handleMigrationStatusChange = useCallback((_next: CoachingCuesMigrationStatus) => {
+    // intentional no-op — status is owned by persistMigrationCommits
   }, []);
-
-  const handleMigrationCommitPhase = useCallback((commit: PhaseCommit) => {
-    applyMigrationCommits([commit]);
-  }, [applyMigrationCommits]);
-
-  const handleMigrationCommitAll = useCallback((commits: PhaseCommit[]) => {
-    applyMigrationCommits(commits);
-  }, [applyMigrationCommits]);
-
-  const handleMigrationStatusChange = useCallback((next: CoachingCuesMigrationStatus) => {
-    update("coaching_cues_migration_status", next);
-  }, [update]);
 
 
   const save = async () => {

@@ -23,7 +23,6 @@ import type { CoachingCuesMigrationStatus, PhaseNote } from "../types";
 import {
   applyConfirmedCues,
   canOfferConfirmAll,
-  nextMigrationStatus,
   reconcileNode,
   type PhaseReconciliation,
   type ReconciliationPattern,
@@ -50,8 +49,15 @@ interface MigrateCoachingCuesModalProps {
    * the parent (Step 6 wires this to a per-phase flag in the DB).
    */
   confirmed_phase_ids: Set<string>;
-  onCommitPhase: (commit: PhaseCommit) => void;
-  onCommitAll: (commits: PhaseCommit[]) => void;
+  /**
+   * Commit handlers may be sync or async. When async, the modal awaits the
+   * promise and disables the relevant buttons while the write is in flight.
+   * Rejected promises are swallowed by the modal — the parent is responsible
+   * for surfacing the error (e.g. a toast). The modal only uses the rejection
+   * to clear its in-flight state.
+   */
+  onCommitPhase: (commit: PhaseCommit) => void | Promise<void>;
+  onCommitAll: (commits: PhaseCommit[]) => void | Promise<void>;
   onStatusChange: (next: CoachingCuesMigrationStatus) => void;
   onClose: () => void;
 }
@@ -117,6 +123,11 @@ export function MigrateCoachingCuesModal({
   onStatusChange,
   onClose,
 }: MigrateCoachingCuesModalProps) {
+  // onStatusChange is retained as a prop for backward compat with Step 4
+  // wiring, but Step 6 owns status persistence inside the parent's commit
+  // handlers (atomically with phase_breakdown). The modal no longer drives
+  // status transitions.
+  void onStatusChange;
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // Reconcile the live shapes via the Step 2 pure helpers.
@@ -157,29 +168,41 @@ export function MigrateCoachingCuesModal({
   const totalPhases = reconciliation.phases.length;
   const confirmAllEligible = canOfferConfirmAll(reconciliation);
 
-  // Lifecycle preview helpers — for chip display only. Status only changes
-  // when the parent calls onStatusChange after a successful commit.
-  const advanceStatus = (newConfirmedCount: number) => {
-    const next = nextMigrationStatus(status, newConfirmedCount, totalPhases);
-    if (next !== status) onStatusChange(next);
-  };
+  // Per-phase + bulk in-flight tracking. Step 6: while a commit is being
+  // persisted, disable the relevant buttons so the admin can't double-click
+  // and the visual state honestly reflects "saving".
+  const [pendingPhaseIds, setPendingPhaseIds] = useState<Set<string>>(new Set());
+  const [pendingAll, setPendingAll] = useState(false);
+  const anyPending = pendingAll || pendingPhaseIds.size > 0;
 
-  const handleCommitPhase = (r: PhaseReconciliation) => {
+  const handleCommitPhase = async (r: PhaseReconciliation) => {
     if (!r.phase_id) return;
+    if (pendingPhaseIds.has(r.phase_id) || pendingAll) return;
     const cues = drafts[r.phase_id] ?? r.proposed_coaching_cues;
-    onCommitPhase({
-      phase_id: r.phase_id,
-      coaching_cues: cues,
-      cleaned_description: r.cleaned_description,
+    setPendingPhaseIds((prev) => {
+      const next = new Set(prev);
+      next.add(r.phase_id as string);
+      return next;
     });
-    // Compute new confirmed count assuming this phase is now confirmed.
-    const newSet = new Set(confirmed_phase_ids);
-    newSet.add(r.phase_id);
-    advanceStatus(newSet.size);
+    try {
+      await onCommitPhase({
+        phase_id: r.phase_id,
+        coaching_cues: cues,
+        cleaned_description: r.cleaned_description,
+      });
+    } catch {
+      // Parent surfaces the error; modal just clears its in-flight state.
+    } finally {
+      setPendingPhaseIds((prev) => {
+        const next = new Set(prev);
+        next.delete(r.phase_id as string);
+        return next;
+      });
+    }
   };
 
-  const handleCommitAll = () => {
-    if (!confirmAllEligible) return;
+  const handleCommitAll = async () => {
+    if (!confirmAllEligible || anyPending) return;
     const commits: PhaseCommit[] = reconciliation.phases
       .filter((r) => r.phase_id)
       .map((r) => ({
@@ -187,8 +210,14 @@ export function MigrateCoachingCuesModal({
         coaching_cues: drafts[r.phase_id as string] ?? r.proposed_coaching_cues,
         cleaned_description: r.cleaned_description,
       }));
-    onCommitAll(commits);
-    advanceStatus(totalPhases);
+    setPendingAll(true);
+    try {
+      await onCommitAll(commits);
+    } catch {
+      // Parent surfaces the error.
+    } finally {
+      setPendingAll(false);
+    }
   };
 
   const confirmedCount = reconciliation.phases.filter(
@@ -271,14 +300,14 @@ export function MigrateCoachingCuesModal({
           <div className="relative group">
             <button
               onClick={handleCommitAll}
-              disabled={!confirmAllEligible}
+              disabled={!confirmAllEligible || anyPending}
               className={`rounded-full px-5 py-2 text-xs font-black uppercase tracking-[0.2em] transition-all active:scale-95 ${
-                confirmAllEligible
+                confirmAllEligible && !anyPending
                   ? "bg-primary-container text-[#00460a] hover:brightness-110"
                   : "cursor-not-allowed border border-outline-variant/20 bg-surface-container text-on-surface-variant/50"
               }`}
             >
-              Confirm all
+              {pendingAll ? "Saving..." : "Confirm all"}
             </button>
             {!confirmAllEligible && (
               <div className="pointer-events-none absolute right-0 top-full mt-2 w-72 rounded-lg border border-outline-variant/20 bg-surface-container-highest p-3 text-[11px] leading-relaxed text-on-surface-variant opacity-0 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-opacity group-hover:opacity-100 z-20">
@@ -307,6 +336,8 @@ export function MigrateCoachingCuesModal({
             <div className="space-y-4">
               {reconciliation.phases.map((r, i) => {
                 const isConfirmed = !!(r.phase_id && confirmed_phase_ids.has(r.phase_id));
+                const isPhasePending = !!(r.phase_id && pendingPhaseIds.has(r.phase_id));
+                const isDisabled = !r.phase_id || isPhasePending || pendingAll;
                 const meta = PATTERN_META[r.pattern];
                 const draftValue =
                   (r.phase_id && drafts[r.phase_id]) ?? r.proposed_coaching_cues;
@@ -340,10 +371,10 @@ export function MigrateCoachingCuesModal({
                       </div>
                       <button
                         onClick={() => handleCommitPhase(r)}
-                        disabled={!r.phase_id}
+                        disabled={isDisabled}
                         className="rounded-full bg-primary-container px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#00460a] transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {isConfirmed ? "Re-confirm" : "Confirm phase"}
+                        {isPhasePending ? "Saving..." : isConfirmed ? "Re-confirm" : "Confirm phase"}
                       </button>
                     </div>
 
