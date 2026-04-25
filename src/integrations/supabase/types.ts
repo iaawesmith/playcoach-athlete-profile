@@ -190,6 +190,7 @@ export type Database = {
           overview: string
           performance_mode: string
           phase_breakdown: Json
+          phase_context_mode: string
           position: string | null
           pro_mechanics: string
           reference_calibrations: Json
@@ -233,6 +234,7 @@ export type Database = {
           overview?: string
           performance_mode?: string
           phase_breakdown?: Json
+          phase_context_mode?: string
           position?: string | null
           pro_mechanics?: string
           reference_calibrations?: Json
@@ -276,6 +278,7 @@ export type Database = {
           overview?: string
           performance_mode?: string
           phase_breakdown?: Json
+          phase_context_mode?: string
           position?: string | null
           pro_mechanics?: string
           reference_calibrations?: Json
