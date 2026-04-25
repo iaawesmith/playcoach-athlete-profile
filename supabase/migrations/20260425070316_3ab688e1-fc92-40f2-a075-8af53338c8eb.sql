@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS public._tmp_size_test (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), v text);

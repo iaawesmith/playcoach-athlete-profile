@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS public.athlete_lab_nodes_phase1c_backup (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), node_id uuid, source_column text, content text);

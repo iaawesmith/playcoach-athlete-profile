@@ -1,0 +1,1 @@
+ALTER TABLE public.athlete_lab_nodes_phase1c_backup ENABLE ROW LEVEL SECURITY; CREATE POLICY "phase1c_backup_service_role" ON public.athlete_lab_nodes_phase1c_backup FOR ALL TO service_role USING (true) WITH CHECK (true);
