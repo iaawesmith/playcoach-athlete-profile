@@ -193,6 +193,8 @@ export interface TrainingNode {
   llm_system_instructions: string;
   /** Phase 1c.1 — controls how phase_breakdown is rendered into the {{phase_context}} template variable. */
   phase_context_mode?: "off" | "names_only" | "compact" | "full";
+  /** Phase 1c.1 Slice 2 — lifecycle for the Mechanics → Phases coaching cues migration. */
+  coaching_cues_migration_status?: CoachingCuesMigrationStatus;
   badges: Badge[];
   elite_videos: EliteVideo[];
   knowledge_base: Record<string, KnowledgeSection[]>;
