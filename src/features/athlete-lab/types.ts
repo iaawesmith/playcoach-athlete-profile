@@ -132,7 +132,41 @@ export interface KnowledgeSection {
   content: string;
 }
 
+/**
+ * Legacy 3-value sidebar grouper. Drives the position filter tabs and the
+ * `Add New Node` picker in `NodeSidebar`. Intentionally narrow — the sidebar
+ * UX has not been redesigned to surface all 11 positions.
+ *
+ * For the editable position field on the Basics tab, see `PositionValue` /
+ * `POSITION_OPTIONS` below — that is the canonical list of selectable values
+ * for `TrainingNode.position`.
+ */
 export type NodePosition = "WR" | "QB" | "RB";
+
+/**
+ * Phase 1c.1 Slice 3 — canonical list of selectable football positions for
+ * the Basics tab Position dropdown. Order matches the project-wide stat map
+ * (offense skill → offense line → defense → specialists). Used to derive
+ * `PositionValue` and to render the dropdown options.
+ *
+ * Backlog: this list is football-only. When PlayCoach expands beyond
+ * football, the position field needs to become sport-aware.
+ */
+export const POSITION_OPTIONS = [
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  "OL",
+  "DL",
+  "LB",
+  "CB",
+  "S",
+  "K",
+  "P",
+] as const;
+
+export type PositionValue = (typeof POSITION_OPTIONS)[number];
 
 export type NodeStatus = "draft" | "live";
 
@@ -173,7 +207,7 @@ export interface TrainingNode {
   pose_engine?: PoseEngine;
   name: string;
   icon_url: string | null;
-  position: NodePosition | null;
+  position: PositionValue | null;
   status: NodeStatus;
   clip_duration_min: number;
   clip_duration_max: number;
