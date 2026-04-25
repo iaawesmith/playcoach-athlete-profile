@@ -62,7 +62,10 @@ function header(node: TrainingNode, tabName: string): string {
 
 function generateBasics(node: TrainingNode): string {
   const overviewText = node.overview?.trim() || "Not configured";
-  return `## Basics\n\nNode Name: ${node.name}\nPosition: ${node.position ?? "Not configured"}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
+  // Phase 1c.1 Slice 2 — surface migration lifecycle so admin copy-paste
+  // captures whether per-phase coaching_cues have been confirmed yet.
+  const migrationStatus = node.coaching_cues_migration_status ?? "pending";
+  return `## Basics\n\nNode Name: ${node.name}\nPosition: ${node.position ?? "Not configured"}\nClip Duration: ${node.clip_duration_min}s to ${node.clip_duration_max}s\nStatus: ${node.status === "live" ? "Live" : "Draft"}\nNode Version: ${node.node_version ?? 1}\nCoaching Cues Migration Status: ${migrationStatus}\nIcon: ${node.icon_url || "not set"}\n\n### Description / Overview\n${overviewText}`;
 }
 
 function generateVideos(node: TrainingNode): string {
@@ -84,9 +87,17 @@ function generatePhases(node: TrainingNode): string {
   const seg = node.segmentation_method ?? "proportional";
   const weightSum = phases.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   const segLabel = seg === "proportional" ? "Proportional" : "Checkpoint-triggered";
-  let out = `## Phases\n\nCount: ${phases.length} phases\nSegmentation Method: ${segLabel}\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\n`;
+  // Phase 1c.1 Slice 2 — coaching_cues moved from the legacy Mechanics tab
+  // into per-phase storage. Render as its own labeled subsection only when
+  // populated so unmigrated nodes show no extra noise.
+  const migrationStatus = node.coaching_cues_migration_status ?? "pending";
+  let out = `## Phases\n\nCount: ${phases.length} phases\nSegmentation Method: ${segLabel}\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\nCoaching Cues Migration Status: ${migrationStatus}\n`;
   phases.forEach((p, i) => {
     out += `\n### Phase ${i + 1}: ${p.name} — ${p.proportion_weight ?? 0}% of clip\nDescription: ${p.description || "Not configured"}\nFrame Buffer: ${p.frame_buffer ?? 3} frames\n`;
+    const cues = p.coaching_cues?.trim();
+    if (cues) {
+      out += `\n#### Coaching Cues\n${cues}\n`;
+    }
   });
   return out;
 }
