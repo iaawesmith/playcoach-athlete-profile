@@ -2396,7 +2396,12 @@ function calculateDistance(
   }
 }
 
-// VELOCITY: displacement per frame × fps → mph
+// VELOCITY: net phase displacement / elapsed time → mph
+// Option A (net displacement): instead of summing per-frame magnitudes (which
+// compounds detection jitter and lets a single bad frame dominate), measure
+// the net displacement of the keypoint midpoint between the first and last
+// valid frames in the supplied window, then divide by elapsed time. This is
+// the metric definition the elite targets were derived from.
 function calculateVelocity(
   frames: VideoKeypoints, personIdx: number,
   indices: number[], temporalWindow: number, fps: number, calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
@@ -2410,87 +2415,96 @@ function calculateVelocity(
     }
   }
 
-  const velocities: number[] = []
-  const rawPixelsPerSecond: number[] = []
   const calibrationDetail = getCalibrationMetricDetail(calibration)
-  
-  for (let f = 1; f < window.length; f++) {
-    const prev = window[f-1]?.[personIdx]
-    const curr = window[f]?.[personIdx]
-    if (!prev || !curr) continue
 
-    // Use midpoint of specified keypoints
-    const prevPos = getMidpoint(prev, indices)
-    const currPos = getMidpoint(curr, indices)
-    if (!prevPos || !currPos) continue
-
-    const pixelDisp = Math.sqrt(
-      (currPos[0]-prevPos[0])**2 + (currPos[1]-prevPos[1])**2
-    )
-    // Convert pixels/frame to mph
-    // pixels/frame × fps = pixels/second
-    // pixels/second ÷ pixelsPerYard = yards/second
-    // yards/second × 3600/1760 = mph (approx 2.045)
-    const pixelsPerSecond = pixelDisp * fps
-    rawPixelsPerSecond.push(pixelsPerSecond)
-    const mph = pixelsPerSecondToMph(pixelsPerSecond, calibration.pixelsPerYard)
-    if (mph !== null) {
-      velocities.push(mph)
-    }
+  // Walk inward from each end to find the first/last frames with a valid
+  // midpoint for this person. This keeps the metric anchored at true phase
+  // boundaries while tolerating dropped detections at the edges.
+  let firstIdx = -1
+  let firstPos: [number, number] | null = null
+  for (let f = 0; f < window.length; f++) {
+    const person = window[f]?.[personIdx]
+    if (!person) continue
+    const pos = getMidpoint(person, indices)
+    if (!pos) continue
+    firstIdx = f
+    firstPos = pos
+    break
   }
 
-  if (rawPixelsPerSecond.length === 0) {
+  let lastIdx = -1
+  let lastPos: [number, number] | null = null
+  for (let f = window.length - 1; f > firstIdx; f--) {
+    const person = window[f]?.[personIdx]
+    if (!person) continue
+    const pos = getMidpoint(person, indices)
+    if (!pos) continue
+    lastIdx = f
+    lastPos = pos
+    break
+  }
+
+  if (firstPos === null || lastPos === null || lastIdx <= firstIdx) {
     return {
       value: null,
       reason: 'no_velocity_samples',
-      detail: { temporalWindow, indices, personIdx },
+      detail: {
+        temporalWindow,
+        indices,
+        personIdx,
+        actualWindow: window.length,
+        firstFrameIndex: firstIdx,
+        lastFrameIndex: lastIdx,
+        method: 'net_phase_displacement',
+      },
     }
   }
 
-  if (velocities.length === 0) {
+  const netDisplacementPixels = Math.sqrt(
+    (lastPos[0] - firstPos[0]) ** 2 + (lastPos[1] - firstPos[1]) ** 2
+  )
+  const elapsedFrames = lastIdx - firstIdx
+  const elapsedSeconds = elapsedFrames / fps
+  const pixelsPerSecond = elapsedSeconds > 0 ? netDisplacementPixels / elapsedSeconds : 0
+
+  const baseDetail = {
+    temporalWindow,
+    indices,
+    fps,
+    method: 'net_phase_displacement',
+    actualWindow: window.length,
+    firstFrameIndex: firstIdx,
+    lastFrameIndex: lastIdx,
+    elapsedFrames,
+    elapsedSeconds,
+    netDisplacementPixels,
+    rawPixelsPerSecond: pixelsPerSecond,
+    pixelsPerYard: calibration.pixelsPerYard,
+    ...calibrationDetail,
+  }
+
+  const mph = pixelsPerSecondToMph(pixelsPerSecond, calibration.pixelsPerYard)
+
+  if (mph === null) {
     if (fallbackBehavior === 'disable_distance') {
       return {
         value: null,
         status: 'skipped',
         reason: 'no_calibration_available',
-        detail: {
-          temporalWindow,
-          indices,
-          personIdx,
-          sampleCount: rawPixelsPerSecond.length,
-          rawPixelsPerSecondAverage: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
-          ...calibrationDetail,
-        },
+        detail: { ...baseDetail, personIdx },
       }
     }
 
     return {
-      value: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
+      value: pixelsPerSecond,
       reason: 'missing_calibration',
-      detail: {
-        temporalWindow,
-        indices,
-        personIdx,
-        sampleCount: rawPixelsPerSecond.length,
-        rawPixelsPerSecondAverage: rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length,
-        warning: 'uncalibrated_pixel_value',
-        ...calibrationDetail,
-      },
+      detail: { ...baseDetail, personIdx, warning: 'uncalibrated_pixel_value' },
     }
   }
 
-  const rawPixelsPerSecondAverage = rawPixelsPerSecond.reduce((s, v) => s + v, 0) / rawPixelsPerSecond.length
   return {
-    value: velocities.reduce((s, v) => s + v, 0) / velocities.length,
-    detail: {
-      temporalWindow,
-      indices,
-      sampleCount: velocities.length,
-      fps,
-      pixelsPerYard: calibration.pixelsPerYard,
-      rawPixelsPerSecondAverage,
-      ...calibrationDetail,
-    },
+    value: mph,
+    detail: baseDetail,
   }
 }
 
