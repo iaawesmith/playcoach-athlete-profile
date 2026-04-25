@@ -123,6 +123,11 @@ export function MigrateCoachingCuesModal({
   onStatusChange,
   onClose,
 }: MigrateCoachingCuesModalProps) {
+  // onStatusChange is retained as a prop for backward compat with Step 4
+  // wiring, but Step 6 owns status persistence inside the parent's commit
+  // handlers (atomically with phase_breakdown). The modal no longer drives
+  // status transitions.
+  void onStatusChange;
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // Reconcile the live shapes via the Step 2 pure helpers.
