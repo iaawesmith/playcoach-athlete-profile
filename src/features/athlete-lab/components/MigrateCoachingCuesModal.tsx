@@ -50,8 +50,15 @@ interface MigrateCoachingCuesModalProps {
    * the parent (Step 6 wires this to a per-phase flag in the DB).
    */
   confirmed_phase_ids: Set<string>;
-  onCommitPhase: (commit: PhaseCommit) => void;
-  onCommitAll: (commits: PhaseCommit[]) => void;
+  /**
+   * Commit handlers may be sync or async. When async, the modal awaits the
+   * promise and disables the relevant buttons while the write is in flight.
+   * Rejected promises are swallowed by the modal — the parent is responsible
+   * for surfacing the error (e.g. a toast). The modal only uses the rejection
+   * to clear its in-flight state.
+   */
+  onCommitPhase: (commit: PhaseCommit) => void | Promise<void>;
+  onCommitAll: (commits: PhaseCommit[]) => void | Promise<void>;
   onStatusChange: (next: CoachingCuesMigrationStatus) => void;
   onClose: () => void;
 }
