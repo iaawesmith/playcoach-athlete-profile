@@ -84,6 +84,16 @@ It will be removed at the start of <next phase> unless `rg "<old path>"` shows l
 
 **Removal cadence:** stubs created during a phase's cleanup are removed at the start of the next phase, unless an `rg` sweep shows live in-repo references. Add an entry to the next phase's prep backlog stub-cleanup queue when creating each stub — this is mandatory, not optional.
 
+### Catalog doc exemption (cross-reference threshold)
+
+Catalog docs are exempt from the >30 cross-reference update threshold during reorg passes. A doc qualifies as a **catalog** if its primary purpose is enumerating other docs.
+
+Current catalog docs:
+- `docs/INDEX.md`
+- `docs/repo-architecture-audit.md`
+
+Per-doc diff stats surface at pass close for verification (count of references updated, in which docs). Non-catalog docs above the threshold remain a halt trigger. Adding a doc to the catalog list requires the same justification as introducing a new convention: it must be a pure index, not a narrative doc that happens to link a lot.
+
 ---
 
 ## Structured vs prose
