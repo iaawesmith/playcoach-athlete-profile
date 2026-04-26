@@ -51,6 +51,10 @@ no schema changes, no athlete-facing UI changes.
 - `docs/adr/template.md`, `docs/templates/slice-outcome.md` (Pass 3f).
 - `scripts/verification/` — relocated all `slice*_verify.ts` and related verification scripts from `scripts/` root (Pass 3e).
 - `docs/risk-register/` — split of `docs/migration-risk-register.md` into one file per `R-*` / `F-*` ID (22 entries: 12 R + 10 F), with `_schema.md` frontmatter contract and `INDEX.md` aggregated view (Pass 4). Frontmatter fields: `id`, `title`, `status`, `severity`, `origin_slice`, `origin_doc`, `related_adrs`, `related_entries`, `opened`, `last_updated`. Meta-commentary (§2 heatmap, §3.5 invariants table, §4 closing summary, phase-ordering note) preserved in `INDEX.md`.
+- `docs/risk-register/_schema.md` — appended Pass 4 split-script lesson (intervening `##` headers between `###` entries) and `related_adrs` derivation note (Pass 4 follow-up).
+- `docs/reference/{tiers,metrics,events,observability}/_schema.md` — Pass 5a–5d foundation scaffolds. Each anchors a frontmatter contract for future entries; no per-entry files exist yet.
+- `docs/reference/calibration-audit-rollup.md` — Pass 5e single-entry rollup of calibration accuracy + determinism state. Aggregates ground-truth dataset, determinism CSV, related findings (F-SLICE-B-1, F-SLICE-B1-2, F-SLICE-E-2), and ADRs (0004, 0005, 0014).
+- Pass 5.5 sanity check: DB-verified the 9 canonical `athlete_lab_results` rows referenced by `determinism-drift.csv` (`SELECT count(*) ... → 9`). No CSV writes triggered; gate satisfied.
 
 ### Changed
 - Renamed `AGENTS.md` → `PRODUCT-SPEC.md` to eliminate naming collision with `docs/agents/` (Pass 1). R2 stub remains at `AGENTS.md`.
