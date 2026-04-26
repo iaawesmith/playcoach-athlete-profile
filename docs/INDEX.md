@@ -101,5 +101,5 @@
 | 2 | `agents/onboarding.md`, `agents/conventions.md`, `agents/workflows.md` |
 | 3 | Subdirectory reorg, calibration YAML, drift CSV, 12 ADRs, slice-outcome template, CHANGELOG + release-notes |
 | 4 | `risk-register/` split (one file per `R-*` / `F-*`) |
-| 5 | `reference/tiers.md`, `reference/metrics.md`, `reference/events.md`, `reference/observability.md`, `reference/calibration-audit-rollup.csv` |
+| 5 | `reference/tiers/_schema.md`, `reference/metrics/_schema.md`, `reference/events/_schema.md`, `reference/observability/_schema.md`, `reference/calibration-audit-rollup.md` (CSV form deferred — md rollup is the v1 surface) |
 | 6 | `reference/phases.md`, tab inventory generator, verification recipe template |
