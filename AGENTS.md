@@ -22,4 +22,4 @@
 
 ## Stub removal cadence
 
-This stub is tracked in [`docs/phase-1c3-prep-backlog.md`](docs/phase-1c3-prep-backlog.md) under "Stub cleanup queue." It will be removed at the start of Phase 1c.3 unless `rg "AGENTS\.md"` shows live in-repo references at that time. Per the R2 stub policy in [`docs/agents/conventions.md`](docs/agents/conventions.md), heavy-traffic doc moves get one phase boundary of redirect grace.
+This stub is tracked in [`docs/process/phase-1c3-prep-backlog.md`](docs/process/phase-1c3-prep-backlog.md) under "Stub cleanup queue." It will be removed at the start of Phase 1c.3 unless `rg "AGENTS\.md"` shows live in-repo references at that time. Per the R2 stub policy in [`docs/agents/conventions.md`](docs/agents/conventions.md), heavy-traffic doc moves get one phase boundary of redirect grace.
