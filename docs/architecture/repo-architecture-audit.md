@@ -330,7 +330,7 @@ For each feature category: priority, effort, what to do now, what it pays off in
 
 ### 8. Test artifacts
 
-- **Recommendation:** Move `scripts/slice1c2_*.ts` to `scripts/verification/` and add `scripts/verification/README.md` describing each script's purpose, inputs, expected outputs. The scripts themselves are good; they just live in a flat directory with no signal about which are still useful.
+- **Recommendation:** Move `scripts/verification/slice1c2_*.ts` to `scripts/verification/` and add `scripts/verification/README.md` describing each script's purpose, inputs, expected outputs. The scripts themselves are good; they just live in a flat directory with no signal about which are still useful.
 - Calibration ground-truth fixtures (the slant clip metadata) become the seed of a regression-test dataset.
 - **Pays off Phase 2:** Verification scripts get reused for Phase 2 metric audits.
 - **Effort:** Small (~30 min).
@@ -383,7 +383,7 @@ Capped at 10 ideas across A/B/C, ranked. Plus 5 substantive rejections per Refin
 
 **Infrastructure:** Verification recipes as runnable scripts in `scripts/verification/` with frontmatter linking back to the risk register entry they verify. The recipe IS the doc.
 
-**Effort:** Small per slice (already partially exists — see `scripts/slice1c2_*.ts`). Standardize structure.
+**Effort:** Small per slice (already partially exists — see `scripts/verification/slice1c2_*.ts`). Standardize structure.
 
 **Value:** Eliminates a class of error that has bitten us once already. Modest time savings on top.
 
@@ -561,7 +561,7 @@ S = small (≤1 hr), M = medium (1-4 hr), L = large (>4 hr).
 | `docs/phase-1c2-determinism-drift-log.md` | Markdown table; wants to be CSV | Convert to CSV; keep tiny header MD with schema |
 | `docs/athlete-lab-architecture-audit.md` | 43KB; some sections superseded by end-state arch | Annotate superseded sections inline; do not delete (current-state value remains) |
 | 25 flat files in `docs/` | No grouping | Subdivide into `docs/architecture/`, `docs/process/`, `docs/reference/`, `docs/investigations/`, `docs/adr/`, `docs/agents/` |
-| `scripts/slice1c2_*.ts` | Flat directory, no signals | Move under `scripts/verification/`; add a README |
+| `scripts/verification/slice1c2_*.ts` | Flat directory, no signals | Move under `scripts/verification/`; add a README |
 
 ---
 

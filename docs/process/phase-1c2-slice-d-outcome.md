@@ -85,7 +85,7 @@ Upload `d2df20e9-f827-4b58-8674-cbb4917cc7fc`, post-strip pipeline run.
 
 **Byte-identical** to the Slice C post-C.5 baseline (`34a8712604547408…`). The JSONB sub-field strips did not perturb runtime calibration math — the audit object is bit-for-bit reproducible across the migration boundary.
 
-Verification script: `scripts/slice1c2_d5_post_strip_verify.ts`
+Verification script: `scripts/verification/slice1c2_d5_post_strip_verify.ts`
 
 ---
 

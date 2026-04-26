@@ -61,12 +61,26 @@
 | [`investigations/phase-1c2-camera-guidelines-preflight.md`](investigations/phase-1c2-camera-guidelines-preflight.md) | (historical — pre-flight check record) |
 | [`process/phase-1c2-slice-a-r04-assertion.md`](process/phase-1c2-slice-a-r04-assertion.md) | (historical — small ship record) |
 
+## Architecture Decision Records
+
+| Doc | Purpose |
+|---|---|
+| [`adr/INDEX.md`](adr/INDEX.md) | ADR index + ADR-0007 vs ADR-0012 distinction note |
+| [`adr/0001`](adr/0001-user-roles-separate-table.md) … [`adr/0012`](adr/0012-backup-retention-indefinite.md) | 12 backfilled ADRs (Pass 3d) |
+
+## Templates
+
+| Doc | Purpose |
+|---|---|
+| [`adr/template.md`](adr/template.md) | ADR template (created Pass 3d) |
+| [`templates/slice-outcome.md`](templates/slice-outcome.md) | Slice outcome template (created Pass 3f) |
+
 ## Agents
 
 | Doc | Purpose |
 |---|---|
 | [`agents/onboarding.md`](agents/onboarding.md) | Agent onboarding — read order for fresh agents |
-| [`agents/conventions.md`](agents/conventions.md) | Repo conventions (file naming, IDs, R2 stub policy, structured-vs-prose) |
+| [`agents/conventions.md`](agents/conventions.md) | Repo conventions (file naming, IDs, R2 stub policy, structured-vs-prose, catalog-doc exemption) |
 | [`agents/workflows.md`](agents/workflows.md) | Common multi-step workflows |
 
 ---

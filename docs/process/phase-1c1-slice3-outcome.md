@@ -63,7 +63,7 @@ schema, no edge, no Claude.
 
 ## Verification summary
 
-Mechanical suite at `scripts/slice3_verify.ts`. **12/12 passing.**
+Mechanical suite at `scripts/verification/slice3_verify.ts`. **12/12 passing.**
 
 ```
 V1 — Round-trip persistence (3 + snapshot/restore)
@@ -147,7 +147,7 @@ value. End-state is correct either way.
 - `src/features/athlete-lab/components/NodeSidebar.tsx` — safe color
   lookup with neutral fallback.
 - `docs/phase-1c1-slice3-outcome.md` — this file.
-- `scripts/slice3_verify.ts` — verification suite (committed for re-runs).
+- `scripts/verification/slice3_verify.ts` — verification suite (committed for re-runs).
 
 No edge function changes. No DB schema changes. No `supabase/types.ts`
 changes (the column was already in the generated types from prior slices).

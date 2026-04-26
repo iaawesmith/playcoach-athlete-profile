@@ -1,0 +1,211 @@
+# Calibration Ground Truth Dataset
+# Schema: ./_schema.md
+# Prose canonical doc: ../calibration-ground-truth-dataset.md
+#
+# Append-only registry of analyzed clips with empirical pixels-per-yard (ppy)
+# estimates and the values each calibration path produced at the time of
+# measurement. Per F-SLICE-B-1, no architectural decision (B2 / ADR-0004) is
+# made off this dataset until it has >= 3 entries spanning >= 2 filming contexts.
+
+version: 1
+dataset_established: 2026-04-26
+noise_floor_pct: 1.0  # ~1% relative drift on identical inputs (body_based path)
+noise_floor_origin: "F-SLICE-E-2 (migration-risk-register.md)"
+noise_floor_observation:
+  clip: slant-route-reference-v1.mp4
+  body_based_ppy_drift_pct: 0.78
+  body_based_confidence_drift_pct: -0.61
+  suspected_root_cause: "pose-estimation floating-point variance (not yet investigated)"
+min_entries_for_b2_decision: 3
+min_filming_contexts_for_b2_decision: 2
+
+entries:
+  - file_identifier: slant-route-reference-v1.mp4
+    bucket_path: athlete-videos/test-clips/slant-route-reference-v1.mp4
+    video_dimensions:
+      width: 4096
+      height: 2304
+      notes: |
+        Master file analyzed by the pipeline. A 1024x576 transcoded preview
+        also exists; downstream sanity checks performed against the preview
+        are technically invalid against the actual analysis target. See
+        dimension-confusion footnote in
+        ../../process/phase-1c2-determinism-experiment.md Section D corrections.
+
+    true_ppy_estimate:
+      point: 495
+      range_low: 450
+      range_high: 550
+      tighter_convergence_low: 485
+      tighter_convergence_high: 495
+      basis: |
+        Convergence of (1) algebraic least-squares circle fit on visible arc
+        (ppy ~= 494.89) and (2) athlete-height bbox cross-check at frame 60
+        (consistent with ppy in 750-850 px height window). The 495 point
+        estimate is more defensible than the previously-recorded 400-550
+        range, which was driven by an over-broad treatment of marking
+        identification.
+
+    measurement_methodology:
+      - id: 1
+        name: "Algebraic least-squares circle fit on visible arc at frame bottom"
+        inputs:
+          arc_span_px: 3579
+          assumed_marking: "FIFA soccer center circle (10-yard radius)"
+        derived_value:
+          ppy: 494.89
+        notes: |
+          Marking identification is well-supported by facility context
+          (soccer training facility — see notes.filming_context).
+      - id: 2
+        name: "Athlete-height bbox cross-check at frame 60"
+        inputs:
+          visible_athlete_pixel_height_px_low: 750
+          visible_athlete_pixel_height_px_high: 850
+          raw_bbox_pixel_height_px: 970  # contaminated by dome wall — overstates
+          assumed_athlete_real_height_ft: 6
+          posture: "cutting/leaning (compresses standing height by 15-25%)"
+          posture_compression_pct_low: 15
+          posture_compression_pct_high: 25
+        derived_value:
+          ppy_consistent_with: 495
+          expected_pixel_height_at_ppy_495_low: 750
+          expected_pixel_height_at_ppy_495_high: 850
+        notes: "Consistent with circle fit method (1)."
+      - id: convergence
+        name: "Cross-method convergence"
+        derived_value:
+          ppy_low: 485
+          ppy_high: 495
+        notes: |
+          Both independent methods land within their uncertainty envelopes
+          on ppy ~= 485-495.
+
+    body_based_ppy_at_time_of_measurement:
+      cloud_run_service_side:
+        status: "pre-C.5 code path, no longer used in selection"
+        primary_value: 235.32
+        secondary_measurements:
+          - source: "Section A direct-call measurement"
+            value: 233.896
+            note: "Consistent with primary within rounding/run-to-run noise."
+          - source: "Diagnostic snapshot 2026-04-26"
+            value: 235.321
+            note: "Confirms Cloud Run service-side path still emits this on the current clip; consistent across baseline and current state."
+
+      edge_function_calculate_body_based_calibration:
+        status: "post-C.5 code path, current selected source"
+        longitudinal:
+          - source: "Slice C 5-run determinism baseline"
+            value: 200.21
+            runs: 5
+            determinism_note: "deterministic across 5 runs, byte-identical calibration_audit hash"
+          - source: "Slice D post-strip diagnostic"
+            date: 2026-04-26
+            value: 201.78
+            runs: 1
+        inter_run_drift_pct: 0.78
+        inter_run_drift_note: |
+          Between Slice C baseline and Slice D diagnostic on what should be
+          identical input. Small but non-zero on a code path C.5 did not
+          modify and Slice D JSON cleanup did not touch. Tracked in backlog
+          for Phase 2; possible Cloud Run instance variance vs. real
+          determinism issue.
+
+      path_disagreement:
+        cloud_run_value: 235.321
+        edge_value_low: 200
+        edge_value_high: 202
+        disagreement_pct_low: 14
+        disagreement_pct_high: 15
+        notes: |
+          Persists in current state per Slice D diagnostic. Remains real input
+          for the B2 architectural decision (ADR-0004).
+
+      comparability_note: |
+        Pre-C.5 baseline measurements are not directly comparable to post-C.5
+        calibration_audit.body_based_ppy values. Post-C.5 edge-function values
+        (currently ~200-202) are the deterministic-ish baseline for
+        slant-route-reference-v1.mp4 reproducibility checks; allow ~1%
+        tolerance until the inter-run drift item is resolved.
+
+      directional_finding_unchanged: |
+        All observed body_based values (235, 201, 200) under-report ppy vs.
+        ground-truth ~495, and all remain less wrong than static. The path
+        disagreement and the new inter-run drift both strengthen — not weaken
+        — the case for B2 considering Option B (world coordinates) rather
+        than picking between imperfect calibration paths.
+
+    static_ppy_at_time_of_measurement: 80
+
+    path_disagreement_pct:
+      cloud_run_vs_edge_low: 14
+      cloud_run_vs_edge_high: 15
+
+    measurement_confidence: medium
+    measurement_confidence_rationale: |
+      Upgraded from "low" by facility context. Not "high" because no in-frame
+      metadata-confirmed scale reference (yard-line marker, tape measure,
+      calibration object of known length) is present.
+
+    directional_finding:
+      body_based_representative_value: 234
+      body_based_off_factor_low: 1.7
+      body_based_off_factor_high: 2.4
+      static_value: 80
+      static_off_factor_low: 5
+      static_off_factor_high: 6.9
+      direction: "under-reports ppy → over-reports distances by the same factor"
+      invariant_under_uncertainty: true
+      invariant_under_uncertainty_note: |
+        Static is more wrong than body_based regardless of where exactly true
+        ppy lands. Conclusion is invariant under any plausible widening of the
+        uncertainty range (450-550).
+
+    notes:
+      filming_context: |
+        Soccer training facility — visible from the dome interior, soccer goal
+        in background, and field markings consistent with a soccer pitch. In a
+        soccer facility, the prominent visible arc is almost certainly the
+        center circle (penalty arcs are at field ends and not typically framed
+        as the training reference; center spots are dots not arcs). The
+        original "could be center circle, could be penalty arc, could be
+        custom marking" framing overstated marking-identification uncertainty.
+      athlete_bbox_contamination: |
+        The cyan diagnostic bbox extends well to the right of the actual
+        athlete, reaching the netting/dome wall. Raw bbox-derived pixel height
+        (~970 px) overstates; visual measurement of the actual athlete (head
+        ~y=400-450, foot ~y=1180-1250) gives ~750-850 px.
+      posture_compression: |
+        Athlete is mid-cut, leaning. Leaning compresses standing pixel height
+        by 15-25%, so the 750-850 px observation is consistent with a 6-ft
+        standing athlete at ppy ~= 495, not the 990 px a fully-erect 6-ft
+        athlete would occupy.
+      multi_context_filming_implication: |
+        Static reference value (80) was authored for one specific filming
+        geometry — likely sideline tactical camera at a football field, 25-40
+        yards from action. Real PlayCoach users film in indoor soccer/turf
+        facilities, backyards, high-school football fields, and training
+        facilities of every kind. Each context has different ppy depending on
+        camera distance and focal length. Static at 80 is correct for one
+        geometry and wrong everywhere else. This is not a static authoring
+        bug; it is a fundamental limitation of any single static constant for
+        a multi-context product.
+
+    recorded_at: 2026-04-26
+
+future_entries_needed:
+  - id: 1
+    description: |
+      >=1 sideline football clip with a real 5-yard line marker visible in
+      frame (the original analysis target geometry — confirms whether
+      static=80 is correct in its native context).
+  - id: 2
+    description: |
+      >=1 backyard / informal-filming clip (tests body_based's adaptive
+      behavior at close range).
+  - id: 3
+    description: |
+      Ideally clips spanning camera distances (close, mid, far) on the same
+      athlete, to test whether body_based's under-report direction is
+      consistent or context-dependent.
