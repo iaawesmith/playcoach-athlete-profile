@@ -36,12 +36,17 @@
   1. **Algebraic least-squares circle fit on visible arc at frame bottom.** Arc spans ~3,579 px. Under the assumption that this is a FIFA soccer center circle (10-yard radius), `ppy ≈ 494.89`. Marking identification (see Notes) is now well-supported by facility context.
   2. **Athlete-height bbox cross-check at frame 60.** Visible athlete pixel height ~750–850 px (the diagnostic bbox is contaminated on the right by the dome wall, so the raw 970 px figure overstates). For a 6-ft athlete in a cutting/leaning posture (compresses standing height by ~15–25%), expected pixel height at `ppy ≈ 495` is in the 750–850 range — **consistent with circle fit**.
   3. **Convergence:** both independent methods land within their uncertainty envelopes on `ppy ≈ 485–495`. The 495 point estimate is more defensible than the previously-recorded "400–550 range," which was driven by an over-broad treatment of marking identification.
-- **body_based_ppy_at_time_of_measurement:** *Two pre-C.5 code paths existed and produced different values on this clip. C.5 unified to the edge-function path; values below are recorded by source.*
-  - **Cloud Run service-side body_based (pre-C.5 code path, no longer used):** `235.32`
+- **body_based_ppy_at_time_of_measurement:** *Two pre-C.5 code paths existed and produced different values on this clip. C.5 unified to the edge-function path; longitudinal values below are recorded by source and date.*
+  - **Cloud Run service-side body_based (pre-C.5 code path, no longer used in selection):** `235.32`
     - Section A direct-call measurement (`233.896`) is consistent with this path within rounding/run-to-run noise.
-  - **Edge function `calculateBodyBasedCalibration` (post-C.5 code path, current selected source):** `200.21`
-  - **The two paths disagree by ~14.4% on this clip.** Pre-C.5 baseline measurements are not directly comparable to post-C.5 `calibration_audit.body_based_ppy` values. Post-C.5 (`~200.21`) is the new deterministic baseline for `slant-route-reference-v1.mp4` reproducibility checks.
-  - **Directional finding (Notes section below) is unchanged:** both paths under-report ppy vs. ground-truth ~495, both remain less wrong than `static`. The path disagreement strengthens — not weakens — the case for B2 considering Option B (world coordinates) rather than picking between imperfect calibration paths.
+    - Diagnostic snapshot 2026-04-26 confirms Cloud Run service-side path still emits `235.321` on the current clip (consistent across baseline and current state — that path is stable).
+  - **Edge function `calculateBodyBasedCalibration` (post-C.5 code path, current selected source) — longitudinal:**
+    - Slice C 5-run determinism baseline: `200.21` (deterministic across 5 runs, byte-identical `calibration_audit` hash).
+    - Slice D post-strip diagnostic (2026-04-26, single run): `201.78`.
+    - **Inter-run drift:** ~0.78% between Slice C baseline and Slice D diagnostic on what should be identical input. Small but non-zero on a code path C.5 did not modify and Slice D JSON cleanup did not touch. Tracked in backlog for Phase 3 — possible Cloud Run instance variance vs. real determinism issue; could compound if upstream calibration scaling changes.
+  - **Path disagreement (Cloud Run vs. edge):** `235.321` vs. `~200–202` ⇒ ~14–15% on this clip. Persists in current state per Slice D diagnostic; remains real input for the B2 architectural decision.
+  - **Comparability:** Pre-C.5 baseline measurements are not directly comparable to post-C.5 `calibration_audit.body_based_ppy` values. Post-C.5 edge-function values (currently `~200–202`) are the deterministic-ish baseline for `slant-route-reference-v1.mp4` reproducibility checks; allow ~1% tolerance until the inter-run drift item is resolved.
+  - **Directional finding (Notes section below) is unchanged:** all observed body_based values (235, 201, 200) under-report ppy vs. ground-truth ~495, and all remain less wrong than `static`. The path disagreement and the new inter-run drift both strengthen — not weaken — the case for B2 considering Option B (world coordinates) rather than picking between imperfect calibration paths.
 - **static_ppy_at_time_of_measurement:** `80`
 - **measurement_confidence:** `medium`
   - Upgraded from "low" by facility context (see Notes), but not "high" because no in-frame metadata-confirmed scale reference (yard-line marker, tape measure, calibration object of known length) is present.
