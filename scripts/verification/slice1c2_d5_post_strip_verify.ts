@@ -1,20 +1,43 @@
-// Slice D — D.5 step 4 post-strip determinism re-check.
-//
-// Single full-pipeline run (Section B style) on slant-route-reference-v1.mp4
-// with athlete_height=74". Confirms that the JSONB sub-field strips in D.3/D.4
-// did not perturb runtime calibration math by re-asserting the post-C.5
-// deterministic baseline values:
-//
-//   - body_based_ppy ≈ 200.21 (post-C.5 edge function path)
-//   - static_ppy === 80
-//   - selected_source === 'body_based'
-//   - body_based_status === 'used'
-//   - dynamic_status === 'failed'
-//   - calibration_audit hash matches post-C.5 reference (34a8712604547408…)
-//
-// Single run is sufficient because 5-run determinism was proven in Slice C.
-// This run only needs to confirm the strips did not perturb the deterministic
-// output.
+/**
+ * slice1c2_d5_post_strip_verify.ts
+ *
+ * NAME:  slice1c2_d5_post_strip_verify
+ * PHASE: PHASE-1C2-SLICE-D
+ *
+ * VERIFIES:
+ *   The D.3/D.4 JSONB sub-field strips (camera_guidelines and
+ *   reference_calibrations subsets) did NOT perturb runtime calibration
+ *   math. Asserts the post-C.5 deterministic baseline holds on a single
+ *   fresh Slant pipeline run with athlete_height=74":
+ *     - body_based_ppy ≈ 200.21
+ *     - static_ppy === 80
+ *     - selected_source === 'body_based'
+ *     - body_based_status === 'used'
+ *     - dynamic_status === 'failed'
+ *     - calibration_audit hash === post-C.5 reference (34a8712604547408…)
+ *   Single run is sufficient because 5-run determinism was proven in
+ *   Slice C; D.5 only needs to confirm the strips did not move the output.
+ *
+ * RECIPE:
+ *   Runtime:   deno
+ *   Command:   deno run --allow-env --allow-net \
+ *                scripts/verification/slice1c2_d5_post_strip_verify.ts
+ *   Env vars:  SUPABASE_SERVICE_ROLE_KEY
+ *   Args:      none
+ *   Output:    stdout — pass/fail per assertion, full result_data dump on FAIL
+ *   Halt:      exit 1 on any assertion failure (calibration math drift = stop)
+ *
+ * BACKLINKS:
+ *   - docs/process/phase-1c2-slice-d-outcome.md
+ *   - docs/adr/0014-c5-unified-edge-function-body-based-path.md
+ *   - docs/risk-register/R-04-backup-table-omits-a-text-bearing-field-making-rollback-impossible.md
+ *
+ * MAINTENANCE:
+ *   The signed Storage URL embedded below has a finite expiry. If the
+ *   script returns 403/expired-token, re-sign the slant-route-reference-v1.mp4
+ *   URL via the Storage admin and update SIGNED_URL — do NOT change the
+ *   asserted baseline values.
+ */
 
 const SUPABASE_URL = "https://nwgljkjckcizbrpbqsro.supabase.co"
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")

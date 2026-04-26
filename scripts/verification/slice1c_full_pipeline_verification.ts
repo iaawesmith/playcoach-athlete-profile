@@ -1,22 +1,48 @@
-// Slice C — 5-run full-pipeline verification.
-//
-// Inserts 5 athlete_uploads rows (parallel) on the canonical reference clip
-// with athlete_height in analysis_context (Marcus Sterling, 74"), waits for
-// each pipeline run to complete, then verifies:
-//
-//   (1) calibration_audit object is byte-identical across all 5 runs (hash)
-//   (2) body_based_ppy and static_ppy are non-null on every run
-//   (3) selected_source matches existing top-level result_data.calibration_source
-//   (4) Value-correctness check (per user spec):
-//       - body_based_ppy ≈ 234 (±5%)
-//       - static_ppy === 80
-//       - selected_source === 'body_based'
-//       - body_based_status === 'used'
-//       - static_status === 'computed_but_not_selected'
-//       - dynamic_status === 'failed' with non-null dynamic_failure_reason
-//
-// Usage:
-//   deno run --allow-env --allow-net scripts/slice1c_full_pipeline_verification.ts
+/**
+ * slice1c_full_pipeline_verification.ts
+ *
+ * NAME:  slice1c_full_pipeline_verification
+ * PHASE: PHASE-1C2 (Slice C — 5-run full-pipeline verification)
+ *
+ * VERIFIES:
+ *   End-to-end pipeline determinism on the Slant reference clip across 5
+ *   parallel athlete_uploads rows (Marcus Sterling, athlete_height=74"):
+ *     (1) calibration_audit object is byte-identical across all 5 runs (hash)
+ *     (2) body_based_ppy and static_ppy are non-null on every run
+ *     (3) selected_source matches result_data.calibration_source
+ *     (4) Value-correctness:
+ *         - body_based_ppy ≈ 234 (±5%)
+ *         - static_ppy === 80
+ *         - selected_source === 'body_based'
+ *         - body_based_status === 'used'
+ *         - static_status === 'computed_but_not_selected'
+ *         - dynamic_status === 'failed' with non-null dynamic_failure_reason
+ *
+ * RECIPE:
+ *   Runtime:   deno
+ *   Command:   deno run --allow-env --allow-net \
+ *                scripts/verification/slice1c_full_pipeline_verification.ts
+ *   Env vars:  SUPABASE_SERVICE_ROLE_KEY
+ *   Args:      none
+ *   Output:    stdout — per-run hash, value-correctness table, overall verdict
+ *   Halt:      exit 1 if any of the 4 assertion families fails
+ *
+ *   NOTE on the body_based_ppy expectation: the ≈234 value is the pre-C.5
+ *   baseline. Post-C.5 (the unified edge function body-based path,
+ *   ADR-0014) the expectation is ≈200.21 — see slice1c2_d5_post_strip_verify
+ *   for the post-C.5 assertion. This script remains pinned to the pre-C.5
+ *   baseline to preserve the historical reference; do not update without
+ *   amending the Slice C outcome doc.
+ *
+ * BACKLINKS:
+ *   - docs/process/phase-1c1-slice3-outcome.md
+ *   - docs/adr/0014-c5-unified-edge-function-body-based-path.md
+ *   - docs/risk-register/F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md
+ *   - docs/reference/calibration-audit-rollup.md
+ *
+ * MAINTENANCE:
+ *   See SIGNED_URL maintenance note in slice1c2_d5_post_strip_verify.
+ */
 
 const SUPABASE_URL = "https://nwgljkjckcizbrpbqsro.supabase.co"
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")

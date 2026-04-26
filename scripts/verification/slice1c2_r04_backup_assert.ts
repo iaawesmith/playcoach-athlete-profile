@@ -1,20 +1,48 @@
 /**
- * R-04 Backup Completeness Assertion — Phase 1c.2 Slice A
+ * slice1c2_r04_backup_assert.ts
  *
- * Verifies that for every (node × deletion-target field) pair, the
- * backup row in `athlete_lab_nodes_phase1c_backup` is present and its
- * content is byte-equal to the live source value in `athlete_lab_nodes`.
+ * NAME:  slice1c2_r04_backup_assert
+ * PHASE: PHASE-1C2-SLICE-A
  *
- * Per pre-Slice-A scope (Slant-only, n=1 node):
- *  - 10 root columns scheduled for Slice E drops
- *  - 4 JSONB-related sources (full camera_guidelines, full reference_calibrations,
- *    camera_guidelines.skill_specific_filming_notes, camera_guidelines.metadata_thresholds bundle)
+ * VERIFIES:
+ *   R-04 backup completeness — for every (node × deletion-target field)
+ *   pair scheduled for Slice E drops, the row in
+ *   `athlete_lab_nodes_phase1c_backup` is present and its content is
+ *   byte-equal to the live source value in `athlete_lab_nodes`. Without
+ *   this guarantee, R-04 (backup table omits a text-bearing field, making
+ *   rollback impossible) cannot be closed.
  *
- * Failure record shape:
- *   { node_id, field_path, reason, source_len, backup_len, first_diff_offset,
- *     source_preview, backup_preview }
+ *   Pre-Slice-A scope: Slant-only (n=1 node):
+ *     - 10 root columns scheduled for Slice E drops
+ *     - 4 JSONB-related sources (full camera_guidelines, full
+ *       reference_calibrations, camera_guidelines.skill_specific_filming_notes,
+ *       camera_guidelines.metadata_thresholds bundle)
  *
- * Outputs a structured log to docs/phase-1c2-slice-a-r04-assertion.md.
+ *   Failure record shape:
+ *     { node_id, field_path, reason, source_len, backup_len,
+ *       first_diff_offset, source_preview, backup_preview }
+ *
+ * RECIPE:
+ *   Runtime:   tsx (Node)
+ *   Command:   npx tsx scripts/verification/slice1c2_r04_backup_assert.ts
+ *   Env vars:  SUPABASE_URL (or VITE_SUPABASE_URL),
+ *              SUPABASE_SERVICE_ROLE_KEY
+ *   Args:      none
+ *   Output:    docs/process/phase-1c2-slice-a-r04-assertion.md (structured log)
+ *              stdout — per-field PASS/FAIL with diff offset on FAIL
+ *   Halt:      exit 1 if any field mismatches; exit 2 on missing env
+ *
+ * BACKLINKS:
+ *   - docs/risk-register/R-04-backup-table-omits-a-text-bearing-field-making-rollback-impossible.md
+ *   - docs/risk-register/R-10-backup-table-grows-unbounded-over-future-migrations.md
+ *   - docs/adr/0007-backup-snapshot-pattern.md
+ *   - docs/adr/0012-backup-retention-indefinite.md
+ *   - docs/process/phase-1c2-slice-a-r04-assertion.md
+ *
+ * MAINTENANCE:
+ *   When future migrations add new deletion-target columns, extend the
+ *   FieldSpec list below in the same commit that creates the backup
+ *   migration. Untracked drops are an R-04 reopen.
  */
 
 import { createClient } from "@supabase/supabase-js";

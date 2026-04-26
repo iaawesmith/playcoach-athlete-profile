@@ -1,16 +1,44 @@
-// Phase 1c.2 — Section A: Cloud Run /analyze 5-run determinism harness.
-//
-// Usage:
-//   deno run --allow-env --allow-net --allow-write \
-//     scripts/slice1c2_determinism_cloudrun.ts
-//
-// Fires 5 PARALLEL POSTs at the MediaPipe service with the exact
-// 4-key payload the trimmed Edge Function uses, captures NDJSON
-// `result` lines, hashes the keypoints/scores arrays, and reports
-// pairwise byte-equality + summary-stat variance.
-//
-// Outputs: /tmp/cloudrun_run_{1..5}.json  (raw responses, ephemeral)
-//          /tmp/cloudrun_summary.json     (parsed summary across runs)
+/**
+ * slice1c2_determinism_cloudrun.ts
+ *
+ * NAME:  slice1c2_determinism_cloudrun
+ * PHASE: PHASE-1C2-SLICE-A (originally) / re-used for F-SLICE-E-2 evidence
+ *
+ * VERIFIES:
+ *   Cloud Run /analyze byte-determinism under the trimmed 4-key payload.
+ *   Fires 5 PARALLEL POSTs at the MediaPipe service, captures NDJSON
+ *   `result` lines, hashes the keypoints/scores arrays, and asserts
+ *   pairwise byte-equality + summary-stat variance within ADR-0005's ±1%.
+ *   Empirical result feeding F-SLICE-E-2: distribution is multimodal
+ *   (7/1/1 across 9 runs at the time of the determinism experiment) — see
+ *   docs/reference/determinism-drift.csv for the full hash table.
+ *
+ * RECIPE:
+ *   Runtime:   deno
+ *   Command:   deno run --allow-env --allow-net --allow-write \
+ *                scripts/verification/slice1c2_determinism_cloudrun.ts
+ *   Env vars:  none required at script level (MediaPipe URL is hardcoded
+ *              and the Storage signed URL is embedded)
+ *   Args:      none
+ *   Output:    /tmp/cloudrun_run_{1..5}.json  (raw responses, ephemeral)
+ *              /tmp/cloudrun_summary.json     (parsed summary across runs)
+ *              stdout — per-run hashes, pairwise equality matrix, variance
+ *   Halt:      exit 1 if any run errors. Drift discovery (non-equal hashes)
+ *              is reported as data, not failure — that is the experiment.
+ *
+ * BACKLINKS:
+ *   - docs/process/phase-1c2-determinism-experiment.md
+ *   - docs/risk-register/F-SLICE-E-2-pipeline-calibration-audit-shows-0-78-non-deterministic-drift-on-identical.md
+ *   - docs/adr/0005-determinism-tolerance-1pct.md
+ *   - docs/adr/0009-mediapipe-on-cloud-run.md
+ *   - docs/reference/determinism-drift.csv
+ *
+ * MAINTENANCE:
+ *   For Phase 2 F-SLICE-E-2 escalation analysis, prefer the higher-fidelity
+ *   scripts/aggregate-calibration-audit.ts — it joins clip registries to
+ *   full SHA-256 payloads and surfaces multimodal structure that simple
+ *   pairwise hashing here can mask (see Pass 3c → 5e-bis correction).
+ */
 
 const CLOUD_RUN_URL =
   "https://mediapipe-service-874407535869.us-central1.run.app/analyze";

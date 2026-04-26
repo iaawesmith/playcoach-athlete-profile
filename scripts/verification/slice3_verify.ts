@@ -1,7 +1,35 @@
 /**
- * Phase 1c.1 Slice 3 — Position Field UI verification suite (rev 2)
- * Uses the Supabase JS client (RLS = Allow All on athlete_lab_nodes) for
- * V1 writes. psql for reads. Mirrors the round-trip a real Save click does.
+ * slice3_verify.ts
+ *
+ * NAME:  slice3_verify
+ * PHASE: PHASE-1C1 (Slice 3 — Position Field UI)
+ *
+ * VERIFIES:
+ *   The Position Field UI round-trips correctly through the
+ *   athlete_lab_nodes table and is consumed by the analyze edge function
+ *   exactly as the Save button writes it. Uses the Supabase JS client
+ *   (RLS = Allow All on athlete_lab_nodes) for V1 writes and psql for
+ *   reads — mirrors the round-trip a real Save click does. Cross-checks
+ *   the {{position}} substitution lives in the production analyze pipeline,
+ *   not the (now-deleted) athlete-lab-analyze test edge function.
+ *
+ * RECIPE:
+ *   Runtime:   tsx (Node)
+ *   Command:   npx tsx scripts/verification/slice3_verify.ts
+ *   Env vars:  VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY,
+ *              PG* env (PGHOST/PGPORT/PGUSER/PGDATABASE/PGPASSWORD) for psql
+ *   Args:      none
+ *   Output:    stdout — pass/fail per assertion in V1..Vn ordering
+ *   Halt:      exit 1 on first FAIL (assertion bail), exit 2 on missing env
+ *
+ * BACKLINKS:
+ *   - docs/process/phase-1c1-slice3-outcome.md
+ *   - docs/architecture/athlete-lab-tab-inventory.md (BASICS tab section)
+ *
+ * MAINTENANCE:
+ *   This script reads NodeEditor.tsx and types.ts as source-of-truth for
+ *   the position field set. If those file paths change, update the
+ *   readFileSync calls below in the same commit.
  */
 import { readFileSync } from "fs";
 import { execSync } from "child_process";
