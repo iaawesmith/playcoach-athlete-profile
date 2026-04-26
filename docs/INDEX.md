@@ -46,7 +46,9 @@
 
 | Doc | Purpose |
 |---|---|
-| [`migration-risk-register.md`](migration-risk-register.md) | All `R-*` risks and `F-*` findings. Splits into `risk-register/` directory in Pass 4. |
+| [`risk-register/INDEX.md`](risk-register/INDEX.md) | Aggregated view of all `R-*` risks (12) and `F-*` findings (10), with status / severity / origin slice / related ADRs / related entries. One file per ID under `risk-register/`. |
+| [`risk-register/_schema.md`](risk-register/_schema.md) | Frontmatter contract for risk-register entries. |
+| [`migration-risk-register.md`](migration-risk-register.md) | R2 redirect stub (split executed in Pass 4). |
 
 ## Investigations
 
