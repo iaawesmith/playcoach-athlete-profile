@@ -50,5 +50,22 @@
 
 ### E-phase verification runs
 
-*(Append new observations below as E.0, E.3.6, and any future verification runs complete.)*
+#### E.0 — post-SELECT-list-edit determinism check (2026-04-26)
+
+| field | value |
+|---|---|
+| date (UTC) | 2026-04-26 02:50:55 |
+| upload_id | `2b3e2731-a54a-4fea-be43-769a4e00a9be` |
+| result_id | `d398a7e5-3129-4c07-90ca-33949066b526` |
+| experiment tag | `1c-slice-e-e0-verification` |
+| hash | `34a8712604547408d5b8c2c7d5c37a281eaf9c9d83619dc1f6668a4e29afcc77` |
+| group | **A (baseline)** |
+| `body_based_ppy` | 200.21353797234588 (baseline 200.21353797230793; Δ +1.9e-13%, well inside double-precision noise — effectively bit-exact) |
+| `body_based_confidence` | 0.7865837119124024 |
+| `selected_ppy` | 200.21353797234588 |
+| outcome | ✅ **PASS — exact hash match** |
+| pipeline runtime | ~30s |
+| change under test | `analyze-athlete-video/index.ts:912-914` — removed root `det_frequency` from `fetchNodeConfig` SELECT list |
+
+**Interpretation:** The SELECT-list narrowing has no observable effect on pipeline output. Drift envelope unchanged: [+0.000%, +0.784%] across 8 in-spec runs (7 historical + this E.0 run). Cleared to proceed to E.1.
 
