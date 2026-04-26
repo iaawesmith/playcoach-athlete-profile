@@ -7,7 +7,6 @@
  *   - an `onCommitPhase(phase_id, coaching_cues, cleaned_description)` handler
  *   - an `onCommitAll(updates)` handler
  *   - the current `coaching_cues_migration_status`
- *   - an `onStatusChange(next)` handler
  *
  * The modal classifies all phases via `reconcileNode` (Step 2 helpers),
  * lets the admin edit each phase's proposed cues in a textarea, and emits
@@ -15,7 +14,8 @@
  * advances based on confirmed_count vs total_phases via `nextMigrationStatus`.
  *
  * Step 6 will pass real Supabase write handlers; Step 3 keeps this component
- * testable in isolation.
+ * testable in isolation. Slice C.1 (2026-04-26) removed the legacy
+ * onStatusChange no-op prop.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -58,7 +58,6 @@ interface MigrateCoachingCuesModalProps {
    */
   onCommitPhase: (commit: PhaseCommit) => void | Promise<void>;
   onCommitAll: (commits: PhaseCommit[]) => void | Promise<void>;
-  onStatusChange: (next: CoachingCuesMigrationStatus) => void;
   onClose: () => void;
 }
 
@@ -120,14 +119,11 @@ export function MigrateCoachingCuesModal({
   confirmed_phase_ids,
   onCommitPhase,
   onCommitAll,
-  onStatusChange,
   onClose,
 }: MigrateCoachingCuesModalProps) {
-  // onStatusChange is retained as a prop for backward compat with Step 4
-  // wiring, but Step 6 owns status persistence inside the parent's commit
-  // handlers (atomically with phase_breakdown). The modal no longer drives
-  // status transitions.
-  void onStatusChange;
+  // Status persistence is owned by the parent inside its commit handlers
+  // (atomically with phase_breakdown). The modal no longer drives status
+  // transitions, and the legacy onStatusChange prop has been removed.
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // Reconcile the live shapes via the Step 2 pure helpers.

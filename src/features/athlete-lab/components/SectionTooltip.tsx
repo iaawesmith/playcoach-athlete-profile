@@ -1,3 +1,17 @@
+/**
+ * SectionTooltip — small info popover used throughout the athlete-lab editors.
+ *
+ * Slice C.2 audit (2026-04-26): a "Function components cannot be given refs"
+ * warning was investigated as the suspected source. Audit confirmed:
+ *   `rg "<SectionTooltip[^>]*\\bref=" src/ --include='*.tsx'` → 0 matches.
+ * No caller forwards a ref to this component, so React's forwardRef machinery
+ * is not required here. The internal `useRef<HTMLDivElement>` on the wrapper
+ * div is for click-outside handling only and does not surface to callers.
+ *
+ * If a future caller needs to forward a ref, wrap this in
+ * `React.forwardRef<HTMLDivElement, SectionTooltipProps>` and merge the
+ * forwarded ref with the internal click-outside ref.
+ */
 import { useState, useRef, useEffect } from "react";
 
 interface SectionTooltipProps {

@@ -74,6 +74,22 @@ Halt and surface as Finding if any check fails. ±5% threshold is intentionally 
 
 Per F-SLICE-B-1 (recorded in `docs/migration-risk-register.md`): `calculateBodyBasedCalibration` deletion deferred to Slice B2. Pre-conditions: filming-instructions update, ≥5 on-spec admin test clips, empirical resolution of the trace-vs-investigation arithmetic disagreement on what "true ppy" means for the d1b3ab23 baseline clip.
 
-## Gate to Slice C
+## Status update — 2026-04-26: B1 SHIPPED
 
-B1 is ready to ship. Live Browser Smoke is the final gate; on PASS, proceed to Slice C (SectionTooltip forwardRef fix, onStatusChange no-op prop removal, athlete_height removal from admin types).
+**B1 ships to production.** Pipeline determinism confirmed bit-perfect across 5 parallel runs (Sections A and B of `docs/phase-1c2-determinism-experiment.md`). R-08 4-key MediaPipe contract verified live. R-06 det_frequency parity verified byte-equal. Mechanical correctness intact independent of calibration architecture questions.
+
+**B2 scope changed:** Option A (delete `body_based`, keep `static`) WITHDRAWN per Section D ground-truth measurement on `slant-route-reference-v1.mp4`. See `docs/migration-risk-register.md` F-SLICE-B-1 (Sev-2 as of 2026-04-26) and `docs/calibration-ground-truth-dataset.md` (slant-route entry).
+
+## Gate to Slice C — revised scope
+
+B1 is SHIPPED. Slice C kicks off with **revised scope**:
+
+- **Keep:** `MigrateCoachingCuesModal` `onStatusChange` no-op prop removal (C.1).
+- **Keep:** `SectionTooltip` forwardRef-warning audit (C.2) — audit-before-fix discipline; document negative finding if no caller forwards a ref.
+- **Add:** Interim `calibration_audit` structured logging on every analysis (C.5) — captures `body_based_ppy`, `static_ppy`, and explicit status enums regardless of selected path. Determinism-preserving (no timestamps, no random IDs).
+- **Add:** Documentation updates (C.6, this update) — Section D corrections, F-SLICE-B-1 Sev-2 upgrade, B1 SHIPPED status, and new `docs/calibration-ground-truth-dataset.md`.
+- **Removed from scope:** `athlete_height` field removal from `AnalysisContext`. Originally justified by Option A's `body_based` deletion. With Option A withdrawn, `body_based` remains in the codebase, `body_based` reads `athlete_height`, therefore `athlete_height` removal is no longer justified.
+- **Deferred:** `run.ts:103` harness fix (per earlier decision).
+- **Out of scope:** any change to `body_based` math, `static` calibration values, calibration selection priority, or `calculateBodyBasedCalibration` / `selectCalibration`.
+
+Verification gate: 5-run byte-identical determinism check on `result_data.calibration_audit` after C.5 lands, matching Section A rigor.
