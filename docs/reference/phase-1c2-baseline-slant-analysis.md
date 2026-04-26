@@ -67,7 +67,7 @@
 - Dynamic calibration (field markings) **failed** with reason `dynamic_pixels_per_yard_out_of_range` — confirms dynamic path is not currently working for this clip.
 - Body-based calibration **succeeded** with confidence 0.67 ("high" qualitative flag).
 - Static calibration (the surviving fallback under Option A) was **not exercised** on this run — the body-based path won before static was needed.
-- **Risk to validate in Slice B doc reads:** if `calibration-source-trace.md` or `calibration-ppy-investigation.md` reveals this is a clip where neither dynamic nor static would have produced a usable `pixels_per_yard`, then deleting body-based is a regression. **Halt Slice B and surface as Finding** if so.
+- **Risk to validate in Slice B doc reads:** if `../investigations/calibration-source-trace.md` or `../investigations/calibration-ppy-investigation.md` reveals this is a clip where neither dynamic nor static would have produced a usable `pixels_per_yard`, then deleting body-based is a regression. **Halt Slice B and surface as Finding** if so.
 
 ## Claude / LLM Output
 

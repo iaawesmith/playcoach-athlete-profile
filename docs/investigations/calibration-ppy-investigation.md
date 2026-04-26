@@ -1,6 +1,6 @@
 # Calibration ppy Range — Investigation
 
-> **Status:** Superseded. Findings absorbed into [`migration-risk-register.md`](migration-risk-register.md) under `F-SLICE-B-1`. The "C.5 unified to edge-function body_based path" decision is captured in ADR-0011 (created in Pass 3d). Retained for historical context.
+> **Status:** Superseded. Findings absorbed into [`../migration-risk-register.md`](../migration-risk-register.md) under `F-SLICE-B-1`. The "C.5 unified to edge-function body_based path" decision is captured in ADR-0011 (created in Pass 3d). Retained for historical context.
 
 ## Headline
 

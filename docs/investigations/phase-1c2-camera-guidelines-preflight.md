@@ -1,6 +1,6 @@
 # Phase 1c.2 — Slice D `camera_guidelines` Pre-Flight Result
 
-> **Status:** Historical. Pre-flight check completed; Slice D shipped (see [`phase-1c2-slice-d-outcome.md`](phase-1c2-slice-d-outcome.md)). Retained for historical context.
+> **Status:** Historical. Pre-flight check completed; Slice D shipped (see [`../process/phase-1c2-slice-d-outcome.md`](../process/phase-1c2-slice-d-outcome.md)). Retained for historical context.
 
 **Captured:** 2026-04-25 (pre-Slice-A)
 **Purpose:** Finding 4 from plan review. Determine whether Slice D's conditional JSON-vs-plain-text branching can collapse to a single column-drop in Slice E.

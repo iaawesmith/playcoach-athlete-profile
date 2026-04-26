@@ -28,7 +28,7 @@ The ProCard is the cover. The Athlete Profile is the magazine.
 
 React 18 + Vite 5 + Tailwind CSS v3 + TypeScript 5. Zustand for shared state. Lovable Cloud (Supabase under the hood) for database, auth, and file storage. Pose analysis runs on a dedicated MediaPipe service deployed to Cloud Run, invoked from a Supabase edge function.
 
-See [`docs/architecture/`](docs/architecture/) (post-Pass 3) or [`docs/athlete-lab-architecture-audit.md`](docs/athlete-lab-architecture-audit.md) (current path) for the full architecture map.
+See [`docs/architecture/`](docs/architecture/) for the full architecture map (canonical doc: [`docs/architecture/athlete-lab-architecture-audit.md`](docs/architecture/athlete-lab-architecture-audit.md)).
 
 ---
 

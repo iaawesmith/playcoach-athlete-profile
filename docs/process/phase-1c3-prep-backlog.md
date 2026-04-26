@@ -52,14 +52,18 @@ Then narrow with `rg -n` on each hit to determine whether the reference is a rea
 
 ## Stub cleanup queue
 
-R2 redirect stubs created during Phase 1c.2 cleanup. Per the R2 stub policy ([`agents/conventions.md`](agents/conventions.md), created Pass 2), heavy-traffic doc moves get one phase boundary of redirect grace. At the start of Phase 1c.3, run `rg <old-path>` for each entry; remove the stub if no live in-repo references remain.
+R2 redirect stubs created during Phase 1c.2 cleanup. Per the R2 stub policy ([`../agents/conventions.md`](../agents/conventions.md)), heavy-traffic doc moves get one phase boundary of redirect grace. At the start of Phase 1c.3, run `rg <old-path>` for each entry; remove the stub if no live in-repo references remain.
 
 | Stub path | Created in pass | Replacement | Removal trigger |
 |---|---|---|---|
 | `AGENTS.md` (root) | 1 | `PRODUCT-SPEC.md` | Remove at start of 1c.3 unless `rg "AGENTS\.md"` shows in-repo references |
-| `docs/run-analysis-observability-audit-v2.md` | 1 | `docs/run-analysis-observability-audit.md` | Remove at start of 1c.3 unless `rg "observability-audit-v2"` shows in-repo references |
+| `docs/run-analysis-observability-audit-v2.md` | 1 | `docs/reference/run-analysis-observability-audit.md` | Remove at start of 1c.3 unless `rg "observability-audit-v2"` shows in-repo references |
+| `docs/repo-architecture-audit.md` | 3a | `docs/architecture/repo-architecture-audit.md` | Remove at start of 1c.3 unless `rg "docs/repo-architecture-audit\.md"` shows in-repo references |
+| `docs/athlete-lab-architecture-audit.md` | 3a | `docs/architecture/athlete-lab-architecture-audit.md` | Remove at start of 1c.3 unless `rg "docs/athlete-lab-architecture-audit\.md"` shows in-repo references |
+| `docs/calibration-ground-truth-dataset.md` | 3a | `docs/reference/calibration-ground-truth-dataset.md` (prose); `docs/reference/calibration/ground-truth.yaml` (structured, Pass 3b) | Remove at start of 1c.3 unless `rg "docs/calibration-ground-truth-dataset\.md"` shows in-repo references |
+| `docs/phase-1c2-determinism-drift-log.md` | 3a | `docs/reference/phase-1c2-determinism-drift-log.md` (prose); `docs/reference/determinism-drift.csv` (structured, Pass 3c) | Remove at start of 1c.3 unless `rg "docs/phase-1c2-determinism-drift-log\.md"` shows in-repo references |
 
-Additional R2 stubs created during Passes 3 and 4 will be appended here as those passes execute.
+Additional R2 stubs created during Pass 4 (or later) will be appended here as those passes execute.
 
 ---
 

@@ -1,10 +1,10 @@
 # Documentation Index
 
-> **Status:** Current as of Phase 1c.2 cleanup Pass 1.
+> **Status:** Current as of Phase 1c.2 cleanup Pass 3a.
 >
-> This index reflects the current `docs/` layout. The structural reorg into subdirectories (`architecture/`, `process/`, `reference/`, `investigations/`, `adr/`, `agents/`, `risk-register/`) lands in Pass 3. After Pass 3 completes, the paths in this index will be updated and a "renamed/moved" column will be added.
+> The structural reorg into subdirectories (`architecture/`, `process/`, `reference/`, `investigations/`, `adr/`, `agents/`, `templates/`) landed in Pass 3a. The `risk-register/` split lands in Pass 4. R2 redirect stubs remain at the four old root-level paths until Phase 1c.3 (see [`process/phase-1c3-prep-backlog.md`](process/phase-1c3-prep-backlog.md) → "Stub cleanup queue").
 >
-> For executive narrative, see [`../VISION.md`](../VISION.md). For build specs, see [`../PRODUCT-SPEC.md`](../PRODUCT-SPEC.md). For onboarding, see [`agents/onboarding.md`](agents/onboarding.md) (created in Pass 2).
+> For executive narrative, see [`../VISION.md`](../VISION.md). For build specs, see [`../PRODUCT-SPEC.md`](../PRODUCT-SPEC.md). For onboarding, see [`agents/onboarding.md`](agents/onboarding.md).
 
 ---
 
@@ -12,34 +12,34 @@
 
 | Doc | Purpose |
 |---|---|
-| [`athlete-lab-architecture-audit.md`](athlete-lab-architecture-audit.md) | Phase 1c.0 architecture audit; current end-state laid out in companion doc below |
-| [`athlete-lab-end-state-architecture.md`](athlete-lab-end-state-architecture.md) | "Where we're going" target architecture for the athlete-lab feature |
-| [`athlete-lab-tab-inventory.md`](athlete-lab-tab-inventory.md) | Inventory of NodeEditor tabs, their dispositions, and audit findings |
-| [`mediapipe-capability-inventory.md`](mediapipe-capability-inventory.md) | Capabilities of the MediaPipe Cloud Run service we depend on |
-| [`repo-architecture-audit.md`](repo-architecture-audit.md) | Repo + IA audit (the doc that prompted this cleanup pass) |
+| [`architecture/athlete-lab-architecture-audit.md`](architecture/athlete-lab-architecture-audit.md) | Phase 1c.0 architecture audit; current end-state laid out in companion doc below |
+| [`architecture/athlete-lab-end-state-architecture.md`](architecture/athlete-lab-end-state-architecture.md) | "Where we're going" target architecture for the athlete-lab feature |
+| [`architecture/athlete-lab-tab-inventory.md`](architecture/athlete-lab-tab-inventory.md) | Inventory of NodeEditor tabs, their dispositions, and audit findings |
+| [`architecture/mediapipe-capability-inventory.md`](architecture/mediapipe-capability-inventory.md) | Capabilities of the MediaPipe Cloud Run service we depend on |
+| [`architecture/repo-architecture-audit.md`](architecture/repo-architecture-audit.md) | Repo + IA audit (the doc that prompted this cleanup pass) |
 
 ## Process & slice records
 
 | Doc | Purpose |
 |---|---|
-| [`phase-1c1-slice2-outcome.md`](phase-1c1-slice2-outcome.md) | Slice 2 ship record |
-| [`phase-1c1-slice3-outcome.md`](phase-1c1-slice3-outcome.md) | Slice 3 ship record |
-| [`phase-1c2-determinism-experiment.md`](phase-1c2-determinism-experiment.md) | Definitive determinism investigation writeup |
-| [`phase-1c2-slice-b1-outcome.md`](phase-1c2-slice-b1-outcome.md) | Slice B.1 ship record |
-| [`phase-1c2-slice-d-outcome.md`](phase-1c2-slice-d-outcome.md) | Slice D ship record |
-| [`phase-1c2-slice-e-outcome.md`](phase-1c2-slice-e-outcome.md) | Slice E ship record |
-| [`phase-1c3-prep-backlog.md`](phase-1c3-prep-backlog.md) | Open verification tasks for 1c.3 |
+| [`process/phase-1c1-slice2-outcome.md`](process/phase-1c1-slice2-outcome.md) | Slice 2 ship record |
+| [`process/phase-1c1-slice3-outcome.md`](process/phase-1c1-slice3-outcome.md) | Slice 3 ship record |
+| [`process/phase-1c2-determinism-experiment.md`](process/phase-1c2-determinism-experiment.md) | Definitive determinism investigation writeup |
+| [`process/phase-1c2-slice-b1-outcome.md`](process/phase-1c2-slice-b1-outcome.md) | Slice B.1 ship record |
+| [`process/phase-1c2-slice-d-outcome.md`](process/phase-1c2-slice-d-outcome.md) | Slice D ship record |
+| [`process/phase-1c2-slice-e-outcome.md`](process/phase-1c2-slice-e-outcome.md) | Slice E ship record |
+| [`process/phase-1c3-prep-backlog.md`](process/phase-1c3-prep-backlog.md) | Open verification tasks for 1c.3 |
 
 ## Reference
 
 | Doc | Purpose |
 |---|---|
-| [`calibration-ground-truth-dataset.md`](calibration-ground-truth-dataset.md) | Ground truth clip data (n=1, Slant route). Becomes structured YAML in Pass 3b. |
-| [`phase-1c2-determinism-drift-log.md`](phase-1c2-determinism-drift-log.md) | Append-only drift log. Becomes CSV in Pass 3c. |
-| [`phase-1c2-baseline-slant-analysis.md`](phase-1c2-baseline-slant-analysis.md) | Baseline Slant route numbers used as the determinism reference |
-| [`phase-1c2-diagnostic-snapshot-2026-04-26.md`](phase-1c2-diagnostic-snapshot-2026-04-26.md) | Field-level diagnostic snapshot |
-| [`phase-1c2-detfreq-resolution-snapshot.md`](phase-1c2-detfreq-resolution-snapshot.md) | Snapshot supporting R-06 resolution |
-| [`run-analysis-observability-audit.md`](run-analysis-observability-audit.md) | Observability audit of the analysis pipeline (renamed from `-v2` in Pass 1) |
+| [`reference/calibration-ground-truth-dataset.md`](reference/calibration-ground-truth-dataset.md) | Ground truth clip data (n=1, Slant route). Becomes structured YAML in Pass 3b. |
+| [`reference/phase-1c2-determinism-drift-log.md`](reference/phase-1c2-determinism-drift-log.md) | Append-only drift log. Becomes CSV in Pass 3c. |
+| [`reference/phase-1c2-baseline-slant-analysis.md`](reference/phase-1c2-baseline-slant-analysis.md) | Baseline Slant route numbers used as the determinism reference |
+| [`reference/phase-1c2-diagnostic-snapshot-2026-04-26.md`](reference/phase-1c2-diagnostic-snapshot-2026-04-26.md) | Field-level diagnostic snapshot |
+| [`reference/phase-1c2-detfreq-resolution-snapshot.md`](reference/phase-1c2-detfreq-resolution-snapshot.md) | Snapshot supporting R-06 resolution |
+| [`reference/run-analysis-observability-audit.md`](reference/run-analysis-observability-audit.md) | Observability audit of the analysis pipeline (renamed from `-v2` in Pass 1) |
 | [`data-dictionary/fields.json`](data-dictionary/fields.json) | The canonical field-level data dictionary (110 fields, versioned) |
 
 ## Risks & findings
@@ -52,14 +52,14 @@
 
 | Doc | Purpose |
 |---|---|
-| [`calibration-ppy-investigation.md`](calibration-ppy-investigation.md) | (superseded — findings absorbed into F-SLICE-B-1) |
-| [`calibration-source-trace.md`](calibration-source-trace.md) | Code trace of calibration paths |
-| [`claude-prompt-content-trace.md`](claude-prompt-content-trace.md) | Trace of LLM prompt construction |
-| [`first-real-test-diagnostic.md`](first-real-test-diagnostic.md) | (historical — pre-1c.2 diagnostic) |
-| [`release-speed-velocity-investigation.md`](release-speed-velocity-investigation.md) | (reframed — original framing superseded by F-SLICE-B1-2) |
-| [`phase-1c2-baseline-slant-analysis.md`](phase-1c2-baseline-slant-analysis.md) | Baseline Slant analysis |
-| [`phase-1c2-camera-guidelines-preflight.md`](phase-1c2-camera-guidelines-preflight.md) | (historical — pre-flight check record) |
-| [`phase-1c2-slice-a-r04-assertion.md`](phase-1c2-slice-a-r04-assertion.md) | (historical — small ship record) |
+| [`investigations/calibration-ppy-investigation.md`](investigations/calibration-ppy-investigation.md) | (superseded — findings absorbed into F-SLICE-B-1) |
+| [`investigations/calibration-source-trace.md`](investigations/calibration-source-trace.md) | Code trace of calibration paths |
+| [`investigations/claude-prompt-content-trace.md`](investigations/claude-prompt-content-trace.md) | Trace of LLM prompt construction |
+| [`investigations/first-real-test-diagnostic.md`](investigations/first-real-test-diagnostic.md) | (historical — pre-1c.2 diagnostic) |
+| [`investigations/release-speed-velocity-investigation.md`](investigations/release-speed-velocity-investigation.md) | (reframed — original framing superseded by F-SLICE-B1-2) |
+| [`reference/phase-1c2-baseline-slant-analysis.md`](reference/phase-1c2-baseline-slant-analysis.md) | Baseline Slant analysis |
+| [`investigations/phase-1c2-camera-guidelines-preflight.md`](investigations/phase-1c2-camera-guidelines-preflight.md) | (historical — pre-flight check record) |
+| [`process/phase-1c2-slice-a-r04-assertion.md`](process/phase-1c2-slice-a-r04-assertion.md) | (historical — small ship record) |
 
 ## Agents
 

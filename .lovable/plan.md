@@ -15,7 +15,7 @@
 3. R-04 backup completeness assertion passed (`scripts/slice1c2_r04_backup_assert.ts`) — text fields byte-equal, JSONB sources semantic deep-equal.
 
 ## Slice B split (post doc-read, post F-SLICE-B-1 finding)
-Doc reads of `calibration-source-trace.md` and `calibration-ppy-investigation.md` surfaced **F-SLICE-B-1**: the two docs disagree on what "true ppy" means for the d1b3ab23 baseline clip (trace assumes static=true, investigation assumes neither path is true). Without empirical resolution, deletion of `calculateBodyBasedCalibration` is premature by the investigation doc's own Recommendation B standard ("ship after ~10 admin tests post-tightening").
+Doc reads of `../docs/investigations/calibration-source-trace.md` and `../docs/investigations/calibration-ppy-investigation.md` surfaced **F-SLICE-B-1**: the two docs disagree on what "true ppy" means for the d1b3ab23 baseline clip (trace assumes static=true, investigation assumes neither path is true). Without empirical resolution, deletion of `calculateBodyBasedCalibration` is premature by the investigation doc's own Recommendation B standard ("ship after ~10 admin tests post-tightening").
 
 Slice B is therefore split:
 
