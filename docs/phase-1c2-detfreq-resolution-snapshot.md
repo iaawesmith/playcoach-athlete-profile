@@ -1,5 +1,7 @@
 # Phase 1c.2 — det_frequency Resolution Snapshot
 
+> **Status:** Superseded. Snapshot captured in support of risk `R-06` resolution. R-06 is closed; consult the risk register for current state. Retained for historical context.
+
 **Captured:** 2026-04-25 (pre-Slice-A baseline)
 **Purpose:** Audit trail of admin intent at the moment `det_frequency` (root) is collapsed into the per-scenario columns. Captures what each node's resolution chain looked like _before_ Slice B's UPDATE persists the resolved values back into `det_frequency_solo` / `det_frequency_defender` / `det_frequency_multiple`.
 **Finding:** Finding 1 from plan review.

@@ -1,5 +1,7 @@
 # R-04 Backup Completeness Assertion — Phase 1c.2 Slice A
 
+> **Status:** Historical ship record. R-04 backup pattern captured in ADR-0007 (created in Pass 3d). Retained for historical context.
+
 **Status:** PASS
 **Run at:** 2026-04-25T15:11:07.230Z
 **Scope:** Slant node (`75ed4b18-8a22-440e-9a23-b86204956056`), 14 deletion-target fields

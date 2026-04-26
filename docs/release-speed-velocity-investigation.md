@@ -1,5 +1,7 @@
 # Release Speed Velocity Calculation — Investigation
 
+> **Status:** Reframed. The original framing was superseded by [`migration-risk-register.md`](migration-risk-register.md) entry `F-SLICE-B1-2`. This doc has not been updated to reflect the reframe; consult the risk register for current understanding. Retained for historical context.
+
 ## Headline
 
 Calibration is innocent. The Release Speed velocity calculation is structurally fragile: **the metric was driven by a single frame-pair displacement** (`sampleCount: 1`), which trivially explodes any inter-frame jitter into an impossible mph value.

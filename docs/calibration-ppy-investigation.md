@@ -1,5 +1,7 @@
 # Calibration ppy Range — Investigation
 
+> **Status:** Superseded. Findings absorbed into [`migration-risk-register.md`](migration-risk-register.md) under `F-SLICE-B-1`. The "C.5 unified to edge-function body_based path" decision is captured in ADR-0011 (created in Pass 3d). Retained for historical context.
+
 ## Headline
 
 ppy = 200.42 is internally consistent and the edge-function `body_based` path (Patch 1 fix) drove it correctly. The reason the **resolved** value lands at ~200 instead of the predicted 80–150 is a **combination of two compounding factors**: the static reference is calibrated for closer filming distances, and the body-based anthropometric ratios over-predict pixel widths for athletes filmed at typical sideline distances when the auto-zoom factor is applied to a low-fill-ratio clip.

@@ -1,5 +1,7 @@
 # Claude API Prompt Content Trace
 
+> **Status:** Reference. Code-trace of LLM prompt construction. Ages with code; values may diverge from current behavior as prompt logic evolves. Treat as a snapshot, not a live spec.
+
 **Investigation type:** Read-only empirical trace. No code changes.
 **Date:** 2026-04-25
 **Trace target:** Upload `66ea5e98-ff65-4d20-9e9e-232753d198aa`, node `75ed4b18-8a22-440e-9a23-b86204956056` (Slant), `status='complete'`, run on 2026-04-23.

@@ -1,5 +1,7 @@
 # First Real Test — Diagnostic Investigation
 
+> **Status:** Historical. Pre-Phase-1c.2 diagnostic. Findings either resolved during Slices A–E or absorbed into the risk register. Retained for historical context.
+
 **Date:** 2026-04-25
 **Mode:** Read-only investigation. No code or schema changes.
 **Source run:**
