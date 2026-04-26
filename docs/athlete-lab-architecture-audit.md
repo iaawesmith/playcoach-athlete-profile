@@ -301,7 +301,7 @@ This is where MediaPipe vs MMPose differences matter most. Three specific impact
 
 1. **MediaPipe returns 33 landmarks; MMPose returned 17 (or 133 in WholeBody).** All keypoint indices need to be MediaPipe-correct. Phase 1 caught this in some places but Lovable's first-test diagnostic found `calculateBodyBasedCalibration` was still using COCO-17 indices [5,6,11,12] — which we patched.
 
-2. **MediaPipe provides world-coordinate landmarks (3D in meters).** Currently the pipeline uses 2D screen coordinates for distance metrics, requiring pixels-per-yard calibration. Phase 3+ could use world coordinates directly, eliminating calibration entirely.
+2. **MediaPipe provides world-coordinate landmarks (3D in meters).** Currently the pipeline uses 2D screen coordinates for distance metrics, requiring pixels-per-yard calibration. Phase 2+ could use world coordinates directly, eliminating calibration entirely.
 
 3. **MediaPipe has higher per-frame accuracy than MMPose.** Some scoring tolerance values may be too lenient for MediaPipe-quality data. Phase 1 didn't recalibrate elite targets for MediaPipe accuracy.
 
@@ -359,7 +359,7 @@ Metrics tab Knowledge Base content was extensively reviewed in Phase 1. Accurate
 
 5. **Simplify Bilateral Mode by inferring from keypoint indices.** Reduce admin error surface.
 
-6. **Phase 3+: Migrate distance/velocity metrics to MediaPipe world coordinates.** Eliminates calibration entirely for these metric types.
+6. **Phase 2+: Migrate distance/velocity metrics to MediaPipe world coordinates.** Eliminates calibration entirely for these metric types.
 
 ### Verdict: KEEP (with significant additions for plausibility bounds, scoring curves, landmark naming)
 
@@ -533,7 +533,7 @@ This is the most architecturally affected tab by the MediaPipe migration. Three 
 
 If body-based calibration is the primary source going forward, static reference becomes a rarely-needed fallback. Worth keeping but not the primary calibration path.
 
-**Reference object specifications:** Likely DEPRECATE. Today uses generic body proportions (shoulder = 0.518 yards, hip = 0.382 yards for a 6' athlete). This is the MMPose-era approach. If we migrate to MediaPipe world coordinates (Phase 3+), reference objects become unnecessary.
+**Reference object specifications:** Likely DEPRECATE. Today uses generic body proportions (shoulder = 0.518 yards, hip = 0.382 yards for a 6' athlete). This is the MMPose-era approach. If we migrate to MediaPipe world coordinates (Phase 2+), reference objects become unnecessary.
 
 **Calibration confidence settings:** KEEP, but restructure. Current confidence gates produced confusing logged failures (e.g., "dynamic_pixels_per_yard_out_of_range" appearing in logs even when body-based was used). Cleaner gate logic per Lovable's calibration source trace recommendation.
 
@@ -543,7 +543,7 @@ Reference tab Knowledge Base may describe calibration as user-configurable per c
 
 ### Missing functionality
 
-**World-coordinate metric mode.** No setting today to indicate "this metric uses world coordinates, no calibration needed." Phase 3+ feature.
+**World-coordinate metric mode.** No setting today to indicate "this metric uses world coordinates, no calibration needed." Phase 2+ feature.
 
 **Dynamic line-pair calibration.** Not implemented. Code paths reference it but no actual line-pair detection exists in the MediaPipe service.
 
@@ -555,7 +555,7 @@ This tab is the strongest candidate for major architectural rework. Options:
 
 Keep per-camera-angle ppy values as a safety fallback. Document that body-based calibration is the primary source. Remove the dead "dynamic" gate logic that creates log noise. Static reference becomes rarely-used safety net.
 
-**Option B (Phase 3+): Migrate to MediaPipe world coordinates entirely.**
+**Option B (Phase 2+): Migrate to MediaPipe world coordinates entirely.**
 
 For all distance/velocity metrics, use MediaPipe's world coordinate output directly. Calibration becomes irrelevant. Reference tab deprecates entirely. Athlete uploads no longer need pixel-to-yard conversion at all.
 
@@ -687,7 +687,7 @@ If Phase 1c is the architectural cleanup pass following this audit, here's the r
 
 15. **Calibration architecture decision.** Static reference fallback vs body-based primary vs world-coordinate migration. Inform with real test data after P0 ships.
 
-### P3 (deferred to Phase 3+)
+### P3 (deferred to Phase 2+)
 
 16. **Migrate distance/velocity metrics to MediaPipe world coordinates.** Eliminates calibration entirely for those types.
 

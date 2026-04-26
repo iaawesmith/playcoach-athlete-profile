@@ -3,7 +3,7 @@
 **Date:** 2026-04-25
 **Phase:** 1c.0 — Foundation
 **Sequence:** Document 2 of 3 (after `mediapipe-capability-inventory.md`, before `migration-risk-register.md`)
-**Frame:** Define the target shape of the Athlete Lab admin surface after the Phase 1c cleanup. Every field that exists today is either kept (with possible reshaping), modified, deleted in 1c.2, or earmarked for future surface (athlete-facing, ops-only, Phase 3+). Nothing is silently dropped.
+**Frame:** Define the target shape of the Athlete Lab admin surface after the Phase 1c cleanup. Every field that exists today is either kept (with possible reshaping), modified, deleted in 1c.2, or earmarked for future surface (athlete-facing, ops-only, Phase 2+). Nothing is silently dropped.
 **Inputs:** `docs/athlete-lab-architecture-audit.md` (parts 1+2), `docs/mediapipe-capability-inventory.md` (sibling doc), code paths cited in those docs.
 
 Per your defaults:
@@ -41,7 +41,7 @@ Notation:
 - **MERGE → X** — folded into an existing field on tab X (semantic consolidation)
 - **DELETE 1c.2** — hard-deleted in migration 1c.2 after backup to `athlete_lab_nodes_phase1c_backup`
 - **EARMARK athlete-UI** — has no current consumer but is product surface; do not lose track
-- **EARMARK Phase 3+** — capability inventory flagged for future activation
+- **EARMARK Phase 2+** — capability inventory flagged for future activation
 
 ### 2.1 Basics
 | Field | Disposition |
@@ -156,7 +156,7 @@ Items 1–6 are **deleted** from `athlete_lab_nodes` in 1c.2; their text is rest
 | Fields DELETE 1c.2 (root columns) | — | 7 (`solution_class`, `performance_mode`, `tracking_enabled`, `det_frequency_defender`, `det_frequency_multiple`, `reference_object`, `reference_filming_instructions`) |
 | Fields DELETE 1c.2 (JSON sub-fields) | — | 5 (reference_object_name, known_size_yards, known_size_unit, placement_instructions, filming_instructions, calibration_notes inside `reference_calibrations[]`; plus `skill_specific_filming_notes` inside `camera_guidelines`) |
 | Fields EARMARK athlete-UI | — | 8 (per §2.9) |
-| Fields EARMARK Phase 3+ (capability) | — | 1 (world-landmark mode per metric) |
+| Fields EARMARK Phase 2+ (capability) | — | 1 (world-landmark mode per metric) |
 | Tabs eliminated | — | 4 (Mechanics, Reference, Filming Guidance, Training Status) plus Scoring + Checkpoint folded |
 
 Net reduction: ~30% of admin field surface, ~33% of tabs. Aligns with the audit's "roughly 40% of the admin surface is candidate for simplification" estimate.

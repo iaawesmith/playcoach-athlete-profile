@@ -392,7 +392,7 @@ Combining corrections 2–4: the original "400–550 range" framing was driven b
 
 Static reference value (80) was authored for one specific filming geometry — likely sideline tactical camera at a football field, 25–40 yards from action. Real PlayCoach users will film in indoor soccer/turf facilities (this reference clip), backyards (we already have one clip in this category), high-school football fields, and training facilities of every kind. Each filming context has different ppy depending on camera distance, focal length, and frame composition. **Static at 80 is correct for one specific filming geometry and wrong everywhere else.** This isn't a bug in static authoring — it's a fundamental limitation of having a single static constant for a multi-context product. `body_based` at least *adapts* to the athlete's actual proportions in the frame, even when its scale assumptions are imperfect.
 
-**Implication for B2:** the right long-term answer is the audit's **Option B (migrate to MediaPipe world coordinates entirely, eliminate calibration as a concept)** — not Option A (delete one of the two imperfect paths). This is multi-week Phase 3+ work, not Phase 1c.2 deletion work.
+**Implication for B2:** the right long-term answer is the audit's **Option B (migrate to MediaPipe world coordinates entirely, eliminate calibration as a concept)** — not Option A (delete one of the two imperfect paths). This is multi-week Phase 2+ work, not Phase 1c.2 deletion work.
 
 ### Operational consequences (recorded for traceability)
 
