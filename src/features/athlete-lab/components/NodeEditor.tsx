@@ -82,7 +82,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
 const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt", "training_status"];
 
 /* Tabs hidden by default — re-enabled with the Show Advanced Tabs toggle */
-const ADVANCED_TAB_KEYS: TabKey[] = ["mechanics", "errors", "checkpoints", "reference", "scoring", "training_status"];
+const ADVANCED_TAB_KEYS: TabKey[] = ["errors", "checkpoints", "reference", "scoring", "training_status"];
 const ADVANCED_TABS_STORAGE_KEY = "athleteLab.showAdvancedTabs";
 
 /* ── Shared style constants ── */
