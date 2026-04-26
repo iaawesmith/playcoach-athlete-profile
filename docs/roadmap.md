@@ -87,6 +87,6 @@ Three sub-phases. Sub-phase order is the recommended sequence; specific scope de
 
 **Pre-condition:** Phase 2 complete. No athlete-facing surface ships before the metrics behind it have passed 2c audit.
 
-**Decision lineage:** ADR-0006 (phase ordering), ADR-0010 (no new athlete UI in Phase 1c).
+**Decision lineage:** [ADR-0006](adr/0006-phase-ordering-metrics-before-ui.md) (phase ordering: metrics before UI — also the basis for "no new athlete UI in Phase 1c").
 
 Detailed scoping happens at Phase 3 kickoff. The capability-inventory → end-state-architecture → risk-register trio approach used for Phase 1c may or may not be repeated; decided at kickoff.

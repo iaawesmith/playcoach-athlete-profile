@@ -93,7 +93,7 @@ We're at the tail end of **Phase 1c.2** — a deep cleanup pass on the internal 
 
 So you don't propose work that's been deliberately deferred:
 
-- ❌ No new athlete-facing UI in Phase 1c (ADR-0010, created Pass 3d)
+- ❌ No new athlete-facing UI in Phase 1c (corollary of [ADR-0006](../adr/0006-phase-ordering-metrics-before-ui.md) — metrics quality before athlete UI)
 - ❌ No new database migrations during the 1c.2 cleanup (read-only DB access only, except seed CSV in Pass 5.5)
 - ❌ No edge function changes during the 1c.2 cleanup
 - ❌ No CI/CD pipeline (deliberately rejected — see repo audit §5 R1)

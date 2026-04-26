@@ -45,6 +45,9 @@ no schema changes, no athlete-facing UI changes.
 - `docs/reference/calibration/{ground-truth.yaml,_schema.md}` — structured calibration ground-truth dataset (Pass 3b).
 - `docs/reference/determinism-drift.csv` + `_schema-determinism-drift.md` — structured drift log (Pass 3c).
 - `docs/adr/0001`–`0012` — 12 backfilled ADRs covering user-roles table, Lovable Cloud default, Lovable AI Gateway default, calibration deferral (ADR-0004), determinism tolerance (ADR-0005), phase ordering (ADR-0006), backup snapshot pattern (ADR-0007), validation triggers, MediaPipe-on-Cloud-Run, Zustand, icon/font policy, backup retention (ADR-0012). See `docs/adr/INDEX.md`.
+- `docs/adr/0013-prose-to-structured-policy.md` — codifies the two-of-four rule for converting prose datasets to CSV/YAML (Pass 3d follow-up).
+- `docs/adr/0014-c5-unified-edge-function-body-based-path.md` — records the Slice C.5 collapse of the two parallel `body_based` calibration paths into a single edge-function path with structured `calibration_audit` payload (Pass 3d follow-up; resolves F-SLICE-B-1 path-disagreement).
+- `docs/adr/0015-mechanics-tab-delete-not-patch.md` — records the Slice E recovery decision to hide the Mechanics tab rather than patch `MechanicsEditor` since the component is slated for 1c.3 deletion (Pass 3d follow-up; generalizes to a delete-not-patch rule).
 - `docs/adr/template.md`, `docs/templates/slice-outcome.md` (Pass 3f).
 - `scripts/verification/` — relocated all `slice*_verify.ts` and related verification scripts from `scripts/` root (Pass 3e).
 
@@ -57,6 +60,7 @@ no schema changes, no athlete-facing UI changes.
 
 ### Fixed
 - All in-repo `.md` cross-references to moved docs (88 occurrences across 14 files; verified by markdown link resolver, 0 broken intra-pass links).
+- Stale ADR cross-references corrected after the Pass 3d follow-up audit: `docs/roadmap.md` and `docs/agents/onboarding.md` previously cited "ADR-0010" for the "no new athlete UI in Phase 1c" rule (ADR-0010 is actually `zustand-for-shared-state`); both now correctly cite ADR-0006 (phase ordering) as the basis. `docs/investigations/calibration-ppy-investigation.md` previously cited "ADR-0011" for the C.5 unification decision; now correctly cites ADR-0014.
 
 ### Deferred (not changed in this pass)
 - B2 calibration architecture decision — see ADR-0004.

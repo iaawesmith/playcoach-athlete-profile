@@ -26,6 +26,9 @@ This directory holds the canonical record of architectural decisions for PlayCoa
 | [ADR-0010](0010-zustand-for-shared-state.md) | Zustand for shared client state (no Redux, no React Context for shared mutable state) | accepted | — |
 | [ADR-0011](0011-material-symbols-and-lexend-only.md) | Material Symbols Outlined as the only icon system; Lexend as the only font | accepted | — |
 | [ADR-0012](0012-backup-retention-indefinite.md) | Indefinite retention for Phase 1c backup tables (Default B) | accepted | R-04, R-10 |
+| [ADR-0013](0013-prose-to-structured-policy.md) | Prose-to-structured conversion policy for reference data (two-of-four rule) | accepted | — |
+| [ADR-0014](0014-c5-unified-edge-function-body-based-path.md) | C.5 unified `body_based` calibration on the edge-function path (single source of truth) | accepted | F-SLICE-B-1 |
+| [ADR-0015](0015-mechanics-tab-delete-not-patch.md) | Slice E recovery — hide Mechanics tab rather than patch `MechanicsEditor` (delete-not-patch rule) | accepted | F-SLICE-E-4 |
 
 ## ADR-0007 vs ADR-0012 distinction
 
