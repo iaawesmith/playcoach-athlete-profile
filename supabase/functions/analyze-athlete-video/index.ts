@@ -1476,7 +1476,7 @@ function resolveCalibration(
   athleteHeight: AthleteHeightMeasurement | undefined,
   nodeConfig: any,
   cameraAngle: string,
-): ResolvedCalibration {
+): CalibrationResolutionOutcome {
   const dynamicAssessment = isDynamicCalibrationTrusted(cloudRunCalibration)
 
   logInfo('dynamic_calibration_assessed', {
@@ -1493,10 +1493,31 @@ function resolveCalibration(
     details: dynamicAssessment.details,
   })
 
+  const dynamicFailureReason = dynamicAssessment.accepted ? null : dynamicAssessment.reason
+
+  // Slice C.5 — UNCONDITIONAL computation of both calibration candidates.
+  // Selection priority below is unchanged (dynamic → body_based → static → none);
+  // this block only adds shadow observation so calibration_audit always carries
+  // both ppy values for cross-clip ground-truth comparison.
+  const bodyBasedCalibration = athleteHeight
+    ? calculateBodyBasedCalibration(keypoints, scores, athleteHeight)
+    : null
+  const staticCalibration = selectCalibration(nodeConfig, cameraAngle)
+  const staticPixelsPerYard = getPixelsPerYardValue(staticCalibration)
+
+  const bodyBasedAcceptable = bodyBasedCalibration !== null
+    && bodyBasedCalibration.pixelsPerYard !== null
+    && bodyBasedCalibration.confidence >= 0.3
+
+  // Selection priority (unchanged behavior).
+  let resolved: ResolvedCalibration
+  let selectedSource: CalibrationAudit['selected_source']
+
   if (dynamicAssessment.accepted && dynamicAssessment.pixelsPerYard !== null) {
-    const resolved = {
+    selectedSource = 'dynamic'
+    resolved = {
       pixelsPerYard: dynamicAssessment.pixelsPerYard,
-      source: 'dynamic' as const,
+      source: 'dynamic',
       confidence: dynamicAssessment.goodLinePairs !== null
         ? clamp(dynamicAssessment.goodLinePairs / 12, 0.65, 1)
         : 1,
@@ -1511,60 +1532,45 @@ function resolveCalibration(
         ...dynamicAssessment.details,
       },
     }
-    logInfo('calibration_resolved', resolved)
-    logCalibrationSource(resolved)
-    return resolved
-  }
-
-  const dynamicFailureReason = dynamicAssessment.reason
-
-  if (athleteHeight) {
+  } else if (athleteHeight && bodyBasedAcceptable && bodyBasedCalibration) {
     logInfo('calibration_source_fallback', {
       from: 'dynamic',
       to: 'body_based',
       reason: dynamicFailureReason,
     })
-
-    const bodyBasedCalibration = calculateBodyBasedCalibration(keypoints, scores, athleteHeight)
-    if (bodyBasedCalibration.pixelsPerYard !== null && bodyBasedCalibration.confidence >= 0.3) {
-      const resolved = {
+    selectedSource = 'body_based'
+    resolved = {
+      pixelsPerYard: bodyBasedCalibration.pixelsPerYard,
+      source: 'body_based',
+      confidence: bodyBasedCalibration.confidence,
+      reason: 'body_based_calibration_accepted',
+      details: {
+        method: bodyBasedCalibration.method,
         pixelsPerYard: bodyBasedCalibration.pixelsPerYard,
-        source: 'body_based' as const,
-        confidence: bodyBasedCalibration.confidence,
-        reason: 'body_based_calibration_accepted',
-        details: {
-          method: bodyBasedCalibration.method,
-          pixelsPerYard: bodyBasedCalibration.pixelsPerYard,
-          dynamicFailureReason,
-          ...bodyBasedCalibration.details,
-        },
-      }
-      logInfo('calibration_resolved', resolved)
-      logCalibrationSource(resolved)
-      return resolved
+        dynamicFailureReason,
+        ...bodyBasedCalibration.details,
+      },
     }
-
-    logInfo('calibration_source_fallback', {
-      from: 'body_based',
-      to: 'static',
-      reason: bodyBasedCalibration.pixelsPerYard === null
-        ? 'body_based_confidence_below_threshold'
-        : 'body_based_calibration_unusable',
-    })
-  } else {
-    logInfo('calibration_source_fallback', {
-      from: 'dynamic',
-      to: 'static',
-      reason: `${dynamicFailureReason}_and_no_athlete_height`,
-    })
-  }
-
-  const staticCalibration = selectCalibration(nodeConfig, cameraAngle)
-  const staticPixelsPerYard = getPixelsPerYardValue(staticCalibration)
-  if (staticPixelsPerYard !== null) {
-    const resolved = {
+  } else if (staticPixelsPerYard !== null) {
+    if (athleteHeight && bodyBasedCalibration) {
+      logInfo('calibration_source_fallback', {
+        from: 'body_based',
+        to: 'static',
+        reason: bodyBasedCalibration.pixelsPerYard === null
+          ? 'body_based_confidence_below_threshold'
+          : 'body_based_calibration_unusable',
+      })
+    } else {
+      logInfo('calibration_source_fallback', {
+        from: 'dynamic',
+        to: 'static',
+        reason: `${dynamicFailureReason}_and_no_athlete_height`,
+      })
+    }
+    selectedSource = 'static'
+    resolved = {
       pixelsPerYard: staticPixelsPerYard,
-      source: 'static' as const,
+      source: 'static',
       confidence: 0.45,
       reason: 'node_reference_calibration',
       details: {
@@ -1574,33 +1580,75 @@ function resolveCalibration(
         matchedCalibration: staticCalibration ?? {},
       },
     }
-    logInfo('calibration_resolved', resolved)
-    logCalibrationSource(resolved)
-    return resolved
+  } else {
+    logInfo('calibration_source_fallback', {
+      from: athleteHeight ? 'static' : 'dynamic',
+      to: 'none',
+      reason: 'no_valid_static_calibration',
+    })
+    selectedSource = 'none'
+    resolved = {
+      pixelsPerYard: null,
+      source: 'none',
+      confidence: 0,
+      reason: 'no_calibration_available',
+      details: {
+        dynamicFailureReason,
+        athleteHeightProvided: Boolean(athleteHeight),
+        staticCalibrationFound: Boolean(staticCalibration),
+        calibrationFlag: 'unreliable',
+        cameraAngle,
+      },
+    }
   }
 
-  logInfo('calibration_source_fallback', {
-    from: athleteHeight ? 'static' : 'dynamic',
-    to: 'none',
-    reason: 'no_valid_static_calibration',
-  })
-
-  const resolved = {
-    pixelsPerYard: null,
-    source: 'none' as const,
-    confidence: 0,
-    reason: 'no_calibration_available',
-    details: {
-      dynamicFailureReason,
-      athleteHeightProvided: Boolean(athleteHeight),
-      staticCalibrationFound: Boolean(staticCalibration),
-      calibrationFlag: 'unreliable',
-      cameraAngle,
-    },
-  }
   logInfo('calibration_resolved', resolved)
   logCalibrationSource(resolved)
-  return resolved
+
+  // Build calibration_audit. Key order is explicit to keep result_data
+  // bit-stable across runs (Section A/B determinism guarantee).
+  let bodyBasedStatus: BodyBasedAuditStatus
+  if (!athleteHeight) {
+    bodyBasedStatus = 'not_attempted_no_athlete_height'
+  } else if (selectedSource === 'body_based') {
+    bodyBasedStatus = 'used'
+  } else if (bodyBasedCalibration && bodyBasedCalibration.pixelsPerYard === null) {
+    bodyBasedStatus = 'unusable_no_value'
+  } else if (bodyBasedCalibration && !bodyBasedAcceptable) {
+    bodyBasedStatus = 'unusable_low_confidence'
+  } else {
+    // Computed acceptable, but a higher-priority path won (dynamic).
+    bodyBasedStatus = 'computed_but_not_selected'
+  }
+
+  let staticStatus: StaticAuditStatus
+  if (staticPixelsPerYard === null) {
+    staticStatus = 'unusable_no_value'
+  } else if (selectedSource === 'static') {
+    staticStatus = 'used'
+  } else {
+    staticStatus = 'computed_but_not_selected'
+  }
+
+  const audit: CalibrationAudit = {
+    selected_source: selectedSource,
+    selected_ppy: resolved.pixelsPerYard,
+    dynamic_status: dynamicAssessment.accepted ? 'used' : 'failed',
+    dynamic_failure_reason: dynamicFailureReason,
+    body_based_status: bodyBasedStatus,
+    body_based_ppy: bodyBasedCalibration?.pixelsPerYard ?? null,
+    body_based_confidence: bodyBasedCalibration?.confidence ?? null,
+    static_status: staticStatus,
+    static_ppy: staticPixelsPerYard,
+    camera_angle: cameraAngle,
+    athlete_height_provided: Boolean(athleteHeight),
+    node_id: typeof nodeConfig?.id === 'string' ? nodeConfig.id : '',
+    node_version: typeof nodeConfig?.node_version === 'number' ? nodeConfig.node_version : 0,
+  }
+
+  logInfo('calibration_audit', audit)
+
+  return { resolved, audit }
 }
 
 function convertHeightToYards(height: AthleteHeightMeasurement): number | null {
