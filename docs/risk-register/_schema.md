@@ -21,12 +21,17 @@ status: open | mitigated | resolved | deferred | closed | superseded
 severity: Sev-1 | Sev-2 | Sev-3 | Sev-4 | none   # "none" only for process-lesson findings (e.g., F-SLICE-E-3)
 origin_slice: 1c.0 | 1c.1 | 1c.2 | 1c.2-Slice-A | 1c.2-Slice-B | 1c.2-Slice-B1 | 1c.2-Slice-C | 1c.2-Slice-C.5 | 1c.2-Slice-D | 1c.2-Slice-E | 1c.2-Slice-E.5 | 1c.3 | post-1c
 origin_doc: <relative path to the slice-outcome / investigation doc that surfaced this entry>
-related_adrs: []                  # list of ADR-NNNN IDs (see docs/adr/INDEX.md). Empty list if none.
+related_adrs: []                  # list of ADR-NNNN IDs (see docs/adr/INDEX.md). Empty list if none. See "related_adrs derivation" below.
 related_entries: []               # list of cross-referenced R-/F- IDs from this register
 opened: YYYY-MM-DD                # date the entry was first logged. From the prose "Logged:" field, or §0 header date for original-batch entries.
 last_updated: YYYY-MM-DD          # date of the most recent in-prose update. Matches `opened` if the entry has not been revised.
 ---
 ```
+
+### `related_adrs` derivation
+
+- **For entries created during Pass 4 split:** `related_adrs` was derived from the canonical Pass 3d ADR set (see [`docs/adr/INDEX.md`](../adr/INDEX.md)) plus entry context — i.e., judgment about which decisions each entry connects to.
+- **For new entries going forward:** populate `related_adrs` directly at creation time based on actual ADR connections. Do not rely on automatic or retroactive derivation.
 
 ## Body shape
 
