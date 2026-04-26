@@ -65,9 +65,9 @@
 
 | Doc | Purpose |
 |---|---|
-| [`agents/onboarding.md`](agents/onboarding.md) | Agent onboarding (created in Pass 2) |
-| [`agents/conventions.md`](agents/conventions.md) | Repo conventions (file naming, IDs, R2 stub policy) (created in Pass 2) |
-| [`agents/workflows.md`](agents/workflows.md) | Common multi-step workflows (created in Pass 2) |
+| [`agents/onboarding.md`](agents/onboarding.md) | Agent onboarding — read order for fresh agents |
+| [`agents/conventions.md`](agents/conventions.md) | Repo conventions (file naming, IDs, R2 stub policy, structured-vs-prose) |
+| [`agents/workflows.md`](agents/workflows.md) | Common multi-step workflows |
 
 ---
 
