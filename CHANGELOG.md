@@ -71,6 +71,5 @@ no schema changes, no athlete-facing UI changes.
 
 ### Deferred (not changed in this pass)
 - B2 calibration architecture decision — see ADR-0004.
-- Risk-register split into `docs/risk-register/` (one file per `R-*` / `F-*`) — scheduled for Pass 4.
-- Reference scaffolds (`reference/tiers.md`, `metrics.md`, `events.md`, `observability.md`, `calibration-audit-rollup.csv`) — scheduled for Pass 5.
 - Tab inventory generator, phase ID lookup, verification recipe template — scheduled for Pass 6.
+- Per-entry tier/metric/event/observability files — scaffolding only in Pass 5; first entries will land in Phase 1c.3 or post-1c as concrete content emerges.
