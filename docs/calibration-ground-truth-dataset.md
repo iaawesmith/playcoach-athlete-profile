@@ -24,6 +24,16 @@
 
 ---
 
+## Pipeline noise floor (uncertainty notation)
+
+`body_based_ppy` values recorded in this dataset have an empirically-observed pipeline noise floor of **~1% relative drift** on identical inputs. Single-run values should be treated as point estimates with ±1% uncertainty unless multiple runs have been averaged. See **F-SLICE-E-2** in `docs/migration-risk-register.md` for the underlying observation (Group A vs Group B drift on `slant-route-reference-v1.mp4`: +0.78% on `body_based_ppy`, −0.61% on `body_based_confidence`). Root cause not yet investigated; suspected pose-estimation floating-point variance.
+
+When recording `body_based_ppy_at_time_of_measurement` for a new entry, prefer to either (a) note the value with explicit ±1% uncertainty, or (b) average across ≥3 runs and note the sample standard deviation alongside the mean.
+
+`static_ppy_at_time_of_measurement` is deterministic — no noise floor applies.
+
+---
+
 ## Entries
 
 ### slant-route-reference-v1.mp4
