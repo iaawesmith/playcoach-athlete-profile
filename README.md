@@ -20,7 +20,7 @@ The ProCard is the cover. The Athlete Profile is the magazine.
 | Looking for build specs (components, design tokens, ProCard, color system) | [`PRODUCT-SPEC.md`](PRODUCT-SPEC.md) |
 | Wanting the current roadmap | [`docs/roadmap.md`](docs/roadmap.md) |
 | Looking up project terminology | [`docs/glossary.md`](docs/glossary.md) |
-| Investigating a risk or finding | [`docs/migration-risk-register.md`](docs/migration-risk-register.md) (split layout coming in Phase 1c.2 cleanup Pass 4) |
+| Investigating a risk or finding | [`docs/risk-register/INDEX.md`](docs/risk-register/INDEX.md) — aggregated view; one file per `R-*` / `F-*` ID under `docs/risk-register/` |
 
 ---
 

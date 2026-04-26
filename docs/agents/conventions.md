@@ -24,9 +24,9 @@ Operational rules for working in this repo. New conventions enter via the same p
 
 | Prefix | Meaning | Source of truth |
 |---|---|---|
-| `R-NN` | Risk in the migration risk register | `docs/risk-register/` (post-Pass 4) or `docs/migration-risk-register.md` (pre-Pass 4) |
-| `F-SLICE-X-N` | Finding scoped to slice X | Same as above |
-| `V-1c.3-NN` | Verification task for Phase 1c.3 | `docs/phase-1c3-prep-backlog.md` |
+| `R-NN` | Risk in the Phase 1c risk register | `docs/risk-register/R-NN-*.md` (one file per ID); aggregated in `docs/risk-register/INDEX.md` |
+| `F-<AREA>-<N>` | Finding scoped to area / slice (e.g., `F-SLICE-E-2`, `F-OPS-1`, `F-SEC-1`) | `docs/risk-register/F-*-*.md`; aggregated in `docs/risk-register/INDEX.md` |
+| `V-1c.3-NN` | Verification task for Phase 1c.3 | `docs/process/phase-1c3-prep-backlog.md` |
 | `ADR-NNNN` | Architecture Decision Record | `docs/adr/` |
 | `PHASE-NN[a/b/c]` | Phase identifier | `docs/reference/phases.md` (created Pass 6.2) |
 

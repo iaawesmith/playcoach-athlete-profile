@@ -31,10 +31,10 @@ Slice outcomes capture the result of a bounded unit of work shipped during a pha
 ## Registering a new risk or finding
 
 1. Pick the next available ID. Risks: `R-NN` (next sequential). Findings: `F-SLICE-X-N` (next sequential within the originating slice).
-2. Post-Pass-4: create `docs/risk-register/<ID>-<kebab-slug>.md` with the standard frontmatter (see [`docs/risk-register/_schema.md`](../risk-register/_schema.md)).
-3. Pre-Pass-4: append to `docs/migration-risk-register.md` using the existing format.
-4. If the risk surfaces an architectural decision, also create an ADR (see workflow below).
-5. Update `docs/risk-register/index.md` if creating a new entry post-Pass-4.
+2. Create `docs/risk-register/<ID>-<kebab-slug>.md` with the standard frontmatter (see [`../risk-register/_schema.md`](../risk-register/_schema.md)).
+3. Append a row to the appropriate table in [`../risk-register/INDEX.md`](../risk-register/INDEX.md).
+4. If the new entry references existing entries, update both `related_entries` lists (the new entry → others; others → the new entry).
+5. If the entry surfaces an architectural decision, also create an ADR (see workflow below) and link it via `related_adrs`.
 
 **IDs are never renumbered.** A closed risk keeps its ID forever.
 
