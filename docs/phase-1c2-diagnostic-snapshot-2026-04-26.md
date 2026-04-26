@@ -1,5 +1,7 @@
 # Phase 1c.2 — Diagnostic Snapshot
 
+> **Status:** Reference. Field-level snapshot of pipeline state on 2026-04-26. Used as a fixed reference point during Slice E investigation. Do not edit; treat as immutable historical snapshot.
+
 **Date:** 2026-04-26
 **Clip:** `slant-route-reference-v1.mp4` (`athlete-videos/test-clips/slant-route-reference-v1.mp4`)
 **Window:** start_seconds=0, end_seconds=3, sideline angle, athlete_height=74"

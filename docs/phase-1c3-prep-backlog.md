@@ -50,6 +50,19 @@ Then narrow with `rg -n` on each hit to determine whether the reference is a rea
 
 ---
 
+## Stub cleanup queue
+
+R2 redirect stubs created during Phase 1c.2 cleanup. Per the R2 stub policy ([`agents/conventions.md`](agents/conventions.md), created Pass 2), heavy-traffic doc moves get one phase boundary of redirect grace. At the start of Phase 1c.3, run `rg <old-path>` for each entry; remove the stub if no live in-repo references remain.
+
+| Stub path | Created in pass | Replacement | Removal trigger |
+|---|---|---|---|
+| `AGENTS.md` (root) | 1 | `PRODUCT-SPEC.md` | Remove at start of 1c.3 unless `rg "AGENTS\.md"` shows in-repo references |
+| `docs/run-analysis-observability-audit-v2.md` | 1 | `docs/run-analysis-observability-audit.md` | Remove at start of 1c.3 unless `rg "observability-audit-v2"` shows in-repo references |
+
+Additional R2 stubs created during Passes 3 and 4 will be appended here as those passes execute.
+
+---
+
 ## (future entries)
 
 Add additional verification tasks here as they surface. Format: `V-1c.3-NN — <short title>`, with origin / why-it-matters / verification task / decision tree / owner.

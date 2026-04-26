@@ -1,5 +1,7 @@
 # Phase 1c.2 — Baseline Slant Analysis
 
+> **Status:** Reference. Captured pre-Slice-A as the baseline for the Slant route ground-truth clip. Numerical values cited here are the source for the determinism drift log baseline (becoming `docs/reference/determinism-drift-log.csv` in Pass 3c) and the calibration ground-truth YAML (Pass 3b). Do not edit; treat as immutable historical baseline.
+
 **Captured:** 2026-04-25 (pre-Slice-A baseline)
 **Purpose:** Frozen baseline of Slant analysis behavior immediately after Phase 1c.1 ship + Slant migration confirmed + `llm_prompt_template` rewired with `{{phase_context}}`, `{{scoring_rules}}`, `{{node_overview}}`. Used as the diff target after Slice B (theater-field removal + det_frequency collapse + body-based calibration deletion) to detect any regression.
 **Source:** `athlete_lab_results` row for `upload_id = aea2109e-bbd0-476f-8004-4e7e9b338764`, the most recent `complete` analysis at time of capture.

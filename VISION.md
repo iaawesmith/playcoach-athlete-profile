@@ -353,7 +353,7 @@ If you are picking up this project for the first time, here is what matters most
 
 8. The **Athlete Profile** consists of **eight chapters** — Hero, Story, Highlights, Development Lab, Stats, Recruiting, NIL, Connect. Each chapter is ~100vh, cinematic, and should feel like a distinct editorial section of a premium sports magazine.
 
-9. Read `AGENTS.md` (committed to the repo root) for current component specs, file structure, and technical guidelines. Read Project Knowledge in Lovable for store interface and routing details. This executive summary is the product vision layer — AGENTS.md is the build specification layer.
+9. Read `PRODUCT-SPEC.md` (committed to the repo root, formerly `AGENTS.md`) for current component specs, file structure, and technical guidelines. Read Project Knowledge in Lovable for store interface and routing details. This executive summary is the product vision layer — `PRODUCT-SPEC.md` is the build specification layer. For agent operational guidance (how to work in this repo), see `docs/agents/`.
 
 10. The mission is simple: **No athlete should go unseen.** Every product decision should make that more true.
 

@@ -1,5 +1,7 @@
 # Calibration Source Trace — Empirical
 
+> **Status:** Reference. Code-trace of the calibration code path for a specific historical run. Ages with code; values may diverge from current behavior as the pipeline evolves. Treat as a snapshot, not a live spec.
+
 Run traced: `athlete_lab_results.id = d1b3ab23-6289-4c07-b914-eb8474e5ca24`
 File: `supabase/functions/analyze-athlete-video/index.ts`
 
