@@ -181,7 +181,7 @@ FROM athlete_lab_nodes_phase1c_backup;
 - ✅ **E.0 step 1** — SELECT-list edit at `analyze-athlete-video/index.ts:912-914`. Removed root `det_frequency`. Retained `det_frequency_solo`, `det_frequency_defender`, `det_frequency_multiple`. Edge reference scan clean for 8 dropped columns.
 - ✅ **E.0 step 2** — Backup table integrity hash captured (`ad8bb95c…`). Recipe documented.
 - ✅ **E.0 step 3** — Option C historical scan complete. Baseline `34a87126…` adopted. F-SLICE-E-2 logged.
-- ⏸ **E.0 step 4 — Pipeline determinism verification (PENDING).** Single Cloud Run + Claude call against `slant-route-reference-v1.mp4` to be evaluated under Option D.
+- ✅ **E.0 step 4 — Pipeline determinism verification PASSED.** Run `2b3e2731-a54a-4fea-be43-769a4e00a9be` (result `d398a7e5-3129-4c07-90ca-33949066b526`) hashed exactly to baseline `34a87126…`. Group A classification. SELECT-list narrowing produced zero observable pipeline drift. Logged to `docs/phase-1c2-determinism-drift-log.md`. **Cleared to proceed to E.1.**
 - ⏸ **E.1** — Pre-flight gates (pending E.0 pass).
 - ⏸ **E.2** — Bundled atomic migration (8 columns).
 - ⏸ **E.3** — Post-write assertions.
