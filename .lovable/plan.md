@@ -12,7 +12,7 @@
 ## Slice A scope (✅ done)
 1. Created `athlete_lab_nodes_phase1c_backup` (id, node_id, source_column, content, disposition, audit_pattern, audit_reason, original_intent, captured_at, slice).
 2. Inserted 14 audit-rich rows for Slant covering 10 root columns + 4 JSONB sources.
-3. R-04 backup completeness assertion passed (`scripts/slice1c2_r04_backup_assert.ts`) — text fields byte-equal, JSONB sources semantic deep-equal.
+3. R-04 backup completeness assertion passed (`scripts/verification/slice1c2_r04_backup_assert.ts`) — text fields byte-equal, JSONB sources semantic deep-equal.
 
 ## Slice B split (post doc-read, post F-SLICE-B-1 finding)
 Doc reads of `../docs/investigations/calibration-source-trace.md` and `../docs/investigations/calibration-ppy-investigation.md` surfaced **F-SLICE-B-1**: the two docs disagree on what "true ppy" means for the d1b3ab23 baseline clip (trace assumes static=true, investigation assumes neither path is true). Without empirical resolution, deletion of `calculateBodyBasedCalibration` is premature by the investigation doc's own Recommendation B standard ("ship after ~10 admin tests post-tightening").

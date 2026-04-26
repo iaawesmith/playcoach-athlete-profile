@@ -314,7 +314,7 @@ When asserting parity of values captured before vs. after a migration boundary, 
 
 **Application to Phase 1c.2 assertions:**
 
-- **R-04 (backup completeness):** Mixed — text fields use byte-equal, JSONB sources use semantic deep-equal. Implemented in `scripts/slice1c2_r04_backup_assert.ts`.
+- **R-04 (backup completeness):** Mixed — text fields use byte-equal, JSONB sources use semantic deep-equal. Implemented in `scripts/verification/slice1c2_r04_backup_assert.ts`.
 - **R-06 (`det_frequency` parity across collapse):** Byte-equal on the persisted resolved integer. The resolver outputs a scalar; no JSON re-serialization occurs.
 - **R-09 (template-variable resolution after deletes):** Set equality of `{{var}}` tokens extracted from `llm_prompt_template` and `llm_system_instructions`, cross-checked against the post-1c.2 known-variable list. Neither byte- nor deep-equal applies — the contract is "every referenced variable resolves to a non-empty value."
 

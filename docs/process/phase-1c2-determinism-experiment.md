@@ -406,7 +406,7 @@ Static reference value (80) was authored for one specific filming geometry — l
 
 | Path | Purpose |
 |---|---|
-| `scripts/slice1c2_determinism_cloudrun.ts` | Section A harness (deno, throwaway) |
+| `scripts/verification/slice1c2_determinism_cloudrun.ts` | Section A harness (deno, throwaway) |
 | `/tmp/cloudrun_run_{1..5}.json` | Raw Cloud Run captures |
 | `/tmp/cloudrun_summary.json` | Section A parsed summary |
 | `/tmp/ground_truth_ppy.json` | Section D fit details (original lstsq fit) |
