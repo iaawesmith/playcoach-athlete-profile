@@ -42,6 +42,49 @@ type ResolvedCalibration = {
   details: JsonRecord
 }
 
+// Slice C.5 — interim calibration observability.
+// Captures BOTH calibration candidates (body_based + static) on every analysis,
+// regardless of which path is selected, so cross-clip ground-truth comparison
+// becomes possible without re-running historical uploads.
+// Determinism contract: every field below must be a deterministic function of
+// the analysis inputs. No timestamps, no random IDs, no Date.now(), no Math.random().
+type BodyBasedAuditStatus =
+  | 'used'
+  | 'computed_but_not_selected'
+  | 'unusable_low_confidence'
+  | 'unusable_no_value'
+  | 'not_attempted_no_athlete_height'
+
+type StaticAuditStatus =
+  | 'used'
+  | 'computed_but_not_selected'
+  | 'unusable_no_value'
+
+type DynamicAuditStatus =
+  | 'used'
+  | 'failed'
+
+type CalibrationAudit = {
+  selected_source: 'dynamic' | 'body_based' | 'static' | 'none'
+  selected_ppy: number | null
+  dynamic_status: DynamicAuditStatus
+  dynamic_failure_reason: string | null
+  body_based_status: BodyBasedAuditStatus
+  body_based_ppy: number | null
+  body_based_confidence: number | null
+  static_status: StaticAuditStatus
+  static_ppy: number | null
+  camera_angle: string
+  athlete_height_provided: boolean
+  node_id: string
+  node_version: number
+}
+
+type CalibrationResolutionOutcome = {
+  resolved: ResolvedCalibration
+  audit: CalibrationAudit
+}
+
 type CloudRunCalibrationInput = JsonRecord & {
   pixelsPerYard?: number | null
   pixels_per_yard?: number | null
