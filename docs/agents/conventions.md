@@ -121,20 +121,31 @@ The exemplar pattern: [`docs/data-dictionary/fields.json`](../data-dictionary/fi
 
 These sections are appended as Pass 5 sub-passes execute.
 
-### Tier system (5.1)
-*To be added in Pass 5.1.*
+### Tier system (5a)
+Per-tier-system files under `docs/reference/tiers/`. Frontmatter contract in `docs/reference/tiers/_schema.md`. Do not reuse the deprecated "Elite Tier" naming.
 
-### Metric registry (5.2)
-*To be added in Pass 5.2.*
+### Metric registry (5b)
+One file per metric in `docs/reference/metrics/`. `metric_id` MUST match the database column / payload key verbatim. Frontmatter contract in `_schema.md` there.
 
-### Event taxonomy (5.3)
-*To be added in Pass 5.3.*
+### Event taxonomy (5c)
+One file per event in `docs/reference/events/`. `event_id`s are append-only contracts; rename = breaking change. PII fields explicit.
 
-### Observability (5.4)
-*To be added in Pass 5.4.*
+### Observability (5d)
+One file per subsystem in `docs/reference/observability/`. Don't list dashboards without verifying the URL resolves; mark unverified SLOs as `proposed`.
 
-### Calibration audit rollup (5.5)
-*To be added in Pass 5.5.*
+### Calibration audit rollup (5e + 5e-bis)
+Two complementary artefacts:
+- **`docs/reference/calibration-audit-rollup.md`** — human-readable entry point. Edit by hand when canonical artefacts change.
+- **`docs/reference/calibration-audit-rollup.csv`** — generated. Schema in `docs/reference/_schema-calibration-audit-rollup.md`. Produced by `scripts/aggregate-calibration-audit.ts`.
+
+**Run after each ground-truth clip addition.** When a new clip lands in `docs/reference/calibration/*.yaml`:
+
+```bash
+deno run --allow-env --allow-net --allow-read --allow-write \
+  scripts/aggregate-calibration-audit.ts
+```
+
+The script is idempotent — re-running with no DB changes yields a byte-identical CSV. Required env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Halt conditions: any clip with zero matching uploads ⇒ exit 3, log `F-SLICE-1C2-CLEANUP-1`. Pre-Slice-C.5 result rows lack the `calibration_audit` payload (per ADR-0014) and are silently skipped — that's expected, not a failure.
 
 ---
 
