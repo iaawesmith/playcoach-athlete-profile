@@ -21,12 +21,17 @@ status: open | mitigated | resolved | deferred | closed | superseded
 severity: Sev-1 | Sev-2 | Sev-3 | Sev-4 | none   # "none" only for process-lesson findings (e.g., F-SLICE-E-3)
 origin_slice: 1c.0 | 1c.1 | 1c.2 | 1c.2-Slice-A | 1c.2-Slice-B | 1c.2-Slice-B1 | 1c.2-Slice-C | 1c.2-Slice-C.5 | 1c.2-Slice-D | 1c.2-Slice-E | 1c.2-Slice-E.5 | 1c.3 | post-1c
 origin_doc: <relative path to the slice-outcome / investigation doc that surfaced this entry>
-related_adrs: []                  # list of ADR-NNNN IDs (see docs/adr/INDEX.md). Empty list if none.
+related_adrs: []                  # list of ADR-NNNN IDs (see docs/adr/INDEX.md). Empty list if none. See "related_adrs derivation" below.
 related_entries: []               # list of cross-referenced R-/F- IDs from this register
 opened: YYYY-MM-DD                # date the entry was first logged. From the prose "Logged:" field, or §0 header date for original-batch entries.
 last_updated: YYYY-MM-DD          # date of the most recent in-prose update. Matches `opened` if the entry has not been revised.
 ---
 ```
+
+### `related_adrs` derivation
+
+- **For entries created during Pass 4 split:** `related_adrs` was derived from the canonical Pass 3d ADR set (see [`docs/adr/INDEX.md`](../adr/INDEX.md)) plus entry context — i.e., judgment about which decisions each entry connects to.
+- **For new entries going forward:** populate `related_adrs` directly at creation time based on actual ADR connections. Do not rely on automatic or retroactive derivation.
 
 ## Body shape
 
@@ -74,3 +79,9 @@ When the prose contains both "deferred" and a date-stamped follow-up status (e.g
 ## Origin-doc field derivation
 
 `origin_doc` points to the slice outcome or investigation doc that surfaced the entry. Where the original prose includes a "Cross-reference:" or "Cross-references:" pointing at exactly one slice outcome, that path is used. Where multiple paths are listed, the most-specific slice outcome is used. Where none is given, `docs/migration-risk-register.md` (the original batch doc) is used and the path is annotated `# original-batch entry`.
+
+## Pass 4 split-script lesson (preserved for future maintenance)
+
+The Pass 4 split was performed by a Python script that assumed `###` entry headers don't have intervening `##` section headers between them. That assumption was wrong: a meta-section (§2 Heatmap, §3.5 Comparison Invariants, etc.) appeared between `### F-SEC-1` and the next `###` entry, causing `F-SEC-1` to absorb everything up to the next entry header. The bug was caught and corrected mid-pass by stopping entry bodies at any intervening `##` header.
+
+Future splits or maintenance scripts should not make this assumption. Verify entry boundaries against the actual section structure (both `##` and `###` headers, plus end-of-file) before lifting bodies.
