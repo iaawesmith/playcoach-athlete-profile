@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, CoachingCuesMigrationStatus, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
@@ -586,12 +586,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     await persistMigrationCommits(commits);
   }, [persistMigrationCommits]);
 
-  /* Status changes from the modal are now derived inside persistMigrationCommits
-     and written atomically with phase_breakdown. The onStatusChange callback
-     is kept as a no-op for modal-internal lifecycle previews. */
-  const handleMigrationStatusChange = useCallback((_next: CoachingCuesMigrationStatus) => {
-    // intentional no-op — status is owned by persistMigrationCommits
-  }, []);
+  // Slice C.1 (2026-04-26): MigrateCoachingCuesModal no longer accepts an
+  // onStatusChange prop — status is owned by persistMigrationCommits and
+  // written atomically with phase_breakdown.
 
 
   const save = async () => {
@@ -1166,7 +1163,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           confirmed_phase_ids={confirmedPhaseIds}
           onCommitPhase={handleMigrationCommitPhase}
           onCommitAll={handleMigrationCommitAll}
-          onStatusChange={handleMigrationStatusChange}
           onClose={() => setMigrationModalOpen(false)}
         />
       </div>
