@@ -1,31 +1,45 @@
-// Phase 1c.2 Slice B1 — Live Browser Smoke comparison harness.
-//
-// Usage (after a fresh Slant analysis completes):
-//   deno run --allow-env --allow-net scripts/slice1c2_b1_smoke_compare.ts
-//
-// What it does:
-//   1. Pulls the most-recent athlete_lab_results row for the Slant node.
-//   2. Compares its 4 metric values + aggregate + phase_scores to the
-//      d1b3ab23 baseline (athlete_lab_results.id = 43931849-a10b-4a25-93cf-4b9b3ec10eb3,
-//      analyzed_at 2026-04-25 01:37:45, captured in
-//      docs/phase-1c2-baseline-slant-analysis.md).
-//   3. Applies the verification protocol thresholds:
-//        - angle metrics (degrees): ±5%
-//        - distance/velocity metrics (yards, mph): ±50%
-//        - phase_scores / aggregate_score: report delta, no hard threshold
-//          (calibration source is *expected* to flip in B2; B1 should be
-//          identical because B1 makes no calibration changes).
-//   4. Prints PASS / WARN / FAIL per metric and an overall verdict.
-//
-// IMPORTANT (B1 vs B2 framing):
-//   B1 only trims the MediaPipe payload, collapses det_frequency, deletes
-//   the dead athlete-lab-analyze function, and removes runAnalysis(). It
-//   does NOT touch calibration. Therefore on B1 we expect:
-//     - calibration_source still 'body_based'
-//     - all 4 metric values within byte-equal-ish noise of baseline
-//     - mediapipe_request_payload log line shows exactly 4 keys
-//   The ±5%/±50% thresholds exist for B2 (calibration deletion). For B1,
-//   anything beyond ±0.5% on metric values is suspicious and should halt.
+/**
+ * slice1c2_b1_smoke_compare.ts
+ *
+ * NAME:  slice1c2_b1_smoke_compare
+ * PHASE: PHASE-1C2-SLICE-B1
+ *
+ * VERIFIES:
+ *   The Slice B1 trim (MediaPipe payload reduced to 4 keys, det_frequency
+ *   collapsed, dead athlete-lab-analyze function deleted, runAnalysis()
+ *   removed) does NOT perturb runtime metric output. B1 makes no calibration
+ *   changes, so a fresh Slant analysis must match the d1b3ab23 baseline
+ *   (result id 43931849-a10b-4a25-93cf-4b9b3ec10eb3) on all 4 metrics +
+ *   aggregate + phase_scores within ±0.5%. Any drift beyond that is a halt.
+ *
+ * RECIPE:
+ *   Runtime:   deno
+ *   Command:   deno run --allow-env --allow-net \
+ *                scripts/verification/slice1c2_b1_smoke_compare.ts
+ *   Env vars:  SUPABASE_SERVICE_ROLE_KEY (read access to athlete_lab_results)
+ *   Args:      none
+ *   Output:    stdout — per-metric PASS/WARN/FAIL with deltas, overall verdict
+ *   Halt:      exit 1 on overall FAIL (drift exceeds B1 tolerance)
+ *
+ *   B1 vs B2 thresholds:
+ *     - angle metrics (degrees): ±5%
+ *     - distance/velocity metrics (yards, mph): ±50%
+ *     - phase_scores / aggregate_score: reported, no hard threshold
+ *     - B1-specific halt floor: ±0.5% on any metric value
+ *   The ±5%/±50% thresholds exist for B2 (calibration deletion); on B1
+ *   they should be far from triggered.
+ *
+ * BACKLINKS:
+ *   - docs/process/phase-1c2-slice-b1-outcome.md
+ *   - docs/reference/phase-1c2-baseline-slant-analysis.md
+ *   - docs/risk-register/F-SLICE-B1-2-release-speed-metric-correctness-on-slant-route-reference-v1-mp4.md
+ *
+ * MAINTENANCE:
+ *   Re-run only if B1 scope reopens. Baseline values are pinned to the
+ *   d1b3ab23 result row — do NOT update baselines without an outcome doc
+ *   amendment. If the mediapipe_request_payload key set ever expands
+ *   beyond 4, update this header BEFORE the next regen (F-SLICE-E-3 lesson).
+ */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 

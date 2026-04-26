@@ -48,6 +48,7 @@
 | [`reference/metrics/_schema.md`](reference/metrics/_schema.md) | Pass 5b scaffold: metric definition contract. No metric files yet. |
 | [`reference/events/_schema.md`](reference/events/_schema.md) | Pass 5c scaffold: event taxonomy contract. No event files yet. |
 | [`reference/observability/_schema.md`](reference/observability/_schema.md) | Pass 5d scaffold: observability subsystem contract. Anchors run-analysis observability audit. |
+| [`reference/phases.md`](reference/phases.md) | Pass 6.2: canonical phase ID registry (`PHASE-1C0`…`PHASE-3` + slice IDs). Source of truth for `VERIFIES:` headers, risk-register `origin_slice`, ADR phase references. |
 | [`data-dictionary/fields.json`](data-dictionary/fields.json) | The canonical field-level data dictionary (110 fields, versioned) |
 
 ## Risks & findings
@@ -102,5 +103,5 @@
 | 2 | `agents/onboarding.md`, `agents/conventions.md`, `agents/workflows.md` |
 | 3 | Subdirectory reorg, calibration YAML, drift CSV, 12 ADRs, slice-outcome template, CHANGELOG + release-notes |
 | 4 | `risk-register/` split (one file per `R-*` / `F-*`) |
-| 5 | `reference/tiers/_schema.md`, `reference/metrics/_schema.md`, `reference/events/_schema.md`, `reference/observability/_schema.md`, `reference/calibration-audit-rollup.md` (CSV form deferred — md rollup is the v1 surface) |
-| 6 | `reference/phases.md`, tab inventory generator, verification recipe template |
+| 5 | `reference/tiers/_schema.md`, `reference/metrics/_schema.md`, `reference/events/_schema.md`, `reference/observability/_schema.md`, `reference/calibration-audit-rollup.{md,csv}`, `scripts/aggregate-calibration-audit.ts` |
+| 6 | `reference/phases.md`, `scripts/generate-tab-inventory.ts` (+ AUTO block in `architecture/athlete-lab-tab-inventory.md`), `scripts/verification/_template.ts`, retrofitted headers on the 6 existing `scripts/verification/*.ts` |
