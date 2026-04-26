@@ -1,10 +1,10 @@
 # Documentation Index
 
-> **Status:** Current as of Phase 1c.2 cleanup Pass 1.
+> **Status:** Current as of Phase 1c.2 cleanup Pass 3a.
 >
-> This index reflects the current `docs/` layout. The structural reorg into subdirectories (`architecture/`, `process/`, `reference/`, `investigations/`, `adr/`, `agents/`, `risk-register/`) lands in Pass 3. After Pass 3 completes, the paths in this index will be updated and a "renamed/moved" column will be added.
+> The structural reorg into subdirectories (`architecture/`, `process/`, `reference/`, `investigations/`, `adr/`, `agents/`, `templates/`) landed in Pass 3a. The `risk-register/` split lands in Pass 4. R2 redirect stubs remain at the four old root-level paths until Phase 1c.3 (see [`process/phase-1c3-prep-backlog.md`](process/phase-1c3-prep-backlog.md) → "Stub cleanup queue").
 >
-> For executive narrative, see [`../VISION.md`](../VISION.md). For build specs, see [`../PRODUCT-SPEC.md`](../PRODUCT-SPEC.md). For onboarding, see [`agents/onboarding.md`](agents/onboarding.md) (created in Pass 2).
+> For executive narrative, see [`../VISION.md`](../VISION.md). For build specs, see [`../PRODUCT-SPEC.md`](../PRODUCT-SPEC.md). For onboarding, see [`agents/onboarding.md`](agents/onboarding.md).
 
 ---
 
