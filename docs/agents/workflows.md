@@ -20,7 +20,7 @@ Read the `// RECIPE:` header before running so you know what the expected output
 
 Slice outcomes capture the result of a bounded unit of work shipped during a phase.
 
-1. Copy [`docs/process/slice-outcome-template.md`](../process/slice-outcome-template.md) (created in Pass 3f) to `docs/process/phase-<phase>-slice-<slug>-outcome.md`.
+1. Copy [`do../templates/slice-outcome.md`](../templates/slice-outcome.md) (created in Pass 3f) to `docs/process/phase-<phase>-slice-<slug>-outcome.md`.
 2. Populate frontmatter (`slice_id`, `status`, `date`, `related_risks`, `related_adrs`, `verification_script`).
 3. Fill the standard sections: scope, what shipped, what didn't, verification, decisions made (link to ADRs), follow-ups.
 4. Add the slice to the phase's roadmap entry in `docs/roadmap.md`.
