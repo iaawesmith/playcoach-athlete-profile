@@ -204,6 +204,8 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
   3. What is the magnitude distribution of drift? (Run 5 fresh analyses on identical inputs in a single batch; cost ~$0.25.)
 - **Severity:** Sev-2 (real pipeline noise floor; affects metric accuracy ceiling for Phase 3 work).
 - **Cross-references:** `docs/phase-1c2-slice-e-outcome.md` (Group A/B/C analysis); `docs/phase-1c2-determinism-drift-log.md` (longitudinal observations); `docs/calibration-ground-truth-dataset.md` (~1% noise floor notation).
+- **Update 2026-04-26 (post-E.3.6) — bimodal hypothesis:** E.3.6 observation produced `body_based_ppy = 201.7827255013638`, **bit-identical** to the historical Group B observation (run `a164c815`). Two independent observations producing identical drifted values strongly suggests **discrete bimodal behavior** rather than continuous floating-point noise. Updated hypothesis: drift correlates with a discrete branch in the pipeline — possibilities include Cloud Run cold-vs-warm instance state, GPU vs CPU pose-estimation fallback, or model-weight version served from different replicas. Discrete bimodal patterns are substantially more tractable to investigate than continuous random drift.
+- **Phase 3 investigation guidance:** Run 10+ analyses on identical inputs in a single batch. **Predicted result if bimodal:** outputs cluster at exactly 2 distinct values (`200.2135…` and `201.7827…`). **Falsification:** if 3+ distinct values appear, the bimodal hypothesis is wrong and continuous drift is back on the table.
 
 ### F-SLICE-E-3 — Recipe propagation without independent verification (process lesson, no severity)
 
@@ -224,6 +226,28 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
   - Add alerting on `processing` rows older than 30 minutes.
   - Wrap `analyze-athlete-video` in a top-level try/finally that always writes a terminal status, even on `Deno.exit`/`SIGTERM`.
 - **Cross-reference:** Slice E E.1 Gate 5 (`docs/phase-1c2-slice-e-outcome.md` §8); H1 cleanup applied 2026-04-26.
+
+### F-SEC-1 — Permissive RLS on admin tables + public storage bucket listing (Sev-2)
+
+- **Logged:** 2026-04-26, surfaced during Slice E E.2 migration security linter check.
+- **Finding:** Multiple pre-existing RLS policies on admin-scoped tables use the permissive `USING (true) WITH CHECK (true)` pattern, granting any authenticated role full read/write/delete access. Additionally, the public storage bucket allows unrestricted listing of object keys. **Not introduced by Slice E** — predates Phase 1c.2 entirely. Surfaced here so it does not get lost in linter passing-notes.
+- **Affected tables (permissive `ALL` policy to `public` role):**
+  - `admin_enhancements` — "Allow all access to admin_enhancements"
+  - `admin_implementation_docs` — "Allow all access to admin_implementation_docs"
+  - `admin_reference_cache` — "Allow all access to admin_reference_cache"
+  - `admin_reference_links` — "Allow all access to admin_reference_links"
+  - `admin_tab_guidance` — "Allow all access to admin_tab_guidance"
+  - `athlete_lab_nodes` — "Allow all access to athlete_lab_nodes"
+  - `pipeline_setup_checklist` — "Allow all access to pipeline_setup_checklist"
+  - (Plus `athlete-media` storage bucket, public + listable.)
+- **Severity:** **Sev-2 — blocks Phase 2 athlete UI ship.** Once authenticated athlete users land on the platform, they will inherit the `public`/`authenticated` role grants and gain unrestricted read/write/delete on every admin-controlled table. This is a real shipping blocker, not a hygiene item.
+- **Required action before Phase 2 athlete UI ships:**
+  1. Replace all `USING (true) WITH CHECK (true)` policies on admin tables with role-based RLS (admin role for write; restrict reads on sensitive tables to admin/`service_role` only).
+  2. Implement a `user_roles` table with `app_role` enum (`admin`, `athlete`, …) and `has_role(uuid, app_role)` SECURITY DEFINER function per workspace standard.
+  3. Audit `athlete-media` bucket: either flip to private with signed URLs, or confirm contents are intentionally world-readable and document the decision.
+  4. Re-run security linter; expect zero remaining permissive admin policies.
+- **Out-of-scope rationale (Slice E):** Per Slice E halt discipline, scope was strictly the 8-column `athlete_lab_nodes` drop + NodeEditor save-payload edit. Touching RLS policies would have violated the scope ceiling and forced a halt. Logged here for Phase 2 planning.
+- **Cross-reference:** Slice E E.2 security linter output (`docs/phase-1c2-slice-e-outcome.md`).
 
 ---
 

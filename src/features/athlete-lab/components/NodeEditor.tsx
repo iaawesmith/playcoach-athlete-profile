@@ -595,21 +595,23 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     setSaving(true);
     try {
       const shouldAutoDraft = node.status === "live";
+      // Slice E E.4 (2026-04-26): 8 columns dropped from athlete_lab_nodes via
+      // migration 20260426025918. Removed from save payload: pro_mechanics,
+      // llm_tone, det_frequency, solution_class, performance_mode,
+      // tracking_enabled, reference_object, reference_filming_instructions.
+      // Read paths and form initialization remain null-safe pending 1c.3 UI cleanup.
       const updates: Partial<TrainingNode> = {
         name: draft.name,
         position: draft.position,
         icon_url: draft.icon_url,
         overview: draft.overview,
-        pro_mechanics: draft.pro_mechanics,
         key_metrics: draft.key_metrics,
         scoring_rules: draft.scoring_rules,
         common_errors: draft.common_errors,
         phase_breakdown: draft.phase_breakdown,
-        reference_object: draft.reference_object,
         camera_guidelines: draft.camera_guidelines,
         form_checkpoints: draft.form_checkpoints,
         llm_prompt_template: draft.llm_prompt_template,
-        
         llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
         phase_context_mode: draft.phase_context_mode ?? "compact",
@@ -624,16 +626,11 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         min_metrics_threshold: draft.min_metrics_threshold,
         score_bands: draft.score_bands,
         scoring_renormalize_on_skip: draft.scoring_renormalize_on_skip,
-        solution_class: draft.solution_class,
         reference_calibrations: draft.reference_calibrations,
-        reference_filming_instructions: draft.reference_filming_instructions,
         reference_fallback_behavior: draft.reference_fallback_behavior,
-        performance_mode: draft.performance_mode,
-        det_frequency: draft.det_frequency,
         det_frequency_solo: draft.det_frequency_solo,
         det_frequency_defender: draft.det_frequency_defender,
         det_frequency_multiple: draft.det_frequency_multiple,
-        tracking_enabled: draft.tracking_enabled,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
