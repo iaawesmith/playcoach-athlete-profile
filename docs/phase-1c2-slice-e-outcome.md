@@ -200,8 +200,14 @@ FROM athlete_lab_nodes_phase1c_backup;
 - ✅ **E.0 step 3** — Option C historical scan complete. Baseline `34a87126…` adopted. F-SLICE-E-2 logged.
 - ✅ **E.0 step 4** — Pipeline determinism verification PASSED. Run `2b3e2731-…` hashed exactly to baseline. Group A.
 - ✅ **E.1** — All 7 pre-flight gates PASSED (Gate 5 after H1 zombie cleanup; F-OPS-1 logged).
-- ⏸ **E.2** — Bundled atomic migration (8 columns).
-- ⏸ **E.3** — Post-write assertions.
-- ⏸ **E.4** — NodeEditor save-payload edit (Resolution A; 8 columns).
-- ⏸ **E.5** — Live browser smoke (user-gated).
+- ✅ **E.2** — Bundled atomic migration (8 columns) executed via `20260426025918`. Backup integrity intact.
+- ✅ **E.3** — Post-write assertions PASSED.
+- ✅ **E.4** — NodeEditor save-payload edit completed (12-line save-payload edit + 1 null-safety touch on line 1015 area deferred to recovery).
+- ✅ **E.5** — Live browser smoke completed in two attempts:
+  - **Attempt 1:** HALT on Mechanics tab `TypeError` at `NodeEditor.tsx:1015`. See F-SLICE-E-4. Recovery decision: hide tab now (5-line edit), defer full component deletion to 1c.3 — avoids throwaway `?? ""` patch on a component slated for removal.
+  - **Step 2 audit:** Scanned all remaining 7 dropped columns × all consumers. Zero unguarded references on kept tabs. No additional patches written. Full audit table in `/mnt/documents/slice-e-smoke/rerun-1/REPORT.md` §1.2.
+  - **Attempt 2:** PASS. All 13 remaining tabs walked clean. Sideline `pixels_per_yard=80` confirmed (ground-truth match). Solution Class radio renders unselected (expected post-drop state). `phase_context_mode` toggle save = PATCH 200, request body excludes all 8 dropped columns and includes the 3 retained per-scenario `det_frequency_*` columns. No `42703` errors, no `trim` errors, no white screens.
+  - Artifacts: `/mnt/documents/slice-e-smoke/` (first attempt) and `/mnt/documents/slice-e-smoke/rerun-1/` (recovery + pass).
+
+**Slice E status: COMPLETE pending hand-off acknowledgment.**
 
