@@ -75,7 +75,7 @@ Legend for **Disposition (1c.3 prediction)**:
 - **Internal identifier:** `reference` (also in `ADVANCED_TAB_KEYS`)
 - **Description:** Defines per-camera-angle reference objects (e.g., yard markers, athlete height, props) so the pipeline can convert pixel distances to real-world yards. Required for Distance and Velocity metrics. Currently shows `pixels_per_yard=80` for sideline on Slant.
 - **Fields/sections:** `reference_calibrations` per camera angle, fallback config, calibration notes.
-- **Disposition (1c.3 prediction):** **preserve, but pending B2.** Tab is essential while calibration remains a configurable concept. F-SLICE-B-1 contemplates moving to MediaPipe world coordinates which would obsolete this entire tab — but that is Phase 3+ work, not 1c.3.
+- **Disposition (1c.3 prediction):** **preserve, but pending B2.** Tab is essential while calibration remains a configurable concept. F-SLICE-B-1 contemplates moving to MediaPipe world coordinates which would obsolete this entire tab — but that is Phase 2+ work (analysis quality / world-coordinates redesign per revised phase ordering), not 1c.3.
 
 ## 9. FILMING GUIDANCE
 
