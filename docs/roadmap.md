@@ -40,7 +40,7 @@ After this cleanup, Phase 1c.2 closes and 1c.3 prep begins.
 
 ## Phase 1c.3 — next
 
-Consolidation pass before Phase 2 work begins. Tracked in [`phase-1c3-prep-backlog.md`](phase-1c3-prep-backlog.md).
+Consolidation pass before Phase 2 work begins. Tracked in [`process/phase-1c3-prep-backlog.md`](process/phase-1c3-prep-backlog.md).
 
 Known scope:
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-25
 **Phase:** 1c.0 — Foundation
-**Sequence:** Document 3 of 3 (after `mediapipe-capability-inventory.md` and `athlete-lab-end-state-architecture.md`)
+**Sequence:** Document 3 of 3 (after `architecture/mediapipe-capability-inventory.md` and `architecture/athlete-lab-end-state-architecture.md`)
 **Frame:** Enumerate every meaningful way the Phase 1c cleanup could go wrong, with severity, likelihood, mitigation, and a concrete trigger that should pause the rollout.
 **Inputs:** the two sibling docs in this batch; the architecture audit (`docs/athlete-lab-architecture-audit.md`); per your Default B addition, backup-table retention is indefinite (rollback buffer is permanent until explicitly archived).
 

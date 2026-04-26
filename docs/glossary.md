@@ -28,7 +28,7 @@ Canonical terminology used across PlayCoach docs and code. When in doubt, defer 
 |---|---|
 | **Athlete Lab** | The internal-only admin builder where node-based drill definitions, calibrations, and scoring rules are authored. Distinct from Brand HQ (athlete-facing). |
 | **Node** | A drill definition row in `athlete_lab_nodes`. Contains overview, key metrics, scoring rules, calibration references, LLM prompts, etc. |
-| **Tab** | One section of the NodeEditor UI. Inventoried in [`athlete-lab-tab-inventory.md`](athlete-lab-tab-inventory.md). |
+| **Tab** | One section of the NodeEditor UI. Inventoried in [`architecture/athlete-lab-tab-inventory.md`](architecture/athlete-lab-tab-inventory.md). |
 | **Calibration** | The process of converting pixel measurements to real-world units (inches, mph). Two paths: corner-detection (deprecated, "Option A") and body-based (current, "C.5 unified"). See ADR-0004 (created in Pass 3d). |
 | **calibration_audit** | The structured payload written to `athlete_lab_results.result_data.calibration_audit` capturing which calibration path ran, with what inputs, and producing what `selected_ppy`. |
 | **body_based_ppy** | Pixels-per-yard derived from athlete body landmarks. The current canonical PPY source. |

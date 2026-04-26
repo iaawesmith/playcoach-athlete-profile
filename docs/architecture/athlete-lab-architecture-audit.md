@@ -252,7 +252,7 @@ Phases tab documentation correctly states phase frame windows drive metric measu
 
 ### Missing functionality
 
-**Phase context not reaching Claude.** Phase descriptions and coaching cues exist but aren't injected into the LLM prompt. Claude receives only phase NAMES (formatted into score line) but no descriptions. This is documented in Lovable's claude-prompt-content-trace.md and is Phase 1c work.
+**Phase context not reaching Claude.** Phase descriptions and coaching cues exist but aren't injected into the LLM prompt. Claude receives only phase NAMES (formatted into score line) but no descriptions. This is documented in Lovable's ../investigations/claude-prompt-content-trace.md and is Phase 1c work.
 
 **Dynamic phase detection.** Phase frame windows are static percentages. Should be derived from pose features for accuracy.
 

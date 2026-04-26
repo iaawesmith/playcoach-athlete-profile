@@ -47,8 +47,8 @@ Layer 4 ideas are evaluated separately in §5 — most are deferrable; 2-3 are w
 
 **Specifically:**
 - 14 `phase-1c*-*` files mix slice outcomes, experiment writeups, baseline snapshots, and reference data (drift log, ground truth) at the same directory depth as long-lived architecture docs.
-- `claude-prompt-content-trace.md`, `calibration-ppy-investigation.md`, `release-speed-velocity-investigation.md`, `first-real-test-diagnostic.md` — investigations that produced findings already absorbed into the risk register, but the investigation docs themselves remain at top level with no signal about their currency.
-- `run-analysis-observability-audit-v2.md` has a `-v2` suffix with no v1 visible — implies a rename or a prior version was deleted. Either way the suffix is now noise.
+- `../investigations/claude-prompt-content-trace.md`, `../investigations/calibration-ppy-investigation.md`, `../investigations/release-speed-velocity-investigation.md`, `../investigations/first-real-test-diagnostic.md` — investigations that produced findings already absorbed into the risk register, but the investigation docs themselves remain at top level with no signal about their currency.
+- `../reference/run-analysis-observability-audit-v2.md` has a `-v2` suffix with no v1 visible — implies a rename or a prior version was deleted. Either way the suffix is now noise.
 
 **Recommendation:** Reorganize into `docs/architecture/`, `docs/process/` (slice outcomes, drift log), `docs/reference/` (ground truth, drift log, data dictionary), `docs/investigations/` (the four investigation docs, marked superseded if their findings are in the risk register), `docs/adr/` (new), `docs/agents/` (new). Do this as a single rename pass with stub redirects from the old paths if external links exist (none known).
 
@@ -124,10 +124,10 @@ Layer 4 ideas are evaluated separately in §5 — most are deferrable; 2-3 are w
 ### E. Naming consistency
 
 **Filenames:**
-- `phase-1c1-slice2-outcome.md`, `phase-1c2-slice-b1-outcome.md` — inconsistent separator placement (`slice2` vs `slice-b1`).
-- `phase-1c2-detfreq-resolution-snapshot.md` (no `slice-X` prefix) sits next to `phase-1c2-slice-d-outcome.md` (with prefix).
-- `phase-1c2-diagnostic-snapshot-2026-04-26.md` is the only doc with a date in its filename.
-- `run-analysis-observability-audit-v2.md` carries a version suffix; nothing else does.
+- `../process/phase-1c1-slice2-outcome.md`, `../process/phase-1c2-slice-b1-outcome.md` — inconsistent separator placement (`slice2` vs `slice-b1`).
+- `../reference/phase-1c2-detfreq-resolution-snapshot.md` (no `slice-X` prefix) sits next to `../process/phase-1c2-slice-d-outcome.md` (with prefix).
+- `../reference/phase-1c2-diagnostic-snapshot-2026-04-26.md` is the only doc with a date in its filename.
+- `../reference/run-analysis-observability-audit-v2.md` carries a version suffix; nothing else does.
 - Topical docs (`calibration-*`, `mediapipe-*`, `claude-*`) use lower-kebab consistently — that's fine.
 
 **Inside-doc identifiers:**
@@ -215,7 +215,7 @@ For each information type: where it lives today, source-of-truth designation, st
 
 ### 4. Phase progress and slice outcomes
 
-- **Today:** One markdown per slice (`phase-1c1-slice2-outcome.md`, etc.). Inconsistent shape — some have a Verification table, some have prose, some are 0.8KB and others 13KB.
+- **Today:** One markdown per slice (`../process/phase-1c1-slice2-outcome.md`, etc.). Inconsistent shape — some have a Verification table, some have prose, some are 0.8KB and others 13KB.
 - **Authority:** Single per slice. Ordering is implicit in filename.
 - **Recommendation: keep per-slice markdown, standardize a frontmatter + section template.** Required sections: Scope shipped, Verification (table form), Findings raised, Cross-refs.
 - **Migration path:** Template doc; existing slices retroactively get frontmatter only (don't rewrite content).
@@ -391,7 +391,7 @@ Capped at 10 ideas across A/B/C, ranked. Plus 5 substantive rejections per Refin
 
 #### A3. Phase-label fragility (MEDIUM-LOW value, but cheap to fix)
 
-**The problem:** When you reordered Phase 2 / Phase 3 on 2026-04-26, I had to touch 8 docs to relabel. The risk of missing a doc was real (and `run-analysis-observability-audit-v2.md` may still have stale references — worth a re-grep). Phase identifiers are copy-pasted strings, not references.
+**The problem:** When you reordered Phase 2 / Phase 3 on 2026-04-26, I had to touch 8 docs to relabel. The risk of missing a doc was real (and `../reference/run-analysis-observability-audit-v2.md` may still have stale references — worth a re-grep). Phase identifiers are copy-pasted strings, not references.
 
 **Infrastructure:** A `docs/reference/phases.md` defining the canonical phase IDs and labels. Other docs reference by ID (e.g., "see PHASE-2A") and the label resolution happens at read time (or at least: an agent grepping for `PHASE-2A` finds all references; today, "Phase 3a" was both the old and new label of different things during the reorder window).
 
@@ -461,7 +461,7 @@ Capped at 10 ideas across A/B/C, ranked. Plus 5 substantive rejections per Refin
 
 **Capability produced:** Drift log writes itself instead of being manually appended after each verification run.
 
-**Replaces:** Manual append to `phase-1c2-determinism-drift-log.md`.
+**Replaces:** Manual append to `../reference/phase-1c2-determinism-drift-log.md`.
 
 **Complexity:** Medium. Cloud Run log query is straightforward. The fragility is in matching log lines to upload IDs cleanly.
 
