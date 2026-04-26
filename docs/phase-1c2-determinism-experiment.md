@@ -357,6 +357,53 @@ Until then, neither "delete body_based" nor "delete static" can be supported by 
 
 ## Files
 
+## Section D corrections (added 2026-04-26)
+
+Reviewer feedback after the initial Section D supplement identified five issues that materially sharpen the record. The ppy estimate has narrowed and become **more defensible**, not less. Recording these corrections inline so future readers do not anchor on the original framing.
+
+### Correction 1 — Dimension confusion is now resolved
+
+The file uploaded to the reviewer was `1024×576`. The file at the signed URL the analysis pipeline downloads is `4096×2304`. These are different files — likely the upload was a transcoded preview while the bucket file is the 4K master. Reviewer's dimension-based sanity checks operating on `1024×576` were technically invalid against the actual analysis target. **All Section D measurements in this doc are against the `4096×2304` master.**
+
+### Correction 2 — Athlete-height bbox is contaminated; raw pixel-height estimate was too high
+
+The cyan diagnostic bbox in `slant_frame60_diagnostic.png` extends well to the right of the actual athlete and hits the netting/dome wall, inflating the bbox-derived athlete pixel height (~970 px). Visual measurement of the actual athlete (head visible around y≈400–450, foot around y≈1180–1250) gives **~750–850 px**, not 970 px.
+
+### Correction 3 — Marking identification is well-supported by facility context
+
+The original framing said the visible arc "could be a soccer center circle (10-yd radius), a penalty arc (also 10-yd radius), or a custom training facility marking." On closer inspection, the reference clip was filmed in a **soccer training facility** — visible from the dome interior, soccer goal in background, and field markings consistent with a soccer pitch. **In a soccer facility specifically, the prominent visible arc is almost certainly the center circle.** Penalty arcs are at field ends and not typically framed as the training reference; center spots are dots not arcs. The FIFA 10-yard radius assumption underlying `ppy ≈ 494.89` therefore has stronger empirical grounding than the original "either/or/or" framing suggested. **Marking identification uncertainty is smaller than D.6 originally documented.**
+
+### Correction 4 — Posture compression reconciles the athlete-height check
+
+A fully-erect 6-ft athlete at `ppy ≈ 495` would occupy ~990 px of pixel height. The athlete in this clip is mid-cut, leaning. **Leaning compresses pixel height by 15–25%**, putting expected pixel height at `ppy ≈ 495` in the 750–850 px range — exactly where the corrected bbox observation lands. The two independent methods (circle fit and athlete height) **converge** on `ppy ≈ 485–495` once the bbox contamination is removed and posture is accounted for.
+
+### Correction 5 — `ppy ≈ 495` is more defensible than the "400–550 range" framing
+
+Combining corrections 2–4: the original "400–550 range" framing was driven by (a) raw bbox over-counting athlete height, (b) over-broad marking-identification uncertainty, and (c) not accounting for posture. With those resolved, the **point estimate `ppy ≈ 495`** is the appropriate ground-truth value to record, with a defensible widening to ~450–550 only if marking identification is held conservatively open. The directional finding from D.7 is unchanged and in fact strengthened:
+
+| Path | ppy | error vs 495 ground truth | error across 450–550 range |
+|---|---|---|---|
+| `body_based` | 234 | 2.1× under-report | 1.9–2.4× under-report |
+| `static` | 80 | 6.2× under-report | 5.6–6.9× under-report |
+
+**Static is more wrong than `body_based` regardless of where exactly true ppy lands within the conservative uncertainty window.** This invariance is what makes Option A (delete `body_based`, keep `static`) contraindicated by Section D.
+
+### Correction 6 — Multi-context filming reality reframes the B2 choice space
+
+Static reference value (80) was authored for one specific filming geometry — likely sideline tactical camera at a football field, 25–40 yards from action. Real PlayCoach users will film in indoor soccer/turf facilities (this reference clip), backyards (we already have one clip in this category), high-school football fields, and training facilities of every kind. Each filming context has different ppy depending on camera distance, focal length, and frame composition. **Static at 80 is correct for one specific filming geometry and wrong everywhere else.** This isn't a bug in static authoring — it's a fundamental limitation of having a single static constant for a multi-context product. `body_based` at least *adapts* to the athlete's actual proportions in the frame, even when its scale assumptions are imperfect.
+
+**Implication for B2:** the right long-term answer is the audit's **Option B (migrate to MediaPipe world coordinates entirely, eliminate calibration as a concept)** — not Option A (delete one of the two imperfect paths). This is multi-week Phase 3+ work, not Phase 1c.2 deletion work.
+
+### Operational consequences (recorded for traceability)
+
+- **Option A WITHDRAWN.** `body_based` and the `athlete_height` field that feeds it remain in the codebase.
+- **F-SLICE-B-1 upgraded Sev-3 → Sev-2.** See `docs/migration-risk-register.md` F-SLICE-B-1 Status (2026-04-26) update.
+- **Interim path:** keep both calibration paths in place; add structured `calibration_audit` logging so future ground-truth measurements join the dataset for cross-clip analysis. Implemented in Slice C.5.
+- **Ground-truth dataset established:** `docs/calibration-ground-truth-dataset.md` is the long-lived registry. The `slant-route-reference-v1.mp4` entry is recorded with `true_ppy_estimate ≈ 495`, `measurement_confidence: medium`, and the full set of caveats above.
+- **B2 architectural decision deferred** until that dataset has ≥3 entries spanning ≥2 filming contexts, ideally including ≥1 sideline football clip with a real 5-yard line marker visible (the original analysis-target geometry).
+
+## Files
+
 | Path | Purpose |
 |---|---|
 | `scripts/slice1c2_determinism_cloudrun.ts` | Section A harness (deno, throwaway) |
