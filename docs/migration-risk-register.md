@@ -177,6 +177,41 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
 - **Cross-references:** `docs/release-speed-velocity-investigation.md` (original "single-sample lottery" hypothesis — still on the table as a candidate root cause if the verification clip fails); `docs/phase-1c2-determinism-experiment.md` Section D (original framing); `docs/phase-1c2-diagnostic-snapshot-2026-04-26.md` §5.3 (1.34 mph current value).
 - **Do not act in Phase 1c.2.** No code change. Backlog item gated on verification clip availability.
 
+### F-SLICE-E-1 — `det_frequency` complex consolidation deferred (Sev-3)
+
+- **Logged:** 2026-04-26, Slice E pre-flight (E.0)
+- **Finding:** The originally-proposed Slice E drop list included all three `det_frequency` columns (root, `_defender`, `_multiple`). Pre-flight code audit of `analyze-athlete-video/index.ts` showed `det_frequency_defender` is the authoritative runtime read for the `with_defender` scenario (line 1155) and `det_frequency_multiple` for `multiple` (line 1160). Per Slice B1's collapsed resolver design (lines 1141–1147), the per-scenario columns are authoritative; the root `det_frequency` is no longer consulted at runtime.
+- **Action taken in Slice E:** Drop list reduced from 10 to 8 columns. Root `det_frequency` dropped (with paired SELECT-list edit at line 914); `det_frequency_defender` and `det_frequency_multiple` retained.
+- **Deferred:** Per-scenario column architecture cleanup (consolidating the three-column shape into a single JSONB or an enum-keyed table) is deferred to Phase 3 metric-quality work or a dedicated calibration/scenario architecture cleanup work item. Dropping `_defender` / `_multiple` without that cleanup would silently degrade analysis to fallback defaults (1, 1) for non-solo scenarios.
+- **Severity:** Sev-3 (institutional-memory / cleanup debt; no user-facing impact).
+
+### F-SLICE-E-2 — Pipeline `calibration_audit` shows ~0.78% non-deterministic drift on identical inputs (Sev-2)
+
+- **Logged:** 2026-04-26, Slice E pre-flight (Option C scan)
+- **Finding:** Hashing `result_data.calibration_audit` (canonical sorted-keys SHA-256, UTF-8) across 9 historical Slant runs (node `75ed4b18`, athlete `8f42b1c3…`, identical clip, identical params) yielded **3 distinct hash groups**:
+  - **Group A** (6 runs, baseline): `34a87126…`. `body_based_ppy = 200.2135`, `body_based_confidence = 0.7866`. Spans Slice C 5-run determinism set + 1 Slice D D.5 run.
+  - **Group B** (1 run, drift): `26603f63…`. `body_based_ppy = 201.7827` (Δ +0.78% from Group A), `body_based_confidence = 0.7818` (Δ −0.61%). Same input tags as a Group A run.
+  - **Group C** (2 runs, different inputs): `51f5f268…`. `athlete_height_provided = false`; pipeline correctly fell back to static. Not a determinism issue.
+- **Diagnosis:** Identical-input runs producing different `body_based_ppy` values demonstrate the pipeline is not bit-exact deterministic. Suspected (not confirmed) sources: floating-point variance in MediaPipe/RTMlib pose estimation, GPU non-determinism, model variance across Cloud Run cold/warm starts, frame-sampling jitter.
+- **Decision:** Bit-exact determinism gates are unsafe. E-phase verification adopts Option D (tolerance-based check):
+  - Hash matches `34a87126…` exactly → pass.
+  - Numeric drift within ±1% (categoricals exact match) → pass + log drift amounts.
+  - Numeric drift between ±1% and ±2% → halt for investigation.
+  - Drift > ±2% → halt with high confidence of regression.
+- **Open diagnostic questions (deferred — investigation does NOT gate Slice E, but should precede Phase 3 metric-quality work):**
+  1. Is drift in Cloud Run keypoint output or in edge-side `calculateBodyBasedCalibration`? (Hash Cloud Run keypoint NDJSON across Group A vs Group B runs.)
+  2. Do other metrics (Plant Leg Extension, Hip Stability, Release Speed, Hands Extension) drift in lockstep with `body_based_ppy`, or only body-based-derived values? (Lockstep → upstream layer; isolated → calibration-specific.)
+  3. What is the magnitude distribution of drift? (Run 5 fresh analyses on identical inputs in a single batch; cost ~$0.25.)
+- **Severity:** Sev-2 (real pipeline noise floor; affects metric accuracy ceiling for Phase 3 work).
+- **Cross-references:** `docs/phase-1c2-slice-e-outcome.md` (Group A/B/C analysis); `docs/phase-1c2-determinism-drift-log.md` (longitudinal observations); `docs/calibration-ground-truth-dataset.md` (~1% noise floor notation).
+
+### F-SLICE-E-3 — Recipe propagation without independent verification (process lesson, no severity)
+
+- **Logged:** 2026-04-26
+- **Finding:** During Slice E plan-mode iteration, the hash `34a87126…` was propagated through approval messages by the executing agent without independent reproduction against its source upload. When E.0 verification began, the agent first hashed the wrong upload (`a164c815`, which is in Group B) and incorrectly concluded the recipe was wrong; the actual issue was wrong-upload selection. Both errors were caught by Option C scan.
+- **Process correction adopted:** Any baseline hash cited in approval messages must be independently reproduced against its source upload before propagation. "Verifiable baselines or no baseline."
+- **No code or data impact.** Documented as a process lesson.
+
 ---
 
 ## §2 — Top 3 risks (heatmap)
