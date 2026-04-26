@@ -859,7 +859,7 @@ Deno.serve(async (req) => {
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Writing analysis results...')
-    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata)
+    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata, calibrationAudit)
     logInfo('results_written', {
       uploadId,
       aggregateScore: scoreResult.aggregate_score,
@@ -3602,6 +3602,7 @@ async function writeResults(
   feedback: string,
   logData: PipelineLogData,
   cloudRunMetadata: CloudRunMetadata,
+  calibrationAudit: CalibrationAudit,
 ) {
   const { error } = await supabase
     .from('athlete_lab_results')
@@ -3617,6 +3618,7 @@ async function writeResults(
       result_data: {
         ...(Object.keys(cloudRunMetadata).length > 0 ? cloudRunMetadata : {}),
         log_data: logData,
+        calibration_audit: calibrationAudit,
       },
       confidence_flags: metricResults
         .filter(m => m.status === 'flagged')
