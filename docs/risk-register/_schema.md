@@ -79,3 +79,9 @@ When the prose contains both "deferred" and a date-stamped follow-up status (e.g
 ## Origin-doc field derivation
 
 `origin_doc` points to the slice outcome or investigation doc that surfaced the entry. Where the original prose includes a "Cross-reference:" or "Cross-references:" pointing at exactly one slice outcome, that path is used. Where multiple paths are listed, the most-specific slice outcome is used. Where none is given, `docs/migration-risk-register.md` (the original batch doc) is used and the path is annotated `# original-batch entry`.
+
+## Pass 4 split-script lesson (preserved for future maintenance)
+
+The Pass 4 split was performed by a Python script that assumed `###` entry headers don't have intervening `##` section headers between them. That assumption was wrong: a meta-section (§2 Heatmap, §3.5 Comparison Invariants, etc.) appeared between `### F-SEC-1` and the next `###` entry, causing `F-SEC-1` to absorb everything up to the next entry header. The bug was caught and corrected mid-pass by stopping entry bodies at any intervening `##` header.
+
+Future splits or maintenance scripts should not make this assumption. Verify entry boundaries against the actual section structure (both `##` and `###` headers, plus end-of-file) before lifting bodies.
