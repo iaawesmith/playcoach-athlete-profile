@@ -62,8 +62,9 @@ R2 redirect stubs created during Phase 1c.2 cleanup. Per the R2 stub policy ([`.
 | `docs/athlete-lab-architecture-audit.md` | 3a | `docs/architecture/athlete-lab-architecture-audit.md` | Remove at start of 1c.3 unless `rg "docs/athlete-lab-architecture-audit\.md"` shows in-repo references |
 | `docs/calibration-ground-truth-dataset.md` | 3a | `docs/reference/calibration-ground-truth-dataset.md` (prose); `docs/reference/calibration/ground-truth.yaml` (structured, Pass 3b) | Remove at start of 1c.3 unless `rg "docs/calibration-ground-truth-dataset\.md"` shows in-repo references |
 | `docs/phase-1c2-determinism-drift-log.md` | 3a | `docs/reference/phase-1c2-determinism-drift-log.md` (prose); `docs/reference/determinism-drift.csv` (structured, Pass 3c) | Remove at start of 1c.3 unless `rg "docs/phase-1c2-determinism-drift-log\.md"` shows in-repo references |
+| `docs/migration-risk-register.md` | 4 | `docs/risk-register/INDEX.md` (aggregated view) + `docs/risk-register/<ID>-<slug>.md` (one file per R-/F- entry) | Remove at start of 1c.3 unless `rg "migration-risk-register"` shows in-repo references |
 
-Additional R2 stubs created during Pass 4 (or later) will be appended here as those passes execute.
+**Total stubs after Pass 4:** 7 (2 from Pass 1 + 4 from Pass 3a + 1 from Pass 4). Additional R2 stubs created in later passes will be appended here.
 
 ---
 
