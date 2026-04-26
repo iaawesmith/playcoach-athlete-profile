@@ -8,6 +8,8 @@
 
 > **Important note on baseline:** The d1b3ab23 baseline (`athlete_lab_results.id 43931849-…`) used a **different uploaded video file** (`75ed4b18-…-1777081020066.mp4`), not `slant-route-reference-v1.mp4`. So this experiment establishes determinism on the *new* canonical reference clip — the absolute metric values here will not match the d1b3ab23 frozen baseline by design.
 
+> **Pass 5e-bis clarification (2026-04-26):** This document's original "Group A vs Group B" framing predates the full-SHA-256 hash analysis introduced by `scripts/aggregate-calibration-audit.ts`. The findings on `body_based_ppy` specifically remain valid (deterministic within Group A; ~0.78% drift to Group B). However, the implicit framing that Group B was a single bit-identical cluster is **insufficient**: the E.3.6 row that *appeared* to land in Group B has the same `body_based_ppy` but a different `body_based_confidence`, so the full `calibration_audit` payload is distinct (Pass 5e-bis labels it Group C). See [`F-SLICE-E-2`](../risk-register/F-SLICE-E-2-pipeline-calibration-audit-shows-0-78-non-deterministic-drift-on-identical.md) for the revised multimodal framing and Phase 2 guidance to use full-hash analysis rather than `body_based_ppy` comparison.
+
 ---
 
 ## Section A — Cloud Run determinism (5 parallel calls)
