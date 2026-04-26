@@ -6,7 +6,7 @@ severity: Sev-2
 origin_slice: 1c.2-Slice-E
 origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: [ADR-0001, ADR-0006]
-related_entries: [R-01, R-02, R-03, R-04, R-06, R-08, R-09]
+related_entries: []
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
