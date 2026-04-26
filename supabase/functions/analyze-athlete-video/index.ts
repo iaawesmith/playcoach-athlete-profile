@@ -911,7 +911,6 @@ async function fetchNodeConfig(nodeId: string) {
     .select(`
       id, name, position, status, node_version,
       clip_duration_min, clip_duration_max,
-      det_frequency,
       det_frequency_solo, det_frequency_defender, det_frequency_multiple,
       segmentation_method,
       llm_prompt_template, llm_system_instructions,
