@@ -4,12 +4,13 @@ title: `det_frequency` complex consolidation deferred (Sev-3)
 status: open
 severity: Sev-3
 origin_slice: 1c.2-Slice-E
-origin_doc: TODO
+origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: []
 related_entries: []
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SLICE-E-1 — `det_frequency` complex consolidation deferred (Sev-3)
 
 - **Logged:** 2026-04-26, Slice E pre-flight (E.0)

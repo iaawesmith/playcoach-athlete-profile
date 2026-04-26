@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-11 — `score_bands` field stays orphaned (kept but no consumer)
 - **Phase:** post-1c
 - **Severity:** Sev-4

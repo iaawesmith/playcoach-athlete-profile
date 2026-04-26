@@ -4,12 +4,13 @@ title: Missing error boundary around NodeEditor (Phase 3 ship blocker)
 status: open
 severity: Sev-2
 origin_slice: 1c.2-Slice-E.5
-origin_doc: TODO
+origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: [ADR-0006]
 related_entries: [F-SLICE-E-4]
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-OPS-2 — Missing error boundary around NodeEditor (Phase 3 ship blocker)
 - **Severity:** **Sev-2** (upgraded 2026-04-26 from Sev-3 — reframed as Phase 3 athlete-UI ship blocker; remediation work bundled into Phase 2 per revised phase ordering)
 - **Logged:** 2026-04-26 (severity upgraded same day; phase label updated 2026-04-26 PM)

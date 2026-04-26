@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-10 — Backup table grows unbounded over future migrations
 - **Phase:** post-1c
 - **Severity:** Sev-4

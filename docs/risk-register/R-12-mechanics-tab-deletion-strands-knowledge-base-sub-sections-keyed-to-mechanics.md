@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-12 — Mechanics tab deletion strands knowledge_base sub-sections keyed to "mechanics"
 - **Phase:** 1c.2
 - **Severity:** Sev-3

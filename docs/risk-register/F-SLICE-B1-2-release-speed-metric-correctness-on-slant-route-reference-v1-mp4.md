@@ -3,13 +3,14 @@ id: F-SLICE-B1-2
 title: Release Speed metric correctness on `slant-route-reference-v1.mp4` — REFRAMED 2026-04-26 (status: needs verification with known-speed clip)
 status: open
 severity: Sev-3
-origin_slice: TODO
-origin_doc: TODO
+origin_slice: 1c.2-Slice-B1
+origin_doc: docs/process/phase-1c2-slice-b1-outcome.md
 related_adrs: [ADR-0004]
 related_entries: []
-opened: TODO
+opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SLICE-B1-2 — Release Speed metric correctness on `slant-route-reference-v1.mp4` — REFRAMED 2026-04-26 (status: needs verification with known-speed clip)
 
 - **Phase:** deferred to Phase 2 (calibration / metric audit work)

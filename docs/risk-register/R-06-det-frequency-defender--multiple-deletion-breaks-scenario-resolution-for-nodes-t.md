@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-06 — `det_frequency_defender`/`_multiple` deletion breaks scenario resolution for nodes that never set `det_frequency_solo`
 - **Phase:** 1c.2
 - **Severity:** Sev-2

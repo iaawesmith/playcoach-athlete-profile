@@ -10,6 +10,7 @@ related_entries: [R-01, R-02, R-03, R-04, R-06, R-08, R-09]
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SEC-1 — Permissive RLS on admin tables + public storage bucket listing (Sev-2)
 
 - **Logged:** 2026-04-26, surfaced during Slice E E.2 migration security linter check.
@@ -86,6 +87,7 @@ When asserting parity of values captured before vs. after a migration boundary, 
 **Discipline for future phases:** Before writing any new R-xx assertion script, name the data shape first and pick the invariant from this table. Do not default to byte-equal because the column type is `text`; do not default to deep-equal because the column type is `jsonb`. The shape of the data and what crosses the boundary determines the invariant.
 
 ---
+
 
 ## §4 — Closing summary
 

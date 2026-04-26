@@ -4,12 +4,13 @@ title: Solution Class radio control writes to dropped column
 status: open
 severity: Sev-3
 origin_slice: 1c.2-Slice-E.5
-origin_doc: TODO
+origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: []
 related_entries: [F-SEC-1, F-SLICE-E-4]
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SLICE-E-5 — Solution Class radio control writes to dropped column
 - **Severity:** Sev-3
 - **Logged:** 2026-04-26 (post-Slice-E.5 re-run report observation, §2.2 row 13)

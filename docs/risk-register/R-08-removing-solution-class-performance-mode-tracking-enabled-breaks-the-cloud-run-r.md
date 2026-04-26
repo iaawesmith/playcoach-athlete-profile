@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-08 — Removing `solution_class`, `performance_mode`, `tracking_enabled` breaks the Cloud Run request shape
 - **Phase:** 1c.2
 - **Severity:** Sev-1 if uncoordinated, Sev-4 if sequenced correctly

@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-01 — Mechanics → Phases content migration loses or duplicates coaching cues
 - **Phase:** 1c.1
 - **Severity:** Sev-2

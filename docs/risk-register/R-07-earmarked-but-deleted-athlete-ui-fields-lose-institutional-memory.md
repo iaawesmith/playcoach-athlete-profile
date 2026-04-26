@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-07 — Earmarked-but-deleted athlete-UI fields lose institutional memory
 - **Phase:** 1c.2 → future
 - **Severity:** Sev-3

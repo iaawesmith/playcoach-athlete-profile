@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SLICE-E-2 — Pipeline `calibration_audit` shows ~0.78% non-deterministic drift on identical inputs (Sev-2)
 
 - **Logged:** 2026-04-26, Slice E pre-flight (Option C scan)

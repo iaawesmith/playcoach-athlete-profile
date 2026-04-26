@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-04 — Backup table omits a text-bearing field, making rollback impossible
 - **Phase:** 1c.2
 - **Severity:** Sev-1

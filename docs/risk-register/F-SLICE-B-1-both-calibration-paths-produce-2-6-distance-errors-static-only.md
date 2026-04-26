@@ -3,13 +3,14 @@ id: F-SLICE-B-1
 title: Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming
 status: deferred
 severity: Sev-2
-origin_slice: TODO
-origin_doc: TODO
+origin_slice: 1c.2-Slice-B
+origin_doc: docs/process/phase-1c2-slice-b1-outcome.md
 related_adrs: [ADR-0004, ADR-0014]
 related_entries: []
-opened: TODO
+opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SLICE-B-1 — Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming
 - **Phase:** 1c.2 Slice B → deferred to **Slice B2** (no schedule; gated on multi-clip ground-truth dataset)
 - **Severity:** **Sev-2** (upgraded 2026-04-26 from Sev-3, per Phase 1c.2 determinism experiment Section D corrections)

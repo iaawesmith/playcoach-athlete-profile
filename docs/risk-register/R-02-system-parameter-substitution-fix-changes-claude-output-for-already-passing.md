@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-02 — System-parameter substitution fix changes Claude output for already-passing nodes
 - **Phase:** 1c.1
 - **Severity:** Sev-2

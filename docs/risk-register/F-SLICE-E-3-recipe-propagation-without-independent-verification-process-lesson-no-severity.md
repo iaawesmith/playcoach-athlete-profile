@@ -3,13 +3,14 @@ id: F-SLICE-E-3
 title: Recipe propagation without independent verification (process lesson, no severity)
 status: open
 severity: none
-origin_slice: TODO
-origin_doc: TODO
+origin_slice: 1c.2-Slice-E
+origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: []
 related_entries: []
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SLICE-E-3 — Recipe propagation without independent verification (process lesson, no severity)
 
 - **Logged:** 2026-04-26

@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-09 — Claude prompt template references a deleted variable
 - **Phase:** 1c.2
 - **Severity:** Sev-2

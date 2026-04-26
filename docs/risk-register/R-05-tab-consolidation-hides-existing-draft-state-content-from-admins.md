@@ -10,6 +10,7 @@ related_entries: []
 opened: 2026-04-25
 last_updated: 2026-04-25
 ---
+
 # R-05 — Tab consolidation hides existing draft-state content from admins
 - **Phase:** 1c.3
 - **Severity:** Sev-3

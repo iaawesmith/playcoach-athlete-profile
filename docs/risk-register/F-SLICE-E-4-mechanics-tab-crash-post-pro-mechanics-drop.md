@@ -4,12 +4,13 @@ title: Mechanics tab crash post-`pro_mechanics` drop
 status: resolved
 severity: Sev-3
 origin_slice: 1c.2-Slice-E.5
-origin_doc: TODO
+origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: [ADR-0015]
 related_entries: []
 opened: 2026-04-26
 last_updated: 2026-04-26
 ---
+
 # F-SLICE-E-4 — Mechanics tab crash post-`pro_mechanics` drop
 - **Severity:** Sev-3
 - **Logged:** 2026-04-26
