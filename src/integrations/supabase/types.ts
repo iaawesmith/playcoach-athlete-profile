@@ -171,7 +171,6 @@ export type Database = {
           common_errors: Json
           confidence_handling: string
           created_at: string
-          det_frequency: number
           det_frequency_defender: number
           det_frequency_multiple: number
           det_frequency_solo: number
@@ -184,27 +183,20 @@ export type Database = {
           llm_max_words: number
           llm_prompt_template: string
           llm_system_instructions: string
-          llm_tone: string
           min_metrics_threshold: number
           name: string
           node_version: number
           overview: string
-          performance_mode: string
           phase_breakdown: Json
           phase_context_mode: string
           position: string | null
-          pro_mechanics: string
           reference_calibrations: Json
           reference_fallback_behavior: string
-          reference_filming_instructions: string
-          reference_object: string
           score_bands: Json
           scoring_renormalize_on_skip: boolean
           scoring_rules: string
           segmentation_method: string
-          solution_class: string
           status: string
-          tracking_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -216,7 +208,6 @@ export type Database = {
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
-          det_frequency?: number
           det_frequency_defender?: number
           det_frequency_multiple?: number
           det_frequency_solo?: number
@@ -229,27 +220,20 @@ export type Database = {
           llm_max_words?: number
           llm_prompt_template?: string
           llm_system_instructions?: string
-          llm_tone?: string
           min_metrics_threshold?: number
           name: string
           node_version?: number
           overview?: string
-          performance_mode?: string
           phase_breakdown?: Json
           phase_context_mode?: string
           position?: string | null
-          pro_mechanics?: string
           reference_calibrations?: Json
           reference_fallback_behavior?: string
-          reference_filming_instructions?: string
-          reference_object?: string
           score_bands?: Json
           scoring_renormalize_on_skip?: boolean
           scoring_rules?: string
           segmentation_method?: string
-          solution_class?: string
           status?: string
-          tracking_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -261,7 +245,6 @@ export type Database = {
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
-          det_frequency?: number
           det_frequency_defender?: number
           det_frequency_multiple?: number
           det_frequency_solo?: number
@@ -274,27 +257,20 @@ export type Database = {
           llm_max_words?: number
           llm_prompt_template?: string
           llm_system_instructions?: string
-          llm_tone?: string
           min_metrics_threshold?: number
           name?: string
           node_version?: number
           overview?: string
-          performance_mode?: string
           phase_breakdown?: Json
           phase_context_mode?: string
           position?: string | null
-          pro_mechanics?: string
           reference_calibrations?: Json
           reference_fallback_behavior?: string
-          reference_filming_instructions?: string
-          reference_object?: string
           score_bands?: Json
           scoring_renormalize_on_skip?: boolean
           scoring_rules?: string
           segmentation_method?: string
-          solution_class?: string
           status?: string
-          tracking_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
