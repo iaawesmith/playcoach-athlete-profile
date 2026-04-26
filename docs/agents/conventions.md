@@ -117,6 +117,96 @@ The exemplar pattern: [`docs/data-dictionary/fields.json`](../data-dictionary/fi
 
 ---
 
+## Process vs investigations distinction
+
+`docs/process/` contains slice-aligned work outcomes:
+
+- Slice outcome docs (`phase-1c2-slice-{a,b1,d,e}-outcome.md`)
+- Phase-aligned multi-slice work documents (`phase-1c2-determinism-experiment.md`)
+- Phase prep backlogs (`phase-1c3-prep-backlog.md`)
+- Phase-aligned snapshots that informed slice decisions
+
+`docs/investigations/` contains free-standing diagnostic work:
+
+- Started as a question, not as slice work
+- May or may not feed into a specific slice
+- Often produced before scope was defined
+
+When in doubt: if the work was scoped by a slice plan, it belongs in `process/`. If the work started as "why is X happening" or "what does Y produce" without a containing slice, it belongs in `investigations/`.
+
+Existing edge case: `docs/process/phase-1c2-determinism-experiment.md` is investigation-shaped but lives in `process/` because the experiment was scoped by Slice E pre-flight planning. The location reflects the work's containing context, not just its shape.
+
+---
+
+## Investigations directory curation
+
+`docs/investigations/` holds diagnostic work that surfaced findings, traced behavior, or established understanding of a system question. Investigation docs typically have a defined scope (one question) and a defined endpoint (the question got answered or the investigation got superseded by a different approach).
+
+Lifecycle:
+
+- **New investigation:** create at `docs/investigations/{descriptive-slug}.md` with status banner indicating active state.
+- **Concluded investigation:** status banner updated to indicate conclusion (resolved, superseded, deferred), with link to where the conclusion lives (slice outcome, ADR, risk register entry).
+- **Archived investigation:** at phase boundaries, completed investigations may be moved to `docs/investigations/archive/{phase-id}/` to keep active investigations discoverable.
+
+Phase 1c.3 cleanup: review investigations directory contents. Investigations marked superseded for two or more phases get moved to archive. Investigations still actively informing current work stay in the main directory.
+
+Investigation docs are not slice outcomes. Slice outcomes live in `docs/process/`. Investigations that started as free-standing questions but became slice work get summarized in their slice outcome and the original investigation gets the superseded banner.
+
+---
+
+## Reference directory composition (forward-looking note)
+
+`docs/reference/` currently contains:
+
+- Structured data sources (`calibration/`, `calibration-audit-rollup.csv`, `determinism-drift.csv`)
+- Prose reference docs (`calibration-ground-truth-dataset.md`, `run-analysis-observability-audit.md`)
+- Schema docs (`_schema-*.md`)
+- Foundation scaffolds (`tiers/`, `metrics/`, `events/`, `observability/`)
+- Phase-specific reference snapshots (`phase-1c2-baseline-slant-analysis.md`, `phase-1c2-detfreq-resolution-snapshot.md`)
+
+This works at current scale. If reference grows past 20+ files OR if any single content type grows past 8 files, evaluate sub-organization. Possible structure if needed:
+
+- `docs/reference/data/` for structured sources and CSVs
+- `docs/reference/scaffolds/` for foundation schemas
+- `docs/reference/snapshots/` for phase-specific reference points
+- `docs/reference/audits/` for prose reference docs
+
+Schema files (`_schema-*.md`) typically live alongside the structure they describe rather than centralized.
+
+Trigger evaluation, not auto-execute. Reference directory reorganization is a structural change that warrants its own pass.
+
+---
+
+## ADR supersession convention
+
+When a new ADR replaces an existing decision:
+
+1. **New ADR creation:**
+   - `status: accepted`
+   - `supersedes: [list of ADR IDs being replaced]`
+   - In Context section: explicitly cite which ADR is being superseded and why.
+   - In Decision section: state what the new decision is and how it differs from the superseded one.
+
+2. **Old ADR update:**
+   - `status: superseded` (was: `accepted`)
+   - `superseded_by: [new ADR ID]`
+   - Add a banner immediately after the title: `> **Superseded by ADR-NNNN — [title].** Preserved for historical context.`
+   - Body content unchanged: the historical reasoning remains valuable even after supersession.
+   - `last_updated:` date of supersession.
+
+3. **Cross-reference updates:**
+   - Risk register entries with `related_adrs` pointing at the superseded ADR get updated to also reference the new ADR.
+   - Other docs that linked to the superseded ADR get a reference to the new ADR added (not replacement, addition).
+
+4. **ADR INDEX update:**
+   - Both ADRs appear in the index.
+   - Superseded ADR row shows `status: superseded` with link to replacement.
+   - New ADR row shows what it supersedes.
+
+**Worked example:** When Phase 2 makes the Slice B2 calibration architecture decision (currently deferred per ADR-0004), the new ADR (e.g., ADR-0016 "Adopt world coordinates for calibration") would supersede ADR-0004. ADR-0004's status becomes `superseded`; its body remains as historical context for why deferral happened; ADR-0016 explains the new decision and references ADR-0004 in its Context section.
+
+---
+
 ## Pass 5 sub-conventions
 
 These sections are appended as Pass 5 sub-passes execute.

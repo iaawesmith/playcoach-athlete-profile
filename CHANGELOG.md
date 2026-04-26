@@ -33,6 +33,24 @@ where applicable.
 
 ---
 
+## [Phase 1c.2 — cleanup refinements] — 2026-04-26
+
+Five small additive documentation refinements landed post-Pass-6 to address concerns surfaced during the org assessment. No existing content rewritten or removed; no new R2 stubs; no structural changes.
+
+### Added
+- **`docs/risk-register/_schema.md`** — new `## When these rules apply` header inserted before the existing `## Status field derivation` section. Clarifies that the derivation rules below were one-time Pass-4-split-script logic and that new entries created going forward populate frontmatter directly at creation time. (Refinement 1.)
+- **`docs/agents/conventions.md`** — four new sections appended after `## Structured vs prose` and before `## Pass 5 sub-conventions`:
+  - `## Process vs investigations distinction` — codifies that `docs/process/` holds slice-aligned outcomes and `docs/investigations/` holds free-standing diagnostic work; documents the `phase-1c2-determinism-experiment.md` edge case explicitly. (Refinement 3.)
+  - `## Investigations directory curation` — defines the new/concluded/archived lifecycle for investigation docs and earmarks Phase 1c.3 cleanup to review and archive entries superseded for two or more phases. (Refinement 2.)
+  - `## Reference directory composition (forward-looking note)` — enumerates the five current content types in `docs/reference/` and sets a trigger (>20 files, or any single content type >8 files) for evaluating sub-organization. Trigger-evaluation only — no auto-execution. (Refinement 4.)
+  - `## ADR supersession convention` — full procedure for new-ADR / old-ADR / cross-reference / INDEX updates when superseding, with an ADR-0004 worked example. (Refinement 5.)
+- **`docs/adr/template.md`** — appended a pointer line at the bottom directing authors superseding an existing ADR to the new convention in `conventions.md`. (Refinement 5 — author-facing entry point.)
+
+### Changed
+- *(none — all five refinements are additive.)*
+
+---
+
 ## [Phase 1c.2 — cleanup] — 2026-04-26
 
 Foundation pass — documentation and scaffolding only. No pipeline changes,

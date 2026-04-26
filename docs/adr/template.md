@@ -37,3 +37,7 @@ we are explicitly **not** doing.
 - Investigation / slice outcome / source-of-truth doc that established the
   context.
 - Implementation surfaces (file paths, tables, edge functions).
+
+---
+
+> **Superseding an existing ADR?** See the **ADR supersession convention** in [`docs/agents/conventions.md`](../agents/conventions.md#adr-supersession-convention) for the required frontmatter, banner, cross-reference, and INDEX updates on both the new and the old ADR.
