@@ -47,6 +47,12 @@ Frontmatter is followed by the original prose, mechanically lifted with no rewor
 
 Cross-references to other R-/F- IDs in the prose are left as plain text in this pass (e.g., `R-04`, `F-SLICE-E-4`). A future maintenance pass MAY wikilink them; out of scope for Pass 4.
 
+## When these rules apply
+
+The derivation rules below (status mapping, origin-slice derivation, origin-doc derivation, opened-date defaults) applied during the Pass 4 split-from-monolith operation. They documented how Pass 4's split script populated frontmatter from prose evidence.
+
+For new entries created going forward: populate frontmatter directly at creation time based on actual entry context. Do not rely on derivation. The rules below are preserved for understanding how existing entry frontmatter was generated, not as a template for new entry creation.
+
 ## Status field derivation
 
 The `status` value is derived from the original `**Status:**` prose line where present, mapped:
