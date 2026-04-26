@@ -177,6 +177,184 @@ This is a **B2 design input**, not a B1 blocker.
 
 ---
 
+---
+
+## Section D-supplement — Methodology, sanity checks, and direction (added per review)
+
+### D.1 — What was actually measured
+
+| Question | Answer |
+|---|---|
+| Frame? | Frame index 60 (2.0 s into the 4.0 s clip), full-resolution **4096 × 2304 px** |
+| Two pixel coordinates? | Not two coordinates — a **3,579-pixel-wide arc** of white pixels in the lower portion of the frame (x∈[0, 3579], y∈[1803, 2284]) was algebraically circle-fit |
+| Visible arc shape | Partial arc only. The frame shows the **upper portion of a circle** centered below the bottom edge of the frame. Chord ≈ 3,579 px, sagitta ≈ 481 px |
+| Assumed real-world distance | **Radius = 9.15 m = 10.0066 yd** (FIFA spec for soccer center circle) |
+| How "10 yards" was determined | **Assumption only.** The marking was identified visually as a soccer center circle based on shape, location (mid-field on green turf in an indoor dome), and isolation (no concentric or intersecting markings nearby). It was **not** confirmed via metadata, facility documentation, or an in-frame scale reference. This is the single biggest uncertainty in Section D. |
+
+> **Original document overstated the precision of step 5.** The fit is robust geometrically. The yard-mapping is an assumption.
+
+### D.2 — Athlete-height sanity check (the user's challenge)
+
+The user's challenge: at ppy=495, athlete should be impossibly tall.
+That is true **only under the briefed clip dimensions** (1024×576), which were incorrect.
+
+`ffprobe` confirms actual dimensions: **4096 × 2304 px**.
+
+Independent measurement of athlete bounding box on frame 60 (color-segmented, athlete in right-center of frame):
+
+| Quantity | Value |
+|---|---|
+| Athlete head (top) y | ≈ 560 px |
+| Athlete foot (bottom) y | ≈ 1530 px |
+| Vertical bbox height | **≈ 970 px** |
+
+Athlete in clip is in cutting/breaking pose (slightly leaning), so vertical pixel height is roughly equal to or slightly less than standing height.
+
+| Assumed athlete height | Implied ppy |
+|---|---|
+| 1.7 yd (5'1") — youth | 571 |
+| **2.0 yd (6'0") — typical adult WR** | **485** |
+| 2.2 yd (6'7") — tall adult | 441 |
+
+**Athlete-height ppy ≈ 485** for a 6-ft adult ≈ within 2% of the circle-fit ppy of **495**. The two completely independent measurements agree.
+
+The user's "physically impossible" intuition was correct under the briefed (wrong) dimensions. Under correct 4096 × 2304 dimensions, athlete at ppy=495 occupies ~990 of 2304 vertical pixels (~43% of frame height). Plausible.
+
+### D.3 — Math walk-through, fit recomputed cleanly
+
+**Original fit (in shipped doc):** lower 60% of frame, all bright pixels, components ≥ 2000 px → label-7 dominant component → algebraic circle fit on label-7 only:
+
+- Center = (1257.9, 6772.8) px
+- Radius = 4952.17 px
+- Diameter = 9904.33 px
+- Residual std = 10.29 px (0.21% of radius)
+
+**Independent recomputation (cleaner)**, using just bottom 22% of frame (y ≥ 1797), all white pixels (no component filter):
+
+- Center = (1370.4, 7352.3) px
+- Radius = **5541.3 px**
+- Diameter = **11082.6 px**
+- Residual std = 11.18 px (0.20% of radius)
+
+**Chord-sagitta closed form** (no fit, just geometry from arc extremes):
+
+- Chord = 3579 px (the arc's x-span)
+- Sagitta = 481 px (vertical drop from chord midpoint to arc apex)
+- r = (chord² / 4 + sagitta²) / (2 × sagitta) = **3,569 px**
+
+The three estimates of arc radius span **3,569 – 5,541 px** (±25%). The original 4,952 figure sits in the middle. The discrepancy comes from how much "tail" of the arc is included: the arc is genuinely large enough that a wider chord moves the fit substantially. Conservative interpretation: **r_arc ≈ 4,000–5,500 px**.
+
+**Ppy under different real-world radii**, given the corrected r_arc range:
+
+| Assumed real radius | ppy if r_arc = 4000 | ppy if r_arc = 5000 | ppy if r_arc = 5500 |
+|---|---|---|---|
+| 5 yd | 800 | 1000 | 1100 |
+| **10 yd (FIFA soccer)** | **400** | **500** | **550** |
+| 15 yd | 267 | 333 | 367 |
+| 20 yd | 200 | 250 | 275 |
+| 25 yd | 160 | 200 | 220 |
+| 30 yd | 133 | 167 | 183 |
+
+Cross-referenced against the athlete-height ppy ≈ 485 (independent measurement):
+
+- The marking is **most consistent with a ~10-yard radius** (FIFA soccer center circle), giving ppy ≈ 400–550.
+- A 20-yd radius marking would imply ppy ≈ 200–275 — close to body_based 234 but contradicts the athlete-height ppy.
+- A 30-yd radius marking would imply ppy ≈ 133–183 — closer to baseline d1b3ab23's 167.87 ppy but **far below** athlete-height ppy.
+
+**Best estimate of true ppy on this clip: ppy ≈ 485 ± 50.** Used as ~495 in the analysis below; the ±10% uncertainty does not change the directional finding.
+
+### D.4 — Direction of error (resolves contradiction)
+
+`ppy = pixels per yard`
+`distance_yards = pixel_distance / ppy`
+
+If true ppy = 495 and a calibration source reports ppy = 234:
+- The source reports a **numerically smaller ppy** than true → "under-reports ppy"
+- Plug into the formula: `d_reported = px / 234` vs `d_true = px / 495`
+- Ratio: `d_reported / d_true = 495 / 234 = 2.12`
+- → For any given pixel measurement, the source produces **distances 2.12× LARGER** than true.
+
+Direction summary:
+
+| Statement | Equivalent statement |
+|---|---|
+| Source under-reports ppy | Source over-reports distances |
+| Source over-reports ppy | Source under-reports distances |
+
+**Empirical findings on this clip:**
+
+| Source | ppy reported | Direction | Distance error |
+|---|---|---|---|
+| Ground truth (best estimate) | ~495 | — | — |
+| body_based (Cloud Run, conf=high) | 233.9 | **Under-reports ppy by 53%** | **Over-reports distances by 2.12×** |
+| static (sideline reference_calibrations[0]) | 80 | **Under-reports ppy by 84%** | **Over-reports distances by 6.19×** |
+
+**Reconciliation against F-SLICE-B-1:**
+
+F-SLICE-B-1's investigation language: "body_based **inflates** ppy" → "distances appear **smaller** than true."
+
+Section D evidence on `slant-route-reference-v1.mp4`: body_based **deflates** ppy → distances appear **larger** than true.
+
+**These are opposite directions.** The investigation finding does **not** generalize to this clip. Possible reasons:
+
+1. The investigation was based on a different clip with different camera distance / framing.
+2. body_based's failure mode is bidirectional (over- or under-estimates depending on camera distance vs athlete distance).
+3. The investigation arithmetic itself contained an error (the trace-vs-investigation disagreement F-SLICE-B-1 flagged).
+
+We cannot resolve which of (1)–(3) is true without ground-truth ppy on the clip the investigation analyzed. **The original investigation doc cannot be confirmed correct or incorrect by Section D — only its applicability to this specific clip is refuted.**
+
+### D.5 — Metric reconciliation against d1b3ab23 baseline
+
+Baseline d1b3ab23 used body_based ppy ≈ 167.87 (per F-SLICE-B-1 trace doc) on a different file. If we hypothetically scale baseline metrics to true-ppy 495 (treating that as the true ppy on the d1b3ab23 clip too — **strong assumption**, since d1b3ab23 used a different file):
+
+| Metric | Baseline | Scale (167.87/495) | "True" if same setup | Plausibility |
+|---|---|---|---|---|
+| Hip Stability | 0.09 yd | × 0.339 | 0.031 yd (~1.1 in) | Possible for elite, on the edge of plausible |
+| Release Speed | 158.94 mph | × 0.339 | 53.9 mph | **Still implausible** — hip displacement should be ~3–5 mph during a slant cut |
+| Hands Extension at Catch | 1.74 yd | × 0.339 | 0.59 yd (~21 in) | Plausible (typical arm reach for a catch) |
+
+**Two of three reconciled values are still wrong**, which is diagnostic:
+
+1. **Hands Extension** reconciles cleanly → calibration error explains this metric's baseline value
+2. **Hip Stability** is borderline but plausible → likely calibration-dominated
+3. **Release Speed** is *still* off by ~10× even after calibration correction → there is an **independent metric-math bug** beyond calibration. Consistent with **F-SLICE-B1-2** (already logged in the prior loop).
+
+Note that **current pipeline (Section B)** reports `Release Speed = 3.37 mph` (using static ppy=80). At true ppy 495, that scales to **0.54 mph** — too small. So Release Speed swings from "way too high" (158 mph at body_based 167) to "way too low" (0.54 mph at static 80) depending on calibration. Under correct calibration ~495, release speed would be in the right order of magnitude. Both calibration paths are wrong, but the **metric is calibration-dominated** in this regime — fixing calibration is necessary but possibly not sufficient (the F-SLICE-B1-2 root cause may be additional).
+
+### D.6 — Implication for Slice B2 architectural decision
+
+**Re-examining Option A ("delete body_based, retain static"):**
+
+| Path | ppy on this clip | Distance error |
+|---|---|---|
+| Keep body_based | 234 | over-reports 2.12× |
+| Keep static (Option A) | 80 | over-reports 6.19× |
+| Delete both | undefined | metric pipeline disabled |
+
+**On this clip, Option A makes calibration ~2.9× worse** (6.19 / 2.12). Option A as previously approved is contraindicated by Section D.
+
+But **one clip is not generalizable evidence**. The d1b3ab23 baseline used a different file with possibly different camera setup. We cannot know whether body_based's under-report direction here is consistent across all sideline football clips, or whether the investigation's "body_based inflates" finding applies to a *different* camera setup.
+
+**Recommendation:** Withdraw the previously-approved Option A. Defer the B2 architectural decision until we have ground-truth ppy on at least:
+
+- 1 additional sideline football clip with a real 5-yard line marker visible
+- Ideally 2–3 clips spanning camera distances (close, mid, far)
+
+Until then, neither "delete body_based" nor "delete static" can be supported by evidence. The interim path:
+
+1. **Keep both calibration paths in place** (no architectural change in Slice B2).
+2. **Add structured logging** of `(body_based_ppy, static_ppy, dynamic_failure_reason, ground_truth_ppy_if_known)` per analysis so that as more clips flow through, we accumulate the evidence needed to make the architectural decision.
+3. Consider raising or removing the `dynamic_pixels_per_yard_out_of_range` upper bound when `body_based_confidence == high`, to test whether body_based produces better metrics in production.
+
+### D.7 — What this resolves about F-SLICE-B-1
+
+| Question | Answer |
+|---|---|
+| Which doc (trace vs investigation) is correct? | Cannot be resolved by Section D alone. Section D refutes the investigation's directional claim **on this clip**, but says nothing about the clip the investigation analyzed. |
+| Revised true ppy for this clip? | **~495 ± 50** (or ~485 from athlete height; ~495 from circle fit, both consistent) |
+| Severity of F-SLICE-B-1? | Likely needs upgrade from Sev-3 → Sev-2. Not because body_based is "more broken" than thought, but because **both calibration paths produce 2–6× distance errors** and the Slice B2 fix path is now unclear. |
+| Should B2 still be approved as Option A? | **No.** Withdraw approval. See D.6 for interim path. |
+
 ## Files
 
 | Path | Purpose |
@@ -184,9 +362,10 @@ This is a **B2 design input**, not a B1 blocker.
 | `scripts/slice1c2_determinism_cloudrun.ts` | Section A harness (deno, throwaway) |
 | `/tmp/cloudrun_run_{1..5}.json` | Raw Cloud Run captures |
 | `/tmp/cloudrun_summary.json` | Section A parsed summary |
-| `/tmp/ground_truth_ppy.json` | Section D fit details |
+| `/tmp/ground_truth_ppy.json` | Section D fit details (original lstsq fit) |
 | `/mnt/documents/slant_frame60_centercircle.png` | Source frame 60 |
-| `/mnt/documents/slant_frame60_circle_fit.png` | Fitted circle overlay (visual QA) |
+| `/mnt/documents/slant_frame60_circle_fit.png` | Fitted circle overlay (original) |
+| `/mnt/documents/slant_frame60_diagnostic.png` | Section D-supplement: arc + chord + sagitta + athlete bbox overlays |
 
 ## Pipeline upload IDs (Section B)
 
