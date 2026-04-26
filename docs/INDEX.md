@@ -41,6 +41,7 @@
 | [`reference/phase-1c2-detfreq-resolution-snapshot.md`](reference/phase-1c2-detfreq-resolution-snapshot.md) | Snapshot supporting R-06 resolution |
 | [`reference/run-analysis-observability-audit.md`](reference/run-analysis-observability-audit.md) | Observability audit of the analysis pipeline (renamed from `-v2` in Pass 1) |
 | [`reference/calibration-audit-rollup.md`](reference/calibration-audit-rollup.md) | Pass 5e: single entry point summarizing calibration accuracy + determinism state. |
+| [`reference/_schema-calibration-audit-rollup.md`](reference/_schema-calibration-audit-rollup.md) + [`calibration-audit-rollup.csv`](reference/calibration-audit-rollup.csv) | Pass 5e-bis: generated CSV (9 seed rows, slant-route clip) + schema. Produced by `scripts/aggregate-calibration-audit.ts`. |
 | [`reference/calibration/_schema.md`](reference/calibration/_schema.md) + [`ground-truth.yaml`](reference/calibration/ground-truth.yaml) | Pass 3b: structured ground-truth dataset. |
 | [`reference/_schema-determinism-drift.md`](reference/_schema-determinism-drift.md) + [`determinism-drift.csv`](reference/determinism-drift.csv) | Pass 3c: 9-row determinism drift CSV (DB-verified Pass 5.5). |
 | [`reference/tiers/_schema.md`](reference/tiers/_schema.md) | Pass 5a scaffold: tier definition contract. No tier files yet. |
