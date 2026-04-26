@@ -744,7 +744,7 @@ Deno.serve(async (req) => {
     )
 
     await setUploadProgress(upload.id, 'Running dynamic calibration...')
-    const resolvedCalibration = resolveCalibration(
+    const { resolved: resolvedCalibration, audit: calibrationAudit } = resolveCalibration(
       rtmlibResult,
       trackedPersonFrames.keypoints,
       trackedPersonFrames.scores,
