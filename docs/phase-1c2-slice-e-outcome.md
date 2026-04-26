@@ -176,14 +176,32 @@ FROM athlete_lab_nodes_phase1c_backup;
 
 ---
 
-## §7 — Outcome status (rolling)
+## §8 — E.1 Gate 5 zombie-cleanup event (H1)
+
+**Halt:** First Gate 5 run halted on 3 `athlete_uploads` rows in `processing` state since 2026-04-23 (~72h old, no `progress_message`, `error_message`, or result row). Predates Slice E by 3 days; no relationship to schema migration.
+
+**Affected upload_ids:**
+- `70539f0f-a66a-4fe5-afe5-b3a28c84ef33` (created 2026-04-23 03:48:24 UTC)
+- `8cff69b5-7294-4ad2-9f9a-c4be08971def` (created 2026-04-23 03:41:42 UTC)
+- `65b0544b-6da3-460a-b237-71ab5803181d` (created 2026-04-23 03:31:43 UTC)
+
+**Resolution (H1, user-approved):** Updated all 3 to `status='failed'` with `error_message='zombie cleanup pre-Slice-E.2: stuck in processing >72h with no progress/error update, likely edge function termination without graceful failure write. Root cause not investigated. See F-OPS-1.'`
+
+**Finding logged:** F-OPS-1 in `docs/migration-risk-register.md` (Sev-3, operational hygiene).
+
+**Gate 5 re-run:** ✅ PASS (0 in-flight uploads).
+
+---
+
+## §9 — Outcome status (rolling)
 
 - ✅ **E.0 step 1** — SELECT-list edit at `analyze-athlete-video/index.ts:912-914`. Removed root `det_frequency`. Retained `det_frequency_solo`, `det_frequency_defender`, `det_frequency_multiple`. Edge reference scan clean for 8 dropped columns.
 - ✅ **E.0 step 2** — Backup table integrity hash captured (`ad8bb95c…`). Recipe documented.
 - ✅ **E.0 step 3** — Option C historical scan complete. Baseline `34a87126…` adopted. F-SLICE-E-2 logged.
-- ✅ **E.0 step 4 — Pipeline determinism verification PASSED.** Run `2b3e2731-a54a-4fea-be43-769a4e00a9be` (result `d398a7e5-3129-4c07-90ca-33949066b526`) hashed exactly to baseline `34a87126…`. Group A classification. SELECT-list narrowing produced zero observable pipeline drift. Logged to `docs/phase-1c2-determinism-drift-log.md`. **Cleared to proceed to E.1.**
-- ⏸ **E.1** — Pre-flight gates (pending E.0 pass).
+- ✅ **E.0 step 4** — Pipeline determinism verification PASSED. Run `2b3e2731-…` hashed exactly to baseline. Group A.
+- ✅ **E.1** — All 7 pre-flight gates PASSED (Gate 5 after H1 zombie cleanup; F-OPS-1 logged).
 - ⏸ **E.2** — Bundled atomic migration (8 columns).
 - ⏸ **E.3** — Post-write assertions.
 - ⏸ **E.4** — NodeEditor save-payload edit (Resolution A; 8 columns).
 - ⏸ **E.5** — Live browser smoke (user-gated).
+

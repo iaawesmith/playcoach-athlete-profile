@@ -69,3 +69,26 @@
 
 **Interpretation:** The SELECT-list narrowing has no observable effect on pipeline output. Drift envelope unchanged: [+0.000%, +0.784%] across 8 in-spec runs (7 historical + this E.0 run). Cleared to proceed to E.1.
 
+
+#### E.3.6 — post-migration determinism re-check (2026-04-26)
+
+| field | value |
+|---|---|
+| date (UTC) | 2026-04-26 03:01:23 |
+| upload_id | `23936560-1284-4d13-bb68-9894afd2865c` |
+| result_id | `1a5996b0-5384-4289-afef-da9666de7c5a` |
+| experiment tag | `1c-slice-e-e36-post-migration` |
+| hash | `884b740b6f5fe4286c4454b381fed613a1dfeb30c22656ed4b735fde23b361e9` |
+| group | **B (within tolerance)** |
+| `body_based_ppy` | 201.7827255013638 (Δ **+0.7838%** vs baseline) |
+| `body_based_confidence` | 0.7818235851106613 (Δ **−0.6052%** vs baseline) |
+| `selected_ppy` | 201.7827255013638 (Δ +0.7838%) |
+| `static_ppy` | 80 (Δ 0.000%) |
+| categoricals | all exact match |
+| outcome | ✅ **PASS — within ±1% tolerance** |
+| pipeline runtime | ~30s |
+| change under test | E.2 migration: dropped 8 columns from `athlete_lab_nodes` |
+
+**Interpretation:** Post-migration run landed in Group B, identical drift magnitude to historical Group B observation (`a164c815`, +0.784%). `body_based_ppy = 201.7827255013638` is bit-identical between the two Group B observations — strongly suggests the noise floor produces a small set of discrete output modes rather than continuous distribution. **Migration produced no observable additional drift beyond the pre-existing F-SLICE-E-2 noise floor.** Drift envelope to date: [+0.000%, +0.784%] across 9 in-spec runs (Group A: 7, Group B: 2). Cleared to proceed to E.4.
+
+**Diagnostic note for future F-SLICE-E-2 investigation:** Two Group B observations now hash bit-identically. The drift appears bimodal rather than continuous. Hypothesis worth testing: drift correlates with Cloud Run cold-vs-warm start state, GPU vs CPU model fallback, or a discrete branch in pose-estimation (e.g., "model A" vs "model B" weights served from different replicas).
