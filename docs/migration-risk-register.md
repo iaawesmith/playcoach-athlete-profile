@@ -10,6 +10,24 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
 
 ---
 
+## Phase ordering (revised 2026-04-26)
+
+Original audit / risk register entries were authored under an earlier ordering that placed athlete UI as Phase 2 and analysis quality as Phase 3. **Reordered 2026-04-26 to reflect actual product priority: athlete UI must not ship before analysis is trustworthy.**
+
+**Current canonical ordering:**
+
+- **Phase 1c.3** — Admin UI consolidation (next; admin-only cleanup; see `docs/athlete-lab-tab-inventory.md` and `docs/phase-1c3-prep-backlog.md`).
+- **Phase 2 — Analysis quality** (was "Phase 3" in earlier docs):
+  - **2a** — World coordinates migration (B2 redesign of calibration).
+  - **2b** — Metric formula audits.
+  - **2c** — Tier-aware scoring.
+  - **Plus operational/security obligations:** F-SEC-1 (RLS hardening), F-OPS-2 (error boundaries), F-OPS-1 (zombie cleanup), F-SLICE-E-2 (determinism investigation).
+- **Phase 3 — Athlete UI** (was "Phase 2" in earlier docs): builds on the stable analysis foundation produced by Phase 2.
+
+This document and sibling docs have been updated to use the revised labels. Where historical text said "Phase 3" or "Phase 3a/b/c" it now reads "Phase 2" / "Phase 2a/b/c"; where it said "Phase 2 athlete UI" or "Phase 2 ship" it now reads "Phase 3 athlete UI" / "Phase 3 ship". The work itself is unchanged — only the ordering label moved.
+
+---
+
 ## §1 — Risk register
 
 ### R-01 — Mechanics → Phases content migration loses or duplicates coaching cues
@@ -143,7 +161,7 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
 - **Status (2026-04-26):** **Option A (delete `body_based`, keep `static`) WITHDRAWN.** Section D ground-truth measurement on `slant-route-reference-v1.mp4` (filmed in a soccer training facility, ppy ≈ 495 from converged circle-fit + athlete-height methods) shows: `body_based` (234) is 1.7–2.4× off; `static` (80) is 5–6.9× off. **Static is more wrong than `body_based` regardless of where exactly true ppy lands within the conservative uncertainty window.** Slice B1 has shipped (non-calibration cleanup). Slice B2 deferred until multi-clip ground-truth dataset exists.
 - **What happens:** Both calibration paths produce 2–6× distance errors on the only clip with empirically established ground-truth ppy. Beyond per-clip error magnitude, static-only calibration is **fundamentally limited** for a multi-context product: the static reference value (80) was authored for one specific filming geometry — likely sideline tactical camera at a football field, 25–40 yards from action. Real PlayCoach users will film in indoor soccer/turf facilities, backyards, high-school football fields, and training facilities of every kind. Each filming context has different ppy depending on camera distance, focal length, and frame composition. **Single calibration value cannot serve users filming in soccer facilities, backyards, football fields, and training spaces of varying geometries.** `body_based`'s adaptive nature, despite scale errors, is structurally more compatible with multi-context use than a single static constant.
 - **Why Option A is contraindicated by evidence:** The directional finding (static more wrong than body_based) is invariant under any plausible widening of the Section D uncertainty window. Deleting `body_based` would leave the worse calibration path as the only one available. The investigation doc's own Recommendation B explicitly conditioned `body_based` deletion on "we've collected ~10 admin tests to validate that MediaPipe's `body_based` is consistently within a tightened gate range." That collection has not happened, and the one clip we have measured points the opposite direction from what Option A assumes.
-- **Implication for B2 redesign:** B2 architectural redesign should consider **Option B (migrate to MediaPipe world coordinates entirely, eliminate calibration as a concept)** rather than choosing between two imperfect calibration paths. This is multi-week Phase 3+ work, not Phase 1c.2 deletion work. Option A is closed; the choice space for B2 is now Option B vs additional adaptive-calibration variants, evaluated against the ground-truth dataset.
+- **Implication for B2 redesign:** B2 architectural redesign should consider **Option B (migrate to MediaPipe world coordinates entirely, eliminate calibration as a concept)** rather than choosing between two imperfect calibration paths. This is multi-week Phase 2+ work, not Phase 1c.2 deletion work. Option A is closed; the choice space for B2 is now Option B vs additional adaptive-calibration variants, evaluated against the ground-truth dataset.
 - **Mitigation (B1/B2 split, revised 2026-04-26):**
   1. **B1 (SHIPPED 2026-04-26):** all non-calibration cleanup. Calibration path unchanged. Pipeline determinism verified bit-perfect across 5 runs (Sections A and B of `docs/phase-1c2-determinism-experiment.md`).
   2. **B2 (deferred, no schedule, Option A withdrawn):** architectural redesign — choice between Option B (world coordinates) and adaptive-calibration variants. Pre-conditions (all required):
@@ -157,7 +175,7 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
 
 ### F-SLICE-B1-2 — Release Speed metric correctness on `slant-route-reference-v1.mp4` — REFRAMED 2026-04-26 (status: needs verification with known-speed clip)
 
-- **Phase:** deferred to Phase 3 (calibration / metric audit work)
+- **Phase:** deferred to Phase 2 (calibration / metric audit work)
 - **Severity:** **Sev-3** (downgraded 2026-04-26 from Sev-2; previous Sev-2 assumed a confirmed independent metric-math bug that the reframing no longer supports)
 - **Likelihood:** Unknown until tested against a known-speed clip
 - **Status (2026-04-26):** **Reframed from "confirmed metric bug" to "needs verification with a known-speed test clip."** Do **not** close — verification still required.
@@ -167,13 +185,13 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
   - **158.94 mph (Slice B1 baseline)** is explainable by severe calibration error alone — when ppy was way off, velocity inflated ~100×.
   - **1.34 mph (Slice D diagnostic, edge-path body_based ppy ~201.78)** is plausibly approximately correct for what the athlete actually did: a slow controlled rep at better calibration. It is **no longer evidence of a metric-math bug** under the corrected ground-truth assumption.
 - **What this changes:** Calibration may be the dominant error source for **all** distance/velocity metrics on this clip, with **no separate metric formula bug confirmed**. This shifts the relative priority weighting between:
-  - **Phase 3a — world coordinates / calibration redesign (B2 work):** may resolve more issues than originally scoped.
-  - **Phase 3b — metric formula audits:** may have a smaller surface area than the prior "confirmed bug" framing implied.
+  - **Phase 2a — world coordinates / calibration redesign (B2 work):** may resolve more issues than originally scoped.
+  - **Phase 2b — metric formula audits:** may have a smaller surface area than the prior "confirmed bug" framing implied.
 - **Verification gate (required before this finding can be closed or reopened as a confirmed bug):**
   1. Acquire or film a **known-speed test clip** — a timed 40-yard-dash style rep with stopwatch ground-truth speed (or equivalent independently-measured velocity reference).
   2. Run the pipeline against that clip and compare reported Release Speed against the ground-truth value.
-  3. If Release Speed produces sensible numbers when input speed is known → close F-SLICE-B1-2; the metric is calibration-dominated and Phase 3a alone is sufficient.
-  4. If Release Speed is still off by an order of magnitude after calibration is on a known-good clip → reopen as a confirmed independent metric-math bug; Phase 3b retains its prior priority.
+  3. If Release Speed produces sensible numbers when input speed is known → close F-SLICE-B1-2; the metric is calibration-dominated and Phase 2a alone is sufficient.
+  4. If Release Speed is still off by an order of magnitude after calibration is on a known-good clip → reopen as a confirmed independent metric-math bug; Phase 2b retains its prior priority.
 - **Cross-references:** `docs/release-speed-velocity-investigation.md` (original "single-sample lottery" hypothesis — still on the table as a candidate root cause if the verification clip fails); `docs/phase-1c2-determinism-experiment.md` Section D (original framing); `docs/phase-1c2-diagnostic-snapshot-2026-04-26.md` §5.3 (1.34 mph current value).
 - **Do not act in Phase 1c.2.** No code change. Backlog item gated on verification clip availability.
 
@@ -182,7 +200,7 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
 - **Logged:** 2026-04-26, Slice E pre-flight (E.0)
 - **Finding:** The originally-proposed Slice E drop list included all three `det_frequency` columns (root, `_defender`, `_multiple`). Pre-flight code audit of `analyze-athlete-video/index.ts` showed `det_frequency_defender` is the authoritative runtime read for the `with_defender` scenario (line 1155) and `det_frequency_multiple` for `multiple` (line 1160). Per Slice B1's collapsed resolver design (lines 1141–1147), the per-scenario columns are authoritative; the root `det_frequency` is no longer consulted at runtime.
 - **Action taken in Slice E:** Drop list reduced from 10 to 8 columns. Root `det_frequency` dropped (with paired SELECT-list edit at line 914); `det_frequency_defender` and `det_frequency_multiple` retained.
-- **Deferred:** Per-scenario column architecture cleanup (consolidating the three-column shape into a single JSONB or an enum-keyed table) is deferred to Phase 3 metric-quality work or a dedicated calibration/scenario architecture cleanup work item. Dropping `_defender` / `_multiple` without that cleanup would silently degrade analysis to fallback defaults (1, 1) for non-solo scenarios.
+- **Deferred:** Per-scenario column architecture cleanup (consolidating the three-column shape into a single JSONB or an enum-keyed table) is deferred to Phase 2 metric-quality work or a dedicated calibration/scenario architecture cleanup work item. Dropping `_defender` / `_multiple` without that cleanup would silently degrade analysis to fallback defaults (1, 1) for non-solo scenarios.
 - **Severity:** Sev-3 (institutional-memory / cleanup debt; no user-facing impact).
 
 ### F-SLICE-E-2 — Pipeline `calibration_audit` shows ~0.78% non-deterministic drift on identical inputs (Sev-2)
@@ -198,14 +216,14 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
   - Numeric drift within ±1% (categoricals exact match) → pass + log drift amounts.
   - Numeric drift between ±1% and ±2% → halt for investigation.
   - Drift > ±2% → halt with high confidence of regression.
-- **Open diagnostic questions (deferred — investigation does NOT gate Slice E, but should precede Phase 3 metric-quality work):**
+- **Open diagnostic questions (deferred — investigation does NOT gate Slice E, but should precede Phase 2 metric-quality work):**
   1. Is drift in Cloud Run keypoint output or in edge-side `calculateBodyBasedCalibration`? (Hash Cloud Run keypoint NDJSON across Group A vs Group B runs.)
   2. Do other metrics (Plant Leg Extension, Hip Stability, Release Speed, Hands Extension) drift in lockstep with `body_based_ppy`, or only body-based-derived values? (Lockstep → upstream layer; isolated → calibration-specific.)
   3. What is the magnitude distribution of drift? (Run 5 fresh analyses on identical inputs in a single batch; cost ~$0.25.)
-- **Severity:** Sev-2 (real pipeline noise floor; affects metric accuracy ceiling for Phase 3 work).
+- **Severity:** Sev-2 (real pipeline noise floor; affects metric accuracy ceiling for Phase 2 work).
 - **Cross-references:** `docs/phase-1c2-slice-e-outcome.md` (Group A/B/C analysis); `docs/phase-1c2-determinism-drift-log.md` (longitudinal observations); `docs/calibration-ground-truth-dataset.md` (~1% noise floor notation).
 - **Update 2026-04-26 (post-E.3.6) — bimodal hypothesis:** E.3.6 observation produced `body_based_ppy = 201.7827255013638`, **bit-identical** to the historical Group B observation (run `a164c815`). Two independent observations producing identical drifted values strongly suggests **discrete bimodal behavior** rather than continuous floating-point noise. Updated hypothesis: drift correlates with a discrete branch in the pipeline — possibilities include Cloud Run cold-vs-warm instance state, GPU vs CPU pose-estimation fallback, or model-weight version served from different replicas. Discrete bimodal patterns are substantially more tractable to investigate than continuous random drift.
-- **Phase 3 investigation guidance:** Run 10+ analyses on identical inputs in a single batch. **Predicted result if bimodal:** outputs cluster at exactly 2 distinct values (`200.2135…` and `201.7827…`). **Falsification:** if 3+ distinct values appear, the bimodal hypothesis is wrong and continuous drift is back on the table.
+- **Phase 2 investigation guidance:** Run 10+ analyses on identical inputs in a single batch. **Predicted result if bimodal:** outputs cluster at exactly 2 distinct values (`200.2135…` and `201.7827…`). **Falsification:** if 3+ distinct values appear, the bimodal hypothesis is wrong and continuous drift is back on the table.
 
 ### F-SLICE-E-3 — Recipe propagation without independent verification (process lesson, no severity)
 
@@ -221,7 +239,7 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
 - **Affected rows (cleaned up via H1):** `70539f0f-a66a-4fe5-afe5-b3a28c84ef33`, `8cff69b5-7294-4ad2-9f9a-c4be08971def`, `65b0544b-6da3-460a-b237-71ab5803181d`. All three updated to `status='failed'` with diagnostic `error_message` referencing F-OPS-1.
 - **Severity:** Sev-3 (operational hygiene; doesn't break system but pollutes data and breaks "what's running" queries; will silently false-fail any future pre-flight gate that checks for in-flight uploads).
 - **Hypothesized causes (not investigated):** Cloud Run timeout without exception handling, edge function crash without status write, database connection loss mid-analysis, Supabase function instance recycling mid-run.
-- **Action:** Not investigated as part of 1c.2. Defer to operational reliability work in Phase 2 or earlier if rate increases. Recommended remediation:
+- **Action:** Not investigated as part of 1c.2. Bundled into Phase 2 (analysis quality) operational obligations per revised phase ordering — escalate earlier if rate increases. Recommended remediation:
   - Add automated zombie-sweep job: any `processing` upload with `created_at < now() - interval '2 hours'` → mark `failed` with `error_message='auto-zombie-sweep'`.
   - Add alerting on `processing` rows older than 30 minutes.
   - Wrap `analyze-athlete-video` in a top-level try/finally that always writes a terminal status, even on `Deno.exit`/`SIGTERM`.
@@ -240,13 +258,13 @@ Severity scale: **Sev-1** (blocks production analyses) · **Sev-2** (silent corr
   - `athlete_lab_nodes` — "Allow all access to athlete_lab_nodes"
   - `pipeline_setup_checklist` — "Allow all access to pipeline_setup_checklist"
   - (Plus `athlete-media` storage bucket, public + listable.)
-- **Severity:** **Sev-2 — blocks Phase 2 athlete UI ship.** Once authenticated athlete users land on the platform, they will inherit the `public`/`authenticated` role grants and gain unrestricted read/write/delete on every admin-controlled table. This is a real shipping blocker, not a hygiene item.
-- **Required action before Phase 2 athlete UI ships:**
+- **Severity:** **Sev-2 — blocks Phase 3 athlete UI ship.** Once authenticated athlete users land on the platform, they will inherit the `public`/`authenticated` role grants and gain unrestricted read/write/delete on every admin-controlled table. This is a real shipping blocker, not a hygiene item. Per revised phase ordering (2026-04-26), F-SEC-1 is bundled into the Phase 2 analysis-quality + operational-obligations track so it lands before Phase 3 athlete UI work begins.
+- **Required action before Phase 3 athlete UI ships (executed during Phase 2):**
   1. Replace all `USING (true) WITH CHECK (true)` policies on admin tables with role-based RLS (admin role for write; restrict reads on sensitive tables to admin/`service_role` only).
   2. Implement a `user_roles` table with `app_role` enum (`admin`, `athlete`, …) and `has_role(uuid, app_role)` SECURITY DEFINER function per workspace standard.
   3. Audit `athlete-media` bucket: either flip to private with signed URLs, or confirm contents are intentionally world-readable and document the decision.
   4. Re-run security linter; expect zero remaining permissive admin policies.
-- **Out-of-scope rationale (Slice E):** Per Slice E halt discipline, scope was strictly the 8-column `athlete_lab_nodes` drop + NodeEditor save-payload edit. Touching RLS policies would have violated the scope ceiling and forced a halt. Logged here for Phase 2 planning.
+- **Out-of-scope rationale (Slice E):** Per Slice E halt discipline, scope was strictly the 8-column `athlete_lab_nodes` drop + NodeEditor save-payload edit. Touching RLS policies would have violated the scope ceiling and forced a halt. Logged here for Phase 2 planning (operational/security obligations bundle).
 - **Cross-reference:** Slice E E.2 security linter output (`docs/phase-1c2-slice-e-outcome.md`).
 
 ---
@@ -326,20 +344,20 @@ End of Phase 1c.0 foundation batch.
 - **Resolution:** Mechanics tab commented out of `TABS` array and removed from `ADVANCED_TAB_KEYS` in `NodeEditor.tsx`. Component file retained for 1c.3 deletion. Scope: 5-line edit. Avoided writing throwaway `?? ""` patches because `MechanicsEditor` is on the 1c.3 deletion list (content already migrated to phase coaching cues in Slice 2).
 - **Process learning:** Slice E's frontend audit methodology checked existence of defensive patterns (e.g., `?? ""`) elsewhere in the file rather than verifying each individual consumer of dropped columns. The unguarded line 1015 was missed because most other consumers were guarded. **Going forward:** audits for data-shape-changing slices must verify each consumer site, not infer safety from pattern presence.
 
-### F-OPS-2 — Missing error boundary around NodeEditor (Phase 2 ship blocker)
-- **Severity:** **Sev-2** (upgraded 2026-04-26 from Sev-3 — reframed as Phase 2 athlete-UI ship blocker)
-- **Logged:** 2026-04-26 (severity upgraded same day)
-- **Status:** Open. **Must land before Phase 2 athlete-facing UI ships.**
-- **Finding:** A single null-deref inside any sub-editor (e.g., `MechanicsEditor` line 1015) unmounts the entire `NodeEditor` tree because there is no React error boundary at the tab-content level. During Slice E.5 first-attempt smoke, the `pro_mechanics` undefined dereference unmounted the whole admin shell — top nav, sidebar, all content blank — with no recovery path except a full page reload. For Phase 1c admin work this is uncomfortable but tolerable (admin user, technical, refresh-friendly). For Phase 2 athlete-facing UI it is unacceptable: an uncaught error mid-upload would blank an athlete's screen with no recovery path. Athletes are not technical users and will not understand a refresh-and-retry instruction; the perceived product failure mode is "the app broke and ate my upload."
+### F-OPS-2 — Missing error boundary around NodeEditor (Phase 3 ship blocker)
+- **Severity:** **Sev-2** (upgraded 2026-04-26 from Sev-3 — reframed as Phase 3 athlete-UI ship blocker; remediation work bundled into Phase 2 per revised phase ordering)
+- **Logged:** 2026-04-26 (severity upgraded same day; phase label updated 2026-04-26 PM)
+- **Status:** Open. **Must land before Phase 3 athlete-facing UI ships** (i.e., during Phase 2 operational/security obligations track).
+- **Finding:** A single null-deref inside any sub-editor (e.g., `MechanicsEditor` line 1015) unmounts the entire `NodeEditor` tree because there is no React error boundary at the tab-content level. During Slice E.5 first-attempt smoke, the `pro_mechanics` undefined dereference unmounted the whole admin shell — top nav, sidebar, all content blank — with no recovery path except a full page reload. For Phase 1c admin work this is uncomfortable but tolerable (admin user, technical, refresh-friendly). For Phase 3 athlete-facing UI it is unacceptable: an uncaught error mid-upload would blank an athlete's screen with no recovery path. Athletes are not technical users and will not understand a refresh-and-retry instruction; the perceived product failure mode is "the app broke and ate my upload."
 - **Severity rationale (Sev-2):** Silent correctness failures in athlete UX are Sev-2 territory; "entire screen unmounts to root with no recovery" is the maximally bad version of that for a non-technical user. Containment is a non-negotiable prerequisite for athlete-facing surfaces.
-- **Action (Phase 2 prerequisite):** Add `ErrorBoundary` components at key React-tree positions before any Phase 2 athlete-facing surface ships:
+- **Action (Phase 3 prerequisite, executed during Phase 2):** Add `ErrorBoundary` components at key React-tree positions before any Phase 3 athlete-facing surface ships:
   1. `AthleteLab` outer shell — admin work, last line of defense.
   2. `NodeEditor` tab-content level — wrap each `{tab === "..." && <SubEditor />}` block so a single sub-editor failure renders a "This tab failed to load — see console" panel and lets the admin keep using other tabs.
   3. **All future athlete-facing surfaces** (upload flows, result viewers, profile pages) — wrap at route level and at any subtree containing user-generated content rendering, with sensible recovery UI ("Something went wrong — your upload is safe, try refreshing this view").
 - **Cross-references:**
   - **F-SLICE-E-4** — methodology gap that allowed the unguarded line 1015 to reach E.5; demonstrates that even with rigorous pre-flight audits, a single missed consumer can take the whole tree down.
   - **Slice E.5 first-attempt crash** — the empirical demonstration of the exposure. Artifacts: `/mnt/documents/slice-e-smoke/03-tab-04-mechanics-CRASH.png`, `console-cumulative.txt`.
-- **Definition of done:** Phase 2 ship checklist must include "ErrorBoundary at AthleteLab, NodeEditor tab-content level, and every athlete-facing route" as a gate. Not a hand-wave "we should add error boundaries someday."
+- **Definition of done:** Phase 3 ship checklist must include "ErrorBoundary at AthleteLab, NodeEditor tab-content level, and every athlete-facing route" as a gate. Not a hand-wave "we should add error boundaries someday."
 
 ### F-SLICE-E-5 — Solution Class radio control writes to dropped column
 - **Severity:** Sev-3
@@ -356,6 +374,6 @@ End of Phase 1c.0 foundation batch.
 - **Root cause (shared with F-SLICE-E-4):** Slice E's frontend audit methodology checked read paths for null-safety but did not enumerate write-path bindings (click handlers, controlled-input `onChange`, form-state `update()` calls) for dropped columns. Going forward, data-shape-changing slices must audit **read paths AND write paths AND form-state bindings** for every dropped column.
 - **Cross-references:**
   - **F-SLICE-E-4** — same root-cause methodology gap; different failure mode (render crash vs save failure).
-  - **F-SEC-1** — pending Phase 2; both are pre-Phase-2 cleanup obligations now tracked under different severities.
+  - **F-SEC-1** — pending Phase 3 athlete UI; both are pre-Phase-3 cleanup obligations executed during Phase 2 (analysis quality + operational/security track), tracked under different severities.
   - `docs/athlete-lab-tab-inventory.md` — tab 13 (Training Status) disposition rationale.
 

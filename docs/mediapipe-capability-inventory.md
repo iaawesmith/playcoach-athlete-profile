@@ -75,7 +75,7 @@ The strongest candidates for being exposed to admins in a future phase, ranked b
 3. **`min_tracking_confidence`** — relevant when athletes leave/re-enter frame.
 4. **Body-based calibration anthropometric constants per position** — WR shoulder ≠ OL shoulder; today everyone is treated as a 6′ generic athlete.
 5. **Auto-zoom `FILL_THRESHOLD` / `TARGET_FILL`** — would let nodes that frame tight (e.g., release mechanics) skip zoom, and nodes that frame wide (e.g., 40-yd) zoom more aggressively.
-6. **World-landmark mode** (per-metric opt-in) — eliminates calibration for distance/velocity metrics. Requires schema change but unlocks Phase 3+ correctness.
+6. **World-landmark mode** (per-metric opt-in) — eliminates calibration for distance/velocity metrics. Requires schema change but unlocks Phase 2+ correctness.
 
 Anything not in this top-6 should stay hardcoded; admin-exposing it would just expand the "configuration overflow" pattern documented in audit §Pattern 4.
 
@@ -95,7 +95,7 @@ For each MediaPipe capability, the disposition for end-state architecture (Docum
 | 6 | `min_pose_*_confidence`, `min_tracking_confidence` | HARDCODED-EXPOSABLE | **HOLD** (keep hardcoded for 1c) | Don't expose until there's a known need. Document in capability inventory only. |
 | 7 | `num_poses` | HARDCODED to 1 | **KEEP HARDCODED** | Multi-person is out of scope; lifting it is a new feature, not a cleanup. |
 | 8 | Model variant (Lite/Full/Heavy) | env-only | **HOLD as env knob** | Keep ops-only; revisit if a node demonstrates need. |
-| 9 | World landmarks | AVAILABLE-UNUSED | **EARMARK for Phase 3+** | Listed in audit P3 #16. |
+| 9 | World landmarks | AVAILABLE-UNUSED | **EARMARK for Phase 2+** | Listed in audit P3 #16. |
 | 10 | Segmentation mask | AVAILABLE-UNUSED | **PARK** | No metric needs it. |
 | 11 | Auto-zoom tunables | HARDCODED-EXPOSABLE | **KEEP HARDCODED** | Per-node tuning is premature optimization. |
 | 12 | Body-based calibration constants | HARDCODED-EXPOSABLE | **EARMARK for position-aware constants** | Cheap win once `position` field is editable (audit Tab 1, P0 #2). |
@@ -115,6 +115,6 @@ For each MediaPipe capability, the disposition for end-state architecture (Docum
 - **Total capability rows audited:** 20 (12 admin-visible MediaPipe-adjacent + 8 SDK capabilities)
 - **REAL:** 7 — det_frequency (resolved), reference_calibrations (fallback), reference_fallback_behavior, scoring config trio, llm_prompt/system/max_words, segmentation_method+form_checkpoints (conditional), score_bands (admin-only today)
 - **THEATER (highest impact):** 4 — `solution_class`, `performance_mode`, `tracking_enabled`, `det_frequency_defender`/`_multiple`. Removing these collapses the entire "Training Status" tab to a single field (`det_frequency`).
-- **AVAILABLE-UNUSED (highest future leverage):** world landmarks (eliminates calibration for distance/velocity metrics) — earmarked for Phase 3+ per audit P3 #16.
+- **AVAILABLE-UNUSED (highest future leverage):** world landmarks (eliminates calibration for distance/velocity metrics) — earmarked for Phase 2+ per audit P3 #16.
 - **HARDCODED-EXPOSABLE held intentionally:** confidence thresholds, auto-zoom tunables, model variant. Holding these prevents recreating the configuration-overflow pattern on the new admin surface.
 - **Strongest single finding:** the entire Training Status tab is theater for MediaPipe except the `det_frequency` resolution path. End-state Architecture (Doc 2) should collapse it into the Pipeline Setup or Basics surface as a single integer field.
