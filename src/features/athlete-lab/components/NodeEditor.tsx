@@ -55,16 +55,15 @@ interface NodeEditorProps {
   onIconChange?: (nodeId: string, iconUrl: string | null) => void;
 }
 
-type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+type TabKey = "basics" | "videos" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, and upload constraints for this node. Status controls whether athlete uploads trigger automatic analysis." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add elite reference videos with clip timestamps, camera angle, and type. One video must be flagged as the Reference shown to athletes alongside their results." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
-  // Slice E E.5 recovery (2026-04-26): Mechanics tab hidden — pro_mechanics column
-  // dropped in migration 20260426025918, MechanicsEditor crashes on mount. Component
-  // deletion deferred to Phase 1c.3. See F-SLICE-E-4 in migration-risk-register.md.
-  // { key: "mechanics", label: "Mechanics", icon: "engineering", subtitle: "Define coaching cues for each phase of this skill. Phases are defined in the Phases tab — sections here link automatically to keep names and structure in sync." },
+  // Mechanics tab fully removed in Phase 1c.3-B (knowledge_base.mechanics merged into
+  // knowledge_base.phases per R-12; MechanicsEditor.tsx deleted; pro_mechanics column
+  // dropped in 1c.2). See ADR-0015 and docs/process/phase-1c3-slice-b-outcome.md.
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
   { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how the Mastery Score is calculated, how low-confidence keypoints are handled, and how scores are communicated to athletes." },
   { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Define common mistakes, set severity levels, and configure auto-detection conditions so the pipeline can automatically confirm errors from metric output." },
