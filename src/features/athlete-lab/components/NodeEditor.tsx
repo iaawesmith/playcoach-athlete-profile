@@ -453,7 +453,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     if (dirty) return;
     const normalizedNode = {
       ...node,
-      det_frequency: node.det_frequency ?? 2,
+      // det_frequency (root) dropped in 20260426025918; per-context fields below.
       det_frequency_solo: node.det_frequency_solo ?? 2,
       det_frequency_defender: node.det_frequency_defender ?? 1,
       det_frequency_multiple: node.det_frequency_multiple ?? 1,
