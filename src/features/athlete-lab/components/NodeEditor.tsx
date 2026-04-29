@@ -1026,7 +1026,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "reference" && (
           <ReferenceCalibrationEditor
-            solutionClass={draft.solution_class ?? ""}
             calibrations={draft.reference_calibrations ?? []}
             onCalibrationsChange={(c) => update("reference_calibrations", c)}
             skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
@@ -1034,8 +1033,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               const settings = parseCameraSettings(draft.camera_guidelines);
               update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
             }}
-            genericFallbackInstructions={draft.reference_filming_instructions ?? ""}
-            onGenericFallbackInstructionsChange={(v) => update("reference_filming_instructions", v)}
             fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
             onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
             eliteVideos={draft.elite_videos ?? []}
