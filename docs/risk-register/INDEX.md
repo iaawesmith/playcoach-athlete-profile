@@ -36,6 +36,8 @@
 |---|---|---|---|---|---|---|
 | [F-OPS-1](F-OPS-1-zombie-upload-accumulation-rate-sev-3.md) | Zombie upload accumulation rate | open | Sev-3 | 1c.2-Slice-E | ADR-0006 | — |
 | [F-OPS-2](F-OPS-2-missing-error-boundary-around-nodeeditor-phase-3-ship-blocker.md) | Missing error boundary around NodeEditor (Phase 3 ship blocker) | open | Sev-2 | 1c.2-Slice-E.5 | ADR-0006 | F-SLICE-E-4 |
+| [F-OPS-3](F-OPS-3-deferred-work-shipped-earlier-creates-plan-vs-state-drift.md) | Deferred work shipped earlier creates plan-vs-state drift | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-4 |
+| [F-OPS-4](F-OPS-4-pre-execution-inspection-scope-systematically-underestimates-reality.md) | Pre-execution inspection scope systematically underestimates reality | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-3 |
 | [F-SEC-1](F-SEC-1-permissive-rls-on-admin-tables-public-storage-bucket-listing-sev.md) | Permissive RLS on admin tables + public storage bucket listing | open | Sev-2 | 1c.2-Slice-E | ADR-0001, ADR-0006 | — |
 | [F-SLICE-B-1](F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md) | Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming | deferred | Sev-2 | 1c.2-Slice-B | ADR-0004, ADR-0014 | — |
 | [F-SLICE-B1-2](F-SLICE-B1-2-release-speed-metric-correctness-on-slant-route-reference-v1-mp4.md) | Release Speed metric correctness on `slant-route-reference-v1.mp4` (REFRAMED 2026-04-26) | open | Sev-3 | 1c.2-Slice-B1 | ADR-0004 | — |
