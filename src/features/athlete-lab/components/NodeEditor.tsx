@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
@@ -197,19 +197,9 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "Clip Duration", detail: "Minimum must be less than maximum" });
   }
 
-  // Every mechanics section must be linked to a valid phase
-  try {
-    const mechanicsSections: MechanicsSection[] = node.pro_mechanics ? JSON.parse(node.pro_mechanics) : [];
-    if (Array.isArray(mechanicsSections)) {
-      const phaseIds = new Set((node.phase_breakdown || []).map(p => p.id).filter(Boolean));
-      for (const sec of mechanicsSections) {
-        if (!sec.phase_id || !phaseIds.has(sec.phase_id)) {
-          issues.push({ label: "Mechanics", detail: "All mechanics sections must be linked to a valid phase" });
-          break;
-        }
-      }
-    }
-  } catch { /* old format, ignore */ }
+  // Mechanics validation removed in Phase 1c.3-B (ADR-0015). The pro_mechanics field
+  // and CoachingCues migration subsystem remain pending — see phase-1c3-prep-backlog.md.
+
 
   // Phase proportion weights must sum to 100 (only when using proportional segmentation)
   const segMethod = node.segmentation_method ?? "proportional";
@@ -1001,22 +991,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <EliteVideosEditor videos={draft.elite_videos} onChange={(v) => update("elite_videos", v)} />
         )}
 
-        {false && (
-          <div className="space-y-4">
-            <CoachingCuesMigrationBanner
-              surface="mechanics"
-              status={draft.coaching_cues_migration_status ?? "pending"}
-              confirmed_count={confirmedPhaseIds.size}
-              total_phases={draft.phase_breakdown.length}
-              onOpenModal={() => setMigrationModalOpen(true)}
-            />
-            <div className="flex items-center gap-1.5">
-              <label className={LABEL_CLASS}>Phase Mechanics</label>
-              <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
-            </div>
-            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} metrics={draft.key_metrics} onConfirmDelete={(opts) => setConfirmModal(opts)} />
-          </div>
-        )}
+        {/* Mechanics tab fully removed in Phase 1c.3-B — see ADR-0015. */}
 
         {tab === "metrics" && (
           <ActiveMetricsSection
@@ -2177,213 +2152,11 @@ function serializeStructuredField(fields: Record<string, string>): string {
     .join("\n\n");
 }
 
-function MechanicsEditor({ value, onChange, phases, metrics, onConfirmDelete }: StructuredEditorProps & { phases: PhaseNote[]; metrics: KeyMetric[]; onConfirmDelete: ConfirmDeleteFn }) {
-  // Parse sections from JSON or migrate from legacy text format
-  const parseSections = useCallback((): MechanicsSection[] => {
-    if (!value.trim()) return [];
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed) && parsed.every((s: any) => typeof s === "object" && "id" in s)) {
-        return parsed as MechanicsSection[];
-      }
-    } catch { /* not JSON, migrate from legacy */ }
-    // Legacy migration: parse old "SectionName: content" format into unlinked sections
-    const lines = value.split("\n");
-    const detected: MechanicsSection[] = [];
-    let current: MechanicsSection | null = null;
-    for (const line of lines) {
-      const match = line.match(/^([^:]+):\s*(.*)/);
-      if (match && match[1].length < 60) {
-        if (current) detected.push(current);
-        current = { id: crypto.randomUUID(), phase_id: null, content: match[2].trim() };
-      } else if (current) {
-        current.content = current.content ? current.content + "\n" + line : line;
-      }
-    }
-    if (current) detected.push(current);
-    return detected.length > 0 ? detected : [{ id: crypto.randomUUID(), phase_id: null, content: value }];
-  }, [value]);
+// MechanicsEditor function deleted in Phase 1c.3-B (ADR-0015).
+// The pro_mechanics field on TrainingNode and the CoachingCues migration subsystem
+// (MigrateCoachingCuesModal, CoachingCuesMigrationBanner, migrateCoachingCues.ts)
+// remain pending — see phase-1c3-prep-backlog.md.
 
-  const [sections, setSections] = useState<MechanicsSection[]>(parseSections);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setSections(parseSections());
-  }, [parseSections]);
-
-  const serialize = (list: MechanicsSection[]) => {
-    onChange(JSON.stringify(list));
-  };
-
-  const updateSection = (idx: number, content: string) => {
-    const next = sections.map((s, i) => (i === idx ? { ...s, content } : s));
-    setSections(next);
-    serialize(next);
-  };
-
-  const linkSection = (idx: number, phaseId: string) => {
-    const next = sections.map((s, i) => (i === idx ? { ...s, phase_id: phaseId } : s));
-    setSections(next);
-    serialize(next);
-  };
-
-  const addSection = () => {
-    const next = [...sections, { id: crypto.randomUUID(), phase_id: null, content: "" }];
-    setSections(next);
-    serialize(next);
-  };
-
-  const removeSection = (idx: number) => {
-    const next = sections.filter((_, i) => i !== idx);
-    setSections(next);
-    serialize(next);
-  };
-
-
-
-
-  // Build set of phase IDs already linked
-  const linkedPhaseIds = new Set(sections.map(s => s.phase_id).filter(Boolean));
-  const phaseIdSet = new Set(phases.map(p => p.id).filter(Boolean));
-
-  const getPhaseNameById = (phaseId: string | null): string | null => {
-    if (!phaseId) return null;
-    const phase = phases.find(p => p.id === phaseId);
-    return phase ? phase.name : null;
-  };
-
-  return (
-    <div className="space-y-4">
-      {sections.map((sec, idx) => {
-        const phaseName = getPhaseNameById(sec.phase_id);
-        const isOrphan = sec.phase_id && !phaseIdSet.has(sec.phase_id);
-        const isUnlinked = !sec.phase_id;
-        const isCollapsed = collapsed.has(sec.id);
-
-        const toggleCollapse = () => {
-          setCollapsed(prev => {
-            const next = new Set(prev);
-            if (next.has(sec.id)) next.delete(sec.id);
-            else next.add(sec.id);
-            return next;
-          });
-        };
-
-        return (
-          <div key={sec.id} className={CARD_CLASS}>
-            {/* Section header row: [chevron] [chain] [PHASE NAME] --- [× delete] */}
-            <div className="flex items-center gap-2">
-              <button onClick={toggleCollapse} className="text-on-surface-variant/50 hover:text-on-surface transition-colors shrink-0">
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                  {isCollapsed ? "chevron_right" : "expand_more"}
-                </span>
-              </button>
-
-              {/* Linked phase name or dropdown */}
-              <div className="flex-1 min-w-0">
-                {isOrphan ? (
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-amber-400" style={{ fontSize: 14 }}>link_off</span>
-                    <span className={LABEL_CLASS + " mb-0 text-amber-400"}>Phase Deleted</span>
-                  </div>
-                ) : phaseName ? (
-                  <div className="flex items-center gap-2 select-none">
-                    <span className="material-symbols-outlined text-primary-container/60" style={{ fontSize: 14 }}>link</span>
-                    <span className="text-primary-container/70 text-[10px] font-semibold uppercase tracking-widest">{phaseName}</span>
-                    <span className="material-symbols-outlined text-on-surface-variant/20" style={{ fontSize: 11 }}>lock</span>
-                  </div>
-                ) : (
-                  <select
-                    className={`${INPUT_CLASS} !py-1.5 !text-xs max-w-[240px]`}
-                    value=""
-                    onChange={(e) => linkSection(idx, e.target.value)}
-                  >
-                    <option value="" disabled>Select a phase…</option>
-                    {phases.filter(p => p.id && p.name.trim()).map(p => {
-                      const alreadyLinked = linkedPhaseIds.has(p.id!);
-                      return (
-                        <option key={p.id} value={p.id!} disabled={alreadyLinked}>
-                          {p.name}{alreadyLinked ? " (already linked)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                )}
-              </div>
-
-               <button onClick={() => { const linkedPhase = phases.find(p => p.id === sec.phase_id); const secName = linkedPhase?.name || `Section ${idx + 1}`; onConfirmDelete({ title: "Delete Mechanics Section?", body: `Deleting ${secName} will remove all coaching cues in this section. This cannot be undone.`, confirmLabel: "Delete Section", onConfirm: () => { removeSection(idx); } }); }} className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-all shrink-0" title="Delete section">
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-              </button>
-            </div>
-
-            {/* Collapsible content */}
-            {!isCollapsed && (
-              <>
-                {/* Warning banners */}
-                {isOrphan && (
-                  <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
-                    <p className="text-amber-300 text-xs leading-snug">Linked phase was deleted. Please relink this section to an existing phase or delete it.</p>
-                  </div>
-                )}
-                {isUnlinked && !isOrphan && (
-                  <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <span className="material-symbols-outlined text-amber-400 mt-0.5" style={{ fontSize: 16 }}>warning</span>
-                    <p className="text-amber-300 text-xs leading-snug">This section is not linked to a phase. Link it before going Live.</p>
-                  </div>
-                )}
-
-                <div>
-                  <div className="flex items-center gap-1 mb-2">
-                    <label className={LABEL_CLASS + " mb-0"}>Coaching Cues</label>
-                    <SectionTooltip tip="Write the coaching instruction for this phase in direct, athlete-facing language. This content is passed to the AI feedback engine as context — the more specific and technical your cues, the more precise the feedback athletes receive. Aim for 3-5 sentences covering what to do, how to do it, and what goes wrong when it is done incorrectly." />
-                  </div>
-                  <textarea
-                    className={`${INPUT_CLASS} min-h-[80px] resize-y`}
-                    value={sec.content}
-                    onChange={(e) => updateSection(idx, e.target.value)}
-                    placeholder={phaseName ? `Coaching cues for ${phaseName.toLowerCase()}...` : "Coaching cues..."}
-                  />
-                </div>
-
-                {/* Auto-generated metric summary */}
-                {(() => {
-                  const phaseMetrics = metrics.filter(m => m.active !== false && m.keypoint_mapping?.phase_id === sec.phase_id && sec.phase_id);
-                  if (phaseMetrics.length === 0) return null;
-                  const totalWeight = phaseMetrics.reduce((s, m) => s + m.weight, 0);
-                  let names: string;
-                  if (phaseMetrics.length === 1) {
-                    names = phaseMetrics[0].name;
-                  } else if (phaseMetrics.length === 2) {
-                    names = `${phaseMetrics[0].name} and ${phaseMetrics[1].name}`;
-                  } else {
-                    names = phaseMetrics.slice(0, -1).map(m => m.name).join(", ") + ", and " + phaseMetrics[phaseMetrics.length - 1].name;
-                  }
-                  const verb = phaseMetrics.length === 1 ? "is" : "are";
-                  return (
-                    <div className="mt-2 px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant/40 mb-1">Auto: Metrics measured in this phase</p>
-                      <p className="text-on-surface-variant/70 text-xs leading-relaxed">{names} {verb} measured in this phase — {totalWeight}% of your total score.</p>
-                    </div>
-                  );
-                })()}
-              </>
-            )}
-          </div>
-        );
-      })}
-
-      <button
-        onClick={addSection}
-        className="w-full h-10 rounded-xl border border-dashed border-outline-variant/20 text-on-surface-variant text-xs font-semibold uppercase tracking-widest hover:border-primary-container/40 hover:text-primary-container transition-colors flex items-center justify-center gap-2"
-        style={{ backgroundColor: '#131920' }}
-      >
-        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
-        Add Section
-      </button>
-    </div>
-  );
-}
 
 /* ── Solution class helpers ── */
 const SOLUTION_CLASSES = [
