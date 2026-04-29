@@ -163,28 +163,11 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "LLM Prompt", detail: "Prompt template cannot be empty" });
   }
 
-  // Solution class must be configured
-  if (!node.solution_class || node.solution_class.trim().length === 0) {
-    issues.push({ label: "Training Status", detail: "Solution class not configured" });
-  } else {
-    // Check solution class supports all keypoint indices (active metrics only)
-    const sc = node.solution_class;
-    for (const m of activeMetrics) {
-      const indices = m.keypoint_mapping?.keypoint_indices ?? [];
-      if (sc === "body" && indices.some(i => i >= 17)) {
-        const needsFeet = indices.some(i => i >= 17 && i <= 22);
-        const needsHands = indices.some(i => i >= 91);
-        if (needsHands) {
-          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
-        } else if (needsFeet) {
-          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses feet keypoints requiring Body with Feet or higher` });
-        }
-      }
-      if (sc === "body_with_feet" && indices.some(i => i >= 91)) {
-        issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
-      }
-    }
-  }
+  // Solution-class gating removed in Phase 1c.3-C (F-SLICE-E-6). The
+  // `solution_class` column was dropped in migration 20260426025918 and the
+  // Set-Live readiness gate that depended on it would block every node forever
+  // post-drop. Pose-engine selection is now Phase-1 work tracked separately.
+
 
   // Clip duration must be set and valid
   if (!node.clip_duration_min || node.clip_duration_min < 1) {
