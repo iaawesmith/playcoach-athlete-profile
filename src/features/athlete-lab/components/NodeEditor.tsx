@@ -55,34 +55,50 @@ interface NodeEditorProps {
   onIconChange?: (nodeId: string, iconUrl: string | null) => void;
 }
 
-type TabKey = "basics" | "videos" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+// Phase 1c.3-D: Tab consolidation 13 → 8. Surviving tabs:
+// basics (+ Pipeline Config + Training Status readiness), videos, phases (+ Checkpoints sub-section
+// when segmentation_method === "checkpoint"), metrics (+ Scoring + Errors), reference (+ Filming
+// Guidance / Camera), prompt, badges, test. Retired tab keys and their redirect targets are
+// handled by the consolidation banner and the HelpDrawer redirect map.
+type TabKey = "basics" | "videos" | "phases" | "metrics" | "reference" | "prompt" | "badges" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
-  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, and upload constraints for this node. Status controls whether athlete uploads trigger automatic analysis." },
+  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, upload constraints, and pipeline detection-frequency configuration for this node." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add elite reference videos with clip timestamps, camera angle, and type. One video must be flagged as the Reference shown to athletes alongside their results." },
-  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
-  // Mechanics tab fully removed in Phase 1c.3-B (knowledge_base.mechanics merged into
-  // knowledge_base.phases per R-12; MechanicsEditor.tsx deleted; pro_mechanics column
-  // dropped in 1c.2). See ADR-0015 and docs/process/phase-1c3-slice-b-outcome.md.
-  { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
-  { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how the Mastery Score is calculated, how low-confidence keypoints are handled, and how scores are communicated to athletes." },
-  { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Define common mistakes, set severity levels, and configure auto-detection conditions so the pipeline can automatically confirm errors from metric output." },
-  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Define reference objects for each camera angle so the pipeline can convert pixel distances to real-world yards. Required for all Distance and Velocity metrics." },
-  { key: "camera", label: "Filming Guidance", icon: "videocam", subtitle: "Athlete-facing filming requirements and instructions. Sets expectations for FPS, resolution, distance, and visible body parts so uploads produce reliable keypoint detection." },
-  { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define frame-level body position events that trigger phase boundaries. Used when Segmentation Method in the Phases tab is set to Checkpoint-triggered." },
+  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. When Segmentation Method is set to Checkpoint-triggered, configure the per-frame Checkpoints in the sub-section below." },
+  { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures, how scores are calculated, and the common errors the pipeline auto-detects from metric output. Includes Scoring and Errors sections." },
+  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Configure pixel-to-yard calibrations for each camera angle and the athlete-facing Filming Guidance (FPS, resolution, distance, instructions)." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Define achievements athletes earn by hitting performance milestones. Badges appear on athlete profiles and provide motivation to improve." },
-  { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the pose estimation engine settings for this node. These parameters are passed to the analysis service and determine which model runs and how." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
 ];
 
 
-/* Critical tabs that auto-draft when changed on a live node */
-const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt", "training_status"];
+/* Critical tabs that auto-draft when changed on a live node. The retired
+   "scoring" and "training_status" keys collapsed into "metrics" and "basics"
+   respectively; their CRITICAL semantics ride on the surviving parents. */
+const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "prompt", "basics"];
 
-/* Tabs hidden by default — re-enabled with the Show Advanced Tabs toggle */
-const ADVANCED_TAB_KEYS: TabKey[] = ["errors", "checkpoints", "reference", "scoring", "training_status"];
-const ADVANCED_TABS_STORAGE_KEY = "athleteLab.showAdvancedTabs";
+/* Phase 1c.3-D: ADVANCED_TAB_KEYS / showAdvancedTabs toggle / advanced-tabs
+   localStorage retired. Every surviving tab is always visible. The retired
+   storage key (athleteLab.showAdvancedTabs) is left in place — it is
+   harmless if present and will not be re-read. */
+
+/* Phase 1c.3-D: Hash-anchor redirect map for stale URLs / bookmarks pointing
+   at retired tabs. Keys are former tab anchors; values are the surviving
+   parent tab. Consumed by the useEffect that watches window.location.hash. */
+const HASH_REDIRECT_MAP: Record<string, TabKey> = {
+  scoring: "metrics",
+  errors: "metrics",
+  camera: "reference",
+  "filming-guidance": "reference",
+  checkpoints: "phases",
+  training_status: "basics",
+  "training-status": "basics",
+  "pipeline-config": "basics",
+  mechanics: "phases",
+  overview: "basics",
+};
 
 /* ── Shared style constants ── */
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
