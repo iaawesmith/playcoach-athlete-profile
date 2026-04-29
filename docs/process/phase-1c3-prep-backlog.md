@@ -72,6 +72,54 @@ R2 redirect stubs created during Phase 1c.2 cleanup. Per the R2 stub policy ([`.
 
 ---
 
+## V-1c.3-06 — Retire CoachingCues migration subsystem
+
+- **Logged:** 2026-04-29 (discovered during `PHASE-1C3-SLICE-B` execution as cascade scope from inline `MechanicsEditor` cleanup)
+- **Origin:** Slice 1c.3-B's stated goal was Mechanics tab + `MechanicsEditor` deletion + `knowledge_base.mechanics` merge. During execution, removing the inline `MechanicsEditor` function in `NodeEditor.tsx` revealed that the `pro_mechanics` field on `TrainingNode` is consumed by an active migration subsystem (the Phase 1c.1 Slice 2 coaching-cues migration tooling). The DB column `pro_mechanics` was dropped in Slice E.4 (migration `20260426025918`) but the field/type/UI surface remains because admins use it to migrate any unmigrated nodes.
+- **Surface to retire (6 sites):**
+  - `src/features/athlete-lab/utils/migrateCoachingCues.ts` — entire module (~200 LOC)
+  - `src/features/athlete-lab/components/MigrateCoachingCuesModal.tsx` — accepts `pro_mechanics` prop, calls `reconcileNode(phase_breakdown, pro_mechanics)`
+  - `src/features/athlete-lab/components/CoachingCuesMigrationBanner.tsx` — banner triggering the migration modal
+  - `src/features/athlete-lab/utils/nodeExport.ts` — `parseMechanics(node.pro_mechanics)` for markdown export
+  - `src/features/athlete-lab/components/NodeEditor.tsx` — line 1160 prop pass to `MigrateCoachingCuesModal`
+  - `src/features/athlete-lab/types.ts` — `pro_mechanics: string` field on `TrainingNode`, `MechanicsSection` interface
+
+### Why this needs verification before retirement
+
+Premature retirement risks losing access to the migration tool for any node where admins have not yet completed the `pro_mechanics → phase_breakdown.coaching_cues` migration. The DB column is gone, so for production nodes the field is now always empty string — but the read path is still wired for defense-in-depth.
+
+### Verification task
+
+Confirm migration completion before retirement:
+
+```sql
+-- All nodes should be 'confirmed' before retirement
+SELECT id, name, coaching_cues_migration_status
+FROM athlete_lab_nodes
+WHERE coaching_cues_migration_status <> 'confirmed';
+```
+
+If any rows return, either:
+1. Run the migration UI for those nodes (admin task), then retry, OR
+2. Force-set status to 'confirmed' if the migration is no longer relevant (decision: confirm with admin).
+
+### Decision tree
+
+- **All nodes `confirmed`:** retire the 6-site surface in a dedicated slice. Likely 1c.3-D if it touches `NodeEditor.tsx` anyway, or a standalone slice.
+- **Some nodes not yet `confirmed`:** keep subsystem alive until admin completion; defer retirement decision to next plan-mode pass.
+
+### Owner
+
+Decision deferred to next plan-mode pass after 1c.3-B closes. Candidate slice: 1c.3-D or dedicated future slice.
+
+### Cross-links
+
+- `docs/risk-register/F-OPS-4-pre-execution-inspection-scope-systematically-underestimates-reality.md` — methodological finding that surfaced this work
+- `docs/process/phase-1c3-slice-b-outcome.md` — slice that discovered the cascade scope
+- ADR-0015 — Mechanics tab delete-not-patch decision
+
+---
+
 ## (future entries)
 
 Add additional verification tasks here as they surface. Format: `V-1c.3-NN — <short title>`, with origin / why-it-matters / verification task / decision tree / owner.

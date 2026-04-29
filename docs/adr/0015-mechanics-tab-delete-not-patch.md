@@ -4,11 +4,23 @@ title: Slice E recovery — hide Mechanics tab rather than patch MechanicsEditor
 status: accepted
 date: 2026-04-26
 deciders: workspace
-related_risks: []
-related_findings: [F-SLICE-E-4]
+related_risks: [R-12]
+related_findings: [F-SLICE-E-4, F-OPS-3, F-OPS-4]
 supersedes: []
 superseded_by: []
 ---
+
+> **Delivery annotation (2026-04-29):** The decision below — delete-not-patch — still
+> holds. Actual delivery sequence differed from this ADR's plan in two ways:
+> (1) the Mechanics tab was hidden in Slice E recovery (1c.2) as planned;
+> (2) the `MechanicsEditor` component was substantially deleted **earlier than 1c.3
+> anticipated** (specific date unknown — see F-OPS-3 drift finding for context;
+> likely during Slice E.5 cleanup). The `knowledge_base.mechanics → phases` merge,
+> the `TABS`/`TabKey` cleanup, and the inline `MechanicsEditor` function deletion
+> all completed in `PHASE-1C3-SLICE-B` (2026-04-29). The `pro_mechanics` field on
+> `TrainingNode` and the CoachingCues migration subsystem (`MigrateCoachingCuesModal`,
+> `CoachingCuesMigrationBanner`, `migrateCoachingCues.ts`) remain intentionally
+> alive — see `phase-1c3-prep-backlog.md` V-1c.3-06 for retirement criteria.
 
 # ADR-0015 — Mechanics tab: delete-not-patch in Slice E recovery
 
