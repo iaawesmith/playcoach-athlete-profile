@@ -966,10 +966,58 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               {draft.clip_duration_min != null && draft.clip_duration_max != null && draft.clip_duration_min >= draft.clip_duration_max && (
                 <p className="text-red-400 text-xs font-medium">Minimum must be less than maximum</p>
               )}
-              
+
+            {/* Phase 1c.3-D: Pipeline Config — folded in from the retired
+                Training Status tab. The det_frequency triplet (solo / defender /
+                multiple) writes to the active per-context columns. The retired
+                solution_class / performance_mode / tracking_enabled fields were
+                dropped in 20260426025918 and are NOT shown here. */}
+            <div className="border-t border-white/[0.11] my-6" />
+            <div className="space-y-4">
+              <div className="flex items-center gap-1.5">
+                <label className={LABEL_CLASS}>Pipeline Config</label>
+                <SectionTooltip tip="Pose-engine detection-frequency tuning. The Edge Function reads the per-context value matching the athlete's pre-upload input about people in the video. Lower number = more accurate but slower." />
+              </div>
+              <div className="space-y-4">
+                {([
+                  { label: "Solo (1 person)", key: "det_frequency_solo" as const, value: draft.det_frequency_solo ?? 2, helper: "Recommended 2 — captures fast break movements reliably", defaultVal: 2 },
+                  { label: "With Defender (2 people)", key: "det_frequency_defender" as const, value: draft.det_frequency_defender ?? 1, helper: "Recommended 1 — frequent detection prevents person ID swap during close coverage", defaultVal: 1 },
+                  { label: "Multiple People", key: "det_frequency_multiple" as const, value: draft.det_frequency_multiple ?? 1, helper: "Recommended 1 — required for reliable tracking in crowded frame", defaultVal: 1 },
+                ]).map((scenario) => (
+                  <div key={scenario.label} className="flex items-start gap-4">
+                    <div className="w-48 shrink-0 pt-2.5">
+                      <span className="text-on-surface text-xs font-bold">{scenario.label}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={30}
+                          step={1}
+                          className={`${INPUT_CLASS} w-20 text-center`}
+                          value={scenario.value}
+                          onChange={(e) =>
+                            updateWithCriticalTrack(
+                              scenario.key,
+                              Math.max(1, Math.min(30, parseInt(e.target.value) || scenario.defaultVal))
+                            )
+                          }
+                        />
+                        <span className="text-on-surface-variant/50 text-xs">frames</span>
+                      </div>
+                      <p className="text-on-surface-variant/50 text-[10px] mt-1">{scenario.helper}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
+                <p className="text-on-surface-variant/40 text-[10px]">
+                  If no context is available, the pipeline treats the run as <span className="text-on-surface-variant/60 font-semibold">solo</span> and uses <span className="text-on-surface-variant/60 font-semibold">2</span> frames by default.
+                </p>
+              </div>
             </div>
 
-            {/* Version indicator */}
             <div className="pt-8 mt-2 border-t border-white/[0.27]" />
             <div className="pt-5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
