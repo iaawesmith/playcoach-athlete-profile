@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, MechanicsSection, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
