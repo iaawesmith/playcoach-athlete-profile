@@ -128,14 +128,13 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   videoChecks.push({ label: "All videos have timestamps", pass: allTimestamps || configuredVids.length === 0 });
   const hasRef = configuredVids.some(v => v.is_reference);
   videoChecks.push({ label: "Reference video flagged", pass: hasRef || configuredVids.length === 0 });
-  // Calibration check
-  if (node.solution_class !== "wholebody3d") {
+  // Calibration check (Phase 1c.3-C: solution_class column dropped)
+  {
     const cals = node.reference_calibrations ?? [];
     const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
     videoChecks.push({ label: "At least 1 camera angle calibrated", pass: hasAtLeastOne });
-  } else {
-    videoChecks.push({ label: "Reference not required — 3D pose engine node", pass: true, warning: true });
   }
+
   categories.push({
     name: "Videos & Reference", icon: "video_library", weight: 15, checks: videoChecks, tab: "videos",
     tooltip: "Missing timestamps causes the pose engine to process the entire video including non-skill footage."
