@@ -2,7 +2,7 @@ import type { TrainingNode, MechanicsSection, Checkpoint, KeyMetric } from "../t
 import { parseCameraSettings } from "../components/CameraEditor";
 import { migrateCheckpoints } from "../components/CheckpointsEditor";
 import { computeCategories, computeScore } from "../components/NodeReadinessBar";
-import { partitionMetricsByActive, getActiveMetrics } from "./metrics";
+import { partitionMetricsByActive } from "./metrics";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
 // Active vs. inactive metrics: this module uses the shared helpers in
