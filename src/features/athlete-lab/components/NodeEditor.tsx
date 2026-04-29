@@ -1067,13 +1067,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         {tab === "training_status" && (
           <TrainingStatusEditor
             node={draft}
-            onSolutionClassChange={(v) => { updateWithCriticalTrack("solution_class", v); if (v === "wholebody3d") update("tracking_enabled", false); }}
-            onPerformanceModeChange={(v) => updateWithCriticalTrack("performance_mode", v)}
-            onDetFrequencyChange={(v) => updateWithCriticalTrack("det_frequency", v)}
             onDetFrequencySoloChange={(v) => updateWithCriticalTrack("det_frequency_solo", v)}
             onDetFrequencyDefenderChange={(v) => updateWithCriticalTrack("det_frequency_defender", v)}
             onDetFrequencyMultipleChange={(v) => updateWithCriticalTrack("det_frequency_multiple", v)}
-            onTrackingEnabledChange={(v) => updateWithCriticalTrack("tracking_enabled", v)}
             onNavigateTab={(t) => setTab(t)}
           />
         )}
