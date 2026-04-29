@@ -33,6 +33,24 @@ where applicable.
 
 ---
 
+## [PHASE-1C3-SLICE-A] — 2026-04-29
+
+Phase 1c.3 entry slice: stub sweep and orphan-column verification. Lowest-risk slice executed first to surface any V-1c.3-01 finding that would inform downstream slice scope. No findings surfaced; both halves clean.
+
+### Removed
+- **7 R2 redirect stubs retired.** All removal-trigger `rg` queries returned zero live in-repo references. Stubs removed: `AGENTS.md`, `docs/run-analysis-observability-audit-v2.md`, `docs/repo-architecture-audit.md`, `docs/athlete-lab-architecture-audit.md`, `docs/calibration-ground-truth-dataset.md`, `docs/phase-1c2-determinism-drift-log.md`, `docs/migration-risk-register.md`. R2 stub policy (`docs/agents/conventions.md`) worked as designed — one phase boundary of grace, then clean removal.
+
+### Verified
+- **V-1c.3-01 — `reference_object` and `llm_tone` confirmed truly orphaned.** Project-wide `rg` for both column names with documented exclusions returned zero hits. Migration `20260426025918` dropped them with no functional impact across `src/`, `supabase/functions/`, `scripts/`, or `mediapipe-service/`. Process learning captured for the Phase 1c retrospective: future data-shape-changing slices must scope consumer audits project-wide, not feature-wide (same root-cause class as F-SLICE-E-4 / F-SLICE-E-5).
+
+### Changed
+- **`docs/process/phase-1c3-prep-backlog.md`** — V-1c.3-01 marked resolved; stub queue marked retired with execution date. Tables preserved for historical reference.
+
+### Added
+- **`docs/process/phase-1c3-slice-a-outcome.md`** — slice outcome doc per `docs/templates/slice-outcome.md`.
+
+---
+
 ## [Phase 1c.2 — pre-Project-setup integrity fixes] — 2026-04-29
 
 Two small fixes surfaced by the consolidated integrity sweep, applied before Phase 1c.3 entry. No content rewrites, no R2 stubs.
