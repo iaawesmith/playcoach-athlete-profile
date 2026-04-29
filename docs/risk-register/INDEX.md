@@ -2,7 +2,7 @@
 
 **Source:** Split from `docs/migration-risk-register.md` during Phase 1c.2 cleanup (Pass 4, 2026-04-26). One file per entry. Schema in [`_schema.md`](_schema.md). Original combined doc is now an R2 redirect stub.
 
-**Counts:** 22 total entries — 12 risks (`R-01`–`R-12`) and 10 findings (`F-*`). Original source register listed "12 risks" in §4; the additional 10 findings were appended after foundation batch as Slice B / C / E work surfaced them.
+**Counts:** 24 total entries — 12 risks (`R-01`–`R-12`) and 12 findings (`F-*`). Original source register listed "12 risks" in §4; the additional findings were appended after foundation batch as Slice B / C / E and Phase 1c.3 work surfaced them.
 
 **Severity scale** (unchanged from source):
 - **Sev-1** — blocks production analyses
@@ -28,7 +28,7 @@
 | [R-09](R-09-claude-prompt-template-references-a-deleted-variable.md) | Claude prompt template references a deleted variable | open | Sev-2 | 1c.2 | — | — |
 | [R-10](R-10-backup-table-grows-unbounded-over-future-migrations.md) | Backup table grows unbounded over future migrations | open | Sev-4 | 1c.0 | ADR-0012 | — |
 | [R-11](R-11-score-bands-field-stays-orphaned-kept-but-no-consumer.md) | `score_bands` field stays orphaned (kept but no consumer) | open | Sev-4 | 1c.0 | — | — |
-| [R-12](R-12-mechanics-tab-deletion-strands-knowledge-base-sub-sections-keyed-to-mechanics.md) | Mechanics tab deletion strands knowledge_base sub-sections keyed to "mechanics" | open | Sev-3 | 1c.2 | — | — |
+| [R-12](R-12-mechanics-tab-deletion-strands-knowledge-base-sub-sections-keyed-to-mechanics.md) | Mechanics tab deletion strands knowledge_base sub-sections keyed to "mechanics" | closed | Sev-3 | 1c.2 | ADR-0015 | F-OPS-3, F-OPS-4 |
 
 ## §1.5 — Findings (F-*)
 
@@ -36,6 +36,8 @@
 |---|---|---|---|---|---|---|
 | [F-OPS-1](F-OPS-1-zombie-upload-accumulation-rate-sev-3.md) | Zombie upload accumulation rate | open | Sev-3 | 1c.2-Slice-E | ADR-0006 | — |
 | [F-OPS-2](F-OPS-2-missing-error-boundary-around-nodeeditor-phase-3-ship-blocker.md) | Missing error boundary around NodeEditor (Phase 3 ship blocker) | open | Sev-2 | 1c.2-Slice-E.5 | ADR-0006 | F-SLICE-E-4 |
+| [F-OPS-3](F-OPS-3-deferred-work-shipped-earlier-creates-plan-vs-state-drift.md) | Deferred work shipped earlier creates plan-vs-state drift | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-4 |
+| [F-OPS-4](F-OPS-4-pre-execution-inspection-scope-systematically-underestimates-reality.md) | Pre-execution inspection scope systematically underestimates reality | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-3 |
 | [F-SEC-1](F-SEC-1-permissive-rls-on-admin-tables-public-storage-bucket-listing-sev.md) | Permissive RLS on admin tables + public storage bucket listing | open | Sev-2 | 1c.2-Slice-E | ADR-0001, ADR-0006 | — |
 | [F-SLICE-B-1](F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md) | Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming | deferred | Sev-2 | 1c.2-Slice-B | ADR-0004, ADR-0014 | — |
 | [F-SLICE-B1-2](F-SLICE-B1-2-release-speed-metric-correctness-on-slant-route-reference-v1-mp4.md) | Release Speed metric correctness on `slant-route-reference-v1.mp4` (REFRAMED 2026-04-26) | open | Sev-3 | 1c.2-Slice-B1 | ADR-0004 | — |
