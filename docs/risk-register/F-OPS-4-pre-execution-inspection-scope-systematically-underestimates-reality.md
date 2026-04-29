@@ -68,6 +68,27 @@ In Slice 1c.3-B, the three halts each prevented a worse outcome:
 
 This finding evolved from one example to three within a single slice. The pattern of "same root-cause family, multiple distinct surfacings" is itself a signal that the methodological lesson is generalizable, not a one-off correction. Captured deliberately as a single finding (rather than three separate F-* entries) to preserve the connection.
 
+## Annotation — Phase 1c.3-C: pre-execution decision-cluster sub-pattern (2026-04-29)
+
+Process observation from PHASE-1C3-SLICE-C: this slice introduced a new halt pattern — **pre-execution decision cluster**. After the standard pre-execution sweep surfaced expanded scope (per F-OPS-4 standard discipline), a second halt surfaced before any code edits to resolve four sub-decisions (det_frequency scope, second readiness gate, dead helper cleanup approach, type cleanup) that the sweep raised but didn't answer.
+
+Both halt patterns belong in the F-OPS-4 family but represent distinct planning postures:
+
+- **Pre-execution sweep halt** — "inspection scope was narrower than reality"
+- **Pre-execution decision halt** — "inspection surfaced decisions the plan didn't anticipate"
+
+Pre-execution decision halt is structurally different — sweep was thorough, but the surfaced reality required scope decisions beyond what the plan specified. The remediation is the same (treat halts as system working correctly) but planning posture should anticipate both: pre-execution sweep AND pre-execution decision-cluster.
+
+This is the third consecutive slice where actual scope exceeded planned scope. The pattern is now structural enough that future cleanup-shaped slices should plan for both halt types as standard, not exceptional.
+
+### Evolution log
+
+This finding has now evolved through three explicit annotations across three slices, which is itself worth preserving as evidence the methodological lesson is generalizable rather than slice-specific:
+
+1. **1c.3-B (origin)** — three concrete examples of constraint+shape+location discovery establishing the family.
+2. **1c.3-A retroactive** — "stated scope < actual scope" structural pattern named as the F-OPS-4 default planning assumption for cleanup slices.
+3. **1c.3-C (this annotation)** — pre-execution decision-cluster sub-pattern named as a distinct halt category alongside pre-execution sweep.
+
 ## Same root-cause family
 
 - **F-OPS-3** — deferred work shipped earlier creates plan-state drift (related: trusting a prior plan assertion without re-verification)

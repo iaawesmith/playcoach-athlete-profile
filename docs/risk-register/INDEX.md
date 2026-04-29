@@ -2,7 +2,7 @@
 
 **Source:** Split from `docs/migration-risk-register.md` during Phase 1c.2 cleanup (Pass 4, 2026-04-26). One file per entry. Schema in [`_schema.md`](_schema.md). Original combined doc is now an R2 redirect stub.
 
-**Counts:** 24 total entries — 12 risks (`R-01`–`R-12`) and 12 findings (`F-*`). Original source register listed "12 risks" in §4; the additional findings were appended after foundation batch as Slice B / C / E and Phase 1c.3 work surfaced them.
+**Counts:** 26 total entries — 12 risks (`R-01`–`R-12`) and 14 findings (`F-*`). Original source register listed "12 risks" in §4; the additional findings were appended after foundation batch as Slice B / C / E and Phase 1c.3 work surfaced them.
 
 **Severity scale** (unchanged from source):
 - **Sev-1** — blocks production analyses
@@ -45,7 +45,8 @@
 | [F-SLICE-E-2](F-SLICE-E-2-pipeline-calibration-audit-shows-0-78-non-deterministic-drift-on-identical.md) | Pipeline `calibration_audit` shows ~0.78% non-deterministic drift on identical inputs | open | Sev-2 | 1c.2-Slice-E | ADR-0004, ADR-0005, ADR-0006 | — |
 | [F-SLICE-E-3](F-SLICE-E-3-recipe-propagation-without-independent-verification-process-lesson-no-severity.md) | Recipe propagation without independent verification (process lesson) | open | none | 1c.2-Slice-E | — | — |
 | [F-SLICE-E-4](F-SLICE-E-4-mechanics-tab-crash-post-pro-mechanics-drop.md) | Mechanics tab crash post-`pro_mechanics` drop | resolved | Sev-3 | 1c.2-Slice-E.5 | ADR-0015 | — |
-| [F-SLICE-E-5](F-SLICE-E-5-solution-class-radio-control-writes-to-dropped-column.md) | Solution Class radio control writes to dropped column | open | Sev-3 | 1c.2-Slice-E.5 | — | F-SEC-1, F-SLICE-E-4 |
+| [F-SLICE-E-5](F-SLICE-E-5-solution-class-radio-control-writes-to-dropped-column.md) | Solution Class radio control writes to dropped column | resolved | Sev-3 | 1c.2-Slice-E.5 | — | F-SEC-1, F-SLICE-E-4, F-SLICE-E-6 |
+| [F-SLICE-E-6](F-SLICE-E-6-training-status-write-paths-class-defect.md) | Training Status tab write paths form a four-column defect class against dropped columns | resolved | Sev-3 | 1c.3-C | — | F-SLICE-E-5, F-OPS-4 |
 
 ---
 

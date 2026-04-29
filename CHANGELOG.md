@@ -33,6 +33,37 @@ where applicable.
 
 ---
 
+## [PHASE-1C3-SLICE-C] — 2026-04-29
+
+Training Status tab write-path resolution. F-SLICE-E-5 expanded under F-OPS-4 pre-execution sweep into a four-column defect class (Solution Class, Performance Mode, legacy `det_frequency`, Tracking — all routing through the shared `updateWithCriticalTrack` helper against columns dropped in migration `20260426025918`). Captured as F-SLICE-E-6 and resolved same slice.
+
+### Removed
+- **4 write-path handlers** in `src/features/athlete-lab/components/NodeEditor.tsx` (`TrainingStatusEditor` call site): `solution_class`, `performance_mode`, `det_frequency` (legacy single-field), `tracking_enabled`. Save-payload allow-list shape confirmed at `~L600` (not spread-based) — no Sev-2 escalation.
+- **Solution Class radio + Performance Mode toggle + legacy Detection Frequency input + Tracking toggle** UI controls deleted from `TrainingStatusEditor`. Per-context detection-frequency controls (`solo` / `defender` / `multiple`) retained — they write to active columns.
+- **Dead helpers**: `getSolutionClassWarnings`, `SOLUTION_CLASSES`, `SOLUTION_CLASS_MAP`, legacy `pipelineCode` template.
+- **`solution_class` readiness gates** in both `NodeReadinessBar.tsx` (Reference Calibration `wholebody3d` short-circuit dropped; Training Status category replaced with placeholder) AND `NodeEditor.tsx` `checkCompleteness()` L167.
+- **`generateTrainingStatus()`** in `src/features/athlete-lab/utils/nodeExport.ts` deleted in full; `training_status` removed from `TabKey` union, `TAB_GENERATORS`, `TAB_LABELS`, `tabOrder`; `# Solution Class:` header line removed from `generateFullNodeMarkdown`; `reference_filming_instructions` reference dropped from `generateReference`; orphan `getActiveMetrics` import removed.
+- **6 fields** removed from `TrainingNode` interface in `types.ts`: `solution_class`, `performance_mode`, `tracking_enabled`, `det_frequency`, `reference_object`, `reference_filming_instructions`. `pro_mechanics` intentionally retained per V-1c.3-06.
+- **`TrainingStatusEditor` refactored** ~270 LOC → ~125 LOC.
+
+### Changed
+- **`docs/risk-register/F-SLICE-E-5`** — status open → resolved; F-SLICE-E-6 added to related_entries; resolution pointer added.
+- **`docs/risk-register/F-OPS-4`** — annotated with the **pre-execution decision-cluster** sub-pattern; evolution log added (now three explicit annotations across three slices).
+- **`docs/risk-register/INDEX.md`** — counts 24 → 26 entries, 12 → 14 findings; F-SLICE-E-5 row updated; F-SLICE-E-6 row added.
+
+### Added
+- **`docs/risk-register/F-SLICE-E-6-training-status-write-paths-class-defect.md`** — captures the four-column defect class, save-payload allow-list verification, Q1–Q4 decisions and reasoning. Status: opened and closed same slice (1c.3-B precedent).
+- **`docs/process/phase-1c3-slice-c-outcome.md`** — slice outcome doc.
+
+### Verified
+- `npx tsc --noEmit` exit 0, no output.
+- Project-wide write-path sweep across all 8 dropped columns returns zero live write paths.
+
+### Process
+- Two pre-execution halts surfaced before any code edits: (1) write-path sweep expanded scope from 1 column to 4 (F-SLICE-E-6 opened); (2) decision cluster surfaced 4 sub-decisions (Q1–Q4) the plan didn't specify. Both halts resolved before execution. Pre-execution decision-cluster captured as a new halt category in F-OPS-4.
+
+---
+
 ## [PHASE-1C3-SLICE-B] — 2026-04-29
 
 Mechanics tab + `MechanicsEditor` deletion + Mechanics-only `knowledge_base` merge per R-12 mitigation and ADR-0015.

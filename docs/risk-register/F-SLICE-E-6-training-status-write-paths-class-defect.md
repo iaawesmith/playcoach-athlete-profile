@@ -46,7 +46,7 @@ The pre-execution sweep surfaced four sub-decisions the slice plan didn't antici
 
 - All 4 write-path handlers removed from `NodeEditor.tsx` (`TrainingStatusEditor` call site).
 - Solution Class radio, Performance Mode toggle, legacy single-field Detection Frequency input, and Tracking toggle UI controls deleted from `TrainingStatusEditor`.
-- `NodeReadinessBar.tsx`: `solution_class === "wholebody3d"` short-circuit dropped from Reference Calibration category (always run per-angle calibration check now); category-specific Training Status checks replaced with a deferred-to-Phase-1 placeholder.
+- `NodeReadinessBar.tsx`: `solution_class === "wholebody3d"` short-circuit dropped from Reference Calibration category; category-specific Training Status checks replaced with a deferred-to-Phase-1 placeholder.
 - `NodeEditor.tsx` `checkCompleteness` (L167-187): `solution_class` gate removed.
 - `nodeExport.ts`: `generateTrainingStatus()` deleted; `training_status` removed from `TabKey` union, `TAB_GENERATORS`, `TAB_LABELS`, and `tabOrder`; the `# Solution Class:` header line in `generateFullNodeMarkdown` deleted; orphan import of `getActiveMetrics` removed.
 - 6 fields removed from `TrainingNode` interface in `types.ts` (per Q4).
