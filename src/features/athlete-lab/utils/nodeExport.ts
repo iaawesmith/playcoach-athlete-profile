@@ -11,7 +11,7 @@ import keypointLibrary from "@/constants/keypointLibrary.json";
 // inactive metrics. The `m.active !== false` filter is centralized there —
 // do not duplicate it inline in new generators.
 
-type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status";
+type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges";
 
 const kpMap = new Map<number, string>();
 for (const kp of (keypointLibrary as any).keypoints) {
@@ -347,36 +347,11 @@ function generateKnowledgeBase(node: TrainingNode): string {
   return out;
 }
 
-function generateTrainingStatus(node: TrainingNode): string {
-  // Solution-class compatibility must be computed against active metrics
-  // only — inactive metrics are excluded from scoring, so an inactive
-  // metric referencing a high keypoint index must not force a pose-engine
-  // upgrade. Mirrors the readiness-bar logic and the Metrics tab export.
-  const activeMetrics = getActiveMetrics(node);
-  const maxIdx = getMaxKeypointIndex(activeMetrics);
-  const derivedClass = maxIdx >= 0 ? deriveRequiredSolutionClass(maxIdx) : "N/A";
-  const rawClass = node.solution_class || "";
-  const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-  const configuredClass = rawClass ? capitalize(rawClass) : "NOT CONFIGURED — BLOCKING";
-
-  let compatibility = "COMPATIBLE";
-  if (!node.solution_class) {
-    compatibility = "NOT CONFIGURED";
-  } else if (maxIdx > 32) {
-    compatibility = `MISMATCH — node uses keypoint index ${maxIdx} which is outside the MediaPipe Pose 33-landmark schema (0–32)`;
-  }
-
-  const dfSolo = node.det_frequency_solo ?? 2;
-  const dfDefender = node.det_frequency_defender ?? 1;
-  const dfMultiple = node.det_frequency_multiple ?? 1;
-  const dfFallback = node.det_frequency ?? 2;
-  const pmMode = node.performance_mode ?? "balanced";
-  const poseEngine = node.pose_engine ?? "mediapipe";
-
-  const pipelineRef = "";
-
-  return `## Training Status\n\nPose Engine: ${poseEngine}\nSolution Class: ${configuredClass}\nPerformance Mode: ${pmMode}\nDetection Frequency:\n  Solo: ${dfSolo} frames\n  With Defender: ${dfDefender} frames\n  Multiple People: ${dfMultiple} frames\n  No Context Fallback (treated as solo): ${dfFallback} frames\nTracking: ${node.tracking_enabled ? "On" : "Off"}\n\nKeypoint Compatibility Check:\n  Highest keypoint index used across active metrics: ${maxIdx >= 0 ? maxIdx : "N/A"}\n  Minimum required solution class: ${derivedClass}\n  Configured solution class: ${configuredClass}\n  Compatibility: ${compatibility}${pipelineRef}`;
-}
+// Phase 1c.3-C: generateTrainingStatus() removed. The Training Status tab's
+// underlying columns (solution_class, performance_mode, det_frequency,
+// tracking_enabled) were dropped in migration 20260426025918. Per Q3a
+// decision, the export's Training Status section is deleted entirely
+// rather than retained with placeholder values.
 
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
   basics: generateBasics,
@@ -391,7 +366,6 @@ const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
   checkpoints: generateCheckpoints,
   prompt: generatePrompt,
   badges: generateBadges,
-  training_status: generateTrainingStatus,
 };
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -407,7 +381,6 @@ const TAB_LABELS: Record<TabKey, string> = {
   checkpoints: "Checkpoints",
   prompt: "LLM Prompt",
   badges: "Badges",
-  training_status: "Training Status",
 };
 
 export function generateTabMarkdown(node: TrainingNode, tabKey: TabKey): string {
@@ -435,7 +408,7 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
   }
   readiness += `\nBLOCKING ITEMS:\n${blockingItems.length > 0 ? blockingItems.join("\n") : "None — node is ready for Live"}`;
 
-  const tabOrder: TabKey[] = ["basics", "videos", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges", "training_status"];
+  const tabOrder: TabKey[] = ["basics", "videos", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges"];
 
   // The trailing knowledge-base block is admin-authored markdown (headings,
   // bullets, bold) intended for internal reference, NOT pipeline config.
@@ -456,5 +429,5 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
   const fullText = `${readiness}\n\n---\n\n${sections}`;
   const wordCount = fullText.split(/\s+/).length;
 
-  return `# AthleteLab Node — Full Configuration Export\n# Node: ${node.name}\n# Status: ${node.status === "live" ? "Live" : "Draft"}\n# Version: ${node.node_version ?? 1}\n# Solution Class: ${node.solution_class || "Not configured"}\n# Includes tab exports plus admin guidance / knowledge base\n# Copied: ${ts()}\n# Approximate word count: ${wordCount} words\n\n---\n\n${fullText}`;
+  return `# AthleteLab Node — Full Configuration Export\n# Node: ${node.name}\n# Status: ${node.status === "live" ? "Live" : "Draft"}\n# Version: ${node.node_version ?? 1}\n# Includes tab exports plus admin guidance / knowledge base\n# Copied: ${ts()}\n# Approximate word count: ${wordCount} words\n\n---\n\n${fullText}`;
 }
