@@ -98,8 +98,11 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     { label: "Pose engine selection deferred to Phase 1 (no admin gate)", pass: true, warning: true },
   ];
   categories.push({
-    name: "Training Status", icon: "memory", weight: 20, checks: tsChecks, tab: "training_status",
-    tooltip: "Pose-engine selection moved to Phase 1. No admin-side gating in Phase 1c."
+    // Phase 1c.3-D: Training Status tab folded into Basics ("Pipeline Config" sub-section).
+    // Category remains its own entry in the readiness rollup (20% weight unchanged) but
+    // routes admin clicks to the Basics tab where the surviving det_frequency triplet lives.
+    name: "Training Status", icon: "memory", weight: 20, checks: tsChecks, tab: "basics",
+    tooltip: "Pose-engine selection moved to Phase 1. No admin-side gating in Phase 1c. Detection frequency lives in Basics → Pipeline Config."
   });
 
   // 3. PHASES & STRUCTURE — 15%
