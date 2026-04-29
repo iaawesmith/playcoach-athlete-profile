@@ -437,28 +437,38 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     }
     return s;
   });
-  const [showAdvancedTabs, setShowAdvancedTabs] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
-  });
-  /* Persist advanced-tabs preference + auto-bounce off hidden tabs when toggled off */
+  /* Phase 1c.3-D: Stale-session bounce + hash-anchor redirect.
+     Retired tab keys (scoring, errors, camera, checkpoints, training_status,
+     overview, mechanics) are coerced to their consolidated parent. Hash
+     anchors from old bookmarks are also redirected. */
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(ADVANCED_TABS_STORAGE_KEY, showAdvancedTabs ? "true" : "false");
+    const tabAsAny = tab as unknown as string;
+    if (HASH_REDIRECT_MAP[tabAsAny]) {
+      setTab(HASH_REDIRECT_MAP[tabAsAny]);
+      return;
     }
-    if (!showAdvancedTabs && ADVANCED_TAB_KEYS.includes(tab)) {
-      setTab("basics");
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = window.location.hash.slice(1);
+      const target = HASH_REDIRECT_MAP[hash];
+      if (target) {
+        setTab(target);
+        // Strip the stale anchor so we don't bounce on every render.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
     }
-    // Overview tab was merged into Basics — auto-bounce stale sessions
-    if ((tab as string) === "overview") {
-      setTab("basics");
-    }
-  }, [showAdvancedTabs, tab]);
+  }, [tab]);
 
-  const visibleTabs = useMemo(
-    () => (showAdvancedTabs ? TABS : TABS.filter((t) => !ADVANCED_TAB_KEYS.includes(t.key))),
-    [showAdvancedTabs]
-  );
+  /* Coerce a stale helpTabKey (e.g., "scoring" persisted from an older
+     session) to its consolidated parent so HelpDrawer never receives a
+     value outside the new TabKey union. */
+  useEffect(() => {
+    const helpAsAny = helpTabKey as unknown as string;
+    if (HASH_REDIRECT_MAP[helpAsAny]) {
+      setHelpTabKey(HASH_REDIRECT_MAP[helpAsAny]);
+    }
+  }, [helpTabKey]);
+
+  const visibleTabs = TABS;
 
   useEffect(() => {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults.
