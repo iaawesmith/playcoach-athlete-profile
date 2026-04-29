@@ -2401,23 +2401,10 @@ function ReferenceCalibrationEditor({
         </div>
       </div>
 
-      <div className={CARD_CLASS}>
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5">
-            <label className={LABEL_CLASS}>Generic Fallback Filming Instructions</label>
-            <SectionTooltip tip="Shared fallback guidance that remains available when no node-specific notes have been provided. Node-specific notes should override this copy." />
-          </div>
-          <p className="text-on-surface-variant text-xs leading-relaxed">
-            Keep this generic. Do not move skill-specific instructions here.
-          </p>
-          <textarea
-            className={`${INPUT_CLASS} min-h-[100px] resize-y`}
-            value={genericFallbackInstructions}
-            onChange={(e) => onGenericFallbackInstructionsChange(e.target.value)}
-            placeholder="Add generic fallback filming guidance used across nodes when no skill-specific notes are set."
-          />
-        </div>
-      </div>
+      {/* Generic Fallback Filming Instructions textarea removed in
+          Phase 1c.3-C (F-SLICE-E-6) — wrote to dropped column
+          reference_filming_instructions (migration 20260426025918). */}
+
 
       {/* Global fallback */}
       <div className="pt-2">
