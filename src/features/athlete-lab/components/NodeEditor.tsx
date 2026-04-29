@@ -1001,7 +1001,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <EliteVideosEditor videos={draft.elite_videos} onChange={(v) => update("elite_videos", v)} />
         )}
 
-        {tab === "mechanics" && (
+        {false && (
           <div className="space-y-4">
             <CoachingCuesMigrationBanner
               surface="mechanics"
