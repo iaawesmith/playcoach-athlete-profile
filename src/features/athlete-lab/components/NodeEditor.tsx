@@ -163,28 +163,11 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "LLM Prompt", detail: "Prompt template cannot be empty" });
   }
 
-  // Solution class must be configured
-  if (!node.solution_class || node.solution_class.trim().length === 0) {
-    issues.push({ label: "Training Status", detail: "Solution class not configured" });
-  } else {
-    // Check solution class supports all keypoint indices (active metrics only)
-    const sc = node.solution_class;
-    for (const m of activeMetrics) {
-      const indices = m.keypoint_mapping?.keypoint_indices ?? [];
-      if (sc === "body" && indices.some(i => i >= 17)) {
-        const needsFeet = indices.some(i => i >= 17 && i <= 22);
-        const needsHands = indices.some(i => i >= 91);
-        if (needsHands) {
-          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
-        } else if (needsFeet) {
-          issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses feet keypoints requiring Body with Feet or higher` });
-        }
-      }
-      if (sc === "body_with_feet" && indices.some(i => i >= 91)) {
-        issues.push({ label: "Training Status", detail: `${m.name || "Untitled"} uses hand keypoints requiring Wholebody` });
-      }
-    }
-  }
+  // Solution-class gating removed in Phase 1c.3-C (F-SLICE-E-6). The
+  // `solution_class` column was dropped in migration 20260426025918 and the
+  // Set-Live readiness gate that depended on it would block every node forever
+  // post-drop. Pose-engine selection is now Phase-1 work tracked separately.
+
 
   // Clip duration must be set and valid
   if (!node.clip_duration_min || node.clip_duration_min < 1) {
@@ -210,13 +193,12 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     }
   }
 
-  // Reference calibration checks (skip for wholebody3d)
-  if (node.solution_class !== "wholebody3d") {
-    const calibrations = node.reference_calibrations ?? [];
-    const hasAtLeastOne = calibrations.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-    if (!hasAtLeastOne) {
-      issues.push({ label: "Reference", detail: "At least one camera angle must be calibrated (pixels_per_yard set)" });
-    }
+  // Reference calibration checks (formerly skipped for wholebody3d nodes;
+  // solution_class column dropped in 20260426025918 — gate removed in 1c.3-C)
+  const calibrations = node.reference_calibrations ?? [];
+  const hasAtLeastOne = calibrations.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+  if (!hasAtLeastOne) {
+    issues.push({ label: "Reference", detail: "At least one camera angle must be calibrated (pixels_per_yard set)" });
   }
 
   // Camera completeness
@@ -471,7 +453,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     if (dirty) return;
     const normalizedNode = {
       ...node,
-      det_frequency: node.det_frequency ?? 2,
+      // det_frequency (root) dropped in 20260426025918; per-context fields below.
       det_frequency_solo: node.det_frequency_solo ?? 2,
       det_frequency_defender: node.det_frequency_defender ?? 1,
       det_frequency_multiple: node.det_frequency_multiple ?? 1,
@@ -1044,7 +1026,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {tab === "reference" && (
           <ReferenceCalibrationEditor
-            solutionClass={draft.solution_class ?? ""}
             calibrations={draft.reference_calibrations ?? []}
             onCalibrationsChange={(c) => update("reference_calibrations", c)}
             skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
@@ -1052,8 +1033,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               const settings = parseCameraSettings(draft.camera_guidelines);
               update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
             }}
-            genericFallbackInstructions={draft.reference_filming_instructions ?? ""}
-            onGenericFallbackInstructionsChange={(v) => update("reference_filming_instructions", v)}
             fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
             onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
             eliteVideos={draft.elite_videos ?? []}
@@ -1088,13 +1067,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
         {tab === "training_status" && (
           <TrainingStatusEditor
             node={draft}
-            onSolutionClassChange={(v) => { updateWithCriticalTrack("solution_class", v); if (v === "wholebody3d") update("tracking_enabled", false); }}
-            onPerformanceModeChange={(v) => updateWithCriticalTrack("performance_mode", v)}
-            onDetFrequencyChange={(v) => updateWithCriticalTrack("det_frequency", v)}
             onDetFrequencySoloChange={(v) => updateWithCriticalTrack("det_frequency_solo", v)}
             onDetFrequencyDefenderChange={(v) => updateWithCriticalTrack("det_frequency_defender", v)}
             onDetFrequencyMultipleChange={(v) => updateWithCriticalTrack("det_frequency_multiple", v)}
-            onTrackingEnabledChange={(v) => updateWithCriticalTrack("tracking_enabled", v)}
             onNavigateTab={(t) => setTab(t)}
           />
         )}
@@ -2158,66 +2133,32 @@ function serializeStructuredField(fields: Record<string, string>): string {
 // remain pending — see phase-1c3-prep-backlog.md.
 
 
-/* ── Solution class helpers ── */
-const SOLUTION_CLASSES = [
-  { value: "body", title: "Body", desc: "Standard 17-keypoint body detection. Fastest model, lowest memory.", coverage: "Keypoints 0-16: Head, Shoulders, Arms, Hips, Knees, Ankles", useWhen: "No foot or hand keypoints used in any metric" },
-  { value: "body_with_feet", title: "Body with Feet", desc: "26-keypoint model adding heel and toe detection. Required for heel plant metrics.", coverage: "Keypoints 0-22: Body + Big Toe, Small Toe, Heel (both feet)", useWhen: "Any metric uses keypoints 17-22 (heel plant, toe push-off)" },
-  { value: "wholebody", title: "Wholebody", desc: "Full 133-keypoint 2D model. Required for hand and face keypoints.", coverage: "Keypoints 0-132: Full body + hands + face (2D pixel coordinates)", useWhen: "Any metric uses hand keypoints 91-132 (catch efficiency, hand position)" },
-  { value: "wholebody3d", title: "Wholebody 3D", desc: "Full 133-keypoint 3D model. Returns coordinates in meters — no Reference tab calibration needed.", coverage: "Keypoints 0-132: Full body + hands + face (3D coordinates in meters)", useWhen: "Maximum accuracy required. Note: tracking must be OFF for 3D models." },
-] as const;
+/* ── Training Status helpers ── */
+// Phase 1c.3-C (F-SLICE-E-6): Solution Class, Performance Mode, Tracking,
+// and the legacy single det_frequency control were removed. Their backing
+// columns were dropped in migration 20260426025918; the controls had been
+// silently failing on save (allow-list filter) since then. Pose-engine
+// configuration is now Phase-1 work tracked separately.
+//
+// Removed: SOLUTION_CLASSES, SOLUTION_CLASS_MAP, getSolutionClassWarnings,
+// the legacy RTMlib pipelineCode no-op template, the wholebody3d-conditional
+// reference-calibration readiness gate, and the Pipeline Reference accordion.
 
-const SOLUTION_CLASS_MAP: Record<string, string> = {
-  body: "Body",
-  body_with_feet: "BodyWithFeet",
-  wholebody: "Wholebody",
-  wholebody3d: "Wholebody3D",
-};
-
-function getSolutionClassWarnings(solutionClass: string, metrics: KeyMetric[], trackingEnabled: boolean): string[] {
-  const warnings: string[] = [];
-  for (const m of metrics) {
-    const indices = m.keypoint_mapping?.keypoint_indices ?? [];
-    if (solutionClass === "body") {
-      if (indices.some(i => i >= 17 && i <= 22)) warnings.push(`⚠ ${m.name || "Untitled"} uses feet keypoints (indices 17-22) — requires Body with Feet or higher.`);
-      if (indices.some(i => i >= 91)) warnings.push(`⚠ ${m.name || "Untitled"} uses hand keypoints (indices 91-132) — requires Wholebody.`);
-    }
-    if (solutionClass === "body_with_feet" && indices.some(i => i >= 91)) {
-      warnings.push(`⚠ ${m.name || "Untitled"} uses hand keypoints (indices 91-132) — requires Wholebody.`);
-    }
-  }
-  if (solutionClass === "wholebody3d" && trackingEnabled) {
-    warnings.push("⚠ Wholebody 3D requires Tracking = OFF. 3D coordinate tracking with IoU is unreliable.");
-  }
-  return warnings;
-}
-
-function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeChange, onDetFrequencyChange, onDetFrequencySoloChange, onDetFrequencyDefenderChange, onDetFrequencyMultipleChange, onTrackingEnabledChange, onNavigateTab }: {
+function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDefenderChange, onDetFrequencyMultipleChange, onNavigateTab }: {
   node: TrainingNode;
-  onSolutionClassChange: (v: string) => void;
-  onPerformanceModeChange: (v: PerformanceMode) => void;
-  onDetFrequencyChange: (v: number) => void;
   onDetFrequencySoloChange: (v: number) => void;
   onDetFrequencyDefenderChange: (v: number) => void;
   onDetFrequencyMultipleChange: (v: number) => void;
-  onTrackingEnabledChange: (v: boolean) => void;
   onNavigateTab: (t: TabKey) => void;
 }) {
-  const [pipelineOpen, setPipelineOpen] = useState(false);
-  const sc = node.solution_class ?? "";
-  const pm = node.performance_mode ?? "balanced";
   const dfSolo = node.det_frequency_solo ?? 2;
   const dfDefender = node.det_frequency_defender ?? 1;
   const dfMultiple = node.det_frequency_multiple ?? 1;
-  const te = node.tracking_enabled ?? true;
-  const scWarnings = getSolutionClassWarnings(sc, node.key_metrics, te);
 
   /* ── Readiness checks ── */
   const readiness: { label: string; ok: boolean; detail: string; tab: TabKey }[] = [];
-  readiness.push({ label: "Solution class configured", ok: !!sc, detail: sc ? `Set to ${SOLUTION_CLASSES.find(s => s.value === sc)?.title ?? sc}` : "Not set", tab: "training_status" });
-  const scConflicts = sc ? getSolutionClassWarnings(sc, node.key_metrics, false) : [];
-  readiness.push({ label: "Solution class supports all keypoints", ok: !!sc && scConflicts.length === 0, detail: scConflicts.length > 0 ? `${scConflicts.length} conflict(s)` : "All metrics compatible", tab: "training_status" });
 
-  // Active-only — keeps Pipeline-Setup expanded view consistent with top NodeReadinessBar
+  // Active-only — keeps Training Status readiness consistent with top NodeReadinessBar
   const activeMetricsForReadiness = (node.key_metrics ?? []).filter((m) => m.active !== false);
   const allMapped = activeMetricsForReadiness.length > 0 && activeMetricsForReadiness.every(m => m.keypoint_mapping?.calculation_type);
   readiness.push({ label: "All active metrics have keypoint mapping", ok: allMapped, detail: allMapped ? `${activeMetricsForReadiness.length} active metrics mapped` : "Some active metrics missing mapping", tab: "metrics" });
@@ -2238,11 +2179,9 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const allTimestamped = node.elite_videos.filter(v => v.url?.trim()).every(v => v.start_seconds != null && v.end_seconds != null);
   readiness.push({ label: "All videos have timestamps", ok: !hasVideos || allTimestamped, detail: allTimestamped ? "All set" : "Some missing", tab: "videos" });
 
-  if (sc !== "wholebody3d") {
-    const cals = node.reference_calibrations ?? [];
-    const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-    readiness.push({ label: "At least 1 camera angle calibrated", ok: hasAtLeastOne, detail: hasAtLeastOne ? "Calibrated" : "No angles calibrated", tab: "reference" });
-  }
+  const cals = node.reference_calibrations ?? [];
+  const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+  readiness.push({ label: "At least 1 camera angle calibrated", ok: hasAtLeastOne, detail: hasAtLeastOne ? "Calibrated" : "No angles calibrated", tab: "reference" });
 
   readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
 
@@ -2250,88 +2189,16 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
   const failCount = readiness.length - passCount;
   const allPass = failCount === 0;
 
-  const scClassName = SOLUTION_CLASS_MAP[sc] ?? "Body";
-  /* TODO Phase 1: replace with MediaPipe Pose service code sample.
-     Legacy RTMlib snippet preserved here as a no-op string for reversibility.
-     Variables (scClassName, dfSolo, dfDefender, dfMultiple, te, pm) are kept
-     in scope so the surrounding component logic does not change. */
-  void scClassName; void dfSolo; void dfDefender; void dfMultiple; void te; void pm;
-  const pipelineCode = `# MediaPipe Pose service code sample — coming in Phase 1.\n# Legacy RTMlib sample removed during Phase 0 cleanup.`;
-
   return (
     <div className="space-y-8">
-      {/* SECTION 1 — SOLUTION CLASS */}
-      <div>
-        <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Model Configuration</div>
-        <div className="border-t border-outline-variant/10 pt-5 space-y-4">
-          <div className="flex items-center gap-1.5 mb-2">
-            <label className={LABEL_CLASS}>Solution Class</label>
-            <SectionTooltip tip="Determines which pose engine model tier is instantiated by the analysis service. Must support ALL keypoint indices used in this node's metrics. Selecting a tier that doesn't support your keypoints returns empty arrays — metrics fail silently with no error." />
-          </div>
-          <div className="space-y-3">
-            {SOLUTION_CLASSES.map(opt => (
-              <label key={opt.value} className={`block p-5 rounded-xl border cursor-pointer transition-all ${sc === opt.value ? 'border-primary-container/50' : 'border-outline-variant/20 hover:border-outline-variant/40'}`} style={{ backgroundColor: sc === opt.value ? 'rgba(0,230,57,0.04)' : '#1A2029' }}>
-                <div className="flex items-start gap-3">
-                  <div className={`mt-1 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sc === opt.value ? 'border-primary-container' : 'border-outline-variant/50'}`}>
-                    {sc === opt.value && <div className="w-2 h-2 rounded-full bg-primary-container" />}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div className="text-on-surface font-black uppercase tracking-tighter text-base">{opt.title}</div>
-                    <p className="text-on-surface-variant text-sm leading-relaxed">{opt.desc}</p>
-                    <div className="text-on-surface-variant/70 text-xs"><span className="font-semibold text-on-surface-variant">Coverage:</span> {opt.coverage}</div>
-                    <div className="text-on-surface-variant/70 text-xs"><span className="font-semibold text-on-surface-variant">Use when:</span> {opt.useWhen}</div>
-                  </div>
-                </div>
-                <input type="radio" className="sr-only" checked={sc === opt.value} onChange={() => onSolutionClassChange(opt.value)} />
-              </label>
-            ))}
-          </div>
-          {scWarnings.length > 0 && (
-            <div className="space-y-2 mt-3">
-              {scWarnings.map((w, i) => (
-                <div key={i} className="flex items-start gap-2 text-amber-400 text-sm p-3 rounded-xl border border-amber-400/20" style={{ backgroundColor: 'rgba(245,158,11,0.05)' }}>
-                  <span className="mt-0.5">{w}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* SECTION 2 — PERFORMANCE MODE */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <label className={LABEL_CLASS}>Performance Mode</label>
-          <SectionTooltip tip="Controls which ONNX model weights are loaded. Passed directly to rtmlib PoseTracker as the mode parameter. Affects inference speed and keypoint accuracy." />
-        </div>
-        <div className="space-y-3">
-          {([
-            { value: "performance" as const, label: "PERFORMANCE", desc: "Largest, most accurate model. Recommended for high-weight metrics requiring maximum keypoint precision. Slower inference — adds 2-4 seconds to analysis time.", isDefault: false },
-            { value: "balanced" as const, label: "BALANCED", desc: "Default rtmlib setting. Best speed/accuracy tradeoff for most nodes. Recommended for all standard route running nodes.", isDefault: true },
-            { value: "lightweight" as const, label: "LIGHTWEIGHT", desc: "Fastest inference. Reduced accuracy — use only for simple metrics or when analysis time is critical.", isDefault: false },
-          ]).map(opt => (
-            <label key={opt.value} className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${pm === opt.value ? 'border-primary-container/40' : 'border-outline-variant/20'}`} style={{ backgroundColor: pm === opt.value ? 'rgba(0,230,57,0.04)' : '#1A2029' }}>
-              <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${pm === opt.value ? 'border-primary-container' : 'border-outline-variant/50'}`}>
-                {pm === opt.value && <div className="w-2 h-2 rounded-full bg-primary-container" />}
-              </div>
-              <div>
-                <div className="text-on-surface text-xs font-black uppercase tracking-[0.15em]">{opt.label}{opt.isDefault && <span className="ml-2 text-on-surface-variant font-normal normal-case tracking-normal">(recommended)</span>}</div>
-                <p className="text-on-surface-variant text-xs mt-1 leading-relaxed">{opt.desc}</p>
-              </div>
-              <input type="radio" className="sr-only" checked={pm === opt.value} onChange={() => onPerformanceModeChange(opt.value)} />
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* SECTION 3 — DETECTION SETTINGS */}
+      {/* SECTION 1 — DETECTION SETTINGS */}
       <div>
         <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Detection Settings</div>
         <div className="border-t border-outline-variant/10 pt-5 space-y-6">
           <div>
             <div className="flex items-center gap-1.5 mb-3">
               <label className={LABEL_CLASS}>Detection Frequency</label>
-              <SectionTooltip tip="How often rtmlib runs full person detection vs tracking between detections. Lower number = more accurate but slower. The appropriate value depends on how many people are in the athlete's video — more people require more frequent detection to maintain accurate person tracking. These three values are selected automatically by the Edge Function based on the athlete's pre-upload input about people in video." />
+              <SectionTooltip tip="How often the pose service runs full person detection vs tracking between detections. Lower number = more accurate but slower. The appropriate value depends on how many people are in the athlete's video — more people require more frequent detection to maintain accurate person tracking. These three values are selected automatically by the Edge Function based on the athlete's pre-upload input about people in video." />
             </div>
             <div className="space-y-4">
               {([
@@ -2357,30 +2224,10 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
               <p className="text-on-surface-variant/40 text-[10px]">If no context is available, the pipeline treats the run as <span className="text-on-surface-variant/60 font-semibold">solo</span> and uses <span className="text-on-surface-variant/60 font-semibold">2</span> frames by default.</p>
             </div>
           </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <label className={LABEL_CLASS}>Tracking</label>
-                <SectionTooltip tip="IoU-based person tracking between detection frames. Must be OFF for Wholebody 3D nodes — 3D coordinate tracking with IoU is unreliable and produces incorrect results. Automatically set to OFF when Wholebody 3D solution class is selected." />
-              </div>
-              <button
-                type="button"
-                disabled={sc === "wholebody3d"}
-                onClick={() => onTrackingEnabledChange(!te)}
-                className={`relative w-12 h-6 rounded-full transition-all ${te ? 'bg-primary-container' : 'bg-outline-variant/40'} ${sc === "wholebody3d" ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-              >
-                <div className={`absolute top-0.5 w-5 h-5 rounded-full shadow transition-transform ${te ? 'translate-x-6' : 'translate-x-0.5'}`} style={{ backgroundColor: '#f7f9fe' }} />
-              </button>
-            </div>
-            {sc === "wholebody3d" && (
-              <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Tracking is automatically disabled for Wholebody 3D nodes.</p>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* SECTION 4 — NODE READINESS */}
+      {/* SECTION 2 — NODE READINESS */}
       <div>
         <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Node Readiness</div>
         <div className="border-t border-outline-variant/10 pt-5 space-y-4">
@@ -2407,23 +2254,6 @@ function TrainingStatusEditor({ node, onSolutionClassChange, onPerformanceModeCh
             ))}
           </div>
         </div>
-      </div>
-
-      {/* SECTION 5 — PIPELINE REFERENCE */}
-      <div>
-        <button type="button" onClick={() => setPipelineOpen(!pipelineOpen)} className="w-full flex items-center justify-between text-on-surface font-black uppercase tracking-tighter text-lg">
-          <span>Pipeline Reference</span>
-          <span className="material-symbols-outlined text-on-surface-variant transition-transform" style={{ fontSize: 20, transform: pipelineOpen ? 'rotate(180deg)' : 'rotate(0)' }}>expand_more</span>
-        </button>
-        {pipelineOpen && (
-          <div className="border-t border-outline-variant/10 pt-4 mt-2 space-y-2">
-            <label className={LABEL_CLASS}>Generated Pipeline Code</label>
-            <p className="text-on-surface-variant/60 text-[10px]">Read-only. This is the exact rtmlib instantiation the Edge Function will use for this node.</p>
-            <pre className="p-4 rounded-xl text-xs font-mono text-primary-container/90 overflow-x-auto whitespace-pre leading-relaxed" style={{ backgroundColor: '#0E1319', border: '1px solid rgba(68,72,76,0.2)' }}>
-              {sc ? pipelineCode : "# Select a solution class above to see generated code"}
-            </pre>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -2459,39 +2289,27 @@ const DEFAULT_CALIBRATIONS: Record<CameraAngle, Partial<ReferenceCalibration>> =
 };
 
 function ReferenceCalibrationEditor({
-  solutionClass,
   calibrations,
   onCalibrationsChange,
   skillSpecificFilmingNotes,
   onSkillSpecificFilmingNotesChange,
-  genericFallbackInstructions,
-  onGenericFallbackInstructionsChange,
   fallbackBehavior,
   onFallbackBehaviorChange,
 }: {
-  solutionClass: string;
   calibrations: ReferenceCalibration[];
   onCalibrationsChange: (c: ReferenceCalibration[]) => void;
   skillSpecificFilmingNotes: string;
   onSkillSpecificFilmingNotesChange: (v: string) => void;
-  genericFallbackInstructions: string;
-  onGenericFallbackInstructionsChange: (v: string) => void;
   fallbackBehavior: ReferenceFallback;
   onFallbackBehaviorChange: (v: ReferenceFallback) => void;
   eliteVideos: EliteVideo[];
 }) {
+  // Phase 1c.3-C (F-SLICE-E-6): solutionClass prop removed (column dropped in
+  // 20260426025918). The wholebody3d short-circuit branch and the
+  // genericFallbackInstructions textarea (which wrote to the dropped
+  // reference_filming_instructions column) were deleted at the same time.
   const [collapsed, setCollapsed] = useState<Set<CameraAngle>>(new Set(["behind_qb", "endzone"]));
 
-  if (solutionClass === "wholebody3d") {
-    return (
-      <div className="rounded-xl border border-primary-container/30 p-5 flex items-start gap-3" style={{ backgroundColor: 'rgba(0,230,57,0.06)' }}>
-        <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontSize: 20 }}>check_circle</span>
-        <p className="text-on-surface text-sm leading-relaxed">
-          <span className="font-bold text-primary-container">Reference calibration not required</span> — this node uses Wholebody3d which returns 3D coordinates in meters. Distance and Velocity metrics do not require pixel-to-yard conversion.
-        </p>
-      </div>
-    );
-  }
 
   const getCalibration = (angle: CameraAngle): ReferenceCalibration => {
     const existing = calibrations.find(c => c.camera_angle === angle);
@@ -2583,23 +2401,10 @@ function ReferenceCalibrationEditor({
         </div>
       </div>
 
-      <div className={CARD_CLASS}>
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5">
-            <label className={LABEL_CLASS}>Generic Fallback Filming Instructions</label>
-            <SectionTooltip tip="Shared fallback guidance that remains available when no node-specific notes have been provided. Node-specific notes should override this copy." />
-          </div>
-          <p className="text-on-surface-variant text-xs leading-relaxed">
-            Keep this generic. Do not move skill-specific instructions here.
-          </p>
-          <textarea
-            className={`${INPUT_CLASS} min-h-[100px] resize-y`}
-            value={genericFallbackInstructions}
-            onChange={(e) => onGenericFallbackInstructionsChange(e.target.value)}
-            placeholder="Add generic fallback filming guidance used across nodes when no skill-specific notes are set."
-          />
-        </div>
-      </div>
+      {/* Generic Fallback Filming Instructions textarea removed in
+          Phase 1c.3-C (F-SLICE-E-6) — wrote to dropped column
+          reference_filming_instructions (migration 20260426025918). */}
+
 
       {/* Global fallback */}
       <div className="pt-2">

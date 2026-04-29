@@ -84,22 +84,18 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   });
 
   // 2. TRAINING STATUS — 20%
-  const tsChecks: ReadinessCheck[] = [];
-  const scConfigured = !!node.solution_class && node.solution_class.trim().length > 0;
-  tsChecks.push({ label: scConfigured ? `Solution class: ${node.solution_class}` : "Solution class not configured", pass: scConfigured });
-  let scSupportsAll = true;
-  if (scConfigured) {
-    const sc = node.solution_class;
-    for (const m of activeMetrics) {
-      const indices = m.keypoint_mapping?.keypoint_indices ?? [];
-      if (sc === "body" && indices.some(i => i >= 17)) { scSupportsAll = false; break; }
-      if (sc === "body_with_feet" && indices.some(i => i >= 91)) { scSupportsAll = false; break; }
-    }
-  }
-  tsChecks.push({ label: "Solution class supports all keypoint indices", pass: scSupportsAll });
+  // Phase 1c.3-C (F-SLICE-E-6): solution_class readiness gates removed.
+  // The column was dropped in migration 20260426025918, so the gate would
+  // permanently fail Set-Live for every node. Pose-engine selection is
+  // tracked as Phase-1 work. The Training Status category remains in the
+  // readiness rollup with a placeholder pass so the weight stays accurate
+  // until Phase 1 reintroduces pose-engine configuration.
+  const tsChecks: ReadinessCheck[] = [
+    { label: "Pose engine selection deferred to Phase 1 (no admin gate)", pass: true, warning: true },
+  ];
   categories.push({
     name: "Training Status", icon: "memory", weight: 20, checks: tsChecks, tab: "training_status",
-    tooltip: "The pose engine will not instantiate correctly without a configured model. Keypoint mismatch causes silent empty arrays."
+    tooltip: "Pose-engine selection moved to Phase 1. No admin-side gating in Phase 1c."
   });
 
   // 3. PHASES & STRUCTURE — 15%
@@ -132,14 +128,13 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   videoChecks.push({ label: "All videos have timestamps", pass: allTimestamps || configuredVids.length === 0 });
   const hasRef = configuredVids.some(v => v.is_reference);
   videoChecks.push({ label: "Reference video flagged", pass: hasRef || configuredVids.length === 0 });
-  // Calibration check
-  if (node.solution_class !== "wholebody3d") {
+  // Calibration check (Phase 1c.3-C: solution_class column dropped)
+  {
     const cals = node.reference_calibrations ?? [];
     const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
     videoChecks.push({ label: "At least 1 camera angle calibrated", pass: hasAtLeastOne });
-  } else {
-    videoChecks.push({ label: "Reference not required — 3D pose engine node", pass: true, warning: true });
   }
+
   categories.push({
     name: "Videos & Reference", icon: "video_library", weight: 15, checks: videoChecks, tab: "videos",
     tooltip: "Missing timestamps causes the pose engine to process the entire video including non-skill footage."

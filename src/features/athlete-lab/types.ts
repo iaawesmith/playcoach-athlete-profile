@@ -213,16 +213,21 @@ export interface TrainingNode {
   clip_duration_max: number;
   node_version: number;
   overview: string;
+  /**
+   * Phase 1c.3-B (V-1c.3-06): retained for the in-flight CoachingCues
+   * migration subsystem. Column dropped post-migration; field stays on the
+   * type until that subsystem is retired.
+   */
   pro_mechanics: string;
   key_metrics: KeyMetric[];
   scoring_rules: string;
   common_errors: CommonError[];
   phase_breakdown: PhaseNote[];
-  reference_object: string;
+  // Phase 1c.3-C (F-SLICE-E-6): reference_object removed — column dropped 20260426025918.
   camera_guidelines: string;
   form_checkpoints: Checkpoint[];
   llm_prompt_template: string;
-  
+
   llm_max_words: number;
   llm_system_instructions: string;
   /** Phase 1c.1 — controls how phase_breakdown is rendered into the {{phase_context}} template variable. */
@@ -236,18 +241,18 @@ export interface TrainingNode {
   confidence_handling: ConfidenceHandling;
   min_metrics_threshold: number;
   score_bands: ScoreBands;
-  solution_class: string;
+  // Phase 1c.3-C (F-SLICE-E-6): solution_class removed — column dropped 20260426025918.
   reference_calibrations: ReferenceCalibration[];
-  reference_filming_instructions: string;
+  // Phase 1c.3-C (F-SLICE-E-6): reference_filming_instructions removed — column dropped 20260426025918.
   skill_specific_filming_notes?: string;
   reference_fallback_behavior: ReferenceFallback;
-  performance_mode: PerformanceMode;
-  det_frequency: number;
+  // Phase 1c.3-C (F-SLICE-E-6): performance_mode removed — column dropped 20260426025918.
+  // Phase 1c.3-C (F-SLICE-E-6): det_frequency (root) removed — column dropped 20260426025918.
   det_frequency_solo: number;
   det_frequency_defender: number;
   det_frequency_multiple: number;
   scoring_renormalize_on_skip: boolean;
-  tracking_enabled: boolean;
+  // Phase 1c.3-C (F-SLICE-E-6): tracking_enabled removed — column dropped 20260426025918.
   created_at: string;
   updated_at: string;
 }
