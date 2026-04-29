@@ -1040,76 +1040,127 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {/* Mechanics tab fully removed in Phase 1c.3-B — see ADR-0015. */}
 
+        {/* Phase 1c.3-D: Metrics tab now houses three sub-sections —
+            Active Metrics (primary editor), Scoring (folded in from retired
+            "scoring" tab), and Common Errors (folded in from retired
+            "errors" tab). All three persist to their own columns; only
+            their UI surface was consolidated. */}
         {tab === "metrics" && (
-          <ActiveMetricsSection
-            allMetrics={draft.key_metrics}
-            onChange={(m) => updateWithCriticalTrack("key_metrics", m)}
-            onConfirmDelete={(opts) => setConfirmModal(opts)}
-            phases={draft.phase_breakdown}
-          />
-        )}
-
-        {tab === "scoring" && (
-          <ScoringEditor
-            scoringRules={draft.scoring_rules}
-            onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
-            metrics={draft.key_metrics}
-            confidenceHandling={draft.confidence_handling ?? "skip"}
-            onConfidenceHandlingChange={(v) => updateWithCriticalTrack("confidence_handling", v)}
-            minMetricsThreshold={draft.min_metrics_threshold ?? 50}
-            onMinMetricsThresholdChange={(v) => updateWithCriticalTrack("min_metrics_threshold", v)}
-            scoreBands={draft.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" }}
-            onScoreBandsChange={(v) => updateWithCriticalTrack("score_bands", v)}
-            renormalizeOnSkip={draft.scoring_renormalize_on_skip ?? true}
-            onRenormalizeOnSkipChange={(v) => updateWithCriticalTrack("scoring_renormalize_on_skip", v)}
-          />
-        )}
-
-        {tab === "errors" && (
-          <CommonErrorsEditor errors={draft.common_errors} onChange={(e) => update("common_errors", e)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
-        )}
-
-        {tab === "phases" && (
-          <div className="space-y-4">
-            <CoachingCuesMigrationBanner
-              surface="phases"
-              status={draft.coaching_cues_migration_status ?? "pending"}
-              confirmed_count={confirmedPhaseIds.size}
-              total_phases={draft.phase_breakdown.length}
-              onOpenModal={() => setMigrationModalOpen(true)}
-            />
-            <PhasesEditor
-              phases={draft.phase_breakdown}
-              onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
-              segmentationMethod={draft.segmentation_method ?? "proportional"}
-              onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+          <div className="space-y-10">
+            <ActiveMetricsSection
+              allMetrics={draft.key_metrics}
+              onChange={(m) => updateWithCriticalTrack("key_metrics", m)}
               onConfirmDelete={(opts) => setConfirmModal(opts)}
-              advancedEnabled={showAdvancedTabs}
+              phases={draft.phase_breakdown}
             />
+
+            <div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Scoring</div>
+              <div className="border-t border-outline-variant/10 pt-5">
+                <ScoringEditor
+                  scoringRules={draft.scoring_rules}
+                  onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
+                  metrics={draft.key_metrics}
+                  confidenceHandling={draft.confidence_handling ?? "skip"}
+                  onConfidenceHandlingChange={(v) => updateWithCriticalTrack("confidence_handling", v)}
+                  minMetricsThreshold={draft.min_metrics_threshold ?? 50}
+                  onMinMetricsThresholdChange={(v) => updateWithCriticalTrack("min_metrics_threshold", v)}
+                  scoreBands={draft.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" }}
+                  onScoreBandsChange={(v) => updateWithCriticalTrack("score_bands", v)}
+                  renormalizeOnSkip={draft.scoring_renormalize_on_skip ?? true}
+                  onRenormalizeOnSkipChange={(v) => updateWithCriticalTrack("scoring_renormalize_on_skip", v)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Common Errors</div>
+              <div className="border-t border-outline-variant/10 pt-5">
+                <CommonErrorsEditor
+                  errors={draft.common_errors}
+                  onChange={(e) => update("common_errors", e)}
+                  onConfirmDelete={(opts) => setConfirmModal(opts)}
+                />
+              </div>
+            </div>
           </div>
         )}
 
+        {/* Phase 1c.3-D: Phases tab now optionally houses a Checkpoints
+            sub-section. Visibility is gated on segmentation_method ===
+            "checkpoint" — when proportional, the sub-section is fully hidden
+            (Decision F.a). Checkpoints data persists to its own column;
+            switching segmentation_method back to proportional preserves
+            existing checkpoint definitions, it only hides the editor. */}
+        {tab === "phases" && (
+          <div className="space-y-10">
+            <div className="space-y-4">
+              <CoachingCuesMigrationBanner
+                surface="phases"
+                status={draft.coaching_cues_migration_status ?? "pending"}
+                confirmed_count={confirmedPhaseIds.size}
+                total_phases={draft.phase_breakdown.length}
+                onOpenModal={() => setMigrationModalOpen(true)}
+              />
+              <PhasesEditor
+                phases={draft.phase_breakdown}
+                onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
+                segmentationMethod={draft.segmentation_method ?? "proportional"}
+                onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+                onConfirmDelete={(opts) => setConfirmModal(opts)}
+                advancedEnabled={true}
+              />
+            </div>
+
+            {(draft.segmentation_method ?? "proportional") === "checkpoint" && (
+              <div>
+                <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Checkpoints</div>
+                <p className="text-on-surface-variant text-xs leading-snug mt-1 mb-3">
+                  Frame-level body position events that trigger phase boundaries. Active because Segmentation Method is set to Checkpoint-triggered.
+                </p>
+                <div className="border-t border-outline-variant/10 pt-5">
+                  <CheckpointsEditor
+                    checkpoints={draft.form_checkpoints}
+                    onChange={(c) => update("form_checkpoints", c)}
+                    onConfirmDelete={(opts) => setConfirmModal(opts)}
+                    phases={draft.phase_breakdown}
+                    segmentationMethod={draft.segmentation_method ?? "proportional"}
+                    keyMetrics={draft.key_metrics}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phase 1c.3-D: Reference tab now houses both pixel calibration
+            (existing) and athlete-facing Filming Guidance (folded in from
+            the retired "camera" tab). */}
         {tab === "reference" && (
-          <ReferenceCalibrationEditor
-            calibrations={draft.reference_calibrations ?? []}
-            onCalibrationsChange={(c) => update("reference_calibrations", c)}
-            skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
-            onSkillSpecificFilmingNotesChange={(v) => {
-              const settings = parseCameraSettings(draft.camera_guidelines);
-              update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
-            }}
-            fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
-            onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
-            eliteVideos={draft.elite_videos ?? []}
-          />
-        )}
+          <div className="space-y-10">
+            <ReferenceCalibrationEditor
+              calibrations={draft.reference_calibrations ?? []}
+              onCalibrationsChange={(c) => update("reference_calibrations", c)}
+              skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
+              onSkillSpecificFilmingNotesChange={(v) => {
+                const settings = parseCameraSettings(draft.camera_guidelines);
+                update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
+              }}
+              fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
+              onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
+              eliteVideos={draft.elite_videos ?? []}
+            />
 
-        {tab === "camera" && (
-          <CameraEditor node={draft} value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
-        )}
-
-        {tab === "checkpoints" && (
-          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} segmentationMethod={draft.segmentation_method ?? "proportional"} keyMetrics={draft.key_metrics} />
+            <div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Filming Guidance</div>
+              <p className="text-on-surface-variant text-xs leading-snug mt-1 mb-3">
+                Athlete-facing filming requirements (FPS, resolution, distance, instructions). Sets pre-upload expectations so the analysis pipeline gets reliable keypoint detection.
+              </p>
+              <div className="border-t border-outline-variant/10 pt-5">
+                <CameraEditor node={draft} value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
+              </div>
+            </div>
+          </div>
         )}
 
         {tab === "prompt" && (
@@ -1129,15 +1180,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <BadgesEditor badges={draft.badges} keyMetrics={draft.key_metrics} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
-        {tab === "training_status" && (
-          <TrainingStatusEditor
-            node={draft}
-            onDetFrequencySoloChange={(v) => updateWithCriticalTrack("det_frequency_solo", v)}
-            onDetFrequencyDefenderChange={(v) => updateWithCriticalTrack("det_frequency_defender", v)}
-            onDetFrequencyMultipleChange={(v) => updateWithCriticalTrack("det_frequency_multiple", v)}
-            onNavigateTab={(t) => setTab(t)}
-          />
-        )}
+        {/* Phase 1c.3-D: Training Status tab retired. det_frequency triplet
+            moved into Basics → Pipeline Config. The standalone
+            TrainingStatusEditor function below is unused and intentionally
+            kept temporarily as dead code so its readiness logic is available
+            for reference until the consolidated readiness bar covers all
+            categories. */}
 
         {tab === "test" && (
           <TestingPanel node={draft} />
