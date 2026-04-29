@@ -2289,39 +2289,27 @@ const DEFAULT_CALIBRATIONS: Record<CameraAngle, Partial<ReferenceCalibration>> =
 };
 
 function ReferenceCalibrationEditor({
-  solutionClass,
   calibrations,
   onCalibrationsChange,
   skillSpecificFilmingNotes,
   onSkillSpecificFilmingNotesChange,
-  genericFallbackInstructions,
-  onGenericFallbackInstructionsChange,
   fallbackBehavior,
   onFallbackBehaviorChange,
 }: {
-  solutionClass: string;
   calibrations: ReferenceCalibration[];
   onCalibrationsChange: (c: ReferenceCalibration[]) => void;
   skillSpecificFilmingNotes: string;
   onSkillSpecificFilmingNotesChange: (v: string) => void;
-  genericFallbackInstructions: string;
-  onGenericFallbackInstructionsChange: (v: string) => void;
   fallbackBehavior: ReferenceFallback;
   onFallbackBehaviorChange: (v: ReferenceFallback) => void;
   eliteVideos: EliteVideo[];
 }) {
+  // Phase 1c.3-C (F-SLICE-E-6): solutionClass prop removed (column dropped in
+  // 20260426025918). The wholebody3d short-circuit branch and the
+  // genericFallbackInstructions textarea (which wrote to the dropped
+  // reference_filming_instructions column) were deleted at the same time.
   const [collapsed, setCollapsed] = useState<Set<CameraAngle>>(new Set(["behind_qb", "endzone"]));
 
-  if (solutionClass === "wholebody3d") {
-    return (
-      <div className="rounded-xl border border-primary-container/30 p-5 flex items-start gap-3" style={{ backgroundColor: 'rgba(0,230,57,0.06)' }}>
-        <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontSize: 20 }}>check_circle</span>
-        <p className="text-on-surface text-sm leading-relaxed">
-          <span className="font-bold text-primary-container">Reference calibration not required</span> — this node uses Wholebody3d which returns 3D coordinates in meters. Distance and Velocity metrics do not require pixel-to-yard conversion.
-        </p>
-      </div>
-    );
-  }
 
   const getCalibration = (angle: CameraAngle): ReferenceCalibration => {
     const existing = calibrations.find(c => c.camera_angle === angle);
