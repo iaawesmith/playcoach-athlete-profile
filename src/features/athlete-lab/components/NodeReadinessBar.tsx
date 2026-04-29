@@ -171,8 +171,11 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   camChecks.push({ label: "Minimum resolution configured", pass: resOk });
   camChecks.push({ label: "Recommended distance configured", pass: distOk });
   categories.push({
-    name: "Camera", icon: "videocam", weight: 10, checks: camChecks, tab: "camera",
-    tooltip: "Camera requirements validate upload quality before analysis runs. Unconfigured = no quality control."
+    // Phase 1c.3-D: Camera tab folded into Reference (now houses both calibration
+    // and filming-guidance sections). Category retained as its own entry —
+    // Camera measures upload-quality requirements, distinct from pixel calibration.
+    name: "Camera", icon: "videocam", weight: 10, checks: camChecks, tab: "reference",
+    tooltip: "Camera requirements validate upload quality before analysis runs. Unconfigured = no quality control. Lives under Reference → Filming Guidance."
   });
 
   // 7. REFERENCE CALIBRATION — 5%
