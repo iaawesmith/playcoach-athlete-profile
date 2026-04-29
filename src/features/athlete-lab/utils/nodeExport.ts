@@ -11,7 +11,14 @@ import keypointLibrary from "@/constants/keypointLibrary.json";
 // inactive metrics. The `m.active !== false` filter is centralized there —
 // do not duplicate it inline in new generators.
 
-type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges";
+// Phase 1c.3-D: Consolidated tab keys (8). Per Decision H, copying a
+// consolidated tab emits all merged sub-section markdown — Metrics tab
+// returns metrics+scoring+errors; Reference returns reference+camera;
+// Phases returns phases+checkpoints (when checkpoint-segmented); Basics
+// returns basics+pipeline-config. Per-section generators below are
+// preserved and combined inside generateTabMarkdown / TAB_GENERATORS.
+type TabKey = "basics" | "videos" | "phases" | "metrics" | "reference" | "prompt" | "badges";
+type LegacyTabKey = "mechanics" | "scoring" | "errors" | "camera" | "checkpoints" | "training_status";
 
 const kpMap = new Map<number, string>();
 for (const kp of (keypointLibrary as any).keypoints) {
