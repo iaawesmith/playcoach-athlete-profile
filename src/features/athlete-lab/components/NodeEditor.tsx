@@ -197,19 +197,9 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     issues.push({ label: "Clip Duration", detail: "Minimum must be less than maximum" });
   }
 
-  // Every mechanics section must be linked to a valid phase
-  try {
-    const mechanicsSections: MechanicsSection[] = node.pro_mechanics ? JSON.parse(node.pro_mechanics) : [];
-    if (Array.isArray(mechanicsSections)) {
-      const phaseIds = new Set((node.phase_breakdown || []).map(p => p.id).filter(Boolean));
-      for (const sec of mechanicsSections) {
-        if (!sec.phase_id || !phaseIds.has(sec.phase_id)) {
-          issues.push({ label: "Mechanics", detail: "All mechanics sections must be linked to a valid phase" });
-          break;
-        }
-      }
-    }
-  } catch { /* old format, ignore */ }
+  // Mechanics validation removed in Phase 1c.3-B (ADR-0015). The pro_mechanics field
+  // and CoachingCues migration subsystem remain pending — see phase-1c3-prep-backlog.md.
+
 
   // Phase proportion weights must sum to 100 (only when using proportional segmentation)
   const segMethod = node.segmentation_method ?? "proportional";
@@ -1001,22 +991,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <EliteVideosEditor videos={draft.elite_videos} onChange={(v) => update("elite_videos", v)} />
         )}
 
-        {false && (
-          <div className="space-y-4">
-            <CoachingCuesMigrationBanner
-              surface="mechanics"
-              status={draft.coaching_cues_migration_status ?? "pending"}
-              confirmed_count={confirmedPhaseIds.size}
-              total_phases={draft.phase_breakdown.length}
-              onOpenModal={() => setMigrationModalOpen(true)}
-            />
-            <div className="flex items-center gap-1.5">
-              <label className={LABEL_CLASS}>Phase Mechanics</label>
-              <SectionTooltip tip="Describe the coaching cues and technique for each phase of this skill. Each section must be linked to a phase defined in the Phases tab — this ensures the AI feedback engine receives the correct coaching context for each movement phase. Write in direct coaching language aimed at athletes aged 14-22." />
-            </div>
-            <MechanicsEditor value={draft.pro_mechanics} onChange={(v) => update("pro_mechanics", v)} phases={draft.phase_breakdown} metrics={draft.key_metrics} onConfirmDelete={(opts) => setConfirmModal(opts)} />
-          </div>
-        )}
+        {/* Mechanics tab fully removed in Phase 1c.3-B — see ADR-0015. */}
 
         {tab === "metrics" && (
           <ActiveMetricsSection
