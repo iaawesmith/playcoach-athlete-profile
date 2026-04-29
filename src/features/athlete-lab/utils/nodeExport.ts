@@ -11,7 +11,14 @@ import keypointLibrary from "@/constants/keypointLibrary.json";
 // inactive metrics. The `m.active !== false` filter is centralized there —
 // do not duplicate it inline in new generators.
 
-type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges";
+// Phase 1c.3-D: Consolidated tab keys (8). Per Decision H, copying a
+// consolidated tab emits all merged sub-section markdown — Metrics tab
+// returns metrics+scoring+errors; Reference returns reference+camera;
+// Phases returns phases+checkpoints (when checkpoint-segmented); Basics
+// returns basics+pipeline-config. Per-section generators below are
+// preserved and combined inside generateTabMarkdown / TAB_GENERATORS.
+type TabKey = "basics" | "videos" | "phases" | "metrics" | "reference" | "prompt" | "badges";
+type LegacyTabKey = "mechanics" | "scoring" | "errors" | "camera" | "checkpoints" | "training_status";
 
 const kpMap = new Map<number, string>();
 for (const kp of (keypointLibrary as any).keypoints) {
@@ -353,17 +360,28 @@ function generateKnowledgeBase(node: TrainingNode): string {
 // decision, the export's Training Status section is deleted entirely
 // rather than retained with placeholder values.
 
+// Phase 1c.3-D (Decision H): tab generators now combine merged sub-section
+// markdown for the consolidated 8-tab set. Copying the Metrics tab returns
+// metrics + scoring + errors; Reference returns reference + camera; Phases
+// returns phases + checkpoints (only when checkpoint-segmented to avoid
+// noise); Basics returns basics + the surviving det_frequency triplet under
+// a "Pipeline Config" sub-section. The retired single-section generators
+// (generateScoring/Errors/Camera/Checkpoints) are still called as
+// composable building blocks — only the tab-key surface collapsed.
+function generatePipelineConfig(node: TrainingNode): string {
+  return `## Pipeline Config\n\nDetection Frequency (frames between full detections):\n  Solo (1 person): ${node.det_frequency_solo ?? 2}\n  With Defender (2 people): ${node.det_frequency_defender ?? 1}\n  Multiple People: ${node.det_frequency_multiple ?? 1}\n\nDefault when no context is available: solo (2 frames).`;
+}
+
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
-  basics: generateBasics,
+  basics: (node) => `${generateBasics(node)}\n\n${generatePipelineConfig(node)}`,
   videos: generateVideos,
-  phases: generatePhases,
-  mechanics: generateMechanics,
-  metrics: generateMetrics,
-  scoring: generateScoring,
-  errors: generateErrors,
-  reference: generateReference,
-  camera: generateCamera,
-  checkpoints: generateCheckpoints,
+  phases: (node) => {
+    const seg = node.segmentation_method ?? "proportional";
+    const base = generatePhases(node);
+    return seg === "checkpoint" ? `${base}\n\n${generateCheckpoints(node)}` : base;
+  },
+  metrics: (node) => `${generateMetrics(node)}\n\n${generateScoring(node)}\n\n${generateErrors(node)}`,
+  reference: (node) => `${generateReference(node)}\n\n${generateCamera(node)}`,
   prompt: generatePrompt,
   badges: generateBadges,
 };
@@ -372,21 +390,28 @@ const TAB_LABELS: Record<TabKey, string> = {
   basics: "Basics",
   videos: "Videos",
   phases: "Phases",
-  mechanics: "Mechanics",
   metrics: "Metrics",
-  scoring: "Scoring",
-  errors: "Errors",
   reference: "Reference",
-  camera: "Camera",
-  checkpoints: "Checkpoints",
   prompt: "LLM Prompt",
   badges: "Badges",
 };
 
-export function generateTabMarkdown(node: TrainingNode, tabKey: TabKey): string {
-  const gen = TAB_GENERATORS[tabKey];
+export function generateTabMarkdown(node: TrainingNode, tabKey: TabKey | LegacyTabKey): string {
+  // Phase 1c.3-D: tolerate stale callers passing legacy tab keys (scoring,
+  // errors, camera, checkpoints, mechanics, training_status). Redirect to the
+  // consolidated parent so copy-tab never returns an empty string.
+  const REDIRECT: Record<LegacyTabKey, TabKey> = {
+    mechanics: "phases",
+    scoring: "metrics",
+    errors: "metrics",
+    camera: "reference",
+    checkpoints: "phases",
+    training_status: "basics",
+  };
+  const resolved = (REDIRECT[tabKey as LegacyTabKey] ?? tabKey) as TabKey;
+  const gen = TAB_GENERATORS[resolved];
   if (!gen) return "";
-  const label = TAB_LABELS[tabKey] ?? tabKey;
+  const label = TAB_LABELS[resolved] ?? resolved;
   return `${header(node, label)}\n${gen(node)}`;
 }
 

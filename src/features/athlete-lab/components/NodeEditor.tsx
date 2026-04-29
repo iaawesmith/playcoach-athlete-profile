@@ -55,34 +55,50 @@ interface NodeEditorProps {
   onIconChange?: (nodeId: string, iconUrl: string | null) => void;
 }
 
-type TabKey = "basics" | "videos" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+// Phase 1c.3-D: Tab consolidation 13 → 8. Surviving tabs:
+// basics (+ Pipeline Config + Training Status readiness), videos, phases (+ Checkpoints sub-section
+// when segmentation_method === "checkpoint"), metrics (+ Scoring + Errors), reference (+ Filming
+// Guidance / Camera), prompt, badges, test. Retired tab keys and their redirect targets are
+// handled by the consolidation banner and the HelpDrawer redirect map.
+type TabKey = "basics" | "videos" | "phases" | "metrics" | "reference" | "prompt" | "badges" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
-  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, and upload constraints for this node. Status controls whether athlete uploads trigger automatic analysis." },
+  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, upload constraints, and pipeline detection-frequency configuration for this node." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add elite reference videos with clip timestamps, camera angle, and type. One video must be flagged as the Reference shown to athletes alongside their results." },
-  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. Each phase controls how video frames are segmented during analysis — set proportion weights to ensure metrics are evaluated in the right moment of the movement." },
-  // Mechanics tab fully removed in Phase 1c.3-B (knowledge_base.mechanics merged into
-  // knowledge_base.phases per R-12; MechanicsEditor.tsx deleted; pro_mechanics column
-  // dropped in 1c.2). See ADR-0015 and docs/process/phase-1c3-slice-b-outcome.md.
-  { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures in each phase and how scores are calculated. Each metric maps body keypoints to a calculation type — the direct instruction set for the analysis pipeline." },
-  { key: "scoring", label: "Scoring", icon: "scoreboard", subtitle: "Configure how the Mastery Score is calculated, how low-confidence keypoints are handled, and how scores are communicated to athletes." },
-  { key: "errors", label: "Errors", icon: "error_outline", subtitle: "Define common mistakes, set severity levels, and configure auto-detection conditions so the pipeline can automatically confirm errors from metric output." },
-  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Define reference objects for each camera angle so the pipeline can convert pixel distances to real-world yards. Required for all Distance and Velocity metrics." },
-  { key: "camera", label: "Filming Guidance", icon: "videocam", subtitle: "Athlete-facing filming requirements and instructions. Sets expectations for FPS, resolution, distance, and visible body parts so uploads produce reliable keypoint detection." },
-  { key: "checkpoints", label: "Checkpoints", icon: "flag", subtitle: "Define frame-level body position events that trigger phase boundaries. Used when Segmentation Method in the Phases tab is set to Checkpoint-triggered." },
+  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. When Segmentation Method is set to Checkpoint-triggered, configure the per-frame Checkpoints in the sub-section below." },
+  { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures, how scores are calculated, and the common errors the pipeline auto-detects from metric output. Includes Scoring and Errors sections." },
+  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Configure pixel-to-yard calibrations for each camera angle and the athlete-facing Filming Guidance (FPS, resolution, distance, instructions)." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Define achievements athletes earn by hitting performance milestones. Badges appear on athlete profiles and provide motivation to improve." },
-  { key: "training_status", label: "Training Status", icon: "memory", subtitle: "Configure the pose estimation engine settings for this node. These parameters are passed to the analysis service and determine which model runs and how." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
 ];
 
 
-/* Critical tabs that auto-draft when changed on a live node */
-const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "scoring", "prompt", "training_status"];
+/* Critical tabs that auto-draft when changed on a live node. The retired
+   "scoring" and "training_status" keys collapsed into "metrics" and "basics"
+   respectively; their CRITICAL semantics ride on the surviving parents. */
+const CRITICAL_TABS: TabKey[] = ["metrics", "phases", "prompt", "basics"];
 
-/* Tabs hidden by default — re-enabled with the Show Advanced Tabs toggle */
-const ADVANCED_TAB_KEYS: TabKey[] = ["errors", "checkpoints", "reference", "scoring", "training_status"];
-const ADVANCED_TABS_STORAGE_KEY = "athleteLab.showAdvancedTabs";
+/* Phase 1c.3-D: ADVANCED_TAB_KEYS / showAdvancedTabs toggle / advanced-tabs
+   localStorage retired. Every surviving tab is always visible. The retired
+   storage key (athleteLab.showAdvancedTabs) is left in place — it is
+   harmless if present and will not be re-read. */
+
+/* Phase 1c.3-D: Hash-anchor redirect map for stale URLs / bookmarks pointing
+   at retired tabs. Keys are former tab anchors; values are the surviving
+   parent tab. Consumed by the useEffect that watches window.location.hash. */
+const HASH_REDIRECT_MAP: Record<string, TabKey> = {
+  scoring: "metrics",
+  errors: "metrics",
+  camera: "reference",
+  "filming-guidance": "reference",
+  checkpoints: "phases",
+  training_status: "basics",
+  "training-status": "basics",
+  "pipeline-config": "basics",
+  mechanics: "phases",
+  overview: "basics",
+};
 
 /* ── Shared style constants ── */
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319]";
@@ -421,28 +437,38 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     }
     return s;
   });
-  const [showAdvancedTabs, setShowAdvancedTabs] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(ADVANCED_TABS_STORAGE_KEY) === "true";
-  });
-  /* Persist advanced-tabs preference + auto-bounce off hidden tabs when toggled off */
+  /* Phase 1c.3-D: Stale-session bounce + hash-anchor redirect.
+     Retired tab keys (scoring, errors, camera, checkpoints, training_status,
+     overview, mechanics) are coerced to their consolidated parent. Hash
+     anchors from old bookmarks are also redirected. */
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(ADVANCED_TABS_STORAGE_KEY, showAdvancedTabs ? "true" : "false");
+    const tabAsAny = tab as unknown as string;
+    if (HASH_REDIRECT_MAP[tabAsAny]) {
+      setTab(HASH_REDIRECT_MAP[tabAsAny]);
+      return;
     }
-    if (!showAdvancedTabs && ADVANCED_TAB_KEYS.includes(tab)) {
-      setTab("basics");
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = window.location.hash.slice(1);
+      const target = HASH_REDIRECT_MAP[hash];
+      if (target) {
+        setTab(target);
+        // Strip the stale anchor so we don't bounce on every render.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
     }
-    // Overview tab was merged into Basics — auto-bounce stale sessions
-    if ((tab as string) === "overview") {
-      setTab("basics");
-    }
-  }, [showAdvancedTabs, tab]);
+  }, [tab]);
 
-  const visibleTabs = useMemo(
-    () => (showAdvancedTabs ? TABS : TABS.filter((t) => !ADVANCED_TAB_KEYS.includes(t.key))),
-    [showAdvancedTabs]
-  );
+  /* Coerce a stale helpTabKey (e.g., "scoring" persisted from an older
+     session) to its consolidated parent so HelpDrawer never receives a
+     value outside the new TabKey union. */
+  useEffect(() => {
+    const helpAsAny = helpTabKey as unknown as string;
+    if (HASH_REDIRECT_MAP[helpAsAny]) {
+      setHelpTabKey(HASH_REDIRECT_MAP[helpAsAny]);
+    }
+  }, [helpTabKey]);
+
+  const visibleTabs = TABS;
 
   useEffect(() => {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults.
@@ -687,18 +713,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             <span className={`w-2 h-2 rounded-full ${isLive ? "bg-primary-container" : "bg-on-surface-variant/50"}`} />
             {isLive ? "Live" : "Draft"}
           </div>
-          <button
-            onClick={() => setShowAdvancedTabs((v) => !v)}
-            title={showAdvancedTabs ? "Hide advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)" : "Show advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border cursor-pointer hover:brightness-110 active:scale-95 transition-all ${
-              showAdvancedTabs
-                ? "border-primary-container/30 bg-primary-container/10 text-primary-container"
-                : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
-            }`}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>tune</span>
-            Advanced Tabs
-          </button>
+          {/* Phase 1c.3-D: Advanced Tabs toggle retired alongside the
+              ADVANCED_TAB_KEYS scaffolding. Every surviving tab is always
+              visible — there is nothing to gate. */}
           <button
             onClick={save}
             disabled={saving || !dirty}
@@ -949,10 +966,58 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               {draft.clip_duration_min != null && draft.clip_duration_max != null && draft.clip_duration_min >= draft.clip_duration_max && (
                 <p className="text-red-400 text-xs font-medium">Minimum must be less than maximum</p>
               )}
-              
+
+            {/* Phase 1c.3-D: Pipeline Config — folded in from the retired
+                Training Status tab. The det_frequency triplet (solo / defender /
+                multiple) writes to the active per-context columns. The retired
+                solution_class / performance_mode / tracking_enabled fields were
+                dropped in 20260426025918 and are NOT shown here. */}
+            <div className="border-t border-white/[0.11] my-6" />
+            <div className="space-y-4">
+              <div className="flex items-center gap-1.5">
+                <label className={LABEL_CLASS}>Pipeline Config</label>
+                <SectionTooltip tip="Pose-engine detection-frequency tuning. The Edge Function reads the per-context value matching the athlete's pre-upload input about people in the video. Lower number = more accurate but slower." />
+              </div>
+              <div className="space-y-4">
+                {([
+                  { label: "Solo (1 person)", key: "det_frequency_solo" as const, value: draft.det_frequency_solo ?? 2, helper: "Recommended 2 — captures fast break movements reliably", defaultVal: 2 },
+                  { label: "With Defender (2 people)", key: "det_frequency_defender" as const, value: draft.det_frequency_defender ?? 1, helper: "Recommended 1 — frequent detection prevents person ID swap during close coverage", defaultVal: 1 },
+                  { label: "Multiple People", key: "det_frequency_multiple" as const, value: draft.det_frequency_multiple ?? 1, helper: "Recommended 1 — required for reliable tracking in crowded frame", defaultVal: 1 },
+                ]).map((scenario) => (
+                  <div key={scenario.label} className="flex items-start gap-4">
+                    <div className="w-48 shrink-0 pt-2.5">
+                      <span className="text-on-surface text-xs font-bold">{scenario.label}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={30}
+                          step={1}
+                          className={`${INPUT_CLASS} w-20 text-center`}
+                          value={scenario.value}
+                          onChange={(e) =>
+                            updateWithCriticalTrack(
+                              scenario.key,
+                              Math.max(1, Math.min(30, parseInt(e.target.value) || scenario.defaultVal))
+                            )
+                          }
+                        />
+                        <span className="text-on-surface-variant/50 text-xs">frames</span>
+                      </div>
+                      <p className="text-on-surface-variant/50 text-[10px] mt-1">{scenario.helper}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
+                <p className="text-on-surface-variant/40 text-[10px]">
+                  If no context is available, the pipeline treats the run as <span className="text-on-surface-variant/60 font-semibold">solo</span> and uses <span className="text-on-surface-variant/60 font-semibold">2</span> frames by default.
+                </p>
+              </div>
             </div>
 
-            {/* Version indicator */}
             <div className="pt-8 mt-2 border-t border-white/[0.27]" />
             <div className="pt-5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -975,76 +1040,127 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
         {/* Mechanics tab fully removed in Phase 1c.3-B — see ADR-0015. */}
 
+        {/* Phase 1c.3-D: Metrics tab now houses three sub-sections —
+            Active Metrics (primary editor), Scoring (folded in from retired
+            "scoring" tab), and Common Errors (folded in from retired
+            "errors" tab). All three persist to their own columns; only
+            their UI surface was consolidated. */}
         {tab === "metrics" && (
-          <ActiveMetricsSection
-            allMetrics={draft.key_metrics}
-            onChange={(m) => updateWithCriticalTrack("key_metrics", m)}
-            onConfirmDelete={(opts) => setConfirmModal(opts)}
-            phases={draft.phase_breakdown}
-          />
-        )}
-
-        {tab === "scoring" && (
-          <ScoringEditor
-            scoringRules={draft.scoring_rules}
-            onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
-            metrics={draft.key_metrics}
-            confidenceHandling={draft.confidence_handling ?? "skip"}
-            onConfidenceHandlingChange={(v) => updateWithCriticalTrack("confidence_handling", v)}
-            minMetricsThreshold={draft.min_metrics_threshold ?? 50}
-            onMinMetricsThresholdChange={(v) => updateWithCriticalTrack("min_metrics_threshold", v)}
-            scoreBands={draft.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" }}
-            onScoreBandsChange={(v) => updateWithCriticalTrack("score_bands", v)}
-            renormalizeOnSkip={draft.scoring_renormalize_on_skip ?? true}
-            onRenormalizeOnSkipChange={(v) => updateWithCriticalTrack("scoring_renormalize_on_skip", v)}
-          />
-        )}
-
-        {tab === "errors" && (
-          <CommonErrorsEditor errors={draft.common_errors} onChange={(e) => update("common_errors", e)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
-        )}
-
-        {tab === "phases" && (
-          <div className="space-y-4">
-            <CoachingCuesMigrationBanner
-              surface="phases"
-              status={draft.coaching_cues_migration_status ?? "pending"}
-              confirmed_count={confirmedPhaseIds.size}
-              total_phases={draft.phase_breakdown.length}
-              onOpenModal={() => setMigrationModalOpen(true)}
-            />
-            <PhasesEditor
-              phases={draft.phase_breakdown}
-              onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
-              segmentationMethod={draft.segmentation_method ?? "proportional"}
-              onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+          <div className="space-y-10">
+            <ActiveMetricsSection
+              allMetrics={draft.key_metrics}
+              onChange={(m) => updateWithCriticalTrack("key_metrics", m)}
               onConfirmDelete={(opts) => setConfirmModal(opts)}
-              advancedEnabled={showAdvancedTabs}
+              phases={draft.phase_breakdown}
             />
+
+            <div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Scoring</div>
+              <div className="border-t border-outline-variant/10 pt-5">
+                <ScoringEditor
+                  scoringRules={draft.scoring_rules}
+                  onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
+                  metrics={draft.key_metrics}
+                  confidenceHandling={draft.confidence_handling ?? "skip"}
+                  onConfidenceHandlingChange={(v) => updateWithCriticalTrack("confidence_handling", v)}
+                  minMetricsThreshold={draft.min_metrics_threshold ?? 50}
+                  onMinMetricsThresholdChange={(v) => updateWithCriticalTrack("min_metrics_threshold", v)}
+                  scoreBands={draft.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" }}
+                  onScoreBandsChange={(v) => updateWithCriticalTrack("score_bands", v)}
+                  renormalizeOnSkip={draft.scoring_renormalize_on_skip ?? true}
+                  onRenormalizeOnSkipChange={(v) => updateWithCriticalTrack("scoring_renormalize_on_skip", v)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Common Errors</div>
+              <div className="border-t border-outline-variant/10 pt-5">
+                <CommonErrorsEditor
+                  errors={draft.common_errors}
+                  onChange={(e) => update("common_errors", e)}
+                  onConfirmDelete={(opts) => setConfirmModal(opts)}
+                />
+              </div>
+            </div>
           </div>
         )}
 
+        {/* Phase 1c.3-D: Phases tab now optionally houses a Checkpoints
+            sub-section. Visibility is gated on segmentation_method ===
+            "checkpoint" — when proportional, the sub-section is fully hidden
+            (Decision F.a). Checkpoints data persists to its own column;
+            switching segmentation_method back to proportional preserves
+            existing checkpoint definitions, it only hides the editor. */}
+        {tab === "phases" && (
+          <div className="space-y-10">
+            <div className="space-y-4">
+              <CoachingCuesMigrationBanner
+                surface="phases"
+                status={draft.coaching_cues_migration_status ?? "pending"}
+                confirmed_count={confirmedPhaseIds.size}
+                total_phases={draft.phase_breakdown.length}
+                onOpenModal={() => setMigrationModalOpen(true)}
+              />
+              <PhasesEditor
+                phases={draft.phase_breakdown}
+                onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
+                segmentationMethod={draft.segmentation_method ?? "proportional"}
+                onSegmentationMethodChange={(m) => update("segmentation_method", m)}
+                onConfirmDelete={(opts) => setConfirmModal(opts)}
+                advancedEnabled={true}
+              />
+            </div>
+
+            {(draft.segmentation_method ?? "proportional") === "checkpoint" && (
+              <div>
+                <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Checkpoints</div>
+                <p className="text-on-surface-variant text-xs leading-snug mt-1 mb-3">
+                  Frame-level body position events that trigger phase boundaries. Active because Segmentation Method is set to Checkpoint-triggered.
+                </p>
+                <div className="border-t border-outline-variant/10 pt-5">
+                  <CheckpointsEditor
+                    checkpoints={draft.form_checkpoints}
+                    onChange={(c) => update("form_checkpoints", c)}
+                    onConfirmDelete={(opts) => setConfirmModal(opts)}
+                    phases={draft.phase_breakdown}
+                    segmentationMethod={draft.segmentation_method ?? "proportional"}
+                    keyMetrics={draft.key_metrics}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phase 1c.3-D: Reference tab now houses both pixel calibration
+            (existing) and athlete-facing Filming Guidance (folded in from
+            the retired "camera" tab). */}
         {tab === "reference" && (
-          <ReferenceCalibrationEditor
-            calibrations={draft.reference_calibrations ?? []}
-            onCalibrationsChange={(c) => update("reference_calibrations", c)}
-            skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
-            onSkillSpecificFilmingNotesChange={(v) => {
-              const settings = parseCameraSettings(draft.camera_guidelines);
-              update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
-            }}
-            fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
-            onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
-            eliteVideos={draft.elite_videos ?? []}
-          />
-        )}
+          <div className="space-y-10">
+            <ReferenceCalibrationEditor
+              calibrations={draft.reference_calibrations ?? []}
+              onCalibrationsChange={(c) => update("reference_calibrations", c)}
+              skillSpecificFilmingNotes={parseCameraSettings(draft.camera_guidelines).skill_specific_filming_notes ?? ""}
+              onSkillSpecificFilmingNotesChange={(v) => {
+                const settings = parseCameraSettings(draft.camera_guidelines);
+                update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
+              }}
+              fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
+              onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
+              eliteVideos={draft.elite_videos ?? []}
+            />
 
-        {tab === "camera" && (
-          <CameraEditor node={draft} value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
-        )}
-
-        {tab === "checkpoints" && (
-          <CheckpointsEditor checkpoints={draft.form_checkpoints} onChange={(c) => update("form_checkpoints", c)} onConfirmDelete={(opts) => setConfirmModal(opts)} phases={draft.phase_breakdown} segmentationMethod={draft.segmentation_method ?? "proportional"} keyMetrics={draft.key_metrics} />
+            <div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Filming Guidance</div>
+              <p className="text-on-surface-variant text-xs leading-snug mt-1 mb-3">
+                Athlete-facing filming requirements (FPS, resolution, distance, instructions). Sets pre-upload expectations so the analysis pipeline gets reliable keypoint detection.
+              </p>
+              <div className="border-t border-outline-variant/10 pt-5">
+                <CameraEditor node={draft} value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
+              </div>
+            </div>
+          </div>
         )}
 
         {tab === "prompt" && (
@@ -1064,15 +1180,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           <BadgesEditor badges={draft.badges} keyMetrics={draft.key_metrics} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
 
-        {tab === "training_status" && (
-          <TrainingStatusEditor
-            node={draft}
-            onDetFrequencySoloChange={(v) => updateWithCriticalTrack("det_frequency_solo", v)}
-            onDetFrequencyDefenderChange={(v) => updateWithCriticalTrack("det_frequency_defender", v)}
-            onDetFrequencyMultipleChange={(v) => updateWithCriticalTrack("det_frequency_multiple", v)}
-            onNavigateTab={(t) => setTab(t)}
-          />
-        )}
+        {/* Phase 1c.3-D: Training Status tab retired. det_frequency triplet
+            moved into Basics → Pipeline Config. The standalone
+            TrainingStatusEditor function below is unused and intentionally
+            kept temporarily as dead code so its readiness logic is available
+            for reference until the consolidated readiness bar covers all
+            categories. */}
 
         {tab === "test" && (
           <TestingPanel node={draft} />
