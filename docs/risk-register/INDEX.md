@@ -21,7 +21,7 @@
 | [R-02](R-02-system-parameter-substitution-fix-changes-claude-output-for-already-passing.md) | System-parameter substitution fix changes Claude output for already-passing nodes | open | Sev-2 | 1c.1 | — | — |
 | [R-03](R-03-phase-context-injection-blows-past-claude-token-budget.md) | `{{phase_context}}` injection blows past Claude token budget | open | Sev-3 | 1c.1 | — | — |
 | [R-04](R-04-backup-table-omits-a-text-bearing-field-making-rollback-impossible.md) | Backup table omits a text-bearing field, making rollback impossible | open | Sev-1 | 1c.2 | ADR-0007, ADR-0012 | — |
-| [R-05](R-05-tab-consolidation-hides-existing-draft-state-content-from-admins.md) | Tab consolidation hides existing draft-state content from admins | open | Sev-3 | 1c.3 | — | — |
+| [R-05](R-05-tab-consolidation-hides-existing-draft-state-content-from-admins.md) | Tab consolidation hides existing draft-state content from admins | mitigated | Sev-3 | 1c.3 | — | R-12, F-OPS-4 |
 | [R-06](R-06-det-frequency-defender--multiple-deletion-breaks-scenario-resolution-for-nodes-t.md) | `det_frequency_defender`/`_multiple` deletion breaks scenario resolution for nodes that never set `det_frequency_solo` | open | Sev-2 | 1c.2 | — | — |
 | [R-07](R-07-earmarked-but-deleted-athlete-ui-fields-lose-institutional-memory.md) | Earmarked-but-deleted athlete-UI fields lose institutional memory | open | Sev-3 | 1c.2 | — | — |
 | [R-08](R-08-removing-solution-class-performance-mode-tracking-enabled-breaks-the-cloud-run-r.md) | Removing `solution_class`, `performance_mode`, `tracking_enabled` breaks the Cloud Run request shape | open | Sev-1 | 1c.2 | — | — |
