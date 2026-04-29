@@ -2,7 +2,7 @@
 
 **Source:** Split from `docs/migration-risk-register.md` during Phase 1c.2 cleanup (Pass 4, 2026-04-26). One file per entry. Schema in [`_schema.md`](_schema.md). Original combined doc is now an R2 redirect stub.
 
-**Counts:** 22 total entries — 12 risks (`R-01`–`R-12`) and 10 findings (`F-*`). Original source register listed "12 risks" in §4; the additional 10 findings were appended after foundation batch as Slice B / C / E work surfaced them.
+**Counts:** 24 total entries — 12 risks (`R-01`–`R-12`) and 12 findings (`F-*`). Original source register listed "12 risks" in §4; the additional findings were appended after foundation batch as Slice B / C / E and Phase 1c.3 work surfaced them.
 
 **Severity scale** (unchanged from source):
 - **Sev-1** — blocks production analyses
