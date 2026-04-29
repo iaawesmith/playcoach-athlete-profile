@@ -76,6 +76,29 @@ interface TabDef {
   icon: string;
 }
 
+/* Phase 1c.3-D: Internal redirect map for retired knowledge_base tab keys.
+   Mirrors NodeEditor's HASH_REDIRECT_MAP. Any caller (legacy URL hash,
+   stale stored helpTabKey, external link) that asks for a retired key is
+   coerced to its consolidated parent before knowledgeBase[key] lookup, so
+   sections are never silently empty for a key that still has content under
+   a different name. */
+const KB_REDIRECT_MAP: Record<string, string> = {
+  scoring: "metrics",
+  errors: "metrics",
+  camera: "reference",
+  "filming-guidance": "reference",
+  checkpoints: "phases",
+  training_status: "basics",
+  "training-status": "basics",
+  "pipeline-config": "basics",
+  mechanics: "phases",
+  overview: "basics",
+};
+
+function resolveTabKey(key: string): string {
+  return KB_REDIRECT_MAP[key] ?? key;
+}
+
 interface HelpDrawerProps {
   open: boolean;
   onClose: () => void;
