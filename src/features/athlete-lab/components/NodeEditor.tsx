@@ -6,6 +6,7 @@ import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
+import { ConsolidationRedirectBanner } from "./ConsolidationRedirectBanner";
 import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
