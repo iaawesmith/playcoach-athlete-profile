@@ -8,6 +8,8 @@
 
 ## V-1c.3-01 — Verify orphan status of `reference_object` and `llm_tone`
 
+> **Status:** ✅ **Resolved 2026-04-29** in `PHASE-1C3-SLICE-A`. Project-wide search returned zero hits outside the documented sites (`src/integrations/supabase/types.ts`, `docs/`, `supabase/migrations/`, `.lovable/`). Confirmed truly orphaned. Process learning captured in [`phase-1c3-slice-a-outcome.md`](phase-1c3-slice-a-outcome.md) and queued for the Phase 1c retrospective (Slice 1c.3-F).
+
 - **Logged:** 2026-04-26 (Slice E.5 re-run report §1.2 audit observation)
 - **Origin:** During the Slice E.5 §1.2 frontend audit (consumer scan for the 8 dropped columns), `reference_object` and `llm_tone` showed **zero consumers in `src/features/`**. The migration `20260426025918` dropped them with no functional impact detected on any kept tab during the re-run smoke.
 
@@ -52,19 +54,21 @@ Then narrow with `rg -n` on each hit to determine whether the reference is a rea
 
 ## Stub cleanup queue
 
-R2 redirect stubs created during Phase 1c.2 cleanup. Per the R2 stub policy ([`../agents/conventions.md`](../agents/conventions.md)), heavy-traffic doc moves get one phase boundary of redirect grace. At the start of Phase 1c.3, run `rg <old-path>` for each entry; remove the stub if no live in-repo references remain.
+> **Status:** ✅ **All 7 stubs retired 2026-04-29** in `PHASE-1C3-SLICE-A`. All removal-trigger queries returned zero hits. Table preserved below for historical reference.
 
-| Stub path | Created in pass | Replacement | Removal trigger |
+R2 redirect stubs created during Phase 1c.2 cleanup. Per the R2 stub policy ([`../agents/conventions.md`](../agents/conventions.md)), heavy-traffic doc moves get one phase boundary of redirect grace.
+
+| Stub path | Created in pass | Replacement | Status |
 |---|---|---|---|
-| `AGENTS.md` (root) | 1 | `PRODUCT-SPEC.md` | Remove at start of 1c.3 unless `rg "AGENTS\.md"` shows in-repo references |
-| `docs/run-analysis-observability-audit-v2.md` | 1 | `docs/reference/run-analysis-observability-audit.md` | Remove at start of 1c.3 unless `rg "observability-audit-v2"` shows in-repo references |
-| `docs/repo-architecture-audit.md` | 3a | `docs/architecture/repo-architecture-audit.md` | Remove at start of 1c.3 unless `rg "docs/repo-architecture-audit\.md"` shows in-repo references |
-| `docs/athlete-lab-architecture-audit.md` | 3a | `docs/architecture/athlete-lab-architecture-audit.md` | Remove at start of 1c.3 unless `rg "docs/athlete-lab-architecture-audit\.md"` shows in-repo references |
-| `docs/calibration-ground-truth-dataset.md` | 3a | `docs/reference/calibration-ground-truth-dataset.md` (prose); `docs/reference/calibration/ground-truth.yaml` (structured, Pass 3b) | Remove at start of 1c.3 unless `rg "docs/calibration-ground-truth-dataset\.md"` shows in-repo references |
-| `docs/phase-1c2-determinism-drift-log.md` | 3a | `docs/reference/phase-1c2-determinism-drift-log.md` (prose); `docs/reference/determinism-drift.csv` (structured, Pass 3c) | Remove at start of 1c.3 unless `rg "docs/phase-1c2-determinism-drift-log\.md"` shows in-repo references |
-| `docs/migration-risk-register.md` | 4 | `docs/risk-register/INDEX.md` (aggregated view) + `docs/risk-register/<ID>-<slug>.md` (one file per R-/F- entry) | Remove at start of 1c.3 unless `rg "migration-risk-register"` shows in-repo references |
+| `AGENTS.md` (root) | 1 | `PRODUCT-SPEC.md` | ✅ Removed 2026-04-29 |
+| `docs/run-analysis-observability-audit-v2.md` | 1 | `docs/reference/run-analysis-observability-audit.md` | ✅ Removed 2026-04-29 |
+| `docs/repo-architecture-audit.md` | 3a | `docs/architecture/repo-architecture-audit.md` | ✅ Removed 2026-04-29 |
+| `docs/athlete-lab-architecture-audit.md` | 3a | `docs/architecture/athlete-lab-architecture-audit.md` | ✅ Removed 2026-04-29 |
+| `docs/calibration-ground-truth-dataset.md` | 3a | `docs/reference/calibration-ground-truth-dataset.md` (prose); `docs/reference/calibration/ground-truth.yaml` (structured, Pass 3b) | ✅ Removed 2026-04-29 |
+| `docs/phase-1c2-determinism-drift-log.md` | 3a | `docs/reference/phase-1c2-determinism-drift-log.md` (prose); `docs/reference/determinism-drift.csv` (structured, Pass 3c) | ✅ Removed 2026-04-29 |
+| `docs/migration-risk-register.md` | 4 | `docs/risk-register/INDEX.md` (aggregated view) + `docs/risk-register/<ID>-<slug>.md` (one file per R-/F- entry) | ✅ Removed 2026-04-29 |
 
-**Total stubs after Pass 4:** 7 (2 from Pass 1 + 4 from Pass 3a + 1 from Pass 4). Additional R2 stubs created in later passes will be appended here.
+**Outcome:** 7 of 7 stubs retired with zero live references at removal-trigger time. R2 stub policy worked as designed — one phase boundary of grace, then clean removal.
 
 ---
 
