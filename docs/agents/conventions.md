@@ -203,7 +203,7 @@ When a new ADR replaces an existing decision:
    - Superseded ADR row shows `status: superseded` with link to replacement.
    - New ADR row shows what it supersedes.
 
-**Worked example:** When Phase 2 makes the Slice B2 calibration architecture decision (currently deferred per ADR-0004), the new ADR (e.g., ADR-0016 "Adopt world coordinates for calibration") would supersede ADR-0004. ADR-0004's status becomes `superseded`; its body remains as historical context for why deferral happened; ADR-0016 explains the new decision and references ADR-0004 in its Context section.
+**Worked example:** When Phase 2 makes the Slice B2 calibration architecture decision (currently deferred per ADR-0004), the new ADR (e.g., `ADR-0016` "Adopt world coordinates for calibration") would supersede ADR-0004. ADR-0004's status becomes `superseded`; its body remains as historical context for why deferral happened; the new ADR explains the new decision and references ADR-0004 in its Context section.
 
 ---
 
