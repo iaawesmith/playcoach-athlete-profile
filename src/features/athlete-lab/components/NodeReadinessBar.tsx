@@ -169,10 +169,10 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   });
 
   // 7. REFERENCE CALIBRATION — 5%
+  // Phase 1c.3-C: solution_class column dropped — drop the wholebody3d
+  // short-circuit and always run the per-angle calibration check.
   const refChecks: ReadinessCheck[] = [];
-  if (node.solution_class === "wholebody3d") {
-    refChecks.push({ label: "Not required — 3D pose engine", pass: true, warning: true });
-  } else {
+  {
     const usedAngles = new Set(configuredVids.map(v => v.camera_angle).filter(Boolean) as string[]);
     const cals = node.reference_calibrations ?? [];
     if (usedAngles.size === 0) {

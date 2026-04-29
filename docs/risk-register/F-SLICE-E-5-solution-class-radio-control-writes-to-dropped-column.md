@@ -1,20 +1,21 @@
 ---
 id: F-SLICE-E-5
 title: Solution Class radio control writes to dropped column
-status: open
+status: resolved
 severity: Sev-3
 origin_slice: 1c.2-Slice-E.5
 origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: []
-related_entries: [F-SEC-1, F-SLICE-E-4]
+related_entries: [F-SEC-1, F-SLICE-E-4, F-SLICE-E-6]
 opened: 2026-04-26
-last_updated: 2026-04-26
+last_updated: 2026-04-29
+resolved: 2026-04-29
 ---
 
 # F-SLICE-E-5 — Solution Class radio control writes to dropped column
 - **Severity:** Sev-3
 - **Logged:** 2026-04-26 (post-Slice-E.5 re-run report observation, §2.2 row 13)
-- **Status:** Open. Scheduled for Phase 1c.3 cleanup.
+- **Status:** **Resolved 2026-04-29** in Phase 1c.3 Slice C. Pre-execution sweep revealed this finding was one of four identical defects in the same defect class (Solution Class, Performance Mode, legacy `det_frequency`, Tracking — all routing through the shared `updateWithCriticalTrack` helper against columns dropped in migration `20260426025918`). Expanded scope captured as **[F-SLICE-E-6](F-SLICE-E-6-training-status-write-paths-class-defect.md)**, which was opened and closed in the same slice. See `docs/process/phase-1c3-slice-c-outcome.md` for resolution detail. Original finding text preserved below.
 - **Finding:** The Solution Class radio control on the Training Status tab is reachable and interactive: all three cards (Body, Body with Feet, Wholebody) render in an unselected state (the expected post-drop visual), and the click handler still binds form state for `solution_class`. If an admin clicks one of the cards and triggers Save, the form state would attempt to write `solution_class` to a column that no longer exists in the schema (dropped in migration `20260426025918`). Read paths were verified null-safe in the Slice E.5 §1.2 audit; the **write path was not audited** and remains coupled to the dropped column at the form-state level.
 - **Failure mode:** PATCH `4xx` from PostgREST with `column "solution_class" of relation "athlete_lab_nodes" does not exist` (error code `42703`). **Graceful save failure**, not a render crash — distinguishes this from F-SLICE-E-4 (Mechanics tab unmount). Admin sees a toast / network error rather than a white screen, and other tabs remain usable.
 - **Why latent in the re-run:** The Slice E.5 save validation toggled `phase_context_mode` (compact ↔ full), which exercises a different field. The Solution Class radio was visually inspected ("unselected, expected") but not clicked, so the write-path exposure was not triggered. PATCH 200 OK on the toggle does not generalize to all fields on the tab.
