@@ -112,7 +112,13 @@ interface HelpDrawerProps {
   onNodeSaved?: (updatedNode: unknown) => void;
 }
 
-export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange, nodeId, onNodeSaved }: HelpDrawerProps) {
+export function HelpDrawer({ open, onClose, tabKey: rawTabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange, nodeId, onNodeSaved }: HelpDrawerProps) {
+  /* Phase 1c.3-D: Coerce retired tab keys to their consolidated parent
+     before knowledgeBase lookup. Mirrors NodeEditor's HASH_REDIRECT_MAP so
+     stale callers (legacy URL hashes, persisted helpTabKey, etc.) never
+     see an empty section list for content that still exists under a new
+     parent name. */
+  const tabKey = resolveTabKey(rawTabKey);
   const sections = knowledgeBase[tabKey] ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
