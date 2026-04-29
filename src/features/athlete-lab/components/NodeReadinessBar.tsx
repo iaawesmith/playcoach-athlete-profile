@@ -1,11 +1,10 @@
-import { useState, useMemo, useRef, useCallback } from "react";
-import type { TrainingNode, MechanicsSection } from "../types";
+import { useState, useMemo, useRef } from "react";
+import type { TrainingNode } from "../types";
 import { checkCameraCompleteness } from "./CameraEditor";
-import { checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
-import { SectionTooltip } from "./SectionTooltip";
+import { migrateCheckpoints } from "./CheckpointsEditor";
 import { generateFullNodeMarkdown } from "../utils/nodeExport";
 
-type TabKey = "basics" | "videos" | "mechanics" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+type TabKey = "basics" | "videos" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
 
 interface ReadinessCheck {
   label: string;
