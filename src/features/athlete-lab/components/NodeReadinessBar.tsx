@@ -5,7 +5,11 @@ import { checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEd
 import { SectionTooltip } from "./SectionTooltip";
 import { generateFullNodeMarkdown } from "../utils/nodeExport";
 
-type TabKey = "basics" | "videos" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+// Phase 1c.3-D: Tab consolidation 13 → 8. Surviving tab keys:
+// basics, videos, phases, metrics, reference, prompt, badges, test.
+// Retired: scoring/errors (folded into metrics), camera (folded into reference),
+// checkpoints (folded into phases sub-section), training_status (folded into basics).
+type TabKey = "basics" | "videos" | "metrics" | "phases" | "reference" | "prompt" | "badges" | "test";
 
 interface ReadinessCheck {
   label: string;
@@ -94,8 +98,11 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     { label: "Pose engine selection deferred to Phase 1 (no admin gate)", pass: true, warning: true },
   ];
   categories.push({
-    name: "Training Status", icon: "memory", weight: 20, checks: tsChecks, tab: "training_status",
-    tooltip: "Pose-engine selection moved to Phase 1. No admin-side gating in Phase 1c."
+    // Phase 1c.3-D: Training Status tab folded into Basics ("Pipeline Config" sub-section).
+    // Category remains its own entry in the readiness rollup (20% weight unchanged) but
+    // routes admin clicks to the Basics tab where the surviving det_frequency triplet lives.
+    name: "Training Status", icon: "memory", weight: 20, checks: tsChecks, tab: "basics",
+    tooltip: "Pose-engine selection moved to Phase 1. No admin-side gating in Phase 1c. Detection frequency lives in Basics → Pipeline Config."
   });
 
   // 3. PHASES & STRUCTURE — 15%
@@ -164,8 +171,11 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   camChecks.push({ label: "Minimum resolution configured", pass: resOk });
   camChecks.push({ label: "Recommended distance configured", pass: distOk });
   categories.push({
-    name: "Camera", icon: "videocam", weight: 10, checks: camChecks, tab: "camera",
-    tooltip: "Camera requirements validate upload quality before analysis runs. Unconfigured = no quality control."
+    // Phase 1c.3-D: Camera tab folded into Reference (now houses both calibration
+    // and filming-guidance sections). Category retained as its own entry —
+    // Camera measures upload-quality requirements, distinct from pixel calibration.
+    name: "Camera", icon: "videocam", weight: 10, checks: camChecks, tab: "reference",
+    tooltip: "Camera requirements validate upload quality before analysis runs. Unconfigured = no quality control. Lives under Reference → Filming Guidance."
   });
 
   // 7. REFERENCE CALIBRATION — 5%
