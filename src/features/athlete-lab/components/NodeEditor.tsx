@@ -193,13 +193,12 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     }
   }
 
-  // Reference calibration checks (skip for wholebody3d)
-  if (node.solution_class !== "wholebody3d") {
-    const calibrations = node.reference_calibrations ?? [];
-    const hasAtLeastOne = calibrations.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-    if (!hasAtLeastOne) {
-      issues.push({ label: "Reference", detail: "At least one camera angle must be calibrated (pixels_per_yard set)" });
-    }
+  // Reference calibration checks (formerly skipped for wholebody3d nodes;
+  // solution_class column dropped in 20260426025918 — gate removed in 1c.3-C)
+  const calibrations = node.reference_calibrations ?? [];
+  const hasAtLeastOne = calibrations.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+  if (!hasAtLeastOne) {
+    issues.push({ label: "Reference", detail: "At least one camera angle must be calibrated (pixels_per_yard set)" });
   }
 
   // Camera completeness
