@@ -120,6 +120,42 @@ Decision deferred to next plan-mode pass after 1c.3-B closes. Candidate slice: 1
 
 ---
 
+## V-1c.3-07 — Wire `score_bands` consumer into athlete-facing UX
+
+**Origin:** PHASE-1C3-SLICE-D, R-11 mitigation tracking.
+
+**Why it matters:** R-11 (score_bands field stays orphaned, kept but no consumer) remains open with Sev-4. The field stayed in the schema after 1c.0 cleanup but no athlete-facing surface reads it. Until a consumer ships, the field is dead weight; admins editing score_bands don't see their edits reflected anywhere.
+
+**Verification task:** identify the athlete-facing UX surface that should consume `score_bands` (likely the per-rep result panel or the athlete profile Develop section per project-knowledge), wire the read path, and confirm an end-to-end edit-to-display loop.
+
+**Owner:** Phase 2 (analysis quality) or Phase 3 (athlete UI), whichever ships the consumer first. Not in scope for any remaining 1c.3 slice.
+
+---
+
+## V-1c.3-08 — Disposition decision for `kb.overview` and `kb.test` keys
+
+**Origin:** PHASE-1C3-SLICE-D, Q5 deferral.
+
+**Why it matters:** The 5-key `knowledge_base` consolidation in 1c.3-D dropped `scoring`, `errors`, `camera`, `checkpoints`, `training_status` and merged into 4 surviving consolidated keys. Two additional keys remain unmerged: `overview` and `test`. Plan v2 didn't specify their disposition. Q5 resolution: defer the decision to a 1c.3-F retrospective slice once the consolidated state has been used by admins for some period.
+
+**Verification task:** sample current node state for `knowledge_base.overview` and `knowledge_base.test` content. If non-empty across multiple nodes, decide between (a) merge into `basics` (mirrors training_status pattern), (b) keep as-is and surface in HelpDrawer with their own tab entries, or (c) drop entirely if dead.
+
+**Owner:** PHASE-1C3-SLICE-F retrospective.
+
+---
+
+## V-1c.3-09 — Reference Video Quality Guide overlap with Filming Guidance
+
+**Origin:** PHASE-1C3-SLICE-D, integration-decision G.
+
+**Why it matters:** The Videos tab includes a "Reference Video Quality Guide" callout block with FPS / resolution / distance guidance for admins selecting reference footage. PHASE-1C3-SLICE-D folded the legacy Filming Guidance tab into Reference (as `CameraEditor`) which surfaces athlete-facing filming guidance with overlapping content. Two surfaces now communicate similar but not identical guidance to different audiences (admins vs athletes). G decision: leave both surfaces in place for now and disposition during 1c.3-E.
+
+**Verification task:** audit both surfaces' content side-by-side. Decide whether to (a) consolidate into a single source-of-truth with audience-specific framing, (b) keep separate with explicit cross-references, or (c) drop the Videos-tab callout if Reference's filming guidance fully covers the admin use case.
+
+**Owner:** PHASE-1C3-SLICE-E.
+
+---
+
 ## (future entries)
 
 Add additional verification tasks here as they surface. Format: `V-1c.3-NN — <short title>`, with origin / why-it-matters / verification task / decision tree / owner.

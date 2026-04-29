@@ -2,7 +2,7 @@
 
 **Source:** Split from `docs/migration-risk-register.md` during Phase 1c.2 cleanup (Pass 4, 2026-04-26). One file per entry. Schema in [`_schema.md`](_schema.md). Original combined doc is now an R2 redirect stub.
 
-**Counts:** 26 total entries — 12 risks (`R-01`–`R-12`) and 14 findings (`F-*`). Original source register listed "12 risks" in §4; the additional findings were appended after foundation batch as Slice B / C / E and Phase 1c.3 work surfaced them.
+**Counts:** 26 total entries — 12 risks (`R-01`–`R-12`) and 14 findings (`F-*`). Original source register listed "12 risks" in §4; the additional findings were appended after foundation batch as Slice B / C / E and Phase 1c.3 work surfaced them. Plus 9 verification tasks (`V-1c.3-01`–`V-1c.3-09`) tracked in [`docs/process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md).
 
 **Severity scale** (unchanged from source):
 - **Sev-1** — blocks production analyses
@@ -21,7 +21,7 @@
 | [R-02](R-02-system-parameter-substitution-fix-changes-claude-output-for-already-passing.md) | System-parameter substitution fix changes Claude output for already-passing nodes | open | Sev-2 | 1c.1 | — | — |
 | [R-03](R-03-phase-context-injection-blows-past-claude-token-budget.md) | `{{phase_context}}` injection blows past Claude token budget | open | Sev-3 | 1c.1 | — | — |
 | [R-04](R-04-backup-table-omits-a-text-bearing-field-making-rollback-impossible.md) | Backup table omits a text-bearing field, making rollback impossible | open | Sev-1 | 1c.2 | ADR-0007, ADR-0012 | — |
-| [R-05](R-05-tab-consolidation-hides-existing-draft-state-content-from-admins.md) | Tab consolidation hides existing draft-state content from admins | open | Sev-3 | 1c.3 | — | — |
+| [R-05](R-05-tab-consolidation-hides-existing-draft-state-content-from-admins.md) | Tab consolidation hides existing draft-state content from admins | mitigated | Sev-3 | 1c.3 | — | R-12, F-OPS-4 |
 | [R-06](R-06-det-frequency-defender--multiple-deletion-breaks-scenario-resolution-for-nodes-t.md) | `det_frequency_defender`/`_multiple` deletion breaks scenario resolution for nodes that never set `det_frequency_solo` | open | Sev-2 | 1c.2 | — | — |
 | [R-07](R-07-earmarked-but-deleted-athlete-ui-fields-lose-institutional-memory.md) | Earmarked-but-deleted athlete-UI fields lose institutional memory | open | Sev-3 | 1c.2 | — | — |
 | [R-08](R-08-removing-solution-class-performance-mode-tracking-enabled-breaks-the-cloud-run-r.md) | Removing `solution_class`, `performance_mode`, `tracking_enabled` breaks the Cloud Run request shape | open | Sev-1 | 1c.2 | — | — |

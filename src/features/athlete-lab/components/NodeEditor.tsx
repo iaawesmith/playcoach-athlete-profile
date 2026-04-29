@@ -6,6 +6,7 @@ import { updateNode, setNodeStatus } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { TestingPanel } from "./TestingPanel";
 import { HelpDrawer } from "./HelpDrawer";
+import { ConsolidationRedirectBanner } from "./ConsolidationRedirectBanner";
 import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
@@ -740,6 +741,12 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
           toggling={toggling}
         />
       )}
+
+      {/* ── Phase 1c.3-D: Consolidation banner (R-05 mitigation).
+          Shows once per browser; explicit redirect list for the 5 retired
+          tabs. Mounted above the tab row so users see it before they
+          start hunting. */}
+      <ConsolidationRedirectBanner />
 
       {/* ── Tab row ── */}
       <div className="px-6 pt-3 pb-2 flex gap-1 overflow-x-auto scrollbar-thin shrink-0 border-b border-outline-variant/10" style={{ backgroundColor: '#131920' }}>

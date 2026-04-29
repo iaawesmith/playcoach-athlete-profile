@@ -76,6 +76,29 @@ interface TabDef {
   icon: string;
 }
 
+/* Phase 1c.3-D: Internal redirect map for retired knowledge_base tab keys.
+   Mirrors NodeEditor's HASH_REDIRECT_MAP. Any caller (legacy URL hash,
+   stale stored helpTabKey, external link) that asks for a retired key is
+   coerced to its consolidated parent before knowledgeBase[key] lookup, so
+   sections are never silently empty for a key that still has content under
+   a different name. */
+const KB_REDIRECT_MAP: Record<string, string> = {
+  scoring: "metrics",
+  errors: "metrics",
+  camera: "reference",
+  "filming-guidance": "reference",
+  checkpoints: "phases",
+  training_status: "basics",
+  "training-status": "basics",
+  "pipeline-config": "basics",
+  mechanics: "phases",
+  overview: "basics",
+};
+
+function resolveTabKey(key: string): string {
+  return KB_REDIRECT_MAP[key] ?? key;
+}
+
 interface HelpDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -89,7 +112,13 @@ interface HelpDrawerProps {
   onNodeSaved?: (updatedNode: unknown) => void;
 }
 
-export function HelpDrawer({ open, onClose, tabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange, nodeId, onNodeSaved }: HelpDrawerProps) {
+export function HelpDrawer({ open, onClose, tabKey: rawTabKey, tabLabel, tabs, onTabChange, knowledgeBase, onKnowledgeBaseChange, nodeId, onNodeSaved }: HelpDrawerProps) {
+  /* Phase 1c.3-D: Coerce retired tab keys to their consolidated parent
+     before knowledgeBase lookup. Mirrors NodeEditor's HASH_REDIRECT_MAP so
+     stale callers (legacy URL hashes, persisted helpTabKey, etc.) never
+     see an empty section list for content that still exists under a new
+     parent name. */
+  const tabKey = resolveTabKey(rawTabKey);
   const sections = knowledgeBase[tabKey] ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);

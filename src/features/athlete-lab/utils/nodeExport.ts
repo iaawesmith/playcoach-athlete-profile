@@ -433,7 +433,11 @@ export function generateFullNodeMarkdown(node: TrainingNode): string {
   }
   readiness += `\nBLOCKING ITEMS:\n${blockingItems.length > 0 ? blockingItems.join("\n") : "None — node is ready for Live"}`;
 
-  const tabOrder: TabKey[] = ["basics", "videos", "phases", "mechanics", "metrics", "scoring", "errors", "reference", "camera", "checkpoints", "prompt", "badges"];
+  // Phase 1c.3-D: tab order matches the consolidated TABS array in
+  // NodeEditor (8 tabs, minus "test" which has no markdown export).
+  // Retired keys (mechanics/scoring/errors/camera/checkpoints/training_status)
+  // are folded into their consolidated parents inside TAB_GENERATORS.
+  const tabOrder: TabKey[] = ["basics", "videos", "phases", "metrics", "reference", "prompt", "badges"];
 
   // The trailing knowledge-base block is admin-authored markdown (headings,
   // bullets, bold) intended for internal reference, NOT pipeline config.

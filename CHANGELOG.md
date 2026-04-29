@@ -33,6 +33,42 @@ where applicable.
 
 ---
 
+## [PHASE-1C3-SLICE-D] — 2026-04-29
+
+Tab consolidation 13 → 8 + R-05 mitigation + 5-key knowledge_base merge. Final tab set: Basics, Videos, Phases, Metrics, Reference, LLM Prompt, Badges, Run Analysis. Two F-OPS-4 halts during DB work (constraint discovery + new transactional-correctness sub-pattern on multi-source merge).
+
+### Added
+- **`src/features/athlete-lab/components/ConsolidationRedirectBanner.tsx`** — one-time per-browser banner with explicit redirect list for the 5 retired tabs (Filming Guidance / Scoring / Errors / Checkpoints / Training Status); localStorage key `athleteLab.consolidationBannerDismissed.v1`. R-05 mitigation.
+- **`HASH_REDIRECT_MAP`** in `NodeEditor.tsx` (10 entries) + `useEffect` hooks coercing stale persisted `tab`, URL hash anchors (with strip-after-redirect), and stale `helpTabKey`.
+- **`KB_REDIRECT_MAP` + `resolveTabKey`** in `HelpDrawer.tsx` — coerces stale tab keys before `knowledgeBase[tabKey]` lookup so consolidated content is never silently empty.
+- **5-key knowledge_base merge migrations** — `scoring`/`errors` → `metrics`, `camera` → `reference`, `checkpoints` → `phases`, `training_status` → `basics`, all with HTML provenance headers.
+- **`docs/process/phase-1c3-slice-d-outcome.md`** — slice outcome doc.
+- **V-1c.3-07/08/09** in `phase-1c3-prep-backlog.md` — score_bands consumer wiring (Phase 2/3), kb.overview/kb.test disposition (1c.3-F), Reference Video Quality Guide overlap (1c.3-E).
+
+### Changed
+- **`NodeEditor.tsx`** — `TABS` 13 → 8; `CRITICAL_TABS` updated to `["metrics", "phases", "prompt", "basics"]`; `ADVANCED_TAB_KEYS` / `showAdvancedTabs` toggle / advanced-tabs localStorage retired entirely. Sub-editors inlined: Metrics hosts Scoring + Common Errors; Reference hosts Filming Guidance (CameraEditor); Phases gates Checkpoints on `segmentation_method === "checkpoint"`; Basics hosts inline Pipeline Config (det_frequency triplet).
+- **`NodeReadinessBar.tsx`** — `TabKey` shrunk to 8; Training Status category routes to `basics`, Camera category routes to `reference`.
+- **`utils/nodeExport.ts`** — `TabKey` shrunk to 7 markdown-emitting tabs + `LegacyTabKey` for stale callers; `TAB_GENERATORS` combines merged sub-section markdown on consolidated tabs (copying Metrics → metrics+scoring+errors); `generateTabMarkdown` redirects legacy keys; `generateFullNodeMarkdown` `tabOrder` shrunk 12 → 7 (latent runtime bug fixed — old array referenced retired keys, would have crashed via undefined generator under `strict: false`).
+- **`docs/risk-register/R-05`** — open → **mitigated**. Banner + hash-anchor + HelpDrawer redirects all shipped.
+- **`docs/risk-register/R-12`** — remained closed; cross-link added noting 1c.3-D completes the broader knowledge_base consolidation pattern R-12 originally named.
+- **`docs/risk-register/F-OPS-4`** — fourth annotation; catalogue now lists **six distinct sub-patterns**, including the genuinely new **transactional correctness on multi-source merges** (algorithmic remediation: accumulator pattern + post-condition invariant assertions).
+- **`docs/risk-register/INDEX.md`** — R-05 row updated to mitigated; counts note added for V-entries (V-1c.3-01 through V-1c.3-09).
+- **`docs/architecture/athlete-lab-tab-inventory.md`** — regenerated via `scripts/generate-tab-inventory.ts`; AUTO block now shows 8 tabs (down from 13).
+
+### Verified
+- `npx tsc --noEmit` exit 0, no output.
+- Knowledge base merge correctness: `basics`(13), `phases`(19), `metrics`(30), `reference`(16). Source keys (`scoring`, `errors`, `camera`, `checkpoints`, `training_status`) absent.
+- Tab inventory script: "wrote …(8 tabs, 0 hidden)".
+- Reference sweep for retired tab keys: remaining hits are unrelated enum values, comments, or column names — not tab keys. `nodeExport.ts:436` `tabOrder` runtime bug discovered + fixed in the same sweep.
+- F-SLICE-E-1 stays open (criterion check confirmed: no new det_frequency content surfaced).
+- F-SLICE-E-5 stays resolved.
+
+### Process
+- Two F-OPS-4 halts during DB work: (1) constraint discovery on backup table for merge-time backup row (sub-pattern 1, replay), (2) **transactional correctness on multi-source merges** (NEW sub-pattern 6) — first iteration's in-loop UPDATE-then-reread pattern produced stale-read defect on `metrics` (expected 30 sections, got 25; 8 scoring sections silently overwritten by errors merge). Recovered via rollback to slice backup + re-execution with `v_kb` PL/pgSQL accumulator + post-merge length assertion. Sub-pattern 6 sits **alongside** F-OPS-4's methodological remediation rather than within it (algorithmic, not methodological).
+- Integration-decision halts (B1, B2, F, G, H, C, I) surfaced **during** execution at integration boundaries — distinct from pre-execution decision-cluster (1c.3-C). Vocabulary refinement: cleanup-shaped slices that consolidate UI surfaces will surface integration-decision halts; cleanup-shaped slices that remove broken surfaces will surface scope-decision halts. Both belong in the F-OPS-4 family.
+
+---
+
 ## [PHASE-1C3-SLICE-C] — 2026-04-29
 
 Training Status tab write-path resolution. F-SLICE-E-5 expanded under F-OPS-4 pre-execution sweep into a four-column defect class (Solution Class, Performance Mode, legacy `det_frequency`, Tracking — all routing through the shared `updateWithCriticalTrack` helper against columns dropped in migration `20260426025918`). Captured as F-SLICE-E-6 and resolved same slice.
