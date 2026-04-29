@@ -5,7 +5,11 @@ import { checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEd
 import { SectionTooltip } from "./SectionTooltip";
 import { generateFullNodeMarkdown } from "../utils/nodeExport";
 
-type TabKey = "basics" | "videos" | "metrics" | "scoring" | "errors" | "phases" | "reference" | "camera" | "checkpoints" | "prompt" | "badges" | "training_status" | "test";
+// Phase 1c.3-D: Tab consolidation 13 → 8. Surviving tab keys:
+// basics, videos, phases, metrics, reference, prompt, badges, test.
+// Retired: scoring/errors (folded into metrics), camera (folded into reference),
+// checkpoints (folded into phases sub-section), training_status (folded into basics).
+type TabKey = "basics" | "videos" | "metrics" | "phases" | "reference" | "prompt" | "badges" | "test";
 
 interface ReadinessCheck {
   label: string;
