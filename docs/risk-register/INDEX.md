@@ -28,7 +28,7 @@
 | [R-09](R-09-claude-prompt-template-references-a-deleted-variable.md) | Claude prompt template references a deleted variable | open | Sev-2 | 1c.2 | — | — |
 | [R-10](R-10-backup-table-grows-unbounded-over-future-migrations.md) | Backup table grows unbounded over future migrations | open | Sev-4 | 1c.0 | ADR-0012 | — |
 | [R-11](R-11-score-bands-field-stays-orphaned-kept-but-no-consumer.md) | `score_bands` field stays orphaned (kept but no consumer) | open | Sev-4 | 1c.0 | — | — |
-| [R-12](R-12-mechanics-tab-deletion-strands-knowledge-base-sub-sections-keyed-to-mechanics.md) | Mechanics tab deletion strands knowledge_base sub-sections keyed to "mechanics" | open | Sev-3 | 1c.2 | — | — |
+| [R-12](R-12-mechanics-tab-deletion-strands-knowledge-base-sub-sections-keyed-to-mechanics.md) | Mechanics tab deletion strands knowledge_base sub-sections keyed to "mechanics" | closed | Sev-3 | 1c.2 | ADR-0015 | F-OPS-3, F-OPS-4 |
 
 ## §1.5 — Findings (F-*)
 
