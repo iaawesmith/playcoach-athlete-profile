@@ -713,18 +713,9 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             <span className={`w-2 h-2 rounded-full ${isLive ? "bg-primary-container" : "bg-on-surface-variant/50"}`} />
             {isLive ? "Live" : "Draft"}
           </div>
-          <button
-            onClick={() => setShowAdvancedTabs((v) => !v)}
-            title={showAdvancedTabs ? "Hide advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)" : "Show advanced tabs (Mechanics, Errors, Checkpoints, Reference, Scoring)"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border cursor-pointer hover:brightness-110 active:scale-95 transition-all ${
-              showAdvancedTabs
-                ? "border-primary-container/30 bg-primary-container/10 text-primary-container"
-                : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
-            }`}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>tune</span>
-            Advanced Tabs
-          </button>
+          {/* Phase 1c.3-D: Advanced Tabs toggle retired alongside the
+              ADVANCED_TAB_KEYS scaffolding. Every surviving tab is always
+              visible — there is nothing to gate. */}
           <button
             onClick={save}
             disabled={saving || !dirty}
