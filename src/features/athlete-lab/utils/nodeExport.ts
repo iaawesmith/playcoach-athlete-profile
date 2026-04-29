@@ -231,7 +231,7 @@ function generateReference(node: TrainingNode): string {
   // and the camera_guidelines JSON is the canonical source. If a top-level
   // column is added later, prefer it via `node.skill_specific_filming_notes
   // ?? camera.skill_specific_filming_notes`.
-  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\nGeneric Fallback Filming Instructions: ${node.reference_filming_instructions?.trim() || "Not configured"}\n`;
+  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\n`;
 
   for (const angle of ANGLES) {
     const cal = cals.find(c => c.camera_angle === angle.key);
