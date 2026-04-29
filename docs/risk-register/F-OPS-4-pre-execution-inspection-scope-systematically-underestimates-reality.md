@@ -81,13 +81,56 @@ Pre-execution decision halt is structurally different — sweep was thorough, bu
 
 This is the third consecutive slice where actual scope exceeded planned scope. The pattern is now structural enough that future cleanup-shaped slices should plan for both halt types as standard, not exceptional.
 
-### Evolution log
+## Annotation — Phase 1c.3-D: integration-decision halt + transactional-correctness sub-pattern (2026-04-29)
 
-This finding has now evolved through three explicit annotations across three slices, which is itself worth preserving as evidence the methodological lesson is generalizable rather than slice-specific:
+PHASE-1C3-SLICE-D (tab consolidation 13→8) added two more sub-patterns to the family, bringing the catalogue to **six distinct shapes**:
 
-1. **1c.3-B (origin)** — three concrete examples of constraint+shape+location discovery establishing the family.
-2. **1c.3-A retroactive** — "stated scope < actual scope" structural pattern named as the F-OPS-4 default planning assumption for cleanup slices.
-3. **1c.3-C (this annotation)** — pre-execution decision-cluster sub-pattern named as a distinct halt category alongside pre-execution sweep.
+### Sub-pattern 5 — Integration-decision halt
+
+Distinct from both pre-execution sweep and pre-execution decision-cluster. Surfaced **during** code execution (not pre-execution) when the consolidation reached integration boundaries the plan hadn't pre-resolved. Seven sub-decisions (B1, B2, F, G, H, C, I) all centered on **how consolidated data behaves at integration points**: how the readiness bar should re-route categories that no longer have a 1:1 tab; how copy-tab markdown should compose now that several sub-sections share a tab; how the help drawer should resolve a stale tabKey; whether checkpoints sub-section should fully hide or grey out when the segmentation method doesn't gate it.
+
+Distinguishing characteristics:
+- Surfaces **during** execution at integration boundaries, not before
+- Plan correctly identified **what** to consolidate, but couldn't pre-specify **how merged surfaces behave** at every consumer
+- Each sub-decision is small (binary or 2-3-way choice) and locally optimal once made
+- Aggregate cost of the halt is dominated by enumeration, not analysis
+
+Useful planning vocabulary refinement:
+- Cleanup-shaped slices that **consolidate UI surfaces** will likely surface **integration-decision halts**
+- Cleanup-shaped slices that **remove broken surfaces** will likely surface **scope-decision halts** (the 1c.3-C shape)
+
+### Sub-pattern 6 — Transactional correctness on multi-source merges
+
+A genuinely new shape: **not inspection-scope failure, but multi-step operations against shared state**. Surfaced during the 5-key knowledge-base merge migration in 1c.3-D.
+
+Concrete example: the migration merged 5 source `knowledge_base` keys into 4 target keys with HTML provenance headers. Two of the source keys (`scoring`, `errors`) merged into the same target (`metrics`). The first iteration of the migration looped per-source-key with an in-loop UPDATE-then-reread pattern. The second source merge re-read a stale snapshot of `metrics` taken **before** the first source's UPDATE landed, silently overwriting the first merge.
+
+Caught by post-merge length assertion: expected 30 sections in `metrics` (13 base + 8 scoring + 9 errors), actual 25 (13 base + 12 errors only — the 8 scoring sections were lost). Recovery: rolled back to slice backup, re-executed with a `v_kb` PL/pgSQL local accumulator that carried merged state across all iterations and committed once at the end.
+
+Distinguishing characteristics:
+- Not "inspection missed something" — inspection enumerated all 5 source keys correctly
+- Failure mode is **read-during-write transactional shape**, not enumeration
+- Scales with multi-source-to-single-target patterns; trivially absent from 1:1 transformations
+- Caught by post-condition length assertion, not by pre-execution inspection
+- Remediation is **algorithmic** (accumulator pattern) not **methodological** (sweep harder)
+
+**Discipline:** future migrations with multiple operations against the same column or row should use **accumulator pattern** with a single terminal commit, not in-loop UPDATE-then-reread. Post-merge invariant assertions (length, key-count, byte-equal of expected substrings) catch this class of defect when the algorithm slips.
+
+### Updated evolution log
+
+This finding has now evolved through **four explicit annotations across four slices**, surfacing **six distinct sub-pattern shapes**. The evolution itself is the strongest evidence that the methodological lesson is generalizable rather than slice-specific:
+
+1. **1c.3-B (origin)** — three concrete examples establishing the family:
+   - **(1) Constraint discovery** — pre-execution inspection enumerated one CHECK constraint, missed two more.
+   - **(2) Shape discovery** — pre-execution inspection verified outer container, missed element-level shape (JSON serialization escaping).
+   - **(3) Location discovery** — pre-execution inspection verified file existence, missed inline definition + downstream cascade.
+2. **1c.3-A retroactive** — **(4) Stated-vs-actual scope** named as the F-OPS-4 default planning assumption for cleanup slices.
+3. **1c.3-C** — **(5a) Pre-execution decision-cluster** named as a distinct halt category alongside pre-execution sweep. Sweep can be thorough yet still surface decisions the plan didn't specify.
+4. **1c.3-D (this annotation)** — two additional shapes:
+   - **(5b) Integration-decision halt** — sibling to pre-execution decision-cluster but surfaces **during** execution at integration boundaries, not before.
+   - **(6) Transactional correctness on multi-source merges** — genuinely new shape; not inspection-scope failure, but algorithmic failure on shared-state writes. Stale-read defect on the 5-key knowledge_base merge (expected 30 sections, got 25; recovered via accumulator pattern + length assertion).
+
+Sub-patterns 1–5 share a common methodological remediation (anticipate halts, plan for them as the system working correctly). Sub-pattern 6 has an algorithmic remediation (accumulator pattern + post-condition assertions) that exists alongside, not within, the methodological frame.
 
 ## Same root-cause family
 
