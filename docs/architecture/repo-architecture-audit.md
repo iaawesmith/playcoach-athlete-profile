@@ -1,5 +1,7 @@
 # Repo + Information Architecture Audit
 
+> **Status:** Recommendations executed during Phase 1c.2 cleanup (Passes 1–6, 2026-04-22 through 2026-04-29). This document retained as historical record of the prompting document for the cleanup. See `docs/process/phase-1c2-cleanup-passes-*` for delivery details. ~85% of recommendations executed; remaining items deferred per ADRs.
+
 **Date:** 2026-04-26
 **Scope:** Read-only audit of documentation organization, information architecture, future-state scaffolding, and creative/workflow opportunities. Findings only — no scaffolding created in this pass.
 **Audience:** External agents (fresh Claude conversation, Claude Project, Claude Code, new contributor) joining this repo cold, plus the project owner deciding what to invest in next.
