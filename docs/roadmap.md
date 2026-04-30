@@ -38,18 +38,26 @@ After this cleanup, Phase 1c.2 closes and 1c.3 prep begins.
 
 ---
 
-## Phase 1c.3 — next
+## Phase 1c.3 — Complete (2026-04-30)
 
-Consolidation pass before Phase 2 work begins. Tracked in [`process/phase-1c3-prep-backlog.md`](process/phase-1c3-prep-backlog.md).
+Six slices shipped 2026-04-29 → 2026-04-30. Synthesis lives in [`process/phase-1c3-retrospective.md`](process/phase-1c3-retrospective.md).
 
-Known scope:
+| Slice | Outcome | Doc |
+|---|---|---|
+| 1c.3-A | R2 stub sweep (7 removed) + V-1c.3-01 orphan verification (`reference_object`, `llm_tone` confirmed orphan) | [`process/phase-1c3-slice-a-outcome.md`](process/phase-1c3-slice-a-outcome.md) |
+| 1c.3-B | Mechanics tab + inline `MechanicsEditor` deletion + `kb.mechanics` merge into `kb.phases` (R-12 closed; F-OPS-3, F-OPS-4 origin) | [`process/phase-1c3-slice-b-outcome.md`](process/phase-1c3-slice-b-outcome.md) |
+| 1c.3-C | Training Status / Solution Class write-path resolution (F-SLICE-E-5 resolved; F-SLICE-E-6 opened + closed) | [`process/phase-1c3-slice-c-outcome.md`](process/phase-1c3-slice-c-outcome.md) |
+| 1c.3-D | Tab consolidation 13 → 8 + R-05 mitigation + 5-key `knowledge_base` merge | [`process/phase-1c3-slice-d-outcome.md`](process/phase-1c3-slice-d-outcome.md) |
+| 1c.3-E | R-07 backup disposition audit + slice-tag taxonomy normalization (F-OPS-4 sub-pattern 7) | [`process/phase-1c3-slice-e-outcome.md`](process/phase-1c3-slice-e-outcome.md) |
+| 1c.3-F | Phase 1c.3 retrospective + V-1c.3-08 disposition + formal close | [`process/phase-1c3-retrospective.md`](process/phase-1c3-retrospective.md) |
 
-- V-1c.3-01 — verify orphan status of `reference_object` and `llm_tone` columns
-- R2 stub cleanup queue (remove stubs created during 1c.2 cleanup unless still referenced)
-- Absorb any 1c.2 findings deferred for triage
-- Final close of the 1c phase
+Phase 2a unblocked.
 
-Phase 2 cannot start until 1c.3 closes.
+### Post-1c.3 prep
+
+| Slice | Outcome | Doc |
+|---|---|---|
+| PHASE-1C3-PREP | Documentation gap closure for Phase 2 readiness (system-overview, pipeline-trace, testing-philosophy, roadmap-sync detector, F-OPS-4 lede, tier resolution) | [`process/phase-1c3-prep-slice-outcome.md`](process/phase-1c3-prep-slice-outcome.md) |
 
 ---
 
@@ -57,7 +65,7 @@ Phase 2 cannot start until 1c.3 closes.
 
 Three sub-phases. Sub-phase order is the recommended sequence; specific scope decided at 2a kickoff.
 
-### 2a — Calibration robustness
+### 2a — Calibration robustness — **next**
 
 **Goal:** Move calibration ground-truth dataset from n=1 to n≥3, with cross-clip determinism verified to within ±1% per ADR-0005.
 

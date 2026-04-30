@@ -11,6 +11,10 @@ classification: process-lesson
 
 # F-OPS-4 — Pre-execution inspection scope systematically underestimates reality
 
+## What this finding is about
+
+Pre-execution inspection systematically underestimates reality across cleanup-shaped slices. Halts during execution surface what inspection missed; the discipline is to expect halts as the system working correctly, not as inefficiency. Sub-patterns 1–6 cover within-slice failures (inspection scope underestimates surface area at execution time); sub-pattern 7 covers across-slice temporal drift (taxonomies become ambiguous as numbering schemes grow). Remediation differs by class: methodological for 1–5 (enumerate possible surfaces explicitly), algorithmic for 6 (accumulator pattern for multi-step operations), structural for 7 (durable identifier schemes from start, OR periodic audit + normalization). The seven sub-patterns below are concrete examples that surfaced across Phase 1c.3 slices A through F; the lesson is generalizable to any cleanup-shaped slice work in future phases.
+
 ## Observation
 
 Slice 1c.3-B surfaced **three distinct examples** of the same root-cause family during a single slice's execution. Each example was a case where pre-execution inspection had a narrower scope than reality, and each surfaced as a halt-and-decide point during execution.

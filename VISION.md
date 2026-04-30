@@ -361,3 +361,21 @@ If you are picking up this project for the first time, here is what matters most
 
 *PlayCoach Executive Summary — v1.0*
 *This is a living document. Update it as the product, market, and mission evolve.*
+
+---
+
+## Tier System (Canonical)
+
+PlayCoach uses a four-tier athlete classification matching the onboarding flow:
+
+| Tier ID | Label | Status |
+|---|---|---|
+| `youth` | Youth | Coming soon |
+| `high-school` | High School | Coming soon |
+| `college` | College | **Active** |
+| `pro` | Pro | Coming soon |
+
+**Source of truth:** Tier IDs are defined in [`src/features/onboarding/steps/AthleteTier.tsx`](src/features/onboarding/steps/AthleteTier.tsx). Currently active: **college only**. The other three tiers (`youth`, `high-school`, `pro`) are defined as "Coming Soon" in the onboarding flow and will activate in future phases. When in doubt about tier IDs, the code is canonical — VISION prose may use age-band language ("high school athletes", "college athletes") as audience-facing description, but the system identifiers come from the onboarding component.
+
+The earlier "Elite Tier" naming (see `docs/glossary.md`) is **deprecated** in favour of milestone-driven badges within tiers.
+

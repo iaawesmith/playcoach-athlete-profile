@@ -7,6 +7,29 @@ phase identifiers (`PHASE-NN[a/b/c]`) rather than semver until public launch.
 Entry shape:
 
 ```
+## [PHASE-1C3-PREP] — 2026-04-30
+
+### Added
+- `docs/architecture/system-overview.md` — system-level architecture: three product surfaces, pipeline shape, infrastructure layers, key tables, trust boundaries.
+- `docs/architecture/pipeline-trace.md` — 10-step upload→result trace with file:line citations into `analyze-athlete-video/index.ts` and `mediapipe-service/app/main.py`.
+- `docs/agents/testing-philosophy.md` — frames per-slice manual verification as the test surface; documents CI/CD and observability deferrals with revisitable triggers.
+- `scripts/verification/check-roadmap-sync.ts` — detector enforcing F-OPS-3 contract: shipped slice outcome docs must be referenced in `docs/roadmap.md`. Tolerant of pre-template legacy docs.
+- `docs/process/phase-1c3-prep-slice-outcome.md` — this slice's outcome doc.
+- F-OPS-4: one-paragraph "What this finding is about" lede before the seven-sub-pattern evolution log.
+- VISION.md: "Tier System (Canonical)" section pointing to `src/features/onboarding/steps/AthleteTier.tsx` as source of truth.
+
+### Changed
+- `docs/roadmap.md` — Phase 1c.3 marked **Complete (2026-04-30)** with all six slices A–F listed; Phase 2a marked **next**.
+- `docs/risk-register/INDEX.md` — phase-ordering note updated: 1c.3 Complete, 2a next.
+- `docs/agents/workflows.md` — "Drafting a slice outcome" step 4 strengthened: a slice is not "shipped" until the roadmap reflects it. Frontmatter field list corrected.
+- `docs/agents/onboarding.md` — read-order extended to include system-overview.md + pipeline-trace.md (~45 → ~60 min). Stale 1c.2 framing replaced with 1c.3-closed framing. AGENTS.md stub references purged.
+- `docs/architecture/repo-architecture-audit.md` — status banner added (recommendations executed during 1c.2 cleanup, ~85% complete).
+- `docs/reference/tiers/_schema.md` — caveat removed; canonical tier IDs declared with pointer to `AthleteTier.tsx`.
+- `docs/glossary.md` — AGENTS.md row updated to reflect file removal in 1c.3-A.
+
+### Fixed
+- `docs/agents/workflows.md` — pre-existing `do../templates/slice-outcome.md` typo and missing `related_findings` field in slice-outcome frontmatter spec.
+
 ## [<phase-id>] — YYYY-MM-DD
 
 ### Added

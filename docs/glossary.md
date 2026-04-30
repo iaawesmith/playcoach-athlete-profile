@@ -58,7 +58,7 @@ Canonical terminology used across PlayCoach docs and code. When in doubt, defer 
 | Term | Meaning |
 |---|---|
 | **`PRODUCT-SPEC.md`** | The product/build specification at the repo root. Design system, ProCard spec, color tokens, component contracts. Lovable reads it every session. |
-| **`AGENTS.md`** | Legacy filename. Now a redirect stub pointing to `PRODUCT-SPEC.md`. Renamed in Phase 1c.2 cleanup Pass 1 to eliminate naming collision with `docs/agents/`. To be removed at start of Phase 1c.3 unless still referenced. |
+| **`AGENTS.md`** | Legacy filename. Removed in Phase 1c.3-A after the redirect-stub R2 sweep confirmed zero live references. Product spec lives in `PRODUCT-SPEC.md`. |
 | **`docs/agents/`** | Operational guidance for agents working in this repo (onboarding, conventions, workflows). Distinct from `PRODUCT-SPEC.md`. |
 | **R2 stub** | A redirect stub left at an old doc path after a move/rename, per the R2 stub policy in `agents/conventions.md`. Heavy-traffic docs only. Removed at next phase boundary. |
 

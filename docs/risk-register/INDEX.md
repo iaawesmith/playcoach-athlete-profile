@@ -125,8 +125,8 @@ Original audit / risk register entries were authored under an earlier ordering t
 
 **Current canonical ordering:**
 
-- **Phase 1c.3** — Admin UI consolidation (next; admin-only cleanup; see [`architecture/athlete-lab-tab-inventory.md`](../architecture/athlete-lab-tab-inventory.md) and [`process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md)).
-- **Phase 2 — Analysis quality** (was "Phase 3" in earlier docs):
+- **Phase 1c.3** — Admin UI consolidation — **Complete (2026-04-30)**. Six slices A–F shipped; synthesis in [`../process/phase-1c3-retrospective.md`](../process/phase-1c3-retrospective.md). See also [`../architecture/athlete-lab-tab-inventory.md`](../architecture/athlete-lab-tab-inventory.md) and [`../process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md).
+- **Phase 2 — Analysis quality** (was "Phase 3" in earlier docs) — **2a is next**:
   - **2a** — World coordinates migration (B2 redesign of calibration).
   - **2b** — Metric formula audits.
   - **2c** — Tier-aware scoring.

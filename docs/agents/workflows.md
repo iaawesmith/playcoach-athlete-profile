@@ -20,10 +20,10 @@ Read the `// RECIPE:` header before running so you know what the expected output
 
 Slice outcomes capture the result of a bounded unit of work shipped during a phase.
 
-1. Copy [`do../templates/slice-outcome.md`](../templates/slice-outcome.md) (created in Pass 3f) to `docs/process/phase-<phase>-slice-<slug>-outcome.md`.
-2. Populate frontmatter (`slice_id`, `status`, `date`, `related_risks`, `related_adrs`, `verification_script`).
+1. Copy [`../templates/slice-outcome.md`](../templates/slice-outcome.md) (created in Pass 3f) to `docs/process/phase-<phase>-slice-<slug>-outcome.md`.
+2. Populate frontmatter (`slice_id`, `status`, `date_shipped`, `related_risks`, `related_findings`, `related_adrs`).
 3. Fill the standard sections: scope, what shipped, what didn't, verification, decisions made (link to ADRs), follow-ups.
-4. Add the slice to the phase's roadmap entry in `docs/roadmap.md`.
+4. **Update [`docs/roadmap.md`](../roadmap.md) with the slice — listed under the phase's "Complete" section with a one-line outcome and a link to the outcome doc.** A slice is **not "shipped" until the roadmap reflects it**; this is closure work, not optional reporting. Skipping this step caused PHASE-1C3-PREP drift (six slices shipped without roadmap updates; see F-OPS-3 — *deferred work shipped earlier creates plan-vs-state drift*). The detector at `scripts/verification/check-roadmap-sync.ts` enforces this contract.
 5. If new risks surfaced, add them to the risk register (see workflow below).
 
 ---
