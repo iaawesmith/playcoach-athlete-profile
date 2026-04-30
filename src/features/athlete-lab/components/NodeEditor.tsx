@@ -1038,6 +1038,8 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                 </span>
               </div>
             </div>
+            </div>
+            </div>
           </div>
         )}
 
