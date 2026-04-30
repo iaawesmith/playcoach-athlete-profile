@@ -210,6 +210,8 @@ All three share the pattern: trusting a prior assertion without verifying agains
 - `docs/process/phase-1c3-slice-c-outcome.md` — slice where sub-pattern 5a surfaced
 - `docs/process/phase-1c3-slice-d-outcome.md` — slice where sub-patterns 5b and 6 surfaced
 - `docs/process/phase-1c3-slice-e-outcome.md` — slice where sub-pattern 7 surfaced
+- `docs/process/phase-1c3-retrospective.md` — Phase 1c.3 retrospective; sub-pattern 1 replay annotation + Phase 2 prep recommendation
 - `docs/process/phase-1c3-prep-backlog.md` V-1c.3-06, V-1c.3-10 — discovered work captured for future planning
 - ADR-0007 — backup snapshot pattern (the table whose constraints surfaced examples 1 and the third unenforced constraint)
 - ADR-0012 — backup retention indefinite (the policy that creates the long-horizon drift surface sub-pattern 7 addresses)
+- ADR-0008 — validation triggers over CHECK (referenced in Phase 2 prep recommendation for slice CHECK conversion)
