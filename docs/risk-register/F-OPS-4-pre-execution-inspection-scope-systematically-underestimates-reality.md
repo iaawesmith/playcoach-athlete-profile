@@ -132,6 +132,54 @@ This finding has now evolved through **four explicit annotations across four sli
 
 Sub-patterns 1–5 share a common methodological remediation (anticipate halts, plan for them as the system working correctly). Sub-pattern 6 has an algorithmic remediation (accumulator pattern + post-condition assertions) that exists alongside, not within, the methodological frame.
 
+## Annotation — Phase 1c.3-E: taxonomy drift across slices over time (sub-pattern 7, NEW) (2026-04-30)
+
+PHASE-1C3-SLICE-E (R-07 backup disposition audit) surfaced a **seventh distinct sub-pattern** that is structurally different from sub-patterns 1–6.
+
+### Sub-pattern 7 — Taxonomy drift across slices over time
+
+Sub-patterns 1–6 all concern failures **within a single slice's execution**. Sub-pattern 7 concerns failures that **emerge over time as the slice numbering scheme grows**: a single-letter slice tag (`B`, `C`, `D`, `E`) that was unambiguous when written becomes ambiguous when reused across phases.
+
+**Concrete example:** Phase 1c.2-D backup rows tagged `slice='D'` on 2026-04-25 collided semantically with Phase 1c.3-D rows tagged `slice='D'` on 2026-04-29. Same value, different referents. The collision was invisible until the R-07 audit ran during 1c.3-E and asked "what slice produced this row?" — at which point the answer "D" was no longer unique. Remediated via taxonomy upgrade: single-letter form → `<phase>-<slice>` form, with the `alb_phase1c_slice_chk` CHECK constraint expanded to allow both legacy and new forms during the transition.
+
+### Distinguishing characteristics
+
+- **Temporal**, not execution-time. The drift exists in the data the moment a second slice reuses the letter; the **failure** only surfaces when something asks the data to disambiguate.
+- **Silent until queried.** No constraint, assertion, or runtime check fires. Inspection passes. Only an audit that treats the tag as an identifier (rather than an opaque label) surfaces it.
+- **Scope-bounded by the taxonomy's lifetime.** A short-lived identifier scheme never accrues drift; a long-lived one (e.g., a backup table retained indefinitely per ADR-0012) accrues it monotonically.
+- **Cheap to fix at audit time, expensive to fix at restore time.** A normalization migration during a verification slice costs minutes; the same drift surfacing during an actual rollback would cost hours of disambiguation under pressure.
+
+### Remediation
+
+Different from sub-patterns 1–6:
+
+| Sub-pattern | Remediation |
+|---|---|
+| 1 (constraint discovery) | Enumerate possible surfaces explicitly via `pg_constraint` |
+| 2 (shape discovery) | Sample N elements at every level of nesting before composing assertions |
+| 3 (location discovery) | `rg` for the symbol globally, not just the asserted file path |
+| 4 (stated-vs-actual scope) | Expect scope underestimation; build halt-tolerance into slice plans |
+| 5a (pre-execution decision-cluster) | Surface decisions before code edits; plan for both sweep and decision halts |
+| 5b (integration-decision halt) | Enumerate consumer integration points alongside the data transformation |
+| 6 (transactional correctness on multi-source merges) | Accumulator pattern + single terminal commit + post-condition invariant assertions |
+| **7 (taxonomy drift across slices over time)** | **Use durable identifiers (full phase-slice form) from the start, OR audit periodically + remediate via normalization** |
+
+### Discipline for future taxonomies
+
+**Prefer durable identifiers over short forms even when the short form is unambiguous at write time.** Future-proof against expansion. When a short form has already shipped, schedule periodic audits (cost: low; verification slice cadence) rather than waiting for the drift to surface during a high-stakes operation (cost: high; under-pressure disambiguation).
+
+### Updated evolution log
+
+This finding has now evolved through **five explicit annotations across five slices**, surfacing **seven distinct sub-pattern shapes**:
+
+1. **1c.3-B (origin)** — sub-patterns 1, 2, 3 (constraint / shape / location discovery)
+2. **1c.3-A retroactive** — sub-pattern 4 (stated-vs-actual scope)
+3. **1c.3-C** — sub-pattern 5a (pre-execution decision-cluster)
+4. **1c.3-D** — sub-patterns 5b (integration-decision halt) and 6 (transactional correctness on multi-source merges)
+5. **1c.3-E (this annotation)** — sub-pattern 7 (taxonomy drift across slices over time)
+
+Sub-patterns 1–5 share a methodological remediation. Sub-pattern 6 has an algorithmic remediation. Sub-pattern 7 has a **structural** remediation: change the identifier scheme itself, OR establish an audit cadence that treats taxonomy as data subject to drift like any other.
+
 ## Same root-cause family
 
 - **F-OPS-3** — deferred work shipped earlier creates plan-state drift (related: trusting a prior plan assertion without re-verification)
@@ -141,6 +189,10 @@ All three share the pattern: trusting a prior assertion without verifying agains
 
 ## Cross-links
 
-- `docs/process/phase-1c3-slice-b-outcome.md` — slice where all three examples surfaced
-- `docs/process/phase-1c3-prep-backlog.md` V-1c.3-06 — discovered work captured for future planning
+- `docs/process/phase-1c3-slice-b-outcome.md` — slice where sub-patterns 1–3 surfaced
+- `docs/process/phase-1c3-slice-c-outcome.md` — slice where sub-pattern 5a surfaced
+- `docs/process/phase-1c3-slice-d-outcome.md` — slice where sub-patterns 5b and 6 surfaced
+- `docs/process/phase-1c3-slice-e-outcome.md` — slice where sub-pattern 7 surfaced
+- `docs/process/phase-1c3-prep-backlog.md` V-1c.3-06, V-1c.3-10 — discovered work captured for future planning
 - ADR-0007 — backup snapshot pattern (the table whose constraints surfaced examples 1 and the third unenforced constraint)
+- ADR-0012 — backup retention indefinite (the policy that creates the long-horizon drift surface sub-pattern 7 addresses)

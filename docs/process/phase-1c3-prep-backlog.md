@@ -159,3 +159,15 @@ Decision deferred to next plan-mode pass after 1c.3-B closes. Candidate slice: 1
 ## (future entries)
 
 Add additional verification tasks here as they surface. Format: `V-1c.3-NN — <short title>`, with origin / why-it-matters / verification task / decision tree / owner.
+
+---
+
+## V-1c.3-10 — Normalize 1c.2-era backup slice tags to durable phase-slice form
+
+**Origin:** PHASE-1C3-SLICE-E, F-OPS-4 sub-pattern 7 (taxonomy drift across slices over time).
+
+**Why it matters:** PHASE-1C3-SLICE-E normalized 9 backup rows from B/C/D scope to durable `<phase>-<slice>` form (`1c.3-B`, `1c.2-D`, `1c.3-D`). 10 rows from PHASE-1C2-SLICE-E remain on legacy single-letter tag (`slice='E'`). Out of scope for 1c.3-E (which targeted B/C/D only); kept for a dedicated cleanup pass to avoid expanding a verification slice into 1c.2 cleanup.
+
+**Verification task:** UPDATE `slice` from `'E'` → `'1c.2-E'` on the 10 rows captured 2026-04-25. CHECK constraint `alb_phase1c_slice_chk` already allows the new value (expanded in slice 1c.3-E migration). Run as a single transaction with row-count post-condition assertion (expect 10).
+
+**Owner:** PHASE-1C3-SLICE-F retrospective, or absorbed into a future cleanup slice.

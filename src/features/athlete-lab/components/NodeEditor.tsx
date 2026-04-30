@@ -828,7 +828,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                  Position dropdown alongside the existing Name input. The
                  layout is a 2-col grid on lg+ and stacks on smaller widths.
                  Position writes to `athlete_lab_nodes.position` (text,
-                 nullable); the edge function reads it for the {{position}}
+                 nullable); the edge function reads it for the position
                  prompt template variable (verified Slice 1). Optional by
                  design — position-agnostic nodes leave it unset. */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-4">
@@ -1037,6 +1037,7 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
                   {draft.updated_at ? new Date(draft.updated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"}
                 </span>
               </div>
+            </div>
             </div>
           </div>
         )}
