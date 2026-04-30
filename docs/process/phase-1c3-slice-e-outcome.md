@@ -19,9 +19,10 @@ related_adrs: [ADR-0007, ADR-0012]
 - **Audit query + structured findings** for all 9 in-scope rows (slices B/C/D). Per-row verification of `disposition`, `audit_pattern`, `source_column`, `node_id`, `original_intent`, `slice` against migration SQL and current `athlete_lab_nodes` state.
 - **Migration `slice1c3_e_normalize_backup_slice_tags`** — expanded `alb_phase1c_slice_chk` CHECK constraint to allow durable phase-slice form (`1c.2-D`, `1c.3-B`, `1c.3-D`, etc.) alongside legacy single letters; normalized 9 backup rows in a single transaction with three independent UPDATE statements + post-condition row-count assertions.
 - **Risk register updates:** `R-07` open → **mitigated**; INDEX row updated.
-- **F-OPS-4 fifth annotation:** new sub-pattern 7 — **taxonomy drift across slices over time**. Distinct from the six existing sub-patterns (which all live in execution-time correctness); sub-pattern 7 is temporal.
+- **F-OPS-4 fifth annotation:** new sub-pattern 7 — **taxonomy drift across slices over time**. Structurally distinct from sub-patterns 1–6 (execution-time correctness within a single slice); sub-pattern 7 is temporal — drift accrues as a slice numbering scheme is reused across phases.
 - **Backlog entry V-1c.3-10** — normalize 1c.2-E backup slice tags (10 rows; deferred from this slice scope to keep 1c.3-E focused on B/C/D).
-- **V-1c.3-09 ownership transfer** — Reference Video Quality Guide overlap deferred from 1c.3-E to 1c.3-F retrospective; this slice's scope was R-07 audit only, not the broader integration-decision the Q5 deferral implied.
+- **V-1c.3-09 ownership transfer** — Reference Video Quality Guide overlap deferred from 1c.3-E to 1c.3-F retrospective; this slice's plan scope was R-07 audit only.
+- **Incidental fix in `NodeEditor.tsx` basics tab:** three missing `</div>` closes from prior slice (1c.3-D Pipeline Config inlining left an unbalanced JSX subtree). Caught during this slice's `tsc --noEmit` verification under `tsconfig.app.json`. No behavioral change — purely structural close.
 
 ## Audit results
 
@@ -59,11 +60,13 @@ R-07 is now **mitigated** (not closed). The audit confirms institutional memory 
 | All 9 dispositions honest against current `athlete_lab_nodes` state | Cross-reference vs. KB key shape (8 consolidated keys present) | ✅ |
 | Migration assertion passes for all 3 UPDATE batches | PL/pgSQL `RAISE EXCEPTION` on row-count mismatch | ✅ (3, 4, 2) |
 | Post-migration count distribution | `GROUP BY slice` | `1c.2-D: 4, 1c.3-B: 3, 1c.3-D: 2, E: 10` ✅ |
-| Build green | `npx tsc --noEmit` | ✅ exit 0 |
+| Build green | `npx tsc --noEmit -p tsconfig.app.json` | ✅ exit 0 (after NodeEditor close-tag fix) |
 
 ## Findings surfaced
 
-**F-OPS-4 sub-pattern 7 — Taxonomy drift across slices over time** (new annotation, see `F-OPS-4` doc for full text). Structurally distinct from sub-patterns 1–6: those cover failures within a single slice's execution; sub-pattern 7 covers failures that emerge over time as a slice numbering scheme grows. Single-letter slice tag unambiguous at write time → ambiguous when reused across phases. Remediation is **temporal** (durable identifiers + periodic audit) rather than execution-time (enumerate, accumulator, post-condition).
+**F-OPS-4 sub-pattern 7 — Taxonomy drift across slices over time** (new annotation, see `F-OPS-4` doc for full text). Structurally distinct from sub-patterns 1–6: those cover failures within a single slice's execution; sub-pattern 7 covers failures that emerge over time as a slice numbering scheme grows. Single-letter slice tag unambiguous at write time → ambiguous when reused across phases. Remediation is **structural** (durable identifiers + periodic audit) rather than methodological (sweep harder) or algorithmic (accumulator).
+
+**Incidental:** unbalanced JSX subtree in `NodeEditor.tsx` basics tab (Pipeline Config inline from 1c.3-D had 3 missing `</div>` closes). Caught by app-level `tsc --noEmit -p tsconfig.app.json` during this slice's verification step. The default `tsc --noEmit` (root project config) did not surface it — only the app config did. Implication: slice verification steps should run app-level tsc, not just the default. Not a finding worth its own F-* entry, but worth noting as a verification-discipline observation.
 
 ## Decisions deferred
 
@@ -73,6 +76,7 @@ R-07 is now **mitigated** (not closed). The audit confirms institutional memory 
 ## Process observation
 
 This slice was the first **verification-shaped** slice in the 1c.3 sequence (slices A–D were transformation-shaped). The audit-first discipline (run query, surface results, decide scope from findings) prevented the slice from either:
+
 - Closing immediately as "all clean" (would have missed the slice-tag drift entirely)
 - Expanding into V-1c.3-09 by default (would have re-introduced the F-OPS-4 sub-pattern 4 problem the discipline was designed to prevent)
 
