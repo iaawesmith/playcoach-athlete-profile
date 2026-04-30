@@ -33,6 +33,29 @@ where applicable.
 
 ---
 
+## [PHASE-1C3-SLICE-E] — 2026-04-30
+
+R-07 backup disposition audit + slice-tag taxonomy normalization. All 9 in-scope rows (slices B/C/D) verified clean on disposition/intent/source_column; 9 rows renamed from ambiguous single-letter form to durable `<phase>-<slice>` form. R-07 mitigated. F-OPS-4 sub-pattern 7 (taxonomy drift across slices over time) annotated.
+
+### Added
+- **Migration `slice1c3_e_normalize_backup_slice_tags`** — expanded `alb_phase1c_slice_chk` CHECK constraint to allow durable phase-slice form alongside legacy single letters; renamed 9 rows in a single transaction with three independent UPDATE statements + post-condition row-count assertions (3 / 4 / 2).
+- **`docs/process/phase-1c3-slice-e-outcome.md`** — slice outcome doc with full per-row audit table.
+- **V-1c.3-10** in `phase-1c3-prep-backlog.md` — normalize 10 PHASE-1C2-SLICE-E backup rows (deferred from this slice scope).
+
+### Changed
+- **`docs/risk-register/R-07`** — open → **mitigated**. Mitigation note added documenting the periodic-audit + durable-tag convention. Stays mitigated (not closed) per long-horizon preventive nature.
+- **`docs/risk-register/F-OPS-4`** — fifth annotation; catalogue now lists **seven distinct sub-patterns**, including the genuinely new **sub-pattern 7 (taxonomy drift across slices over time)** with structural remediation distinct from sub-patterns 1–6.
+- **`docs/risk-register/INDEX.md`** — R-07 row updated to mitigated; cross-link to F-OPS-4 added.
+
+### Fixed
+- **`src/features/athlete-lab/components/NodeEditor.tsx`** — three missing `</div>` closes in the basics tab (Pipeline Config inline subtree shipped in 1c.3-D had unbalanced JSX). Caught during this slice's `tsc --noEmit -p tsconfig.app.json` verification — the default project tsc did not surface it. Verification-discipline note: future slice closes should run app-level tsc, not just the default.
+
+### Verified
+- `npx tsc --noEmit -p tsconfig.app.json` exit 0, no output.
+- Post-migration `GROUP BY slice` distribution: `1c.2-D: 4, 1c.3-B: 3, 1c.3-D: 2, E: 10`.
+
+---
+
 ## [PHASE-1C3-SLICE-D] — 2026-04-29
 
 Tab consolidation 13 → 8 + R-05 mitigation + 5-key knowledge_base merge. Final tab set: Basics, Videos, Phases, Metrics, Reference, LLM Prompt, Badges, Run Analysis. Two F-OPS-4 halts during DB work (constraint discovery + new transactional-correctness sub-pattern on multi-source merge).
