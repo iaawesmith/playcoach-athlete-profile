@@ -1,8 +1,10 @@
 # Tiers — schema (scaffolding)
 
-> **Pass 5a scaffolding.** This directory will hold tier definitions for the athlete-lab scoring rollup. Phase 1c.2 has no canonical tier set yet; the only historical reference is "Elite Tier" in [`../../glossary.md`](../../glossary.md), which is explicitly **deprecated** in favour of milestone-driven badges.
+> **Pass 5a scaffolding (updated 2026-04-30, PHASE-1C3-PREP).** This directory holds tier definitions for the athlete-lab scoring rollup. This schema documents the **structured-content contract for tier-specific reference material**; tier IDs themselves are owned by the onboarding component.
 >
-> This schema fixes the contract so future tier definitions land consistently. No tier files exist at scaffold time; first additions are tracked in [`docs/process/phase-1c3-prep-backlog.md`](../../process/phase-1c3-prep-backlog.md).
+> **Canonical tier IDs:** `youth`, `high-school`, `college`, `pro` — defined in [`src/features/onboarding/steps/AthleteTier.tsx`](../../../src/features/onboarding/steps/AthleteTier.tsx). Currently active: **college only**. The other three tiers are defined as "Coming Soon" in the onboarding flow and will activate in future phases.
+>
+> The earlier "Elite Tier" reference in [`../../glossary.md`](../../glossary.md) is **deprecated** in favour of milestone-driven badges within tiers. No tier-system files exist yet; first additions tracked in [`../../process/phase-1c3-prep-backlog.md`](../../process/phase-1c3-prep-backlog.md).
 
 ## Purpose
 
