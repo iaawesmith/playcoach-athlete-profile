@@ -25,7 +25,7 @@ There is also an internal-only **Athlete Lab** at `/athlete-lab` — the admin b
 | [`../INDEX.md`](../INDEX.md) | Documentation index | When you need to find a doc and don't know its path |
 | [`../glossary.md`](../glossary.md) | Canonical terminology | Whenever a term is ambiguous |
 
-`AGENTS.md` at the repo root is a redirect stub from a Phase 1c.2 cleanup rename. Real product spec lives in `PRODUCT-SPEC.md`.
+(`AGENTS.md` was a redirect stub from a Phase 1c.2 cleanup rename and was removed during Phase 1c.3-A. Real product spec lives in `PRODUCT-SPEC.md`.)
 
 ---
 
@@ -44,9 +44,9 @@ After step 6 you have working context. ~45 minutes total.
 
 ## What you're walking into
 
-We're at the tail end of **Phase 1c.2** — a deep cleanup pass on the internal Athlete Lab pipeline. Determinism has been stabilized, calibration paths have been unified, the risk register is large. Right now we are inside a **6-pass repo + IA foundation build** (consolidation → agent infra → structural conversions → risk register split → foundation scaffolding → mechanical automation).
+**Phase 1c.3 closed 2026-04-30.** Determinism has been stabilized, calibration paths have been unified, the Athlete Lab admin UI has been consolidated 13→8 tabs, and the risk register is reconciled (25 entries: 12 risks, 13 findings, 10 verification tasks). See [`docs/process/phase-1c3-retrospective.md`](../process/phase-1c3-retrospective.md) for the close synthesis and seven F-OPS-4 sub-patterns that landed during 1c.3.
 
-**Phase 2 (metric quality) and Phase 3 (athlete UI) are deferred** until 1c.3 closes. Phase ordering is *metrics before UI* — see ADR-0006 (created in Pass 3d). Do not propose athlete-facing UI work in Phase 1c.
+**Phase 2a (calibration robustness) is next.** Phase 3 (athlete UI) remains deferred until Phase 2 metric quality work completes. Phase ordering is *metrics before UI* — see [ADR-0006](../adr/0006-phase-ordering-metrics-before-ui.md). Do not propose athlete-facing UI work until Phase 2 closes.
 
 ---
 
@@ -57,7 +57,6 @@ We're at the tail end of **Phase 1c.2** — a deep cleanup pass on the internal 
 ├── README.md              Public-facing project overview
 ├── PRODUCT-SPEC.md        Build specification (Lovable reads this every session)
 ├── VISION.md              Executive narrative
-├── AGENTS.md              [stub — redirects to PRODUCT-SPEC.md]
 ├── src/                   Application code
 │   ├── features/          Feature folders (athlete-lab, builder, profile, landing, onboarding)
 │   ├── store/             Zustand stores
