@@ -53,6 +53,12 @@ Six slices shipped 2026-04-29 → 2026-04-30. Synthesis lives in [`process/phase
 
 Phase 2a unblocked.
 
+### Post-1c.3 prep
+
+| Slice | Outcome | Doc |
+|---|---|---|
+| PHASE-1C3-PREP | Documentation gap closure for Phase 2 readiness (system-overview, pipeline-trace, testing-philosophy, roadmap-sync detector, F-OPS-4 lede, tier resolution) | [`process/phase-1c3-prep-slice-outcome.md`](process/phase-1c3-prep-slice-outcome.md) |
+
 ---
 
 ## Phase 2 — metric quality
