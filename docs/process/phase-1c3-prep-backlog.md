@@ -134,13 +134,13 @@ Decision deferred to next plan-mode pass after 1c.3-B closes. Candidate slice: 1
 
 ## V-1c.3-08 — Disposition decision for `kb.overview` and `kb.test` keys
 
+> **Status:** ✅ **Resolved 2026-04-30** in `PHASE-1C3-SLICE-F` retrospective. `kb.overview` (2 sections, 7,363 bytes on Slant — meaningful authored documentation about the retired Overview tab) **merged into `kb.basics`** with provenance prefix and `(migrated)` title suffix. `kb.test` (1 section, 3,123 bytes — Test tab still exists in editor) **left untouched**. Migration `slice1c3_f_v08_overview_to_basics_merge` shipped atomically with backup (slice='1c.3-F', disposition='relocated'); basics length 13 → 15 verified.
+
 **Origin:** PHASE-1C3-SLICE-D, Q5 deferral.
 
-**Why it matters:** The 5-key `knowledge_base` consolidation in 1c.3-D dropped `scoring`, `errors`, `camera`, `checkpoints`, `training_status` and merged into 4 surviving consolidated keys. Two additional keys remain unmerged: `overview` and `test`. Plan v2 didn't specify their disposition. Q5 resolution: defer the decision to a 1c.3-F retrospective slice once the consolidated state has been used by admins for some period.
+**Decision rationale:** Mirrors the training_status pattern from 1c.3-D — content keyed to a retired tab → migrated to surviving parent rather than dropped or left indefinitely. Decision tree applied: meaningful → merge with provenance; stale/test → drop after backup; never leave indefinitely without explicit decision. `kb.overview` cleared the meaningful bar.
 
-**Verification task:** sample current node state for `knowledge_base.overview` and `knowledge_base.test` content. If non-empty across multiple nodes, decide between (a) merge into `basics` (mirrors training_status pattern), (b) keep as-is and surface in HelpDrawer with their own tab entries, or (c) drop entirely if dead.
-
-**Owner:** PHASE-1C3-SLICE-F retrospective.
+**Owner:** ✅ PHASE-1C3-SLICE-F retrospective (resolved).
 
 ---
 
