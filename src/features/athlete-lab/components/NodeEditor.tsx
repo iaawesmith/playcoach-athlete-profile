@@ -1039,7 +1039,6 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
               </div>
             </div>
             </div>
-            </div>
           </div>
         )}
 
