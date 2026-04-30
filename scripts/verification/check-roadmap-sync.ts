@@ -111,19 +111,23 @@ function discoverSliceDocs(): SliceDoc[] {
       (f.startsWith('phase-') && f.endsWith('-retrospective.md')),
   );
   const docs: SliceDoc[] = [];
+  const legacy: string[] = [];
   for (const f of candidates) {
     const p = join(PROCESS_DIR, f);
     const text = readFileSync(p, 'utf8');
     const fm = parseFrontmatter(text);
-    if (!fm) {
-      console.error(`SHAPE_ERROR: ${p} — no parseable frontmatter`);
-      process.exit(2);
-    }
-    if (!('slice_id' in fm) || !('status' in fm)) {
-      console.error(`SHAPE_ERROR: ${p} — missing slice_id or status (got keys: ${Object.keys(fm).join(', ')})`);
-      process.exit(2);
+    if (!fm || !('slice_id' in fm) || !('status' in fm)) {
+      // Pre-template doc (predates slice-outcome.md template, Pass 3f 2026-04-26).
+      // Not enforced — these are historical artifacts. Future slices MUST use the
+      // template per docs/agents/workflows.md "Drafting a slice outcome".
+      legacy.push(p);
+      continue;
     }
     docs.push({ path: p, sliceId: fm.slice_id, status: fm.status });
+  }
+  if (legacy.length > 0) {
+    console.warn(`NOTE: ${legacy.length} legacy outcome doc(s) without YAML frontmatter — not enforced:`);
+    for (const l of legacy) console.warn(`  - ${l}`);
   }
   return docs;
 }
