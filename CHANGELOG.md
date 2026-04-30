@@ -33,6 +33,31 @@ where applicable.
 
 ---
 
+## [PHASE-1C3-CLOSE] — 2026-04-30
+
+Phase 1c.3 formally closes with the slice 1c.3-F retrospective. All 6 slices (A–F) shipped; R-12 closed; R-05 and R-07 mitigated; 5 findings opened during 1c.3 (F-OPS-3, F-OPS-4, F-SLICE-E-6 + carry-overs); 3 findings resolved (F-SLICE-E-4/E-5/E-6). Phase 1c.3 deliverables synthesized into a single retrospective; methodological discipline (F-OPS-3, F-OPS-4 with seven sub-patterns) ready as Phase 2 input.
+
+### Added
+- **`docs/process/phase-1c3-retrospective.md`** — full Phase 1c.3 retrospective: slice-by-slice summary (A–F), F-OPS-3/F-OPS-4 methodological evolution, what worked / what didn't, deferrals to Phase 2, Phase 2 readiness inputs, process recommendations.
+- **Migration `slice1c3_f_v08_overview_to_basics_merge`** — V-1c.3-08 disposition. Extends `alb_phase1c_slice_chk` to allow `1c.3-F`; backs up 2 `kb.overview` sections (slice='1c.3-F', disposition='relocated'); merges into `kb.basics` with provenance prefix and `(migrated)` title suffix; drops `kb.overview` key. Atomic transaction, post-condition assertions all passed (basics 13 → 15, 2 backup rows, overview key absent).
+
+### Changed
+- **`docs/risk-register/INDEX.md`** — counts narrative reconciled: 25 entries (12 risks + 13 findings), 10 verification tasks. Earlier "26 / 14 / 9" wording was drift; status distribution sentence added.
+- **`docs/process/phase-1c3-prep-backlog.md`** — V-1c.3-08 marked resolved with the merge decision and migration reference.
+- **`docs/roadmap.md`** — Phase 1c.3 status: Not started → **Complete**. Cross-link to retrospective.
+- **`docs/risk-register/F-OPS-4`** — sixth annotation: sub-pattern 1 replay observation from this slice (CHECK constraint extended in 1c.3-E did not include `1c.3-F`; cadence confirmed). Phase 2 prep recommendation: convert slice CHECK to pattern or validation trigger.
+
+### Verified
+- V-1c.3-08 merge migration: post-condition assertions passed (basics length 13 → 15, 2 backup rows for slice='1c.3-F', `kb.overview` key absent).
+- Cross-reference integrity audit: 15 ADRs verified, 25 risk-register entries verified per-file vs INDEX. Clean.
+- INDEX count drift reconciled (was: 26 / 14 / 9; actual: 25 / 13 / 10).
+- Final sweep: `rg "TODO.*1c\.3"` → zero hits in code or docs. `rg "1c\.3"` references are all retrospective / historical / cross-link as expected.
+
+### Closed
+- **Phase 1c.3** formally complete. Phase 2 (analysis quality) ready to enter prep.
+
+---
+
 ## [PHASE-1C3-SLICE-E] — 2026-04-30
 
 R-07 backup disposition audit + slice-tag taxonomy normalization. All 9 in-scope rows (slices B/C/D) verified clean on disposition/intent/source_column; 9 rows renamed from ambiguous single-letter form to durable `<phase>-<slice>` form. R-07 mitigated. F-OPS-4 sub-pattern 7 (taxonomy drift across slices over time) annotated.

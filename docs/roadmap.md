@@ -12,8 +12,8 @@ Source of truth for phase ordering. When phase labels in any doc disagree with t
 |---|---|---|
 | 1c.0 | Complete | Architecture audit, end-state architecture, mediapipe capability inventory, tab inventory |
 | 1c.1 | Complete | Slice 2 + Slice 3 ship records |
-| 1c.2 | In progress (cleanup pass) | Slices A–E shipped; determinism stabilized; **current cleanup pass:** repo + IA foundation build |
-| 1c.3 | Not started | Consolidation pass: orphan column verification, R2 stub removal, post-1c.2 backlog absorption |
+| 1c.2 | Complete | Slices A–E shipped; determinism stabilized; 6-pass repo + IA cleanup landed |
+| 1c.3 | **Complete (2026-04-30)** | Six slices A–F shipped: R2 stub sweep, Mechanics deletion + KB merges, write-path defect-class cleanup, 13 → 8 tab consolidation, R-07 backup audit + slice-tag normalization, retrospective + close. See [`process/phase-1c3-retrospective.md`](process/phase-1c3-retrospective.md). |
 | 2a | Not started | Calibration robustness (n=3+ ground truth dataset, multi-clip determinism) |
 | 2b | Not started | Cloud Run telemetry instrumentation (F-SLICE-E-2 escalation gate) |
 | 2c | Not started | Metric quality audit + scoring rule verification |

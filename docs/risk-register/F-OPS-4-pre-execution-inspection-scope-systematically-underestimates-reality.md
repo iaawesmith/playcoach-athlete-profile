@@ -180,6 +180,23 @@ This finding has now evolved through **five explicit annotations across five sli
 
 Sub-patterns 1–5 share a methodological remediation. Sub-pattern 6 has an algorithmic remediation. Sub-pattern 7 has a **structural** remediation: change the identifier scheme itself, OR establish an audit cadence that treats taxonomy as data subject to drift like any other.
 
+## Annotation — Phase 1c.3-F: sub-pattern 1 replay + slice CHECK cadence observation (2026-04-30)
+
+PHASE-1C3-SLICE-F (retrospective + V-1c.3-08 disposition) surfaced sub-pattern 1 again — the V-1c.3-08 merge migration first iteration failed on `alb_phase1c_slice_chk` because `1c.3-F` was not in the enumerated whitelist (the constraint had been extended in 1c.3-E to allow `1c.3-A`–`1c.3-E` but not `1c.3-F`). Constraint extension shipped as the first statement of the slice migration; second iteration clean.
+
+**Not a new sub-pattern** — this is sub-pattern 1 (constraint discovery) replaying. **What is new is the cadence observation**: the enumerated-whitelist CHECK requires extension in *every* slice that writes a new backup row with a new slice tag. 1c.3-E extended it; 1c.3-F extended it again; every future backup-writing slice will need to extend it.
+
+### Phase 2 prep recommendation
+
+**Convert `alb_phase1c_slice_chk` to a pattern CHECK or a validation trigger** (per ADR-0008 — validation triggers over CHECK for non-immutable constraints). Two options:
+
+1. **Pattern CHECK:** `CHECK (slice ~ '^(B|C|D|E|1c\.[0-9]+-[A-Z])$')` — accepts both legacy single-letter and durable phase-slice form without enumeration. Cheap, immutable.
+2. **Validation trigger:** runs a regex match in PL/pgSQL; allows future logic (e.g., reject slice tags from already-closed phases).
+
+Either eliminates the per-slice constraint-extension cadence permanently. Recommend option 1 (pattern CHECK) unless future taxonomy logic requires option 2.
+
+This recommendation is captured in `docs/process/phase-1c3-retrospective.md` §J as a Phase 2 prep input.
+
 ## Same root-cause family
 
 - **F-OPS-3** — deferred work shipped earlier creates plan-state drift (related: trusting a prior plan assertion without re-verification)
@@ -193,6 +210,8 @@ All three share the pattern: trusting a prior assertion without verifying agains
 - `docs/process/phase-1c3-slice-c-outcome.md` — slice where sub-pattern 5a surfaced
 - `docs/process/phase-1c3-slice-d-outcome.md` — slice where sub-patterns 5b and 6 surfaced
 - `docs/process/phase-1c3-slice-e-outcome.md` — slice where sub-pattern 7 surfaced
+- `docs/process/phase-1c3-retrospective.md` — Phase 1c.3 retrospective; sub-pattern 1 replay annotation + Phase 2 prep recommendation
 - `docs/process/phase-1c3-prep-backlog.md` V-1c.3-06, V-1c.3-10 — discovered work captured for future planning
 - ADR-0007 — backup snapshot pattern (the table whose constraints surfaced examples 1 and the third unenforced constraint)
 - ADR-0012 — backup retention indefinite (the policy that creates the long-horizon drift surface sub-pattern 7 addresses)
+- ADR-0008 — validation triggers over CHECK (referenced in Phase 2 prep recommendation for slice CHECK conversion)
