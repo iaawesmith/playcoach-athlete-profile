@@ -197,6 +197,8 @@ Either eliminates the per-slice constraint-extension cadence permanently. Recomm
 
 This recommendation is captured in `docs/process/phase-1c3-retrospective.md` §J as a Phase 2 prep input.
 
+## Same root-cause family
+
 - **F-OPS-3** — deferred work shipped earlier creates plan-state drift (related: trusting a prior plan assertion without re-verification)
 - **F-SLICE-E-3** — recipe propagation without independent verification (related: trusting a prior recipe assertion without re-verification)
 
