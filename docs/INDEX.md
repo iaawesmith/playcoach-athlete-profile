@@ -104,12 +104,4 @@
 
 ---
 
-## Coming online during this cleanup
-
-| Pass | Adds |
-|---|---|
-| 2 | `agents/onboarding.md`, `agents/conventions.md`, `agents/workflows.md` |
-| 3 | Subdirectory reorg, calibration YAML, drift CSV, 12 ADRs, slice-outcome template, CHANGELOG + release-notes |
-| 4 | `risk-register/` split (one file per `R-*` / `F-*`) |
-| 5 | `reference/tiers/_schema.md`, `reference/metrics/_schema.md`, `reference/events/_schema.md`, `reference/observability/_schema.md`, `reference/calibration-audit-rollup.{md,csv}`, `scripts/aggregate-calibration-audit.ts` |
-| 6 | `reference/phases.md`, `scripts/generate-tab-inventory.ts` (+ AUTO block in `architecture/athlete-lab-tab-inventory.md`), `scripts/verification/_template.ts`, retrofitted headers on the 6 existing `scripts/verification/*.ts` |
+> Historical "Coming online during this cleanup" passes table removed 2026-04-30 (PHASE-1C3-POLISH) — all passes shipped during Phase 1c.2 cleanup. See [`CHANGELOG.md`](../CHANGELOG.md) for the canonical log of what landed in each pass/slice.
