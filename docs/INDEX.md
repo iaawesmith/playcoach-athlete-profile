@@ -101,6 +101,7 @@
 | [`agents/onboarding.md`](agents/onboarding.md) | Agent onboarding — read order for fresh agents |
 | [`agents/conventions.md`](agents/conventions.md) | Repo conventions (file naming, IDs, R2 stub policy, structured-vs-prose, catalog-doc exemption) |
 | [`agents/workflows.md`](agents/workflows.md) | Common multi-step workflows |
+| [`agents/testing-philosophy.md`](agents/testing-philosophy.md) | Per-slice manual verification framed as the test surface; F-OPS-3/F-OPS-4/F-SLICE-E-3 methodological triad |
 
 ---
 
