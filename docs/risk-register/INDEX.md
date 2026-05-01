@@ -2,7 +2,7 @@
 
 **Source:** Split from `docs/migration-risk-register.md` during Phase 1c.2 cleanup (Pass 4, 2026-04-26). One file per entry. Schema in [`_schema.md`](_schema.md). Original combined doc is now an R2 redirect stub.
 
-**Counts (reconciled in PHASE-1C3-SLICE-F, 2026-04-30):** **25 total entries** — 12 risks (`R-01`–`R-12`) and **13 findings** (`F-*`). Plus **10 verification tasks** (`V-1c.3-01`–`V-1c.3-10`) tracked in [`docs/process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md). Status distribution at Phase 1c.3 close: risks — 8 open, 3 mitigated (R-01, R-05, R-07), 1 closed (R-12); findings — 9 open, 1 deferred (F-SLICE-B-1), 3 resolved (F-SLICE-E-4, E-5, E-6). Earlier "26 entries / 14 findings / 9 verification tasks" narrative was drift; reconciled here.
+**Counts (reconciled in PHASE-1C3-SLICE-F, 2026-04-30; updated PHASE-2-PREP-FOLLOWUPS, 2026-05-01):** **27 total entries** — 12 risks (`R-01`–`R-12`) and **15 findings** (`F-*`). Plus **10 verification tasks** (`V-1c.3-01`–`V-1c.3-10`) tracked in [`docs/process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md). Status distribution: risks — 8 open, 3 mitigated (R-01, R-05, R-07), 1 closed (R-12); findings — 10 open, 2 deferred (F-SLICE-B-1, F-CALIB-1), 3 resolved (F-SLICE-E-4, E-5, E-6). New finding-area prefix `F-CALIB-` introduced for calibration-domain findings; matches the `F-<AREA>-<N>` convention in `_schema.md`.
 
 **Severity scale** (unchanged from source):
 - **Sev-1** — blocks production analyses
