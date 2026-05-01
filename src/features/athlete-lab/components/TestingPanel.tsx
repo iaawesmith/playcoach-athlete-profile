@@ -690,6 +690,14 @@ export function TestingPanel({ node }: TestingPanelProps) {
                     <option value="cm">CM</option>
                   </select>
                 </div>
+                {!athleteHeight.trim() && (
+                  <div className="mt-2 flex gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-highest/80 px-3 py-2">
+                    <span className="material-symbols-outlined shrink-0 text-on-surface-variant" style={{ fontSize: 16 }}>warning</span>
+                    <p className="text-[10px] leading-relaxed text-on-surface-variant">
+                      No athlete height provided. Body-based calibration will fall through to static. Aggregate scores will not match prior body-based runs.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
