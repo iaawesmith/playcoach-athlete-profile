@@ -27,13 +27,15 @@ Canonical terminology used across PlayCoach docs and code. When in doubt, defer 
 | Term | Meaning |
 |---|---|
 | **Athlete Lab** | The internal-only admin builder where node-based drill definitions, calibrations, and scoring rules are authored. Distinct from Brand HQ (athlete-facing). |
-| **Node** | A drill definition row in `athlete_lab_nodes`. Contains overview, key metrics, scoring rules, calibration references, LLM prompts, etc. |
-| **Tab** | One section of the NodeEditor UI. Inventoried in [`architecture/athlete-lab-tab-inventory.md`](architecture/athlete-lab-tab-inventory.md). |
+| **body_based_ppy** | Pixels-per-yard derived from athlete body landmarks. The current canonical PPY source. |
 | **Calibration** | The process of converting pixel measurements to real-world units (inches, mph). Two paths: corner-detection (deprecated, "Option A") and body-based (current, "C.5 unified"). See ADR-0004 (created in Pass 3d). |
 | **calibration_audit** | The structured payload written to `athlete_lab_results.result_data.calibration_audit` capturing which calibration path ran, with what inputs, and producing what `selected_ppy`. |
-| **body_based_ppy** | Pixels-per-yard derived from athlete body landmarks. The current canonical PPY source. |
-| **upload_id** | Foreign key from `athlete_lab_results.upload_id` → `athlete_uploads.id`. The atomic unit of analysis. |
+| **FIXED_TEST_ATHLETE_ID** | The canonical test athlete UUID (`8f42b1c3-5d9e-4a7b-b2e1-9c3f4d5a6e7b`) used for admin smoke testing. Referenced by the `admin-test-upload` edge function and admin smoke-test workflows. |
+| **Node** | A drill definition row in `athlete_lab_nodes`. Contains overview, key metrics, scoring rules, calibration references, LLM prompts, etc. |
 | **result_id** | Primary key of `athlete_lab_results`. One result per analysis run. |
+| **Slant** | The only currently-active node in the system. The slant-route reference clip `slant-route-reference-v1.mp4` is the canonical ground-truth clip used in F-SLICE-B-1 calibration analysis and pipeline verification. |
+| **Tab** | One section of the NodeEditor UI. Inventoried in [`architecture/athlete-lab-tab-inventory.md`](architecture/athlete-lab-tab-inventory.md). |
+| **upload_id** | Foreign key from `athlete_lab_results.upload_id` → `athlete_uploads.id`. The atomic unit of analysis. |
 
 ---
 

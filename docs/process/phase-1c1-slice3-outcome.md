@@ -1,5 +1,8 @@
 # Phase 1c.1 Slice 3 — Outcome
 
+> *Legacy slice outcome doc (pre-template, Pass 3f). Frontmatter contract evolved 2026-04-26; this doc retained as historical record.*
+
+
 **Status:** Shipped to test/preview. Verification 12/12 passing.
 
 **Scope:** Expose `athlete_lab_nodes.position` (existing column, edge function

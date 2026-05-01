@@ -1,5 +1,8 @@
 # R-04 Backup Completeness Assertion — Phase 1c.2 Slice A
 
+> *Legacy slice outcome doc (pre-template, Pass 3f). Frontmatter contract evolved 2026-04-26; this doc retained as historical record.*
+
+
 > **Status:** Historical ship record. R-04 backup pattern captured in ADR-0007 (created in Pass 3d). Retained for historical context.
 
 **Status:** PASS

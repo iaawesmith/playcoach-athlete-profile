@@ -1,5 +1,8 @@
 # Phase 1c.2 — 5-Run Determinism Experiment
 
+> *Legacy slice outcome doc (pre-template, Pass 3f). Frontmatter contract evolved 2026-04-26; this doc retained as historical record.*
+
+
 **Date:** 2026-04-26
 **Slice context:** B1 verification — answering "is Run #1 vs Run #2 metric divergence caused by MediaPipe nondeterminism, edge metric-math nondeterminism, or upstream pipeline state?"
 **Test clip:** `slant-route-reference-v1.mp4`
