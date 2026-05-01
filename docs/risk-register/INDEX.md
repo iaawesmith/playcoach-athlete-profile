@@ -2,7 +2,7 @@
 
 **Source:** Split from `docs/migration-risk-register.md` during Phase 1c.2 cleanup (Pass 4, 2026-04-26). One file per entry. Schema in [`_schema.md`](_schema.md). Original combined doc is now an R2 redirect stub.
 
-**Counts (reconciled in PHASE-1C3-SLICE-F, 2026-04-30):** **25 total entries** — 12 risks (`R-01`–`R-12`) and **13 findings** (`F-*`). Plus **10 verification tasks** (`V-1c.3-01`–`V-1c.3-10`) tracked in [`docs/process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md). Status distribution at Phase 1c.3 close: risks — 8 open, 3 mitigated (R-01, R-05, R-07), 1 closed (R-12); findings — 9 open, 1 deferred (F-SLICE-B-1), 3 resolved (F-SLICE-E-4, E-5, E-6). Earlier "26 entries / 14 findings / 9 verification tasks" narrative was drift; reconciled here.
+**Counts (reconciled in PHASE-1C3-SLICE-F, 2026-04-30; updated PHASE-2-PREP-FOLLOWUPS, 2026-05-01):** **27 total entries** — 12 risks (`R-01`–`R-12`) and **15 findings** (`F-*`). Plus **10 verification tasks** (`V-1c.3-01`–`V-1c.3-10`) tracked in [`docs/process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md). Status distribution: risks — 8 open, 3 mitigated (R-01, R-05, R-07), 1 closed (R-12); findings — 10 open, 2 deferred (F-SLICE-B-1, F-CALIB-1), 3 resolved (F-SLICE-E-4, E-5, E-6). New finding-area prefix `F-CALIB-` introduced for calibration-domain findings; matches the `F-<AREA>-<N>` convention in `_schema.md`.
 
 **Severity scale** (unchanged from source):
 - **Sev-1** — blocks production analyses
@@ -34,12 +34,14 @@
 
 | ID | Title | Status | Severity | Origin slice | Related ADRs | Related entries |
 |---|---|---|---|---|---|---|
-| [F-OPS-1](F-OPS-1-zombie-upload-accumulation-rate-sev-3.md) | Zombie upload accumulation rate | open | Sev-3 | 1c.2-Slice-E | ADR-0006 | — |
+| [F-OPS-1](F-OPS-1-zombie-upload-accumulation-rate-sev-3.md) | Zombie upload accumulation rate | open | Sev-3 | 1c.2-Slice-E | ADR-0006 | F-OPS-5 |
 | [F-OPS-2](F-OPS-2-missing-error-boundary-around-nodeeditor-phase-3-ship-blocker.md) | Missing error boundary around NodeEditor (Phase 3 ship blocker) | open | Sev-2 | 1c.2-Slice-E.5 | ADR-0006 | F-SLICE-E-4 |
 | [F-OPS-3](F-OPS-3-deferred-work-shipped-earlier-creates-plan-vs-state-drift.md) | Deferred work shipped earlier creates plan-vs-state drift | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-4 |
 | [F-OPS-4](F-OPS-4-pre-execution-inspection-scope-systematically-underestimates-reality.md) | Pre-execution inspection scope systematically underestimates reality | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-3 |
+| [F-OPS-5](F-OPS-5-admin-test-uploads-fail-silently-when-target-node-in-draft.md) | Admin-test uploads fail silently when target node is in draft | open | Sev-3 | post-1c | — | F-OPS-1 |
 | [F-SEC-1](F-SEC-1-permissive-rls-on-admin-tables-public-storage-bucket-listing-sev.md) | Permissive RLS on admin tables + public storage bucket listing | open | Sev-2 | 1c.2-Slice-E | ADR-0001, ADR-0006 | — |
-| [F-SLICE-B-1](F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md) | Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming | deferred | Sev-2 | 1c.2-Slice-B | ADR-0004, ADR-0014 | — |
+| [F-CALIB-1](F-CALIB-1-top-level-result-data-shadow-values-disagree-with-calibration-audit.md) | Top-level `result_data` shadow values disagree with `calibration_audit` | deferred | Sev-3 | post-1c | ADR-0014, ADR-0004 | F-SLICE-B-1 |
+| [F-SLICE-B-1](F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md) | Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming | deferred | Sev-2 | 1c.2-Slice-B | ADR-0004, ADR-0014 | F-CALIB-1 |
 | [F-SLICE-B1-2](F-SLICE-B1-2-release-speed-metric-correctness-on-slant-route-reference-v1-mp4.md) | Release Speed metric correctness on `slant-route-reference-v1.mp4` (REFRAMED 2026-04-26) | open | Sev-3 | 1c.2-Slice-B1 | ADR-0004 | — |
 | [F-SLICE-E-1](F-SLICE-E-1-det-frequency-complex-consolidation-deferred-sev-3.md) | `det_frequency` complex consolidation deferred | open | Sev-3 | 1c.2-Slice-E | — | — |
 | [F-SLICE-E-2](F-SLICE-E-2-pipeline-calibration-audit-shows-0-78-non-deterministic-drift-on-identical.md) | Pipeline `calibration_audit` shows ~0.78% non-deterministic drift on identical inputs | open | Sev-2 | 1c.2-Slice-E | ADR-0004, ADR-0005, ADR-0006 | — |

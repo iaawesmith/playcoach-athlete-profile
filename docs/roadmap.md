@@ -59,6 +59,7 @@ Phase 2a unblocked.
 |---|---|---|
 | PHASE-1C3-PREP | Documentation gap closure for Phase 2 readiness (system-overview, pipeline-trace, testing-philosophy, roadmap-sync detector, F-OPS-4 lede, tier resolution) | [`process/phase-1c3-prep-slice-outcome.md`](process/phase-1c3-prep-slice-outcome.md) |
 | PHASE-1C3-POLISH | Post-prep audit cleanup: INDEX refresh + Audits section, scripts/verification/README, glossary entries (Slant, FIXED_TEST_ATHLETE_ID), legacy banners on 7 pre-template docs, methodological-triad cross-annotation across F-OPS-3/F-OPS-4/F-SLICE-E-3 | [`process/phase-1c3-polish-slice-outcome.md`](process/phase-1c3-polish-slice-outcome.md) |
+| PHASE-2-PREP-FOLLOWUPS | Smoke-test follow-up bundle: TestingPanel `athlete_height` UX hardening (localStorage + inline warning), F-OPS-5 opened (Sev-3, draft-node misleading error), F-CALIB-1 opened (Sev-3, deferred to Phase 2a calibration shadow values) | [`process/phase-2-prep-followups-slice-outcome.md`](process/phase-2-prep-followups-slice-outcome.md) |
 
 ---
 

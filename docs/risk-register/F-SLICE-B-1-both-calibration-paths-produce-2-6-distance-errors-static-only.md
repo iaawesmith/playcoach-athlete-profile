@@ -6,9 +6,9 @@ severity: Sev-2
 origin_slice: 1c.2-Slice-B
 origin_doc: docs/process/phase-1c2-slice-b1-outcome.md
 related_adrs: [ADR-0004, ADR-0014]
-related_entries: []
+related_entries: [F-CALIB-1]
 opened: 2026-04-26
-last_updated: 2026-04-26
+last_updated: 2026-05-01
 ---
 
 # F-SLICE-B-1 — Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming

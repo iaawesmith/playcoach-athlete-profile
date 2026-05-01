@@ -6,9 +6,9 @@ severity: Sev-3
 origin_slice: 1c.2-Slice-E
 origin_doc: docs/process/phase-1c2-slice-e-outcome.md
 related_adrs: [ADR-0006]
-related_entries: []
+related_entries: [F-OPS-5]
 opened: 2026-04-26
-last_updated: 2026-04-26
+last_updated: 2026-05-01
 ---
 
 # F-OPS-1 — Zombie upload accumulation rate (Sev-3)
