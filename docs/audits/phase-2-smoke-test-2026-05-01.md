@@ -1,114 +1,198 @@
-# Phase 2 Smoke Test — Halt Outcome (2026-05-01)
+# Phase 2 Smoke Test — Post-1c.3 Pipeline Inspection (2026-05-01)
 
-> **Status:** **HALT — no successful post-1c.3 run to audit.**
-> **Verdict:** N/A (smoke test could not execute end-to-end inspection).
-> **Type:** Halt-outcome record (not a passing audit).
+> **Verdict:** **PASS WITH NOTES.**
+> **Status:** Pipeline ran end-to-end. ADR-0014 `calibration_audit` contract honored. Two notes surfaced: (1) admin UI did not pass `athlete_height` into `analysis_context`, causing body-based calibration to fall through to static and aggregate score to collapse from 61 → 12 vs the pre-1c.3 baseline; (2) the `result_data` top-level still surfaces a non-canonical `pixels_per_yard` (217.088) and `calibration_source` ("body_based") that disagree with the canonical `calibration_audit.selected_ppy` (80) and `selected_source` ("static") that drove the metrics. Pattern is the same shape as F-SLICE-B-1 dead-data; ADR-0014 made the *consumed* path single-source but did not strip the service-side shadow value from the persisted record.
+
+This doc supersedes the halt record in `phase-2-smoke-test-2026-05-01.md` v1 (re-written in place after Option A — fresh upload — completed).
 
 ## Context
 
-PHASE-2-SMOKE was scoped as a read-only inspection slice to confirm the pipeline produces a clean `result_data` row after Phase 1c.3 consolidation (1c.3-A through 1c.3-F + PHASE-1C3-PREP + PHASE-1C3-POLISH). Dogfooding, not a Phase 2a step. The success criterion was *existence* of a clean post-1c.3 result row, not calibration accuracy.
+Read-only inspection slice. Confirms the pipeline produces a clean `result_data` row after Phase 1c.3 consolidation (1c.3-A through 1c.3-F + PHASE-1C3-PREP + PHASE-1C3-POLISH). Dogfooding, not a Phase 2a step. Success criterion is *existence* of a clean post-1c.3 result row, not calibration accuracy.
 
-Step 1 of the slice — locate the most recent `slant-route-reference-v1.mp4` upload — surfaced a halt condition. No post-1c.3 successful run exists. This doc records what was found, the root cause, and the recommended path forward.
+A prior failed upload (2026-04-29 01:14) was halted on; user re-triggered through the Athlete Lab admin UI; this doc audits the resulting successful run.
 
-## Test inputs (intended)
-
-- **Clip:** `athlete-videos/test-clips/slant-route-reference-v1.mp4`
-- **Target node:** `75ed4b18-8a22-440e-9a23-b86204956056` (Slant)
-- **Athlete:** `8f42b1c3-5d9e-4a7b-b2e1-9c3f4d5a6e7b` (`FIXED_TEST_ATHLETE_ID`)
-
-## Most recent upload row — FAILED
+## Test inputs
 
 | Field | Value |
 |---|---|
-| `upload_id` | `0ef2c877-1632-4090-865a-1e2cb6cde235` |
-| `created_at` | **2026-04-29 01:14:02 UTC** |
+| `upload_id` | `a6c8bb37-2797-49af-a7c4-d98dcbaa5841` |
+| `result_id` | `ec...` (resolved via FK; not surfaced in row dump) |
+| `athlete_id` | `8f42b1c3-5d9e-4a7b-b2e1-9c3f4d5a6e7b` (`FIXED_TEST_ATHLETE_ID`) |
 | `node_id` | `75ed4b18-8a22-440e-9a23-b86204956056` (Slant) |
 | `node_version` | 6 |
-| `status` | **`failed`** |
-| `error_message` | `Node not found or not live: 75ed4b18-8a22-440e-9a23-b86204956056` |
-| `progress_message` | `Analysis failed.` |
-| `camera_angle` | `sideline` |
+| `clip` | admin re-upload tagged `75ed4b18-...-1777603091842.mp4` (Slant reference content; not the original `slant-route-reference-v1.mp4` filename) |
 | `start_seconds`, `end_seconds` | 0, 3 |
-| `analysis_context.experiment` | `1c-slice-d-d5-post-strip-verify` |
+| `camera_angle` | `sideline` |
+| `analysis_context` | `{athlete_level: high_school, camera_angle: sideline, catch_included: true, catch_status: yes, end_seconds: 3, focus_area: "", people_in_video: solo, performance_description: "", route_direction: left, start_seconds: 0}` |
 
-Note: the `experiment` tag on `analysis_context` is a 1c.2-era label, not a fresh post-1c.3 trigger. The upload appears to be a re-run from an existing admin-test fixture rather than a hand-triggered "first post-1c.3 dogfood."
+**Note:** `analysis_context` has no `athlete_height` key. This is the root cause of the body-based fallthrough below.
 
-## Root cause
-
-`fetchNodeConfig` in [`supabase/functions/analyze-athlete-video/index.ts:928-932`](../../supabase/functions/analyze-athlete-video/index.ts) hard-filters the node lookup on `status = 'live'`:
-
-```ts
-.eq('id', nodeId)
-.eq('status', 'live')
-.single()
-...
-if (error || !data) throw new Error(`Node not found or not live: ${nodeId}`)
-```
-
-At 2026-04-29 01:14, the Slant node was almost certainly not in `live` status. PHASE-1C3 transformation slices were actively rewriting node fields (1c.3-B kb merge, 1c.3-D 5-key kb merge, 1c.3-E mechanics-tab drop), which routinely move the node to `draft` during edit cycles. The current node row confirms it was last updated at **2026-04-30 22:10** — the re-publish to `live` happened during/after PHASE-1C3-PREP/POLISH close, **after** the failed upload attempt.
-
-Current node state (read 2026-05-01):
+## Pipeline status — COMPLETE
 
 | Field | Value |
 |---|---|
-| `id` | `75ed4b18-8a22-440e-9a23-b86204956056` |
-| `name` | Slant |
-| `status` | `live` |
-| `node_version` | 6 |
-| `updated_at` | 2026-04-30 22:10:33 UTC |
-
-So the analyzer's hard `status='live'` filter rejected an upload that was in flight against a node mid-edit. This is a real, reproducible operational gotcha — see "Phase 2 input candidate" below.
-
-## Most recent COMPLETE run (pre-Phase-1c.3)
-
-| Field | Value |
-|---|---|
-| `upload_id` | `23936560-1284-4d13-bb68-9894afd2865c` |
-| `result_id` | `1a5996b0-5384-4289-afef-da9666de7c5a` |
-| `created_at` (upload) | **2026-04-26 03:00:51 UTC** |
-| `analyzed_at` (result) | 2026-04-26 03:01:21 UTC |
-| `aggregate_score` | 61 |
-| `experiment` | `1c-slice-e-e36-post-migration` |
 | `status` | `complete` |
+| `error_message` | `null` |
+| `progress_message` | `Analysis complete` |
+| `upload_created_at` | 2026-05-01 02:38:15.561 UTC |
+| `analyzed_at` | 2026-05-01 02:39:00.501 UTC |
+| **wall time** | **~45 seconds** |
 
-This row pre-dates **all** of the Phase 1c.3 work being smoke-tested. Auditing it as a "post-1c.3 result" would be category-incorrect and is explicitly out of scope. For reference only, its `result_data` already carries the full ADR-0014 contract keys (`log_data`, `calibration_audit`, plus auto-zoom and movement diagnostics) — confirming the contract was well-formed at the close of Phase 1c.2. Whether the contract still holds post-1c.3 is the open question this smoke test was meant to answer.
+Cloud Run + Claude breakdown is not separable from `log_data` (no `pipelineTimingMs` key present — see Anomalies #4). 45s end-to-end is well within expected envelope; no zombie pattern, no Cloud Run cold-start spike (would be 5-15s additional), no Claude latency spike (Claude returned `status:COMPLETE` with `truncated:true` at the 745-token cap).
 
-## Pipeline shape verification — NOT PERFORMED
+## `result_data` shape verification — PASS
 
-Steps 2-9 of the slice prompt (result row inspection, `result_data` shape against ADR-0014, `calibration_audit` field-by-field, metric results, Claude prompt/response, timing, anomalies, baseline comparison) require a successful post-1c.3 run. They were not executed.
+All ADR-0014-required keys present at the top level of `result_data`:
 
-## Anomalies surfaced
+| Key | Present | Notes |
+|---|---|---|
+| `log_data` | ✓ | sub-keys: `aggregate`, `claude_api`, `error_detection`, `metrics`, `preflight`, `rtmlib`, `scoring_config`, `timestamp` |
+| `calibration_audit` | ✓ | full ADR-0014 field set — see next section |
+| `pixels_per_yard` | ✓ | **217.088** — but see Anomaly #1, this is non-canonical |
+| `calibration_source` | ✓ | **"body_based"** — but see Anomaly #1, disagrees with audit |
+| `calibration_confidence` | ✓ | "high" |
+| `calibration_details` | ✓ | service-side shadow computation; `method:body_based` |
+| `auto_zoom_*` (factor, applied, padding, reason, crop_rect, final_fill_ratio) | ✓ all six | crop applied at 1.75x; final fill ratio 0.0688 (low) |
+| `movement_direction`, `movement_confidence` | ✓ | `stationary`, `0` |
+| `safety_backoff_applied` | ✓ | `false` |
+| `person_detection_confidence` | ✓ | `1` |
+| `mean_keypoint_confidence_before_auto_zoom` | ✓ | 0.7304 |
+| `mean_keypoint_confidence_after_auto_zoom` | ✓ | 0.7603 |
 
-| Severity | Finding |
+`feedback` column populated cleanly (see §Claude). `confidence_flags` empty array. `detected_errors` array length 1 with single null entry (see Anomaly #5).
+
+## `calibration_audit` — ADR-0014 field-by-field
+
+| Field | Value | Notes |
+|---|---|---|
+| `node_id` | `75ed4b18-8a22-440e-9a23-b86204956056` | matches |
+| `node_version` | 6 | matches |
+| `camera_angle` | `sideline` | matches context |
+| `athlete_height_provided` | **`false`** | drives `body_based_status` |
+| `body_based_ppy` | `null` | not computed (no athlete height) |
+| `body_based_status` | `not_attempted_no_athlete_height` | explicit, well-formed enum |
+| `body_based_confidence` | `null` | consistent with not-attempted |
+| `static_ppy` | `80` | from node `reference_calibrations` |
+| `static_status` | `used` | |
+| `dynamic_status` | `failed` | |
+| `dynamic_failure_reason` | `dynamic_pixels_per_yard_out_of_range` | well-formed enum |
+| `selected_source` | **`static`** | per priority `dynamic→body_based→static→none`, dynamic failed and body_based not attempted, so static |
+| `selected_ppy` | **`80`** | matches `static_ppy` |
+
+Full ADR-0014 contract present. No missing fields. Selection priority matches `pipeline-trace.md` step 6: dynamic failed → body_based not attempted → static used. **Audit record is internally consistent.** What is *not* consistent is the audit record vs the top-level `result_data.pixels_per_yard` / `calibration_source` — see Anomaly #1.
+
+## Metric results — 4 metrics, all scored, no NaN/Inf/null
+
+| Metric | Value | Unit | Target | Score / 100 | Status | Calibration source consumed |
+|---|---|---|---|---|---|---|
+| Plant Leg Extension | 101.95 | degrees | 140 | 23.15 | scored | n/a (angle, no ppy) |
+| Hip Stability | 0.31 | yards | 0.05 | 0 | scored | static (ppy=80) |
+| Release Speed | 23.5 | mph | 7 | 0 | scored | static (ppy=80) |
+| Hands Extension at Catch | 0.60 | yards | 0.4 | 0 | scored | static (ppy=80) |
+
+All distance/velocity metrics consumed `pixelsPerYard: 80` from `calibrationDetails.matchedCalibration` (static, ADR-0014-canonical), confirming the metric runner reads `calibration_audit.selected_ppy` rather than the top-level shadow value. Good — the dead-data shadow at the top level is *persisted but not consumed*.
+
+`Hands Extension at Catch` consumed keypoints (19, 20) with confidence 0.52/0.15 — both flagged UNRELIABLE in `rtmlib.keypoint_confidence` (percent_below: 100). The metric ran but the underlying keypoints are noise. Not a pipeline bug; a known sideline-camera limitation for hand keypoints.
+
+### `phase_scores`
+
+| Phase ID | Phase Name (from variables_injected) | Score |
+|---|---|---|
+| `b0484d0c...` | Catch Window | 0 |
+| `d07d6365...` | Release | 0 |
+| `e63c5444...` | Break | 11.58 |
+
+(Stem and YAC have no metrics assigned, hence absent from the `phase_scores` map but present in the Claude prompt summary as 0/100.)
+
+`aggregate_score` = **12** (= mastery_score per `log_data.aggregate`).
+
+## Claude prompt + response — PASS
+
+| Field | Value |
 |---|---|
-| **Critical (process)** | No post-1c.3 successful run of `slant-route-reference-v1.mp4` exists. Smoke test cannot validate Phase 1c.3 outputs. |
-| **Warning (operational)** | Hard `status='live'` filter in `fetchNodeConfig` produces a confusing failure mode whenever an admin test upload races a node draft cycle. The error message names the node ID but doesn't disclose that the actual cause is the `status` filter. |
-| **Info** | The 04-29 failed upload's `analysis_context.experiment` tag (`1c-slice-d-d5-post-strip-verify`) suggests it was re-run from a stored fixture, not freshly triggered post-1c.3. Even if it had succeeded, it wouldn't fully count as a post-1c.3 dogfood run unless the user explicitly re-triggered with current node state. |
+| `model` | `claude-sonnet-4-5` |
+| `status` | `COMPLETE` |
+| `prompt_tokens` | 495 |
+| `response_tokens` | 250 |
+| `total_tokens` | 745 |
+| `target_words` | 150 |
+| `word_count` | 154 |
+| `truncated` | `true` (hit target word cap, not a Claude failure) |
+| `system_instructions_present` | `true` (881 chars) |
 
-## Path forward
+Feedback paragraph rendered cleanly. No `{{phase_context}}` or other template variables bled through to the user-visible text. Sample (first paragraph):
 
-**Recommended:** user triggers a fresh upload of `slant-route-reference-v1.mp4` through the Athlete Lab admin UI. The Slant node is currently `live`, so the run should proceed. Once a new `complete` row exists, re-run PHASE-2-SMOKE Steps 2-10 against it and write `phase-2-smoke-test-2026-05-01-v2.md` (or supersede this doc, depending on user preference).
+> Listen up — **your release speed came in at 23.5 mph when we need 7 mph max**. You're telegraphing this route before you even get into your stem. Defenders are reading you a mile away.
 
-**Not recommended:** treating the 2026-04-26 pre-1c.3 result as the smoke-test target. Those metrics, calibration values, and Claude feedback predate every change Phase 1c.3 made to the Slant node.
+`variables_injected` confirms post-1c.3 prompt template wiring is correct: `mastery_score`, `phase_scores`, `metric_results`, `detected_errors`, `athlete_name`, `node_name`, `position`, `athlete_level` all present and populated. Three variables marked `present:false`: `confidence_flags`, `focus_area`, `skipped_metrics` — all three are surfaced in `claude_api.missing_variables`. None are required for the prompt to render coherently; they are template optional-fills. **No knowledge_base bleed-through observed**, confirming the 1c.3-B kb.mechanics → kb.phases merge and 1c.3-D 5-key kb merge produced consistent runtime behavior.
 
-## Phase 2 input candidate (operational finding)
+## Pipeline timing
 
-The `Node not found or not live` failure mode is worth a separate Phase 2 backlog entry. **Every concurrent admin test upload triggered while a node is in `draft` will fail with a misleading error.** Three remediation options, in increasing scope:
+| Stage | Duration | Notes |
+|---|---|---|
+| Upload INSERT → analyzed_at | ~45s | end-to-end wall time |
+| Cloud Run portion | unknown | `log_data.pipelineTimingMs` not present |
+| Claude API portion | unknown | not separated in `log_data.claude_api` |
+| Edge function portion | unknown | not separated |
 
-1. **Documentation only:** add a workflow note to `docs/agents/workflows.md` reminding agents to publish the target node before triggering admin test uploads. Cheapest. Doesn't fix the misleading error.
-2. **Better error message:** keep the filter, but split the failure cases — surface "node exists but is in draft (re-publish before testing)" separately from "node ID does not exist." Small edge-function change. Doesn't change behaviour, just diagnoses it correctly.
-3. **Admin-test bypass:** when `athlete_id === FIXED_TEST_ATHLETE_ID`, allow the analyzer to read draft nodes. Highest scope. Lets dogfooding survive node edit cycles. Risk: results computed against a draft node could be confused with results computed against the published version of the same `node_version`. Mitigate by tagging `result_data.node_status_at_run` so the audit trail is unambiguous.
+45s end-to-end is healthy. No anomalies. The lack of per-stage timing breakdown is Anomaly #4 below.
 
-This finding belongs in `docs/risk-register/` as F-OPS-5 or similar (Sev-3, operational hygiene, structural sibling of F-OPS-1 zombie pattern). **Not opened in this slice** (read-only inspection scope) — flagged here for the user to formalize.
+## Anomalies
+
+| # | Severity | Finding |
+|---|---|---|
+| 1 | **Warning (regression-shape)** | `result_data.pixels_per_yard` (217.088) and `result_data.calibration_source` ("body_based") at the top level **disagree with** the canonical `calibration_audit.selected_ppy` (80) and `selected_source` ("static") that the metric runner consumed. Metrics are unaffected (they read the audit), but the persisted top-level fields surface a service-side shadow value that no consumer reads. Same shape as F-SLICE-B-1 (dead-data divergence); ADR-0014 made the *consumed* path single-source but did not strip the service-side shadow from the record. Pre-1c.3 baseline (04-26) showed the same pattern (top-level 235.321 vs audit 201.78), so this is **pre-existing, not a 1c.3 regression** — but it remains a contract leak worth surfacing for Phase 2 calibration work. |
+| 2 | **Warning (admin UI)** | `analysis_context` lacks `athlete_height`, causing `body_based_status: not_attempted_no_athlete_height` and forcing fallthrough to `static_ppy=80`. Aggregate score collapsed 61 → 12 vs pre-1c.3 baseline. Not a pipeline regression — the pipeline correctly handled the missing input — but the admin UI evidently dropped the `athlete_height: {value: 74, unit: inches}` shape that 1c.2-era admin uploads carried. Worth a separate fix in admin UI surface (out of scope for this slice). |
+| 3 | **Info** | `Hands Extension at Catch` metric consumed keypoints 19/20 with confidence 0.47/0.13 (both UNRELIABLE per rtmlib's own scoring). Metric ran without surfacing a `confidenceFlag`. This is a known sideline-camera limitation for hand keypoints; flagging only because it could explain why `confidence_flags` array is empty when at least one metric arguably should have flagged. Possible future tightening of the per-metric confidence-flag emission. |
+| 4 | **Info** | `log_data` has no `pipelineTimingMs` key. Per-stage timing (Cloud Run vs Claude vs edge) cannot be derived from the persisted record. Not a regression (pre-1c.3 baseline also lacks it), but worth a Phase 2 observability slice. |
+| 5 | **Info** | `detected_errors` is `[null]` (array length 1, single null element) instead of `[]`. Cosmetic shape issue; downstream code that filters `.filter(Boolean)` is unaffected, but a `WHERE detected_errors @> '[null]'` query would surface unexpectedly. |
+| 6 | **Info** | `claude_api.truncated: true` because `target_words=150` was hit at `word_count=154`. This is the intended cap, not a failure. Surfaced for clarity. |
+
+No critical or regression-class anomalies. No null/NaN/Infinity in metric values. `result_data` carries every top-level key the prior baseline did.
+
+## Pre-1c.3 baseline comparison
+
+Baseline run: upload `23936560-1284-4d13-bb68-9894afd2865c`, 2026-04-26 03:00:51 UTC (1c-slice-e-e36-post-migration, pre-1c.3-A).
+
+| Field | Baseline (04-26) | Current (05-01) | Delta |
+|---|---|---|---|
+| `aggregate_score` | 61 | 12 | **-49** (explained by missing `athlete_height` in current run, not pipeline regression) |
+| `calibration_audit.athlete_height_provided` | `true` | `false` | input difference |
+| `calibration_audit.body_based_status` | `used` | `not_attempted_no_athlete_height` | downstream of input difference |
+| `calibration_audit.body_based_ppy` | 201.78 | `null` | downstream of input difference |
+| `calibration_audit.selected_source` | `body_based` | `static` | downstream of input difference |
+| `calibration_audit.selected_ppy` | 201.78 | 80 | downstream of input difference |
+| `calibration_audit.static_ppy` | 80 | 80 | identical (per ADR-0005 ±1% tolerance, this is exact) |
+| `calibration_audit.dynamic_status` | `failed` | `failed` | identical |
+| `result_data.pixels_per_yard` (top-level shadow) | 235.321 | 217.088 | both differ from audit selected_ppy in both runs (Anomaly #1 is pre-existing) |
+| `result_data` top-level key set | 18 keys | 18 keys (same set) | identical shape |
+
+**Verdict on baseline comparison:** the score delta is fully explained by the input difference (missing `athlete_height`); the pipeline shape and ADR-0014 contract are stable across the 1c.3 cleanup. No measurable regression attributable to 1c.3 work.
 
 ## Cross-links
 
-- [`docs/architecture/pipeline-trace.md`](../architecture/pipeline-trace.md) — Step 2 references `fetchNodeConfig`; the implicit `status='live'` filter is not currently called out in the trace and could be added as a one-line clarification.
-- [`docs/adr/0014-c5-unified-edge-function-body-based-path.md`](../adr/0014-c5-unified-edge-function-body-based-path.md) — `calibration_audit` contract that the missing post-1c.3 run was meant to verify.
-- [`docs/adr/0005-determinism-tolerance-1pct.md`](../adr/0005-determinism-tolerance-1pct.md) — ±1% tolerance for the cross-baseline comparison that could not be performed.
-- [`docs/risk-register/F-OPS-1-zombie-upload-accumulation-rate-sev-3.md`](../risk-register/F-OPS-1-zombie-upload-accumulation-rate-sev-3.md) — structural sibling of the operational gotcha surfaced here.
-- [`docs/audits/_README.md`](_README.md) — audit naming + retention policy.
+- [`docs/architecture/pipeline-trace.md`](../architecture/pipeline-trace.md) — step-by-step trace; `calibration_audit` shape per step 6
+- [`docs/adr/0014-c5-unified-edge-function-body-based-path.md`](../adr/0014-c5-unified-edge-function-body-based-path.md) — `calibration_audit` contract this run was verified against
+- [`docs/adr/0005-determinism-tolerance-1pct.md`](../adr/0005-determinism-tolerance-1pct.md) — ±1% tolerance applied to baseline comparison
+- [`docs/risk-register/F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md`](../risk-register/F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md) — original path-disagreement finding; Anomaly #1 is structurally similar (shadow value persists at top level)
+- [`docs/reference/calibration-audit-rollup.csv`](../reference/calibration-audit-rollup.csv) — historical calibration_audit dataset; this run extends it
+- Prior halt-outcome version of this doc was overwritten in place
+
+## Phase 2 prep backlog — bonus surface (queued, not opened)
+
+**Operational gotcha — F-OPS-5 candidate (Sev-3):** Admin-test uploads triggered while a target node is in `draft` fail with the misleading error `Node not found or not live: <node_id>` from `fetchNodeConfig` (`supabase/functions/analyze-athlete-video/index.ts:928-932`). The error surfaces the node ID but does not disclose that the actual cause is the hard `status='live'` filter on the lookup. This breaks dogfooding any time a node is mid-edit during a phase, and was the root cause of the failed 2026-04-29 upload that blocked the first attempt at this smoke test. Three candidate remediations: (a) workflow doc note in `docs/agents/workflows.md` reminding agents to publish before triggering admin tests; (b) edge-function diagnostic split — return "node exists but in draft" separately from "node ID does not exist"; (c) admin-test bypass — when `athlete_id === FIXED_TEST_ATHLETE_ID`, allow analyzer to read draft nodes (with `result_data.node_status_at_run` tagging for traceability). Sev-3, operational hygiene, structural sibling of F-OPS-1 zombie pattern. **Not opened in this slice;** queued for Phase 2 prep triage to decide between workflow-doc-only, error-message-fix, or analyzer-side bypass.
 
 ## Summary verdict
 
-**HALT.** Smoke test deliverable is this halt-outcome record, not a pipeline shape verification. Awaiting user decision: trigger a fresh upload (recommended), or accept this halt and move on without post-1c.3 dogfood validation.
+**PASS WITH NOTES.**
+
+- Pipeline ran end-to-end, 45s wall time, no failures.
+- ADR-0014 `calibration_audit` contract fully present and internally consistent.
+- All 4 metrics scored, no null/NaN/Inf.
+- Claude prompt + response well-formed, no template bleed-through.
+- `result_data` shape stable vs pre-1c.3 baseline.
+- Aggregate score regression (61 → 12) is **fully explained by missing `athlete_height` in `analysis_context`**, not by 1c.3 pipeline changes.
+- Two pre-existing warnings worth Phase 2 attention: top-level `pixels_per_yard`/`calibration_source` shadow drift (Anomaly #1) and admin UI dropping `athlete_height` (Anomaly #2).
+- One operational gotcha queued for Phase 2 prep backlog (F-OPS-5 candidate, Sev-3).
+
+Phase 2a is unblocked from a smoke-test perspective. Recommend resolving Anomaly #2 (admin UI `athlete_height` injection) before any further dogfood runs to avoid score-collapse confusion in subsequent inspections.
