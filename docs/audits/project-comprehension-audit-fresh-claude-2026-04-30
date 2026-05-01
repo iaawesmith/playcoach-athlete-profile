@@ -1,303 +1,203 @@
----
-audit_type: project-comprehension-audit
-audit_perspective: fresh-claude
-date: 2026-04-30
-methodology: read-only repo sampling, then 32-question stress test
-scope: connected-repo only (no cross-project knowledge used)
----
+# Project Comprehension Audit, Fresh Claude, 2026-04-30 (post-prep re-run)
 
-# Project Comprehension Audit — Fresh Claude
+**Audit context.** This is the second fresh-Claude comprehension audit run today against the PlayCoach repo. The first (saved at `docs/audits/project-comprehension-audit-fresh-claude-2026-04-30`) named a set of gaps. PHASE-1C3-PREP shipped earlier today specifically to close those gaps and explicitly invited a re-audit as the success check (`docs/process/phase-1c3-prep-slice-outcome.md` → "Recommended re-audit"). I read the repo cold per the methodology, treated the existing audit as one of many docs in the repo (not as a substitute for my own read), and report what I actually found.
 
-**Date:** 2026-04-30
-**Method:** Started at `README.md` → `docs/INDEX.md` → `docs/agents/onboarding.md` → `docs/glossary.md` → `docs/roadmap.md` → sampled `docs/architecture/` (end-state arch, repo audit, tab inventory) → sampled `docs/risk-register/` (INDEX + several R-/F- entries) → sampled `docs/adr/` (INDEX + ADR-0004/0005/0006/0009/0014/0015) → sampled `docs/process/` (1c.2 Slice E outcome, 1c.3 Slices B/C/D/E outcomes) → checked `docs/agents/conventions.md` and `docs/agents/workflows.md` → spot-checked `data-dictionary/fields.json` and `mediapipe-service/app/schema.py`. ~30 minutes.
-**Constraint:** Answers based only on what the repo says. Where the repo is silent, I say so.
+**Methodology followed.** Read order from the prompt: `README.md` → `docs/agents/onboarding.md` → `docs/INDEX.md` → `docs/glossary.md` → `docs/roadmap.md` → architecture overview docs → risk register index → ADR sample. Plus targeted lookups for the 32 specific questions. Roughly 90 minutes of reading. I did not read every doc in `process/`; I sampled enough to triangulate.
+
+**Output discipline.** I follow EJS conventions (no em dashes, lead with the answer, prose over bullets where prose works). The audit prompt requested headed sections, so I use them where they aid scanability. Quoted text from source docs preserves their original em dashes.
 
 ---
 
-## Top-line self-assessment (Step 4, surfaced first)
+## Step 1, baseline read
 
-**Strategic-aware, leaning toward execution-ready on Phase 1c.3 work and Phase 2a planning specifically.**
+The read order in `docs/agents/onboarding.md` (READMEpoints to it, INDEX confirms it) is now: VISION, PRODUCT-SPEC, INDEX, roadmap, system-overview, pipeline-trace, conventions, workflows. Roughly 60 minutes claimed; I read in 75-90 because I went deeper into ADRs and risk register entries than required for working context.
 
-I could:
-
-- Discuss product direction confidently (VISION + glossary cover this well).
-- Review a Lovable plan-mode proposal for a 1c.3-F slice or a Phase 2a kickoff and push back substantively.
-- Plan a Phase 2a calibration-robustness slice using the existing schemas and the calibration audit rollup.
-- Trace any single video upload through the pipeline at a useful level of detail.
-
-I could **not** confidently:
-
-- Execute Phase 2b telemetry instrumentation without first reading the actual edge function code and Cloud Run service code (the docs describe the gap, not the surface).
-- Draft Phase 3 athlete-UI plumbing without reading more `src/features/builder/` and `src/features/profile/` code than I sampled.
-- Quote which scripts under `scripts/verification/` cover which findings without re-reading the headers (the convention is good but I haven't internalized which script does what).
-
-The repo is genuinely well-organized. The single biggest comprehension cost was reconciling the roadmap's "Phase 1c.3 — not started" entry against five shipped 1c.3 slice outcome docs (B, C, D, E plus references to A). That conflict is large enough to flag at the top.
+The read order chains correctly. Each step linked the next. I never had to guess where to look.
 
 ---
 
-## Step 2 — 32 question results
-
-Confidence legend: HIGH = single authoritative answer found. MEDIUM = synthesized from multiple sources, consistent. LOW = fragments, gaps. CANNOT ANSWER = repo doesn't tell me.
+## Step 2, the 32 questions
 
 ### Product
 
-**Q1 — What is PlayCoach? What does it do for users?** **HIGH.**
-Athlete identity platform. Two surfaces: Brand HQ (authenticated builder at `/builder`) and Athlete Profile (public page at `/:athleteSlug`). The ProCard is the trading-card centerpiece of identity; the Athlete Profile is the magazine. There is also an internal-only Athlete Lab at `/athlete-lab` for admin authoring of node-based drill definitions. (`README.md`, `VISION.md`, `docs/agents/onboarding.md`, `docs/glossary.md`.)
+**Q1, what is PlayCoach?** HIGH. Athlete identity platform. One shareable link surfaces every dimension of an athlete: recruiting profile, highlights, AI development scores, stats, NIL. Two athlete-facing surfaces (Brand HQ at `/builder` for authenticated building, Athlete Profile at `/:athleteSlug` for public consumption) plus an internal-only Athlete Lab at `/athlete-lab` for admin authoring of nodes, scoring rules, and calibration. Sources: `README.md`, `docs/agents/onboarding.md`, `docs/architecture/system-overview.md`.
 
-**Q2 — Who are the target users? What tiers exist?** **MEDIUM.**
-VISION names four athlete tiers: High School (primary growth market), College, Professional/Semi-Pro, plus Coaches/Scouts and Brands/Sponsors as consumer audiences. Code in `src/features/onboarding/steps/AthleteTier.tsx` defines four tier IDs in TypeScript: `youth | high-school | college | pro` — and only `college` is currently `active: true`; the other three render as "Coming Soon." `docs/reference/tiers/_schema.md` is a Pass 5a stub and notes "Phase 1c.2 has no canonical tier set yet." So the "tiers" question has three different answers depending on whether you ask VISION (high-school primary), the onboarding component (only college live), or the schema doc (none defined). MEDIUM not HIGH because of that triangulation cost.
+**Q2, target users and tiers.** HIGH. Audience-side users: athletes (Brand HQ), coaches/scouts/brands/fans (Athlete Profile), internal admins (Athlete Lab). Tier system has four IDs (`youth`, `high-school`, `college`, `pro`); only `college` is currently active, the other three render as "Coming Soon" in onboarding. `VISION.md` "Tier System (Canonical)" plus `src/features/onboarding/steps/AthleteTier.tsx` are the source of truth (per Tier resolution shipped in PHASE-1C3-PREP). The `docs/reference/tiers/_schema.md` documents the structured-content contract for tier-specific reference material rather than owning IDs.
 
-**Q3 — What's the current product state — what works today, what's planned?** **MEDIUM.**
-Working today: the internal Athlete Lab admin builder, the analyze-athlete-video pipeline (Supabase edge function → Cloud Run MediaPipe → calibration → Claude feedback), the `slant-route-reference-v1.mp4` reference clip end-to-end. Brand HQ exists at `/builder` (referenced in README and onboarding doc) but I couldn't verify completeness from the docs alone — `PRODUCT-SPEC.md` describes the build spec but not which sections are shipped vs stub. Athlete Profile and Phase 3 surfaces are explicitly deferred. Phase 1c.3 is in active flight (5 slice outcomes shipped, see Q15).
+**Q3, current product state.** HIGH. Phase 1c.3 closed 2026-04-30. PHASE-1C3-PREP shipped same day. What works: the Athlete Lab admin authoring surface (now 8 tabs), the upload to result pipeline (Supabase Storage trigger, `analyze-athlete-video` edge function, MediaPipe Cloud Run, calibration audit, Lovable AI Gateway feedback), determinism within ±1% (ADR-0005), backup-snapshot pattern for destructive migrations (ADR-0007/0012). What does not work yet: athlete-facing UI (deferred to Phase 3 per ADR-0006), multi-clip ground truth (n=1, gates Phase 2a), error boundaries (F-OPS-2, ship blocker for Phase 3), permissive RLS (F-SEC-1, ship blocker for Phase 3). Sources: `docs/roadmap.md`, `docs/process/phase-1c3-retrospective.md`, `docs/risk-register/INDEX.md`.
 
-**Q4 — What's the relationship between admin tooling and athlete-facing surfaces?** **HIGH.**
-The Athlete Lab is internal-only authoring of `athlete_lab_nodes` rows (drill definitions, calibrations, scoring rules, LLM prompts). The athlete-facing surfaces (Brand HQ, Athlete Profile) consume the products of those nodes. Per ADR-0006 the platform will not ship athlete-facing UI on top of analysis until Phase 2 metrics are trustworthy. The Athlete Lab is therefore the "trust foundation"; Brand HQ + Athlete Profile are the "trust consumers." (`docs/agents/onboarding.md`, `docs/glossary.md`, ADR-0006.)
+**Q4, admin tooling vs athlete surfaces.** HIGH. Admin authoring (Athlete Lab) produces node definitions, scoring rules, calibration parameters, prompt templates. Athlete consumption (Athlete Profile, future) reads through those nodes. ADR-0006 establishes the trust boundary: no athlete-facing surface ships before Phase 2 metric quality work completes, because shipping pretty UI on top of untrustworthy analysis either burns trust if athletes notice changes, or locks wrong metrics as expected ground truth if they don't. `docs/architecture/system-overview.md` §1 names this explicitly as the "trust boundary."
 
-**Q5 — What is a "node" in PlayCoach? What does authoring one accomplish?** **HIGH.**
-A node is a row in `athlete_lab_nodes` representing a drill definition. It contains: overview, key metrics with keypoint mappings, scoring rules, calibration references, LLM prompts, phases, badges, error definitions. Authoring a node means defining the contract that the analyze-athlete-video pipeline uses to score an athlete's clip and the prompt context Claude uses to generate feedback. The Slant route is the only currently-active node. (`docs/glossary.md`, `docs/data-dictionary/fields.json`, `docs/architecture/athlete-lab-end-state-architecture.md`.)
+**Q5, what is a node.** HIGH. A row in `athlete_lab_nodes` representing a drill definition. Contains JSONB fields for `key_metrics`, `phase_breakdown`, `knowledge_base`, `scoring_rules`, `error_definitions`, `llm_prompt_template`, calibration parameters, and detection-frequency scenario settings. Authoring a node defines the contract the analyze-athlete-video pipeline uses to score a clip and the prompt context Claude uses for feedback. The Slant route is the only currently-active node. Sources: `docs/glossary.md`, `docs/data-dictionary/fields.json` (110 fields, v1.5.0), `docs/architecture/athlete-lab-end-state-architecture.md`.
 
 ### Architecture
 
-**Q6 — What's the technology stack at each layer?** **HIGH.**
-Frontend: React 18 + Vite 5 + Tailwind v3 + TypeScript 5; Zustand for shared state. Backend: Lovable Cloud (Supabase under the hood) for Postgres, RLS, auth, storage, and edge functions. Pose pipeline: Python MediaPipe service on Google Cloud Run, called via HTTP from the Supabase edge function `analyze-athlete-video`. LLM: Lovable AI Gateway (default), with the Claude prompt traced in `docs/investigations/claude-prompt-content-trace.md`. (`README.md`, ADR-0002, ADR-0003, ADR-0009, ADR-0010.)
+**Q6, tech stack.** HIGH. Frontend: React 18, Vite 5, Tailwind v3, TypeScript 5, Zustand for shared state. Backend: Lovable Cloud (managed Supabase) for Postgres, RLS, auth, storage, edge functions (Deno runtime). Pose pipeline: Python FastAPI on Google Cloud Run, RTMlib for pose estimation. LLM: Lovable AI Gateway, Claude Sonnet 4.5 (model pin `claude-sonnet-4-5` per `pipeline-trace.md` step 8). Sources: `README.md`, ADRs 0002, 0003, 0009, 0010.
 
-**Q7 — How does video analysis work end-to-end? Trace one video from upload to feedback.** **MEDIUM.**
-From the docs and a spot-check of `supabase/functions/analyze-athlete-video/index.ts`:
-1. Athlete (or admin) uploads to Supabase Storage; INSERT to `athlete_uploads`.
-2. DB webhook on `athlete_uploads` INSERT fires `analyze-athlete-video`.
-3. Edge function fetches the node config, builds a 4-key MediaPipe payload (`video_url`, `start_seconds`, `end_seconds`, `det_frequency`), POSTs to Cloud Run `/analyze`.
-4. Cloud Run returns keypoints, scores, frame_count, fps, and pose-derived `body_based_ppy` plus calibration metadata.
-5. Edge function applies temporal smoothing, locks target person, runs `resolveCalibration()` producing a `calibration_audit` payload (Slice C.5 contract per ADR-0014), divides frames into phase windows, calculates metrics per node config.
-6. Edge function builds prompt for Claude, gets feedback paragraph.
-7. Edge function writes one row to `athlete_lab_results` (`upload_id` FK to upload, `result_data` JSONB containing `calibration_audit`, `phase_scores`, `metric_results`, `feedback`).
-8. `athlete_uploads.status` updates to `complete` (or `failed`/`cancelled`).
-MEDIUM because the doc sources are partial — there's no single "trace one upload" doc; I assembled from the run-analysis observability audit, the ADRs, and code spot-checks.
+**Q7, end-to-end trace.** HIGH. This is now genuinely answered in one place by `docs/architecture/pipeline-trace.md` (created in PHASE-1C3-PREP). Ten steps with file and line citations: upload INSERT (step 0), DB webhook fires `analyze-athlete-video` at line 607 (step 1), node config fetch and preflight (step 2), detection-frequency resolution and static calibration selection (step 3), POST to Cloud Run with 4-key payload through `callCloudRun` at line 3445/3484 (step 4), temporal smoothing and target-person lock (step 5), `resolveCalibration()` at line 1471 producing the `calibration_audit` payload per ADR-0014 (step 6), metric and scoring runs (step 7), Claude prompt construction and `callClaude` at line 3350 (step 8), `writeResults` at line 3595/3607 (step 9), upload status complete at line 870 (step 10). Maintenance contract is named explicitly: line numbers cite state as of 2026-04-30, durable shape but not durable line numbers.
 
-**Q8 — Roles of MediaPipe vs Cloud Run vs edge function?** **HIGH.**
-- **MediaPipe** is the pose model itself (33-landmark schema). Claude reads `keypoints[person][index] = [x,y,z,visibility]`.
-- **Cloud Run** is the deployment venue for the Python service that runs MediaPipe. It is the only producer of pose data — browser-side and edge-function-side MediaPipe were both rejected (ADR-0009).
-- **Edge function** (`analyze-athlete-video`) is the orchestrator. It calls Cloud Run, runs `resolveCalibration`, computes metrics, builds the LLM prompt, writes results. It runs in Deno on Supabase.
+**Q8, MediaPipe / Cloud Run / edge function roles.** HIGH. MediaPipe (the RTMlib pose model running inside the FastAPI service) is the pose estimator: it decodes video, runs RTMlib, attempts dynamic line-pair calibration, returns keypoints + scores + frame_count + fps + body_based_ppy + calibration metadata. Cloud Run is the deployment surface for that service (Python container, NDJSON keepalive streaming to defeat the GFE 30s idle-byte timeout, decision in ADR-0009). The Supabase edge function `analyze-athlete-video` orchestrates everything around it: preflight, calibration selection, smoothing, metric and scoring math, prompt assembly, LLM call, write-back. Sources: `docs/architecture/mediapipe-capability-inventory.md`, `docs/architecture/pipeline-trace.md`, ADR-0009.
 
-**Q9 — Relationship between Lovable, Supabase, and the deployed application?** **HIGH.**
-Lovable is the IDE/builder; it owns build and deploy. Lovable Cloud is the managed Supabase the project uses (per ADR-0002, treated as an internal detail; user-facing communication says "Lovable Cloud," "the backend," "the database"). The deployed app is React+Vite served from Lovable's hosting (preview at `id-preview--cfe865e1-...lovable.app`, published at `happy-setup-hub.lovable.app`). Edit the files, Lovable rebuilds and redeploys; edit `supabase/migrations/` or `supabase/functions/`, deployments happen automatically.
+**Q9, Lovable / Supabase / deployed app relationship.** HIGH. Lovable is the IDE plus build, branch preview, and production deploy. Lovable Cloud is the managed-Supabase backend that the app reads and writes (Postgres with RLS, auth, storage, edge functions). The deployed app at `happy-setup-hub.lovable.app` is what Lovable's deploy pipeline produces from `src/`. ADR-0002 records Lovable Cloud as the default backend. User-facing language calls Lovable Cloud "the backend"; Supabase is internal terminology, per `system-overview.md` §3.
 
-**Q10 — How does calibration work? Why are there multiple calibration paths?** **HIGH.**
-Calibration converts pixel measurements to real-world units (yards) for distance/velocity metrics. Three sources historically:
-- `dynamic` — line-pair detection (yard-line markings). Currently fails on the canonical clip (`dynamic_pixels_per_yard_out_of_range`).
-- `body_based` — uses athlete's body landmarks plus self-reported `athlete_height`. **Current canonical PPY source.**
-- `static` — a hardcoded ppy=80 reference value tuned for one specific filming geometry.
-
-The two paths existed because pre-Slice-C.5 there were **two `body_based` computations producing different values** (Cloud Run service-side ~235 vs edge-function-side ~200 on the same clip). Slice C.5 unified to the edge-function path (ADR-0014). Selection priority: `dynamic > body_based > static`. F-SLICE-B-1 confirmed both surviving paths produce 2-6× distance errors against ground-truth ppy ~495 on the canonical clip; static is worse than body_based, which is why Option A (delete body_based, keep static) was withdrawn.
+**Q10, calibration paths.** HIGH. Two paths today, with selection priority `dynamic > body_based > static` enforced in `resolveCalibration` per `docs/investigations/calibration-source-trace.md`. (a) Dynamic: line-pair detection in the Cloud Run service, accepted only if PPY in [40, 120] and good_line_pairs >= 8 and source labeled `dynamic`. (b) Body-based: derived from athlete pixel-height versus claimed real height, computed in the edge function (Slice C.5 unified the two pre-C.5 body-based computations to the edge-function path per ADR-0014). (c) Static: hand-authored constant of 80, intended for sideline tactical-camera framing. Why multiple: F-SLICE-B-1 found both surviving paths produce 2-6× distance errors versus measured ground truth (~495 ppy on the only ground-truth clip). Static is more wrong than body_based, which is why "Option A" (delete body_based, keep static) was withdrawn. The architectural decision (B2) is deferred per ADR-0004 until ground truth has n>=3 entries across >=2 contexts.
 
 ### Data model
 
-**Q11 — What's stored in `athlete_lab_nodes`? What's authoritative vs derived?** **HIGH.**
-All node tab data is JSONB columns inside `athlete_lab_nodes` — there are no separate tables for metrics, phases, videos, mechanics, or errors (per `data-dictionary/fields.json` schema_note). Authoritative: name, position, status, node_version, key_metrics array, phase_breakdown array, scoring_rules, score_bands, knowledge_base, llm_prompt_template, reference_calibrations, camera_guidelines, badges. Derived/computed at runtime: nothing on this row — derivations all live in `athlete_lab_results.result_data`. v1.5.0 of the data dictionary documents 110 fields.
+**Q11, athlete_lab_nodes contents.** HIGH. All node tab data is JSONB columns inside `athlete_lab_nodes`; there are no separate tables for metrics, phases, videos, mechanics, errors (per `data-dictionary/fields.json` schema_note). 110 fields documented in v1.5.0. Authoritative on this row: name, position, status, node_version, key_metrics, phase_breakdown, scoring_rules, score_bands, knowledge_base, llm_prompt_template, reference_calibrations, camera_guidelines, badges. Derived/computed at runtime: nothing here, derivations live in `athlete_lab_results.result_data`.
 
-**Q12 — What's stored in `athlete_uploads`? What's the lifecycle?** **HIGH.**
-`athlete_uploads` is the trigger table. Columns: `id`, `athlete_id`, `node_id`, `node_version` (snapshot at upload), `video_url`, `camera_angle`, `start_seconds`, `end_seconds`, `analysis_context` (JSONB), `status`, `error_message`, `progress_message`, `created_at`. Lifecycle: status transitions `pending → processing → complete | failed | cancelled`. F-OPS-1 names "zombie upload accumulation" — uploads stuck in `processing` with no progress message past ~72h — as a known operational gap.
+**Q12, athlete_uploads contents and lifecycle.** HIGH. Trigger table for the analyzer. Columns: id, athlete_id, node_id, node_version (snapshot at upload), video_url, camera_angle, start_seconds, end_seconds, analysis_context (JSONB), status, error_message, progress_message, created_at. Lifecycle: `pending → processing → complete | failed | cancelled`. INSERT fires the DB webhook that invokes `analyze-athlete-video`. F-OPS-1 names "zombie upload accumulation" (uploads stuck in `processing` past ~72h with no progress message) as a known operational gap, deferred to Phase 2 operational track.
 
-**Q13 — What is `result_data`? What does `calibration_audit` capture?** **HIGH.**
-`result_data` is the JSONB blob on `athlete_lab_results` that holds everything not promoted to its own column. It contains `log_data` (the AnalysisLog tree the admin Run Analysis surface renders), `calibration_audit` (Slice C.5 structured payload), `rtmlib` (pose engine output), and Cloud Run metadata. `calibration_audit` captures: `body_based_ppy`, `body_based_status`, `body_based_confidence`, `static_ppy`, `static_status`, `dynamic_status`, `dynamic_failure_reason`, `selected_source`, `selected_ppy`, `athlete_height_provided`, `node_id`, `node_version`, `camera_angle`. ADR-0014 specifies it's the single canonical contract for calibration data; future paths must land via this same payload.
+**Q13, result_data and calibration_audit.** HIGH. `result_data` is the JSONB blob on `athlete_lab_results` carrying: `log_data` (the full PipelineLogData with preflight checks, rtmlib metadata, claude_api log, metric resolution trace), `calibration_audit` (the per-run calibration decision record per ADR-0014), Cloud Run metadata, and the feedback paragraph. Dedicated columns alongside: `metric_results`, `phase_scores`, `aggregate_score`, `detected_errors`, `confidence_flags`. The `calibration_audit` payload captures: body_based_ppy, body_based_status, body_based_confidence, static_ppy, static_status, dynamic_status, dynamic_failure_reason, selected_source, selected_ppy, athlete_height_provided, node_id, node_version, camera_angle. ADR-0014 mandates it as the single canonical contract; future paths must land via this same payload, never as parallel top-level fields.
 
-**Q14 — What gets backed up in `athlete_lab_nodes_phase1c_backup`? Why?** **HIGH.**
-Pre-migration snapshots of any column or JSON sub-field about to be dropped destructively. Columns: `node_id`, `source_column` (e.g., `pro_mechanics`, `knowledge_base.mechanics[0].sectionTitle`), `content`, `node_name`, `disposition` (e.g., `relocated`, `earmark_phases_coaching_cues`, `delete_with_drop`), `audit_pattern`, `audit_reason`, `original_intent`, `slice` (which slice produced this row), `captured_at`. Why: ADR-0007 codifies the backup-before-destructive-migration pattern; ADR-0012 commits to indefinite retention (Default B). R-04 (Sev-1, irreversible) is the gating risk — backup completeness is a non-negotiable pre-condition for any destructive migration. R-07 was an audit of slice B/C/D backup row dispositions; mitigated in 1c.3-E.
+**Q14, athlete_lab_nodes_phase1c_backup.** HIGH. Pre-migration snapshots of any column or JSON sub-field about to be dropped destructively. Schema columns: id, node_id, source_column, content, node_name, disposition, audit_pattern, audit_reason, original_intent, slice, captured_at. CHECK constraints on disposition (`dead | collapsed | relocated | partial_strip`), audit_pattern (the four patterns), and slice (slice tag, normalized to durable `<phase>-<slice>` form by 1c.3-E). Why: ADR-0007 codifies the pattern (how to take the snapshot); ADR-0012 commits to indefinite retention as Default B (how long to keep). R-04 backup completeness is mitigated by the snapshot pattern plus the `slice1c2_r04_backup_assert.ts` script. R-07 backup-disposition trustworthiness was mitigated in slice 1c.3-E.
 
 ### Phase / history
 
-**Q15 — What is Phase 1c? What are 1c.0, 1c.1, 1c.2, 1c.3?** **HIGH for 1c.0–1c.2; MEDIUM-with-conflict for 1c.3.**
-- **1c.0:** architecture audit, end-state architecture, MediaPipe capability inventory, tab inventory. Complete.
-- **1c.1:** Slice 2 (coaching cues migration) + Slice 3 (position field UI). Complete.
-- **1c.2:** Slices A–E shipped, determinism stabilized. Cleanup pass underway (the 6-pass repo + IA foundation build, of which this audit is downstream). Roadmap calls 1c.2 "in progress (cleanup pass)."
-- **1c.3:** Roadmap calls this "Not started." But there are five 1c.3 slice outcome docs in `docs/process/` already shipped between 2026-04-28 and 2026-04-30: 1c.3-A (referenced retroactively in F-OPS-4), 1c.3-B (Mechanics deletion + knowledge_base merge), 1c.3-C (write-path resolution), 1c.3-D (tab consolidation 13→8), 1c.3-E (R-07 audit + slice-tag normalization). The risk register's Phase ordering note also says "**Phase 1c.3 — Admin UI consolidation** (next)" while ADRs and slice outcomes treat 1c.3 as actively in flight. **This is a real conflict.** See Step 3.B.
+**Q15, what is Phase 1c?** HIGH. Phase 1c is the pipeline correctness, calibration unification, and admin UI consolidation arc. 1c.0 was architecture audit and end-state design (`mediapipe-capability-inventory.md`, `athlete-lab-end-state-architecture.md`, original migration risk register). 1c.1 was the Slice 2 plus Slice 3 Mechanics-to-Phases content migration. 1c.2 was the determinism stabilization plus 6-pass repo and IA cleanup (slices A through E, then the cleanup passes 1-6). 1c.3 was the 13-to-8 admin UI consolidation and write-path defect-class cleanup (six slices A through F). 1c.3-A R2 stub sweep, 1c.3-B Mechanics deletion plus kb.mechanics merge, 1c.3-C Training Status / Solution Class write-path resolution, 1c.3-D tab consolidation, 1c.3-E R-07 backup audit plus slice-tag normalization, 1c.3-F retrospective and close. Sources: `docs/roadmap.md`, `docs/process/phase-1c3-retrospective.md`.
 
-**Q16 — What's been completed? What's deferred?** **HIGH on completed; MEDIUM on deferred.**
-Completed: 1c.0, 1c.1, 1c.2, the 6-pass cleanup (all 6 passes per CHANGELOG), 1c.3 Slices A/B/C/D/E. Determinism stabilized at multimodal (Group A / Group B with ±1% tolerance, ADR-0005). Calibration paths unified (ADR-0014). 15 ADRs backfilled. Risk register split into per-file. 12 R-* and 10 F-* entries tracked.
-Deferred: Slice B2 calibration architecture (gated on n≥3 ground-truth dataset, ADR-0004). F-OPS-2 error boundaries (Phase 3 ship blocker, executed during Phase 2). F-SEC-1 RLS hardening (Phase 3 ship blocker, executed during Phase 2). F-OPS-1 zombie cleanup. F-SLICE-E-2 multimodal drift investigation. Phase 2a/2b/2c. Phase 3.
+**Q16, completed vs deferred.** HIGH. Completed: the structural cleanup work, determinism stabilization, calibration path unification (ADR-0014), admin UI consolidation, backup pattern hardening, knowledge-base merges. Mitigated risks: R-01, R-05, R-07. Closed: R-12. Deferred to Phase 2 or 3: F-SLICE-B-1 (multi-clip calibration architecture), F-SLICE-B1-2 (Release Speed verification), F-SLICE-E-1 (det_frequency consolidation), F-SLICE-E-2 (~0.78% drift root cause), F-OPS-1 (zombie cleanup), F-OPS-2 (error boundaries, ship blocker), F-SEC-1 (RLS hardening, ship blocker), V-1c.3-06 (CoachingCues subsystem retirement), V-1c.3-07 (score_bands consumer wiring), V-1c.3-09 (reference video quality guide audience separation), V-1c.3-10 (1c.2-E backup slice tag normalization).
 
-**Q17 — What's the current phase right now?** **LOW — this is the question the repo answers least cleanly.**
-The roadmap says 1c.2 cleanup is in progress and 1c.3 is "Not started." The slice outcomes say 1c.3-A through 1c.3-E shipped. The project instructions in this Project (separate from the repo) say 1c.2 is complete and 1c.3-3 (admin UI consolidation) is next. My best read of reality: 1c.2 is complete, 1c.3 is well underway with at least 5 shipped slices, and 1c.3-F retrospective is the likely next slice. But the roadmap was not updated as 1c.3 work progressed. LOW because the canonical roadmap doc is the source of truth per its own claim, and the source of truth disagrees with reality.
+**Q17, current phase.** HIGH. Phase 1c.3 complete. Phase 2a (calibration robustness) is next, gated on ground-truth dataset growth from n=1 to n>=3 across >=2 contexts. The roadmap, the risk register INDEX phase-ordering note, and the onboarding doc all agree. (This question received LOW confidence in the prior audit because the roadmap had drifted; PHASE-1C3-PREP closed that gap.)
 
-**Q18 — What does the phase reordering mean and why was it decided?** **HIGH.**
-Original ordering placed athlete UI as Phase 2 and analysis quality as Phase 3. Reordered 2026-04-26 to flip them: metrics quality is Phase 2, athlete UI is Phase 3. Rationale (ADR-0006): athletes never see analysis surfaces built on untrustworthy data; calibration produces 2-6× distance errors today (F-SLICE-B-1), Release Speed is metric-math-broken (F-SLICE-B1-2), pipeline drift is multimodal at 0.78% (F-SLICE-E-2). Shipping athlete UI on top of that would mean the perceived product failure is "the AI was wrong about my technique." Corollary: no new athlete-facing UI in Phase 1c.
+**Q18, phase reordering.** HIGH. Original ordering had athlete UI as Phase 2 and analysis quality as Phase 3. Reordered 2026-04-26 to flip them: metrics quality is Phase 2, athlete UI is Phase 3. Rationale per ADR-0006: athletes never see analysis surfaces built on untrustworthy data, calibration is 2-6× off (F-SLICE-B-1), Release Speed is metric-math-broken (F-SLICE-B1-2), pipeline drift is bimodal at 0.78% (F-SLICE-E-2). Shipping athlete UI on top of that means the perceived failure mode is "the AI was wrong about my technique," and trust on the public consumption surface is unrecoverable.
 
 ### Decisions
 
-**Q19 — Why was calibration "Option A" withdrawn?** **HIGH.**
-Option A was "delete `body_based`, keep `static`." Withdrawn 2026-04-26 per Section D of the determinism experiment doc: ground-truth measurement on `slant-route-reference-v1.mp4` (filmed in a soccer training facility, ppy ≈ 495 from converged circle-fit + athlete-height methods) showed `body_based` (234) is 1.7-2.4× off and `static` (80) is 5-6.9× off. Static is more wrong than body_based regardless of where ppy lands within the conservative uncertainty window. Replaced with: keep both paths, unify the `body_based` computation to the edge-function path (ADR-0014, Slice C.5), defer architectural choice to Slice B2 gated on ground-truth n≥3 (ADR-0004). Long-term direction: the audit's Option B — migrate to MediaPipe world coordinates entirely, eliminate calibration as a concept.
+**Q19, why was Option A withdrawn.** HIGH. Option A was "delete `body_based`, keep `static`." Withdrawn 2026-04-26 per Section D of the determinism experiment doc and codified in F-SLICE-B-1 status. Ground-truth measurement on the only clip (`slant-route-reference-v1.mp4`, soccer training facility, ppy ~495 from converged circle-fit plus athlete-height methods) showed `body_based` (~234) is 1.7-2.4× off and `static` (80) is 5-6.9× off. Static is more wrong than body_based regardless of where ppy lands within the conservative uncertainty window; deleting body_based would leave the worse path as the only option. Replacement: keep both paths, unify body_based to the edge-function computation (ADR-0014, Slice C.5), defer the architectural decision to Slice B2 gated on ground-truth growth (ADR-0004). Long-term direction in ADR-0014 cross-links: Option B (migrate to MediaPipe world coordinates entirely, eliminate calibration as a concept).
 
-**Q20 — Why was the Mechanics tab hidden rather than patched?** **HIGH.**
-Slice E.5 first-attempt smoke crashed on `MechanicsEditor` line 1015 dereferencing `draft.pro_mechanics` (now undefined post-migration `20260426025918`). A one-character `?? ""` patch would have unblocked. But `MechanicsEditor` was already on the 1c.3 deletion queue. Patching code slated for deletion is throwaway work plus reviewer cost. ADR-0015 generalized the rule: when a component is slated for next-phase deletion AND the hide is ≤ ~20 lines AND nobody is iterating on it AND deletion is in the immediate next phase, prefer hiding the entry-point. Mechanics tab was commented out of `TABS` as a 5-line edit; full deletion shipped in 1c.3-B (2026-04-29).
+**Q20, why was Mechanics tab hidden rather than patched.** HIGH. Slice E.5 first-attempt smoke crashed on `MechanicsEditor` line 1015 dereferencing `draft.pro_mechanics` (now undefined after migration `20260426025918`). A one-character `?? ""` patch would have unblocked. ADR-0015 generalizes the rule: when a component is on the immediate-next-phase deletion queue AND the hide is <=20 lines AND nobody is iterating on it AND deletion is in the immediate next phase, prefer hiding the entry-point. Patching code slated for deletion is throwaway work plus reviewer cost. Mechanics was commented out of TABS as a 5-line edit; full deletion shipped in 1c.3-B (2026-04-29).
 
-**Q21 — Why is F-OPS-2 a Phase 3 ship blocker?** **HIGH.**
-F-OPS-2 (missing error boundary around NodeEditor) is the empirical demonstration: a single null-deref in any sub-editor unmounts the whole admin shell with no recovery except page reload. For admin work this is uncomfortable but tolerable. For athlete-facing UI it is unacceptable: an athlete mid-upload sees the screen blank with no recovery and the perceived failure mode is "the app broke and ate my upload." Severity Sev-2. Required action before Phase 3 ships (executed during Phase 2): ErrorBoundary at AthleteLab outer shell, NodeEditor tab-content level, and every athlete-facing route.
+**Q21, why is F-OPS-2 a Phase 3 ship blocker.** HIGH. F-OPS-2 (missing error boundary around NodeEditor) is the empirical demonstration that a single null-deref in any sub-editor unmounts the entire admin shell with no recovery except page reload. Tolerable for admin (technical user, refresh-friendly); unacceptable for athletes mid-upload, where the perceived failure mode is "the app broke and ate my upload." Severity Sev-2. Required action before Phase 3 (executed during Phase 2): ErrorBoundary at the AthleteLab outer shell, at the NodeEditor tab-content level, and at every athlete-facing route plus user-generated-content subtree.
 
-**Q22 — What is F-SLICE-E-3 and why does it exist?** **HIGH.**
-F-SLICE-E-3 — "recipe propagation without independent verification." Process lesson, no severity. Surfaced when a baseline hash (`34a87126…`) was propagated through approval messages without being independently reproduced against its source upload; a downstream agent then hashed the wrong upload and incorrectly concluded the recipe was broken. Process correction: any baseline hash cited in approval messages must be independently reproduced against its source before propagation — "verifiable baselines or no baseline." This finding is the philosophical basis for the Pass 6.3 verification recipe template that requires every script under `scripts/verification/` to carry NAME / PHASE / VERIFIES / RECIPE / BACKLINKS headers. Recipes that live in code with backlinks stay current; recipes that live in prose drift.
+**Q22, what is F-SLICE-E-3.** HIGH. "Recipe propagation without independent verification." Process lesson, no severity. Surfaced when a baseline hash (`34a87126…`) was propagated through approval messages without being independently reproduced against its source upload; a downstream agent then hashed the wrong upload and incorrectly concluded the recipe was broken. Process correction: any baseline hash cited in approval messages must be independently reproduced against its source before propagation. This finding is the philosophical basis for the Pass 6.3 verification recipe template requiring NAME, PHASE, VERIFIES, RECIPE, BACKLINKS, MAINTENANCE headers on every script under `scripts/verification/`. Recipes in code with backlinks stay current; recipes in prose drift.
 
 ### Operational
 
-**Q23 — Verification methodology for changes affecting data shape?** **HIGH.**
-For destructive migrations: backup-before-drop pattern (ADR-0007) into `athlete_lab_nodes_phase1c_backup`, with R-04 backup-completeness assertion as a Sev-1 gate. For pipeline-affecting changes: Option D protocol (ADR-0005) — exact-hash pass, OR categoricals exact + numeric drift ≤ ±1% pass with drift CSV append, OR halt. Categorical fields requiring exact match: `camera_angle`, `node_id`, `node_version`, `athlete_height_provided`, `body_based_status`, `static_status`, `dynamic_status`, `dynamic_failure_reason`, `selected_source`. Numeric fields under ±1% band: `body_based_ppy`, `body_based_confidence`, `selected_ppy`. For UI changes affecting dropped columns: pre-execution write-path sweep across all columns of the relevant migration class (the F-OPS-4 / F-SLICE-E-6 class-defect lesson from 1c.3-C). For verification scripts themselves: structured headers per Pass 6.3 convention.
+**Q23, verification methodology for shape changes.** HIGH. Destructive migrations: backup-before-drop into `athlete_lab_nodes_phase1c_backup` per ADR-0007, with R-04 backup-completeness assertion as a Sev-1 gate (`scripts/verification/slice1c2_r04_backup_assert.ts`). Pipeline-affecting changes: Option D protocol per ADR-0005, hash-exact pass OR categoricals-exact-plus-numeric-drift-≤±1% pass with drift CSV append OR halt. Verification artifacts: `scripts/verification/*.ts` (Pass 6.3 headers), `docs/reference/calibration-audit-rollup.csv` (calibration regression dataset), `docs/reference/determinism-drift.csv` (drift regression record). The new `docs/agents/testing-philosophy.md` frames per-slice manual verification as the test surface, with six load-bearing components and explicit CI/observability deferrals.
 
-**Q24 — How does plan-mode work in Lovable? What's the slice pattern?** **MEDIUM.**
-The repo describes the slice pattern (bounded unit of work sized for one or two sessions, with explicit halt conditions) and the F-OPS-4 family of lessons (pre-execution sweep halt, pre-execution decision-cluster halt, integration-decision halt, transactional-correctness halt, taxonomy-drift halt — six sub-patterns now catalogued). It mentions that halts are the system working correctly. But the actual Lovable plan-mode mechanics — what plan-mode looks like inside the Lovable UI, how plans get approved, what "execute" means in Lovable's UI — are not documented in the repo, only in the Project instructions outside the repo. MEDIUM because the repo has rich content on the slice methodology but the integration with Lovable's actual interface lives elsewhere.
+**Q24, plan-mode and slice pattern.** MEDIUM. The repo describes the slice pattern operationally: copy `templates/slice-outcome.md`, populate frontmatter, fill scope/shipped/verification/decisions/follow-ups, update roadmap (now hard-required per `workflows.md` step 4 and `check-roadmap-sync.ts`), register risks. Plan-mode itself (the Lovable convention of "propose then approve then execute then verify then ship") is named in this Project's instructions but not formally documented in repo conventions; the repo describes the verification and outcome side, not the plan-mode prompting side. MEDIUM because the workflow descriptions cover how to ship, not the conversational pattern with Lovable. This is intentional, the repo is meant to be agent-agnostic.
 
-**Q25 — What costs money in this system? Where are the expensive operations?** **MEDIUM.**
-- **Cloud Run** — ~$0.05 per analysis run (mentioned in repo audit C3 ranking). Scales to zero when idle (ADR-0009).
-- **Anthropic / Lovable AI Gateway** — every analysis sends a prompt to Claude Sonnet 4.5 (per the diagnostic snapshot, model `claude-sonnet-4-5-20250929`). Token usage logged in `claudeLog` but no aggregate cost tracking surfaces in the repo.
-- **Supabase storage** — uploaded videos. Costs not quantified in repo.
-- **MediaPipe model load** — first-request cold start 5-15s on Cloud Run; subsequent requests warm.
-The repo audit explicitly ranks "Phase 2b telemetry" (instance ID, cold/warm marker, edge function wall-clock) as MEDIUM priority specifically because cost per run is real but not currently observable. MEDIUM confidence because there's no canonical "cost of operation" doc — I assembled this from scattered references.
+**Q25, what costs money.** MEDIUM. Cloud Run pose analysis (per-clip GPU/CPU compute, model load on cold start), LLM inference (Anthropic via Lovable AI Gateway, prompt-construction in `claude-prompt-content-trace.md`), Supabase Storage (video files), Postgres queries. ADR-0009 and the F-SLICE-E-2 escalation gate (Phase 2b telemetry) imply Cloud Run cost is real but currently unobserved per-run. There is no canonical cost model document. The prior audit recommended `docs/reference/cost-model.md`; not shipped in PHASE-1C3-PREP, deferred. MEDIUM because I assembled the answer from architecture and findings rather than a single cost reference.
 
 ### Workflow
 
-**Q26 — How does work get done in this project? Who builds, who reviews, who decides?** **MEDIUM.**
-Repo says: Lovable executes code; Claude advises, plans, reviews, judges. The slice pattern is plan-mode → approve → execute → verify → ship. EJS (per Project instructions, not the repo) is the non-developer founder making decisions. The repo doesn't say this explicitly — the actual Project instructions do. From the repo alone: workflows.md describes mechanical workflows (running scripts, drafting slice outcomes, registering risks, splitting investigations, R2 stub policy, regenerating tab inventory, cross-reference sweeps, pass execution), but who-does-what is implicit. MEDIUM because the repo describes the rituals well but the role assignments require Project instructions to fully understand.
+**Q26, who builds, who reviews, who decides.** MEDIUM. The repo's `workflows.md` describes the rituals (verification scripts, slice outcomes, risk registration, ADR creation, splitting investigations, R2 stubs, tab inventory regen, cross-reference sweeps) but does not name role assignments. From this Project's instructions: Lovable executes code, Claude advises plans reviews and judges, EJS makes decisions. The repo treats role assignment as a Project-level concern, not a repo concern. MEDIUM only because the question asks about who, and the repo answers "what" and "how."
 
-**Q27 — What conventions apply when raising a finding? When making a decision?** **HIGH.**
-Findings: pick next ID (`F-<area>-<n>` scoped to area or originating slice; `F-SLICE-B-1`, `F-OPS-2`, `F-SEC-1`); create file `docs/risk-register/<ID>-<kebab-slug>.md` with frontmatter per `_schema.md`; append row to risk-register `INDEX.md`; update `related_entries` lists bidirectionally. Decisions: create an ADR — `docs/adr/NNNN-<kebab-slug>.md`, frontmatter (id, title, status, date, deciders, related_risks, related_findings, supersedes, superseded_by), body sections (Context, Decision, Consequences, Cross-links). ADRs are append-only; supersession via new ADR with frontmatter linkage. IDs are immutable, never renumbered.
+**Q27, conventions for findings and decisions.** HIGH. Findings: pick next ID (`F-<area>-<n>` scoped to area or originating slice; `F-SLICE-B-1`, `F-OPS-2`, `F-SEC-1`); create `docs/risk-register/<ID>-<kebab-slug>.md` with frontmatter per `_schema.md`; append row to risk-register `INDEX.md`; update `related_entries` lists bidirectionally. Decisions: create an ADR at `docs/adr/NNNN-<kebab-slug>.md` with frontmatter (id, title, status, date, deciders, related_risks, related_findings, supersedes, superseded_by) and body sections (Context, Decision, Consequences, Cross-links). ADRs are append-only; supersession via new ADR with frontmatter linkage. IDs are immutable, never renumbered.
 
-**Q28 — What's the stub policy for moved files?** **HIGH.**
-R2 stub policy (`docs/agents/conventions.md`). Leave a redirect stub at the old path only if the doc is (a) referenced from outside the repo, (b) referenced from `README.md`/`PRODUCT-SPEC.md`/`VISION.md`/conventions.md, or (c) the historical entry point for a major workstream. Otherwise move cleanly and update in-repo references in same pass. Stubs created during a phase's cleanup are removed at the start of the next phase unless an `rg` sweep shows live references. Each stub gets an entry in the next phase's prep backlog "stub cleanup queue" (mandatory). Catalog docs (`INDEX.md`, `repo-architecture-audit.md`) are exempt from the >30 cross-reference threshold.
+**Q28, R2 stub policy.** HIGH. Leave a redirect stub at the old path only if the doc is (a) referenced from outside the repo, (b) referenced from `README.md`, `PRODUCT-SPEC.md`, `VISION.md`, or `agents/conventions.md`, or (c) the historical entry point for a major workstream. Otherwise move cleanly and update in-repo references in the same pass. Stubs are removed at the start of the next phase unless an `rg` sweep shows live references. Each stub gets an entry in the next phase's prep backlog "stub cleanup queue" (mandatory). Catalog docs (`INDEX.md`, `repo-architecture-audit.md`) are exempt from the >30 cross-reference threshold.
 
-**Q29 — When does a slice doc get created? What template does it follow?** **HIGH.**
-Created when a bounded unit of work ships. Template at `docs/templates/slice-outcome.md` (Pass 3f). Frontmatter: `slice_id`, `title`, `date_shipped`, `status` (shipped/reverted/partial), `related_risks`, `related_findings`, `related_adrs`. Body sections: Goal, What shipped, Verification (table), Findings surfaced, Decisions deferred, Cross-links. After shipping: add the slice to the phase's roadmap entry (per workflows.md; this is the step that has been missed for 1c.3-A through 1c.3-E — see Q17).
+**Q29, when does a slice doc get created.** HIGH. When a bounded unit of work ships. Template at `docs/templates/slice-outcome.md`. Frontmatter required: slice_id, title, date_shipped, status, related_risks, related_findings, related_adrs. Body sections: scope, what shipped, verification, decisions made, follow-ups. Step 4 is now hard-required: a slice is not "shipped" until the roadmap reflects it (workflows.md, enforced by `scripts/verification/check-roadmap-sync.ts`).
 
 ### Forward-looking
 
-**Q30 — If a new contributor joined tomorrow and needed to start work on Phase 2 (analysis quality), what would they need to read first?** **MEDIUM.**
-Onboarding doc gives a 45-min read order (VISION → PRODUCT-SPEC → INDEX → roadmap → conventions → workflows). For Phase 2a calibration robustness specifically, they'd then need: ADR-0004 (B2 deferral conditions), ADR-0014 (the unified `body_based` path), F-SLICE-B-1 (the calibration-error finding), `docs/reference/calibration-ground-truth-dataset.md` and the `calibration/ground-truth.yaml` schema, `docs/reference/calibration-audit-rollup.md`, and `docs/process/phase-1c2-determinism-experiment.md`. For Phase 2b (Cloud Run telemetry): F-SLICE-E-2, ADR-0005, ADR-0009, and the (apparently planned but I didn't fully verify it exists) `docs/reference/observability/_schema.md`. For Phase 2c (metric audits): the metric registry stubs in `docs/reference/metrics/` and F-SLICE-B1-2. There's no single "Phase 2 starter pack" doc; the contributor would assemble it from the breadcrumbs above. MEDIUM because the breadcrumbs are good but the consolidation isn't done.
+**Q30, Phase 2 starting prereads.** HIGH. The repo answers this directly. Prereads in priority order: ADR-0004 (the deferral threshold gating Phase 2a), ADR-0006 (phase ordering rationale), F-SLICE-B-1 (calibration error magnitude), F-SLICE-B1-2 (Release Speed correctness), F-SLICE-E-2 (drift root-cause investigation), `docs/reference/calibration/_schema.md` and `ground-truth.yaml` (the dataset that needs to grow), `docs/reference/calibration-audit-rollup.{md,csv}` (regression baseline), `docs/architecture/pipeline-trace.md` (where to instrument), `docs/agents/testing-philosophy.md` (what counts as verification). The prior audit recommended a `docs/process/phase-2a-kickoff.md` bundling these; that doc was not part of PHASE-1C3-PREP and remains a synthesis opportunity for Phase 2a kickoff itself.
 
-**Q31 — If athletes started using PlayCoach next week, what would break?** **HIGH.**
-Multiple things, all documented:
-- **F-SEC-1**: Permissive RLS (`USING (true) WITH CHECK (true)`) on admin tables. Authenticated athlete users would inherit the public/authenticated grants and gain unrestricted read/write/delete on every admin-controlled table. Real shipping blocker.
-- **F-OPS-2**: A single null-deref unmounts the entire React tree with no recovery. Athletes mid-upload would see screen blank.
-- **F-SLICE-B-1**: Calibration produces 2-6× distance errors. Distance/velocity metrics that ship to athletes today would be wrong by factors of two to six.
-- **F-SLICE-B1-2**: Release Speed is independently broken (10× off even after calibration correction).
-- **F-SLICE-E-2**: Multimodal drift means same input can produce two different scores.
-- **F-OPS-1**: Zombie uploads accumulate without cleanup.
-- **R-09**: Claude prompt template still references at least one deleted variable (open Sev-2).
-This is exactly why the phase ordering is metrics-before-UI.
+**Q31, what would break if athletes started using PlayCoach next week.** HIGH. Multiple things, ranked: (1) F-SEC-1, permissive RLS on admin tables plus public storage bucket listing, would expose data and allow uploads by unauthorized users; Sev-2, ship blocker. (2) F-OPS-2, missing error boundaries, would unmount the whole shell on any uncaught error and athletes would interpret it as "the app broke and ate my upload"; Sev-2, ship blocker. (3) F-SLICE-B-1, calibration off by 2-6×, would produce wildly wrong distance and speed metrics that athletes would see and either lose trust or lock into expectation. (4) F-SLICE-E-2, ~0.78% drift, would produce metrics that subtly change between viewings of the same upload. (5) F-OPS-1, zombie uploads, would accumulate without admin visibility. ADR-0006 names exactly this risk profile as the reason Phase 3 is gated.
 
-**Q32 — What scaffolding exists today for content that will be added later (tiers, metrics, events)?** **HIGH.**
-Pass 5 created `_schema.md` files (no content files yet) for: `docs/reference/tiers/_schema.md`, `docs/reference/metrics/_schema.md`, `docs/reference/events/_schema.md`, `docs/reference/observability/_schema.md`. The schemas are explicit about being scaffolding — tiers schema notes "Phase 1c.2 has no canonical tier set yet"; first additions tracked in 1c.3 prep backlog. The pattern is the same in each: frontmatter contract, body shape, anti-patterns. Existing content artifacts that grow over time: `docs/reference/calibration/ground-truth.yaml` (n=1 today), `docs/reference/determinism-drift.csv`, `docs/reference/calibration-audit-rollup.csv` (auto-generated). Plus: `docs/data-dictionary/fields.json` (110 fields) is the structured exemplar that the rest of the structured artifacts model on.
+**Q32, scaffolding for content added later.** HIGH. The `_schema.md` scaffold pattern landed across `reference/tiers/`, `reference/metrics/`, `reference/events/`, `reference/observability/`. Each schema documents the contract before any content lands. Tiers IDs are now canonicalized to `AthleteTier.tsx`. Metrics and events directories are empty at content level (Phase 2c populates metrics; events depend on Phase 3). The `phases.md` registry holds phase IDs. The `data-dictionary/fields.json` is the structured exemplar (110 fields versioned, with status legend). The CSV-aggregator pattern (`aggregate-calibration-audit.ts`) is also reusable scaffolding. There are no committed placeholder content files in any of the structured directories, which is correct per the Project's "no scaffolding with committed placeholder content" rule.
 
 ---
 
-## Step 3 — Gaps identified
+## Step 3, gaps
 
-### A. Questions answered with LOW confidence
+### A, LOW or CANNOT-ANSWER questions
 
-**Q17 (current phase) — LOW.** This is the most consequential gap. Three sources disagree:
-- `docs/roadmap.md` says Phase 1c.3 is "Not started."
-- `docs/process/phase-1c3-slice-{a,b,c,d,e}-outcome.md` shows five 1c.3 slices shipped 2026-04-28 → 2026-04-30.
-- The Project instructions (outside the repo) say "Phase 1c.2 complete (admin tooling + repo foundation cleanup shipped). Phase 1c.3 (admin UI consolidation) is next."
+In this re-audit run, none. All 32 questions cleared HIGH or MEDIUM. The two MEDIUMs (Q24 plan-mode, Q26 role assignment) are intentional repo-level abstractions: the repo answers "how to ship work" and "what conventions apply"; the Project instructions answer "who does what and how to converse with Lovable." Treating these as gaps would be over-reading the question. They feel like gaps to a fresh agent only because the Project instructions are not part of the repo, which is by design.
 
-The roadmap is not being updated as 1c.3 ships. This violates `workflows.md` step 4 ("Add the slice to the phase's roadmap entry in `docs/roadmap.md`"). Where it should live: `docs/roadmap.md` "Phase 1c.3 — current" section, parallel to the existing "Phase 1c.2 cleanup — current" section. Plus a per-slice table inside that section that the slice-shipping workflow updates.
+### B, conflicting answers
 
-### B. Questions where the repo gave conflicting answers
+I found three small inconsistencies, all easily reconciled and probably worth fixing:
 
-**Roadmap vs slice outcomes (Q15, Q17).** Already covered above. The risk-register `INDEX.md` Phase ordering note also calls 1c.3 "next" while ADR-0015's delivery annotation references the actual 1c.3-B execution. This is a doc-drift conflict, not a content conflict — the underlying reality is consistent (1c.3 is in active flight); the docs just haven't kept up.
+1. **`docs/INDEX.md` is stale at the top.** It still reads "Status: Current as of Phase 1c.2 cleanup Pass 3a" and "12 backfilled ADRs (Pass 3d) … `adr/0001` … `adr/0012`" when the actual state is 15 ADRs (0001-0015) and Phase 1c.3 has closed. The body of INDEX is mostly accurate; the header status banner and the ADR table row have not been refreshed. PHASE-1C3-PREP updated several other docs but did not refresh INDEX header. Severity: low confusion risk because the body of INDEX is still navigable, but a fresh agent does have to discount the "current as of 1c.2" framing and discover the 1c.3-era docs by following onboarding rather than INDEX.
 
-**Tier IDs (Q2).** VISION uses age-band labels (high school / college / pro). Code uses `youth | high-school | college | pro` with only `college` active. `tiers/_schema.md` says no canonical set exists. Resolution: a contributor adding a tier today doesn't know whether the source of truth is the code, VISION, or the schema's "to be defined later." This is a forward-looking risk, not a blocker.
+2. **`docs/INDEX.md` does not list `docs/audits/`.** The prior audit doc lives at `docs/audits/project-comprehension-audit-fresh-claude-2026-04-30` (no `.md` extension based on what I saw, which is itself slightly odd). INDEX has no `Audits` section. A fresh agent who follows INDEX as "the doc index" would not find the existing audit. Whether the audit doc itself should be discoverable is a judgment call (it is a one-shot deliverable, not ongoing reference), but the same will apply to my output here.
 
-**ADR cross-reference correction history.** CHANGELOG mentions a Pass-3d-follow-up corrected stale ADR references in `docs/roadmap.md` and `docs/agents/onboarding.md` (originally cited "ADR-0010" for the no-new-athlete-UI rule when ADR-0010 is actually about Zustand). This is fixed now but suggests ADR cross-references benefit from the same kind of verification rigor as calibration recipes — the Pass 6 verification-script-header convention starts in that direction.
+3. **Risk register INDEX phase-ordering note** mentions "Phase 2a is next" but the risk-register count narrative now matches reality (25 entries, 12 risks plus 13 findings, 10 V tasks). Earlier "26/14/9" wording was reconciled in 1c.3-F. This is fine; flagging only because I checked it.
 
-### C. Questions where the answer required cross-referencing many docs
+### C, synthesis costs
 
-**Q7 (end-to-end pipeline trace).** Assembled from `run-analysis-observability-audit.md`, ADR-0009, ADR-0014, edge function code, `mediapipe-service/app/schema.py`, the data dictionary, and the diagnostic snapshot. **Synthesis opportunity:** a single `docs/architecture/pipeline-trace.md` walking one upload from INSERT to result row, with file:line citations at each step. Would save 15-20 minutes for every new contributor and every fresh agent session.
+Most of the prior audit's synthesis costs were eliminated by `system-overview.md` and `pipeline-trace.md`. One genuine remaining synthesis is **Phase 2a kickoff prereads**. Q30 above pulls from ADR-0004, ADR-0006, three F-SLICE entries, two reference YAML/MD pairs, and the testing-philosophy doc. A `docs/process/phase-2a-kickoff.md` that bundles them with one-line "why each matters" prose would compress kickoff context cost. The prior audit recommended this; it was correctly deferred to Phase 2a kickoff itself rather than fabricated in the prep slice.
 
-**Q25 (cost / expensive operations).** Scattered across repo audit B2, ADR-0009 cold-start mention, the Slice C.5 5-run determinism cost (~5 × $0.05), Lovable AI Gateway reference. **Synthesis opportunity:** `docs/reference/cost-model.md` enumerating cost per analysis run, who pays, what scales, what doesn't, and the F-SLICE-E-2 telemetry plan.
+### D, important topics not in the question list
 
-**Q30 (Phase 2 starter pack).** Required reading 8+ docs to assemble. **Synthesis opportunity:** when 1c.3 closes and Phase 2a kicks off, a `docs/process/phase-2a-kickoff.md` that bundles the required prereads.
+- **The data dictionary `fields.json`** is the structured exemplar that everything else models on. v1.5.0, 110 fields, JSONB-path-aware. Anyone working in the data layer must know it exists; onboarding does not currently call it out as required reading. Worth a one-liner in onboarding step 5 or 6.
+- **The Slant route as the only active node.** Many docs assume this context implicitly. The single ground-truth clip is `slant-route-reference-v1.mp4`. The FIXED_TEST_ATHLETE_ID for admin smoke testing is `8f42b1c3-…`. A new agent encountering "the canonical clip" or "the test athlete" needs this context.
+- **F-OPS-3 plus F-OPS-4 plus F-SLICE-E-3 form a methodological triad.** All three are "trusting a prior assertion without re-verifying against current reality" failures. They are not severity findings; they are the discipline-of-the-house. Worth understanding as a unit before any Phase 2 work.
+- **The 6-pass cleanup model.** Pass 3a, 3b, 5e-bis, 6.3 are repo-internal milestones. CHANGELOG maps them to dates and deliverables; onboarding does not. New agents encountering "Pass 5e-bis" should know to look at CHANGELOG.
+- **`PRODUCT-SPEC.md` is read by Lovable every session.** This is mentioned in onboarding ("Lovable reads it every session") but its operational meaning, that PRODUCT-SPEC has different edit semantics than VISION, deserves explicit framing.
+- **`claude-prompt-content-trace.md`** documents the actual prompt text that the LLM receives. For Phase 2c metric quality work and any prompt-engineering, this is the starting point. Not in the onboarding read order; should be referenced from the metrics schema or from a Phase 2c kickoff doc when that exists.
 
-**Q1 + Q4 + Q6 (system-level architecture).** The repo audit specifically called this out as a gap: "Architecture overview at the system level (how Brand HQ + Athlete Lab + Athlete Profile + Cloud Run + edge functions + Supabase fit together — the closest thing is `athlete-lab-end-state-architecture.md` but that's lab-scoped)." This is still a gap. The end-state architecture doc covers the lab; there's no equivalent system-of-systems doc.
+### E, repo structure observations
 
-### D. Important topics not in the question list
+What worked well:
 
-- **The data dictionary (`fields.json`)** is the structured exemplar that the rest of the repo's structured artifacts model on. Anyone working anywhere in the data layer needs to know it exists.
-- **The Slant route** is the only currently-active node. The single ground-truth clip is `slant-route-reference-v1.mp4`. Many docs assume this context.
-- **The 6-pass cleanup model.** This one repo-wide cleanup pass produced almost everything I read (INDEX, glossary, roadmap, agents/, ADRs, risk-register split, schemas). A new agent encountering "Pass 3a" or "Pass 5e-bis" needs the CHANGELOG to map those to dates and deliverables. Worth flagging in onboarding that pass IDs are repo-internal milestones, not industry-standard terminology.
-- **`PRODUCT-SPEC.md`** is read by Lovable every session. That's a fact most contributor docs don't make explicit, but it shapes how editing it differs from editing `VISION.md`.
-- **The `claude-prompt-content-trace.md` investigation** documents the actual prompt the LLM receives. For Phase 2c (metric audits) and any future prompt-engineering work, this is the starting point — but it doesn't show up in the onboarding read order.
-- **R-04 / ADR-0007 / R-07 form a chain**: backup pattern → backup row dispositions → audit. Worth understanding as a unit for anyone planning a destructive migration.
+- The README → onboarding → INDEX → roadmap → system-overview → pipeline-trace → conventions → workflows chain is now the right read order and links chain correctly.
+- `system-overview.md` and `pipeline-trace.md` together close the largest comprehension gap from the prior audit. Maintenance contract on pipeline-trace ("line numbers as-of 2026-04-30, durable shape but not durable line numbers") is honest about staleness risk.
+- The risk register split (one file per ID, INDEX aggregator with frontmatter) genuinely makes individual entries readable in isolation. F-SEC-1 was the test case; I read it in 30 seconds.
+- ADR-0007 vs ADR-0012 distinction note in `adr/INDEX.md` correctly anticipates the "wait, two backup ADRs?" question.
+- The Pass 6.3 verification-script header convention (NAME / PHASE / VERIFIES / RECIPE / BACKLINKS / MAINTENANCE) is unusually disciplined. The roadmap-sync detector script is a clean example.
+- `testing-philosophy.md` answers a question I would have asked ("where are the tests?") in advance, with structural framing rather than apology.
+- The glossary's "Retired terms" section reconciles old language to new ("Elite Tier" → milestone-driven badges; "Option A calibration" → body_based plus C.5 unified path).
 
-### E. Repo structure observations
+What was confusing:
 
-**What worked well:**
-- The `README → onboarding → INDEX → roadmap → conventions → workflows` chain is exactly the right read order. I followed it.
-- The glossary is excellent. The "Retired terms" section is unusually thoughtful — I needed it to reconcile "Elite Tier" between VISION and the deprecation table.
-- ADRs being short and append-only with status frontmatter made decision history navigable. The ADR-0007 vs ADR-0012 distinction note in `adr/INDEX.md` is the right shape for "two ADRs that look similar but aren't."
-- The risk register split (one file per ID, aggregated INDEX) made it easy to read F-SEC-1 in isolation without scrolling through 47KB.
-- The verification-script header convention (NAME / PHASE / VERIFIES / RECIPE / BACKLINKS) is unusually disciplined. I want to use this pattern in other places.
-- The `_schema.md` scaffolding pattern (define the contract before any content lands) is the right move for tiers / metrics / events.
-
-**What was confusing:**
-- Roadmap status vs reality (already covered).
-- Multiple R2 stubs at root-level paths (`AGENTS.md`, the four old root-level docs, `migration-risk-register.md`) — they're well-marked but the cleanup queue is now 7 items, and none are removed yet. Anyone navigating the repo without reading the conventions could misread them as live docs.
-- The `repo-architecture-audit.md` doc is itself a forward-looking proposal that has now been ~mostly executed. Reading it linearly without knowing the cleanup happened produces a "wait, is this done?" moment. Worth a status banner at the top: "This audit's recommendations are tracked under `docs/process/phase-1c2-cleanup-passes-*` (or wherever); ~85% executed as of [date]."
-
-**Where I got lost:**
-- The first time I saw "Phase 1c.2 cleanup Pass 3a" referenced, I didn't know what it meant. It clarified once I read the CHANGELOG and saw the pass-table in INDEX.md. But that's two doc-reads to decode a single label.
-- F-OPS-4's six (now seven) sub-patterns are individually clear but the catalogue has grown into a meta-finding about itself. A reader landing on F-OPS-4 cold gets a lot of slice-specific shorthand at once. Worth a one-line "what this finding is about" lede separate from the evolution log.
-
-**Pleasant surprises:**
-- The structured-vs-prose policy (ADR-0013) is the kind of meta-doc most repos lack.
-- `_template.ts` for verification scripts has the F-SLICE-E-3 lesson written into the comment block. That's a doc-as-test pattern I haven't seen elsewhere.
-- The `slice-outcome.md` template having explicit "Decisions deferred" and "Findings surfaced" sections rather than burying those in prose.
+- INDEX.md header banner is stale, as noted. Easy fix.
+- I had to triangulate "what does the verification recipe template look like" across `agents/conventions.md` Pass 6.3 section, the actual `_template.ts`, and one example script. A single one-page doc at `scripts/verification/README.md` (which the prior audit recommended) would compress that. The prior audit suggested it; not shipped.
+- Pre-template legacy slice outcome docs (1c.1 era) are silently tolerated by the roadmap-sync detector. Fine for now, but a new agent reading those legacy docs may not realize the frontmatter contract evolved. A one-line "legacy" banner on those docs would help; it is also low priority.
+- The `audits/` subdirectory is unindexed. If audits are meant to be one-shot deliverables that don't need permanent indexing, that's defensible but worth saying explicitly somewhere (e.g., "audits/ holds historical audit deliverables, see CHANGELOG for index" in INDEX or in a `_audits/README.md`).
 
 ---
 
-## Step 5 — Recommendations
+## Step 4, self-assessment
 
-Ranked by impact-per-effort.
+**High execution-ready.** I could plan and execute most Phase 2 work without further onboarding. I have a working understanding of architecture, history, current state, the calibration problem space, the determinism noise floor, the backup pattern, the slice and ADR conventions, and the discipline of halt-and-decide. Where I would stop and ask before executing: (a) any architectural decision in Phase 2a or 2b (the calibration architecture, the telemetry shape) where I would want to read deeper into specific code paths, (b) anything touching `analyze-athlete-video/index.ts` because the file is 3700 lines and I have only spot-read sections cited in pipeline-trace, (c) specific RLS policy designs for F-SEC-1.
+
+This is a noticeable improvement over what I would have rated for the same repo before PHASE-1C3-PREP. The prior audit (whose author was the same model on the same day) rated some areas LOW because the roadmap had drifted, the system-overview was missing, and the pipeline-trace did not exist. Those are now closed. The remaining gaps (Phase 2a kickoff doc, INDEX.md header refresh, scripts/verification/README.md, audits/ indexing) are all discoverable and small.
+
+---
+
+## Step 5, recommendations
 
 ### High-impact, low-effort
 
-**1. Update the roadmap to reflect 1c.3 reality.** Add a "Phase 1c.3 — current" section parallel to the existing "Phase 1c.2 cleanup — current" section. List Slices A, B, C, D, E with one-line outcomes, link to each slice doc. List 1c.3-F retrospective as the next slice if that's the plan. Effort: 20 min. Closes the largest comprehension gap I hit.
+1. **Refresh `docs/INDEX.md` header.** Status banner is stale ("Pass 3a", "12 backfilled ADRs"). Update to reflect Phase 1c.3 closed plus PHASE-1C3-PREP shipped, and 15 ADRs (0001-0015). Add a row for `system-overview.md` and `pipeline-trace.md` in the Architecture section. Add an `Audits` row pointing at `audits/`. Effort: 15 minutes.
 
-**2. Add a roadmap-update step to the slice-shipping workflow.** Workflows.md already says "Add the slice to the phase's roadmap entry"; the discipline has lapsed for 1c.3. Either enforce it at slice close or move the canonical "what slices have shipped" list to be auto-derivable from frontmatter scanning `docs/process/phase-*-outcome.md` (the slice files themselves are reliable; the roadmap is the lossy summary). Effort: a convention update plus a stale-roadmap detector script (an hour).
+2. **Add `scripts/verification/README.md`.** The prior audit recommended this; not shipped. One-page doc enumerating each script's NAME / PHASE / VERIFIES line, plus the runtime command convention. Five lines per script, eight or nine scripts. Effort: 30 minutes. Pays off every Phase 2 verification reuse.
 
-**3. Add a pipeline-trace doc.** `docs/architecture/pipeline-trace.md` walking one upload from INSERT to result row with file:line citations. Bridges the `architecture/` (component-scoped) and the edge function code (line-scoped) layers. Effort: 1-2 hours. Closes Q7 synthesis cost permanently.
-
-**4. Add a "current state" tag at the top of `repo-architecture-audit.md`.** Status banner: "Recommendations executed. See CHANGELOG for delivery; this doc is retained as historical record of the prompting-document for the cleanup." Effort: 5 min. Eliminates the "wait, is this done?" reading moment.
+3. **Add the data dictionary to onboarding read order.** One line in `docs/agents/onboarding.md` after step 3 ("INDEX") or in the "where things live" section: "data-dictionary/fields.json — 110 fields with JSONB paths and field-level status; consult before any data-layer work." Effort: 5 minutes.
 
 ### Medium-impact, medium-effort
 
-**5. Architecture overview at the system level.** `docs/architecture/system-overview.md` covering Brand HQ, Athlete Lab, Athlete Profile, Cloud Run, edge functions, Supabase, Lovable AI Gateway, and how they connect. The repo audit named this gap; it's not yet closed. Use the pipeline-trace doc (rec 3) as one of the cross-cutting examples. Effort: 2-3 hours.
+4. **`docs/process/phase-2a-kickoff.md`** when 2a kicks off (not before, to avoid placeholder content). The prior audit suggested this; the right time is at 2a kickoff, with the kickoff doc itself bundling the prereads and adding the 2a-specific scope. Effort: 30 minutes at kickoff.
 
-**6. Phase 2 starter-pack doc.** When 1c.3 closes, before Phase 2a kickoff, write `docs/process/phase-2a-kickoff.md` listing required pre-reads. Pattern repeats for 2b and 2c. Effort: 30 min per kickoff.
+5. **Methodological triad doc, or expanded testing-philosophy section.** F-OPS-3 plus F-OPS-4 plus F-SLICE-E-3 share one root: "trusting a prior assertion without re-verifying against current reality." The three findings each describe one face of this. A single explanatory paragraph at the top of `docs/agents/testing-philosophy.md` §4 (which already covers F-OPS-4) framing the triad, with explicit links to the other two findings, would let a new agent absorb the discipline without reading three risk-register entries. Effort: 30 minutes.
 
-**7. Cost-model reference doc.** `docs/reference/cost-model.md` enumerating per-analysis cost (Cloud Run, LLM tokens, storage), who pays, what scales. Even an unfinished doc would be useful — it would force F-SLICE-E-2 cold-start cost analysis to have a home. Effort: 1 hour for first pass.
-
-**8. Lede for F-OPS-4.** Add a one-paragraph "what this finding is about" intro before the evolution log. The methodological lesson is genuinely portable; the slice-specific examples currently dominate the finding's surface area. Effort: 15 min.
+6. **Project Glossary entry for "Slant" plus FIXED_TEST_ATHLETE_ID.** One row each in the glossary noting Slant as the only currently-active node and the test athlete UUID as the canonical smoke-test target. Effort: 5 minutes.
 
 ### Lower-impact, optional
 
-**9. Tier-source-of-truth resolution.** When 1c.3 closes, decide whether the canonical tier IDs are `youth | high-school | college | pro` (code) or `Youth | High School | College | Professional` (VISION) or "to be defined" (schema). Probably code wins because the form binds to it. Then update VISION's tier-language section and remove the schema's "no canonical set yet" caveat.
+7. **`docs/audits/_README.md`** explaining what lives in `audits/` and how it relates to INDEX. Or alternatively, if audits are meant to disappear after their gap-closure work ships, an explicit rotation policy (e.g., "audit docs are retained for 1 phase past their kickoff, then archived to release notes"). Effort: 15 minutes.
 
-**10. R2 stub cleanup.** Seven stubs are now in the queue. As 1c.3 closes, run the `rg` sweep and remove any stubs without live references. The CHANGELOG already has the inventory.
+8. **Cost-model reference doc.** `docs/reference/cost-model.md` enumerating per-analysis cost surfaces (Cloud Run minutes, LLM tokens, storage), even if values are marked "to-measure." This forces F-SLICE-E-2 cold-start cost analysis to have a home and gives Phase 2b telemetry a place to land observed numbers. Effort: 1 hour.
 
-### Possibly missing entirely (can't fully articulate)
+### What feels missing entirely but I cannot fully articulate
 
-**Test infrastructure narrative.** The repo audit explicitly rejected CI/CD (R1) and hosted observability (R2) for good reasons — the manual per-slice verification model is what catches real bugs. But there is no doc that captures the philosophy of testing in this repo. New contributors raised on CI culture will look for it and either propose adding CI (which has been considered and rejected) or assume the project is under-tested (which is the wrong frame). A short `docs/agents/testing-philosophy.md` explaining: per-slice manual verification is the test surface, verification scripts in `scripts/verification/` carry headers per Pass 6.3, the calibration audit rollup CSV is the regression dataset, and CI is deferred until cadence justifies it. ~30 min to write.
-
----
-
-## Suggestions for the Project instructions themselves
-
-Project instructions outside this audit's scope, but the prompt invited optional thoughts:
-
-- The Project instructions assert "Phase 1c.2 complete (admin tooling + repo foundation cleanup shipped). Phase 1c.3 (admin UI consolidation) is next." Five 1c.3 slices have shipped. Either the instructions need updating, or the instructions are intentionally lagging-but-stable to avoid churn. If the latter, worth saying so explicitly so a fresh agent reading the instructions doesn't assume they're current.
-- "Read authoritative docs rather than relying on these instructions for facts" is the right posture but creates a gotcha when the authoritative doc itself is stale (the roadmap case). Worth adding: "When repo docs and these instructions disagree, surface the gap; don't silently pick one."
-- The slice pattern description in the instructions is concise. The repo's F-OPS-4 catalogue (six sub-patterns of pre-execution / integration / transactional / taxonomy halts) is richer. Either pointer the instructions at F-OPS-4 or accept that the instructions are a deliberately-simpler cover.
-- The "Don't" list mentions "Don't accept silent scope substitution from Lovable without surfacing." That maps directly to F-OPS-4's "stated scope < actual scope" sub-pattern. Cross-referencing strengthens both.
+A "Phase 2 readiness map" diagram or table that visualizes which items gate which others. F-SLICE-B-1 deferred status gates ADR-0004 re-decision gates Phase 2a closure gates Phase 2b kickoff. F-SLICE-E-2 escalation gates Phase 2b. F-OPS-2 plus F-SEC-1 gate Phase 3. The information exists across roadmap, ADR-0006, ADR-0004, individual finding entries, but I have to assemble it. Even a flat dependency table in `roadmap.md` would help: "to start Phase 2a, we need X. To close Phase 2a, we need Y. To start Phase 3, we need A, B, C." This is similar to what `phases.md` does for IDs, but for prerequisites rather than identifiers.
 
 ---
 
-## Closing self-check
+## Optional, project instruction improvements
 
-I rated my comprehension Strategic-aware leaning execution-ready. After writing this audit, I'd hold to that: I can plan and review, but for actual execution I'd want one more session reading the source files (NodeEditor.tsx, the edge function, the Cloud Run service) end to end before I trusted my mental model on a destructive change.
+The Project instructions are tight and well-aligned with what I encountered in the repo. Three small adjustments would have helped me onboard faster:
 
-The repo is in better shape than most projects I've seen at this stage. The 6-pass cleanup did what it set out to do. The single most important investment to compound those gains is keeping the roadmap honest as 1c.3 ships — that one drift is doing more comprehension damage than any other documentation issue in the repo.
+1. **Explicitly call out the relationship between Project instructions and repo docs.** The instructions say "Read authoritative docs rather than relying on these instructions for facts." A new Claude session might still try to apply Project-instruction terminology directly. Adding "When repo and Project instructions disagree, repo wins; surface the gap" would be cleaner than the current "defer to repo" phrasing.
+
+2. **Name the current phase explicitly in the instructions.** Project instructions say "Phase 1c.2 complete (admin tooling + repo foundation cleanup shipped). Phase 1c.3 (admin UI consolidation) is next." This is now stale; Phase 1c.3 has closed and Phase 2a is next. The instructions are themselves drifting against the roadmap, the same F-OPS-3 pattern the repo discipline is designed to catch. Either point at `docs/roadmap.md` as the single source of truth and remove the phase mention, or commit to updating instructions whenever roadmap moves. The first option is more durable.
+
+3. **The "halt conditions are features" line is good but unexplained.** It's clear once you read F-OPS-3 and F-OPS-4. A new agent encountering only the instructions might read it as terse mysticism. One sentence pointing at "`docs/agents/testing-philosophy.md` §4 explains why" would close the loop.
+
+---
+
+**End of audit.**
