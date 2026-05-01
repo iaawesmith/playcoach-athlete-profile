@@ -218,8 +218,34 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [catchStatus, setCatchStatus] = useState<CatchOption>("yes");
   const [athleteLevel, setAthleteLevel] = useState<AthleteLevelOption>("high_school");
   const [focusArea, setFocusArea] = useState("");
-  const [athleteHeight, setAthleteHeight] = useState("");
-  const [athleteHeightUnit, setAthleteHeightUnit] = useState<MeasurementUnit>("inches");
+  // PHASE-2-PREP-FOLLOWUPS — persist height across sessions so the
+  // canonical test athlete's measurement survives page reloads. Closes
+  // the smoke-test failure mode where an empty height field silently
+  // routes body-based calibration through the static fallback. Key
+  // versioning convention matches ConsolidationRedirectBanner (1c.3-D).
+  const ATHLETE_HEIGHT_KEY = "athleteLab.testingPanel.athleteHeight.v1";
+  const ATHLETE_HEIGHT_UNIT_KEY = "athleteLab.testingPanel.athleteHeightUnit.v1";
+  const [athleteHeight, setAthleteHeight] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem(ATHLETE_HEIGHT_KEY) ?? "";
+  });
+  const [athleteHeightUnit, setAthleteHeightUnit] = useState<MeasurementUnit>(() => {
+    if (typeof window === "undefined") return "inches";
+    const stored = window.localStorage.getItem(ATHLETE_HEIGHT_UNIT_KEY);
+    return stored === "cm" || stored === "inches" ? stored : "inches";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (athleteHeight) {
+      window.localStorage.setItem(ATHLETE_HEIGHT_KEY, athleteHeight);
+    } else {
+      window.localStorage.removeItem(ATHLETE_HEIGHT_KEY);
+    }
+  }, [athleteHeight]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(ATHLETE_HEIGHT_UNIT_KEY, athleteHeightUnit);
+  }, [athleteHeightUnit]);
   const [athleteWingspan, setAthleteWingspan] = useState("");
   const [athleteWingspanUnit, setAthleteWingspanUnit] = useState<MeasurementUnit>("inches");
   const [endSeconds, setEndSeconds] = useState(
