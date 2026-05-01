@@ -1,5 +1,8 @@
 # Phase 1c.2 — Slice B1 Outcome
 
+> *Legacy slice outcome doc (pre-template, Pass 3f). Frontmatter contract evolved 2026-04-26; this doc retained as historical record.*
+
+
 **Date:** 2026-04-25
 **Slice:** B1 (non-calibration cleanup; B2 deferred per F-SLICE-B-1)
 **Gates:** R-06 (det_frequency parity) PASS · R-08 (MediaPipe contract) ready for live verification · build clean

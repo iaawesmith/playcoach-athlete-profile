@@ -1,5 +1,8 @@
 # Phase 1c.1 Slice 2 — Coaching Cues Migration: Shipped Outcome
 
+> *Legacy slice outcome doc (pre-template, Pass 3f). Frontmatter contract evolved 2026-04-26; this doc retained as historical record.*
+
+
 **Date shipped:** 2026-04-25
 **Phase:** 1c.1, Slice 2
 **Risk addressed:** R-01 (see `docs/migration-risk-register.md`)

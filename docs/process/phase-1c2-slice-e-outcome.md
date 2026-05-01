@@ -1,5 +1,8 @@
 # Phase 1c.2 — Slice E Outcome
 
+> *Legacy slice outcome doc (pre-template, Pass 3f). Frontmatter contract evolved 2026-04-26; this doc retained as historical record.*
+
+
 **Status:** In progress (E.0 pre-flight complete; pipeline determinism check pending)
 **Started:** 2026-04-26
 **Scope:** Final destructive step in 1c.2 — root column drops on `athlete_lab_nodes`.

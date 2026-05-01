@@ -56,6 +56,32 @@ where applicable.
 
 ---
 
+## [PHASE-1C3-POLISH] — 2026-04-30
+
+Post-prep audit cleanup. Closes the small inconsistencies surfaced by `docs/audits/project-comprehension-audit-fresh-claude-2026-04-30-post-prep.md` (Section B #1/#2, Section D #1/#2/#3, Section E what-was-confusing #2/#3). Pure documentation slice; no code, migrations, or schema changes. Self-rating from the post-prep audit was "High execution-ready"; this slice closes the remaining refinements ahead of Phase 2a kickoff.
+
+### Added
+- **`docs/audits/_README.md`** — purpose, retention policy, and naming convention for audit docs.
+- **`scripts/verification/README.md`** — single-page index of all 8 verification scripts (7 + `_template.ts`) as a four-column table (Script / Phase / Verifies / Recipe). Cross-references F-SLICE-E-3.
+- **`docs/process/phase-1c3-polish-slice-outcome.md`** — this slice's outcome doc.
+- **`docs/INDEX.md`** — new **Audits** section listing both audit docs and `_README.md`; new rows for `architecture/system-overview.md`, `architecture/pipeline-trace.md`, `agents/testing-philosophy.md`.
+- **Glossary entries** — **Slant** (currently-active node, canonical ground-truth clip) and **FIXED_TEST_ATHLETE_ID** (`8f42b1c3-…`, used by `admin-test-upload`). Athlete-Lab section reordered alphabetically.
+- **Methodological-triad cross-annotations** — F-OPS-3, F-OPS-4, F-SLICE-E-3 each gain a "Related findings (methodological triad)" section framing them as three faces of one underlying discipline (trusting a prior assertion without re-verifying against current reality). `agents/testing-philosophy.md` §4 opens with the same triad framing.
+- **Legacy banner** added to 7 pre-template slice outcome docs in `docs/process/` (broader policy than the detector's 5; both `phase-1c2-determinism-experiment.md` and `phase-1c2-slice-a-r04-assertion.md` also predate the slice-outcome template).
+
+### Changed
+- **`docs/INDEX.md`** — header status banner refreshed (Phase 1c.3 closed; PHASE-1C3-PREP and PHASE-1C3-POLISH shipped same day). ADR row updated to 0001–0015 (15 ADRs). Risks row updated to 25 entries (12 risks + 13 findings) plus 10 verification tasks. Stale "Coming online during this cleanup" passes table replaced with a one-line CHANGELOG pointer.
+- **`docs/agents/onboarding.md`** — read order now includes `data-dictionary/fields.json` as step 7; conventions/workflows shifted to 8/9. Closing line: "After step 9 you have working context. ~65 minutes total."
+
+### Fixed
+- **`docs/process/phase-1c3-prep-slice-outcome.md`** — Halt 1 entry corrected via explicit drift-correction callout: original "Five … docs" enumeration matched the detector's glob scope but missed two pre-template docs that share the same date criterion. Corrected count is 7 for the broader pre-template population (5 visible to the detector). Audit trail spans both the prep and polish outcome docs by design.
+
+### Cross-links
+- Drove this slice: `docs/audits/project-comprehension-audit-fresh-claude-2026-04-30-post-prep.md`
+- Methodological-triad files: `docs/risk-register/F-OPS-3-…md`, `F-OPS-4-…md`, `F-SLICE-E-3-…md`, `docs/agents/testing-philosophy.md`
+
+---
+
 ## [PHASE-1C3-CLOSE] — 2026-04-30
 
 Phase 1c.3 formally closes with the slice 1c.3-F retrospective. All 6 slices (A–F) shipped; R-12 closed; R-05 and R-07 mitigated; 5 findings opened during 1c.3 (F-OPS-3, F-OPS-4, F-SLICE-E-6 + carry-overs); 3 findings resolved (F-SLICE-E-4/E-5/E-6). Phase 1c.3 deliverables synthesized into a single retrospective; methodological discipline (F-OPS-3, F-OPS-4 with seven sub-patterns) ready as Phase 2 input.

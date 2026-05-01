@@ -58,6 +58,7 @@ Phase 2a unblocked.
 | Slice | Outcome | Doc |
 |---|---|---|
 | PHASE-1C3-PREP | Documentation gap closure for Phase 2 readiness (system-overview, pipeline-trace, testing-philosophy, roadmap-sync detector, F-OPS-4 lede, tier resolution) | [`process/phase-1c3-prep-slice-outcome.md`](process/phase-1c3-prep-slice-outcome.md) |
+| PHASE-1C3-POLISH | Post-prep audit cleanup: INDEX refresh + Audits section, scripts/verification/README, glossary entries (Slant, FIXED_TEST_ATHLETE_ID), legacy banners on 7 pre-template docs, methodological-triad cross-annotation across F-OPS-3/F-OPS-4/F-SLICE-E-3 | [`process/phase-1c3-polish-slice-outcome.md`](process/phase-1c3-polish-slice-outcome.md) |
 
 ---
 

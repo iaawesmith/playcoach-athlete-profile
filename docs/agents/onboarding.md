@@ -37,10 +37,11 @@ There is also an internal-only **Athlete Lab** at `/athlete-lab` — the admin b
 4. **`docs/roadmap.md`** (5 min) — current phase, where we are, where we're going next
 5. **`docs/architecture/system-overview.md`** (10 min) — three product surfaces, pipeline shape, infrastructure layers, key tables. The system-level mental model.
 6. **`docs/architecture/pipeline-trace.md`** (10 min, skim) — one upload from INSERT to result row with file:line citations. The canonical "how does this actually work" reference, especially for Phase 2 work.
-7. **`docs/agents/conventions.md`** (5 min) — repo conventions you must follow (file naming, IDs, R2 stub policy, structured-vs-prose rule)
-8. **`docs/agents/workflows.md`** (5 min) — how to do common multi-step things in this repo
+7. **`docs/data-dictionary/fields.json`** (5 min skim) — 110 fields with JSONB paths and field-level status (v1.5.0). The structured exemplar that the rest of the repo's structured artifacts model on. Consult before any data-layer work.
+8. **`docs/agents/conventions.md`** (5 min) — repo conventions you must follow (file naming, IDs, R2 stub policy, structured-vs-prose rule)
+9. **`docs/agents/workflows.md`** (5 min) — how to do common multi-step things in this repo
 
-After step 8 you have working context. ~60 minutes total.
+After step 9 you have working context. ~65 minutes total.
 
 ---
 

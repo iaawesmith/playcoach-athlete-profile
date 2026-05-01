@@ -48,6 +48,8 @@ Open finding [F-SLICE-E-2](../risk-register/F-SLICE-E-2-pipeline-calibration-aud
 
 ## §4 — Pre-execution sweep + halt-and-decide discipline (F-OPS-4 family)
 
+The discipline of halting when execution surfaces something inspection missed is one face of a methodological triad. **F-OPS-3** covers plan-vs-state drift (intent at write time vs reality at execution time). **F-OPS-4** covers pre-execution inspection scope (what looks complete in inspection underestimates what actually surfaces in execution). **F-SLICE-E-3** covers recipe propagation without independent verification (recipes in prose drift; recipes in code with backlinks stay current). All three are "trusting a prior assertion without re-verifying" failures with different surfaces. They are not severity findings; they are the discipline-of-the-house. Worth understanding as a unit before any Phase 2 work.
+
 The most effective regression net in this repo is **the discipline of halting when execution surfaces something inspection missed.** Phase 1c.3 surfaced seven sub-patterns of this failure mode, all documented in [F-OPS-4](../risk-register/F-OPS-4-pre-execution-inspection-scope-systematically-underestimates-reality.md):
 
 1. Constraint discovery — enumerate all CHECK/FK/UNIQUE constraints on write targets, not just suspected ones

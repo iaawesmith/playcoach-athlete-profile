@@ -11,6 +11,10 @@ classification: process-lesson
 
 # F-OPS-3 — Deferred work shipped earlier creates plan-vs-state drift
 
+## Related findings (methodological triad)
+
+This finding is one face of a methodological triad. F-OPS-3, F-OPS-4, and F-SLICE-E-3 each describe a distinct failure mode of one underlying discipline: **trusting a prior assertion without re-verifying against current reality**. F-OPS-3 covers plan-vs-state drift; [F-OPS-4](F-OPS-4-pre-execution-inspection-scope-systematically-underestimates-reality.md) covers pre-execution inspection scope underestimating reality; [F-SLICE-E-3](F-SLICE-E-3-recipe-propagation-without-independent-verification-process-lesson-no-severity.md) covers recipe propagation without independent verification.
+
 ## Observation
 
 Slice 1c.3-B's prep inventory (in `phase-1c3-prep-backlog.md` and ADR-0015) anticipated several deletion items that the pre-execution audit discovered had **already shipped** during prior slices:

@@ -1,8 +1,6 @@
 # Documentation Index
 
-> **Status:** Current as of Phase 1c.2 cleanup Pass 3a.
->
-> The structural reorg into subdirectories (`architecture/`, `process/`, `reference/`, `investigations/`, `adr/`, `agents/`, `templates/`) landed in Pass 3a. The `risk-register/` split lands in Pass 4. R2 redirect stubs remain at the four old root-level paths until Phase 1c.3 (see [`process/phase-1c3-prep-backlog.md`](process/phase-1c3-prep-backlog.md) → "Stub cleanup queue").
+> **Status:** Phase 1c.3 closed 2026-04-30. PHASE-1C3-PREP and PHASE-1C3-POLISH shipped same day. Phase 2a (calibration robustness) is next. See [`CHANGELOG.md`](../CHANGELOG.md) for the latest entries and [`roadmap.md`](roadmap.md) for forward plan.
 >
 > For executive narrative, see [`../VISION.md`](../VISION.md). For build specs, see [`../PRODUCT-SPEC.md`](../PRODUCT-SPEC.md). For onboarding, see [`agents/onboarding.md`](agents/onboarding.md).
 
@@ -12,6 +10,8 @@
 
 | Doc | Purpose |
 |---|---|
+| [`architecture/system-overview.md`](architecture/system-overview.md) | System-level architecture: three product surfaces, pipeline shape, infrastructure layers, key tables, trust boundaries |
+| [`architecture/pipeline-trace.md`](architecture/pipeline-trace.md) | 10-step upload→result trace with file:line citations into the edge function and Cloud Run service |
 | [`architecture/athlete-lab-architecture-audit.md`](architecture/athlete-lab-architecture-audit.md) | Phase 1c.0 architecture audit; current end-state laid out in companion doc below |
 | [`architecture/athlete-lab-end-state-architecture.md`](architecture/athlete-lab-end-state-architecture.md) | "Where we're going" target architecture for the athlete-lab feature |
 | [`architecture/athlete-lab-tab-inventory.md`](architecture/athlete-lab-tab-inventory.md) | Inventory of NodeEditor tabs, their dispositions, and audit findings |
@@ -55,7 +55,7 @@
 
 | Doc | Purpose |
 |---|---|
-| [`risk-register/INDEX.md`](risk-register/INDEX.md) | Aggregated view of all `R-*` risks (12) and `F-*` findings (10), with status / severity / origin slice / related ADRs / related entries. One file per ID under `risk-register/`. |
+| [`risk-register/INDEX.md`](risk-register/INDEX.md) | Aggregated view of 25 total entries — 12 risks (`R-01`–`R-12`) and 13 findings (`F-*`) — plus 10 verification tasks (`V-1c.3-01`–`V-1c.3-10`). Status / severity / origin slice / related ADRs / related entries. One file per ID under `risk-register/`. |
 | [`risk-register/_schema.md`](risk-register/_schema.md) | Frontmatter contract for risk-register entries. |
 | [`migration-risk-register.md`](migration-risk-register.md) | R2 redirect stub (split executed in Pass 4). |
 
@@ -72,12 +72,20 @@
 | [`investigations/phase-1c2-camera-guidelines-preflight.md`](investigations/phase-1c2-camera-guidelines-preflight.md) | (historical — pre-flight check record) |
 | [`process/phase-1c2-slice-a-r04-assertion.md`](process/phase-1c2-slice-a-r04-assertion.md) | (historical — small ship record) |
 
+## Audits
+
+| Doc | Purpose |
+|---|---|
+| [`audits/project-comprehension-audit-fresh-claude-2026-04-30.md`](audits/project-comprehension-audit-fresh-claude-2026-04-30.md) | Baseline fresh-Claude comprehension audit (drove PHASE-1C3-PREP) |
+| [`audits/project-comprehension-audit-fresh-claude-2026-04-30-post-prep.md`](audits/project-comprehension-audit-fresh-claude-2026-04-30-post-prep.md) | Post-prep verification audit (drove PHASE-1C3-POLISH, this slice) |
+| [`audits/_README.md`](audits/_README.md) | Purpose, retention policy, and naming convention for audit docs |
+
 ## Architecture Decision Records
 
 | Doc | Purpose |
 |---|---|
 | [`adr/INDEX.md`](adr/INDEX.md) | ADR index + ADR-0007 vs ADR-0012 distinction note |
-| [`adr/0001`](adr/0001-user-roles-separate-table.md) … [`adr/0012`](adr/0012-backup-retention-indefinite.md) | 12 backfilled ADRs (Pass 3d) |
+| [`adr/0001`](adr/0001-user-roles-separate-table.md) … [`adr/0015`](adr/0015-mechanics-tab-delete-not-patch.md) | 15 ADRs (0001–0012 backfilled in Pass 3d; 0013 prose-to-structured policy; 0014 C.5 unified calibration; 0015 Mechanics tab delete-not-patch) |
 
 ## Templates
 
@@ -93,15 +101,8 @@
 | [`agents/onboarding.md`](agents/onboarding.md) | Agent onboarding — read order for fresh agents |
 | [`agents/conventions.md`](agents/conventions.md) | Repo conventions (file naming, IDs, R2 stub policy, structured-vs-prose, catalog-doc exemption) |
 | [`agents/workflows.md`](agents/workflows.md) | Common multi-step workflows |
+| [`agents/testing-philosophy.md`](agents/testing-philosophy.md) | Per-slice manual verification framed as the test surface; F-OPS-3/F-OPS-4/F-SLICE-E-3 methodological triad |
 
 ---
 
-## Coming online during this cleanup
-
-| Pass | Adds |
-|---|---|
-| 2 | `agents/onboarding.md`, `agents/conventions.md`, `agents/workflows.md` |
-| 3 | Subdirectory reorg, calibration YAML, drift CSV, 12 ADRs, slice-outcome template, CHANGELOG + release-notes |
-| 4 | `risk-register/` split (one file per `R-*` / `F-*`) |
-| 5 | `reference/tiers/_schema.md`, `reference/metrics/_schema.md`, `reference/events/_schema.md`, `reference/observability/_schema.md`, `reference/calibration-audit-rollup.{md,csv}`, `scripts/aggregate-calibration-audit.ts` |
-| 6 | `reference/phases.md`, `scripts/generate-tab-inventory.ts` (+ AUTO block in `architecture/athlete-lab-tab-inventory.md`), `scripts/verification/_template.ts`, retrofitted headers on the 6 existing `scripts/verification/*.ts` |
+> Historical "Coming online during this cleanup" passes table removed 2026-04-30 (PHASE-1C3-POLISH) — all passes shipped during Phase 1c.2 cleanup. See [`CHANGELOG.md`](../CHANGELOG.md) for the canonical log of what landed in each pass/slice.
