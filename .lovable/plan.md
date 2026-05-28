@@ -1,57 +1,81 @@
-# PHASE-2-SMOKE — Halt and Surface
+# PHASE-2-PREP-RESEARCH — World-Landmark Feasibility Study
 
-## Pre-execution finding (halt condition triggered at Step 1)
+## Confirmed grounding (pre-execution sweep)
 
-The most recent `slant-route-reference-v1.mp4` upload **failed**, and no post-Phase-1c.3 successful run exists in the database. The smoke-test deliverable cannot be written against current data without misrepresenting the pipeline state.
+The Cloud Run `mediapipe-service` uses the **modern MediaPipe Tasks API**:
+- Import: `from mediapipe.tasks.python import vision as mp_vision` (`mediapipe-service/app/pose.py:21-22`)
+- Construction: `mp_vision.PoseLandmarker.create_from_options(...)` (`pose.py:46`)
+- Package: `mediapipe==0.10.18` (`mediapipe-service/requirements.txt:3`)
+- Model assets: `pose_landmarker_full.task` / `pose_landmarker_lite.task` (`Dockerfile:23-27`)
+- Result consumption: only `result.pose_landmarks` is read (2D normalized → pixel-scaled). `result.pose_world_landmarks` is **available on the same result object but never accessed** (`pose.py:91-99` referenced in capability inventory §1.2).
 
-### Most recent upload row
+This is the path Capability Inventory §1.2 row "World landmarks" earmarked for Phase 2+. The legacy `mp.solutions.pose` API is **not** in use anywhere in the repo.
 
-| Field | Value |
-|---|---|
-| `upload_id` | `0ef2c877-1632-4090-865a-1e2cb6cde235` |
-| `created_at` | **2026-04-29 01:14:02 UTC** |
-| `node_id` | `75ed4b18-8a22-440e-9a23-b86204956056` (Slant) |
-| `node_version` | 6 |
-| `status` | **`failed`** |
-| `error_message` | `Node not found or not live: 75ed4b18-8a22-440e-9a23-b86204956056` |
-| `progress_message` | `Analysis failed.` |
-| `experiment` (context) | `1c-slice-d-d5-post-strip-verify` (note: 1c.2 era tag, not a fresh post-1c.3 trigger) |
+## Deliverable
 
-### Why it failed
+A single research document: `docs/investigations/world-landmark-feasibility-research.md`
 
-`fetchNodeConfig` (`analyze-athlete-video/index.ts:928-932`) hard-filters on `status='live'`. At 2026-04-29 01:14, the Slant node was almost certainly **not** in `live` status — Phase 1c.3 transformation slices were actively rewriting node fields, and the node would have been moved to `draft` during edit cycles. The node is currently `live` (last `updated_at`: 2026-04-30 22:10), set live during/after PHASE-1C3-PREP/POLISH close.
+Read-only research slice. No code, schema, or config changes. No migrations.
 
-### Most recent **complete** run is pre-1c.3
+## Document structure
 
-| Field | Value |
-|---|---|
-| `upload_id` | `23936560-1284-4d13-bb68-9894afd2865c` |
-| `created_at` | **2026-04-26 03:00:51 UTC** |
-| `experiment` | `1c-slice-e-e36-post-migration` |
-| `status` | `complete` |
+### Section 1 — API path inventory (both paths, for completeness)
+- **1.1 Tasks API (current path)**: `PoseLandmarker` returns `PoseLandmarkerResult` with both `pose_landmarks` (normalized 2D + visibility/presence) and `pose_world_landmarks` (3D meters, hip-centered). Same detection call produces both; consuming world landmarks requires only reading the additional field — no second inference, no model swap, no API migration.
+- **1.2 Legacy Solutions API (NOT in use)**: `mp.solutions.pose.Pose` returns `pose_world_landmarks` similarly. Documented for completeness only; no code path in this repo uses it.
+- **Verdict surfaced upfront**: current API path is sufficient. Migration is not required.
 
-This pre-dates 1c.3-A through 1c.3-F, PHASE-1C3-PREP, and PHASE-1C3-POLISH. Auditing it as a "post-1c.3 smoke test" would be category-incorrect.
+### Section 2 — Accuracy analysis (covers both paths per request)
+- **2.1 Coordinate space and origin**: world landmarks are in meters, origin at the midpoint of the hips. Z axis depth derived from BlazePose GHUM regression head.
+- **2.2 Accuracy characteristics**:
+  - Lite vs Full vs Heavy model trade-offs for world-landmark depth quality
+  - Known weaknesses: Z accuracy degrades at frame edges, with occlusion, and for limbs extended toward/away from camera (relevant to release-mechanics and 40-yd framing)
+  - Tasks API vs Solutions API: regression head is the same GHUM model; differences are marginal and stem from preprocessing pipeline (Tasks API uses standardized ROI cropping). Note both paths for completeness; recommendation does not depend on this distinction.
+- **2.3 Comparison vs current ppy-calibrated 2D distance metrics**:
+  - F-SLICE-B-1 baseline: 2-6% distance error on static calibration
+  - Expected world-landmark error envelope for distance/velocity metrics in our framing conditions (single-camera, athlete roughly centered, 1-3s clips)
+  - Where world landmarks would improve correctness vs where they would not (e.g., depth-axis motion benefits; lateral-only motion may not justify the change)
 
-## What I'm halting on
+### Section 3 — Integration cost analysis (Tasks API path, since it's current)
+- **3.1 Service-side change surface**: extend `PoseFrame` dataclass with optional `world_keypoints` field; read `result.pose_world_landmarks` alongside `result.pose_landmarks` in `pose.py` detect loop. No new dependency, no model download, no Dockerfile change.
+- **3.2 Schema surface**: response payload from `/analyze` grows by ~33 × 3 floats per frame. Estimate impact on response size and edge-function deserialization.
+- **3.3 Edge-function consumption**: which downstream metrics in `analyze-athlete-video/index.ts` could opt-in to world-landmark-derived distance/velocity instead of ppy-calibrated 2D. Per-metric opt-in path (capability inventory §2 row 9) keeps blast radius small.
+- **3.4 Calibration pipeline interaction**: world landmarks bypass the entire ppy calibration chain for any metric that opts in. Document interaction with F-CALIB-1 (shadow values) and F-SLICE-B-1 (static calibration error) — world-landmark adoption is a candidate remediation path for both.
+- **3.5 Determinism**: world-landmark regression head determinism characteristics vs F-SLICE-E-2 (~0.78% drift on body-based ppy). Likely orthogonal but document expected behavior.
 
-The slice prompt's success criterion is "confirm the pipeline produces a clean `result_data` row with the expected shape after all the cleanup work." There is **no such row**. Two paths forward, both require the user's call:
+### Section 4 — Recommendation chain
+- **4.1 Top recommendation**: per-metric opt-in to world landmarks for distance/velocity-class metrics, starting with one pilot metric on the slant-route reference clip. **No API migration required** — current Tasks API path supports this directly. Cost is bounded to: one optional field on `PoseFrame`, one additional read in `detect()`, one edge-function consumer per opted-in metric.
+- **4.2 Explicit non-migration note**: Per founder request, the recommendation does NOT require migrating from Tasks API to anything else. The Tasks API already exposes `pose_world_landmarks` on every detection result; we are simply reading a field we currently discard. Founders should not infer migration from this recommendation.
+- **4.3 Sequencing**: pilot metric → measurement vs ground truth → expand to second metric → consider as primary path for distance/velocity metrics class. Each step is its own slice; this research does not commit to any.
+- **4.4 Risk-register cross-links**: candidate Phase-2 remediation vector for F-SLICE-B-1, F-CALIB-1; orthogonal to F-SLICE-E-2.
+- **4.5 What this research does NOT recommend**: model variant change, confidence threshold change, segmentation mask, LIVE_STREAM mode, multi-pose. All remain in the "hold" disposition per Capability Inventory §2.
 
-### Option A — User triggers a fresh upload, then I run the audit
+### Section 5 — Open questions for Phase 2 planning
+- Which pilot metric? (release_speed candidate; cross-link F-SLICE-B1-2)
+- Ground-truth comparison methodology — extend existing calibration ground-truth dataset or build new?
+- Telemetry: how to record world-landmark-derived value alongside ppy-derived value for A/B comparison without committing to either as canonical (mirrors `calibration_audit` shadow-value pattern but with explicit governance to avoid F-CALIB-1 recurrence)
 
-Recommended. The Slant node is `live` right now; a fresh upload through the Athlete Lab admin UI should succeed. Once the new `complete` row exists, I execute Steps 2-10 of the original slice prompt and write `docs/audits/phase-2-smoke-test-2026-05-01.md`.
+## Sources to consult during execution
 
-### Option B — I write a halt-outcome doc instead
+- MediaPipe Tasks Pose Landmarker official docs (Python guide, result schema, world-landmark section)
+- BlazePose GHUM paper / model card for accuracy envelope
+- `mediapipe==0.10.18` release notes / source for any API caveats at this pin
+- Existing repo references: capability inventory §1.2/§2 row 9, ADR-0009, F-SLICE-B-1, F-CALIB-1, F-SLICE-E-2
 
-I write `docs/audits/phase-2-smoke-test-2026-05-01.md` as a halt record: documents the failed 04-29 attempt, the root cause (node `status='live'` filter vs in-flight node edits during 1c.3), and a recommendation to either (a) re-trigger the smoke test, or (b) loosen the analyzer's node-status filter for admin-test paths so dogfood runs survive node draft cycles. No pipeline shape verification is performed.
+## Out of scope for this slice
 
-## Bonus surface — possible Phase 2 input
+- Any code change, including the trivial `PoseFrame` extension
+- Any schema change to Cloud Run response or edge-function consumption
+- Any pilot run on real video
+- Phase 2a planning itself (this research feeds into it)
+- Recommendations on confidence thresholds, model variant, auto-zoom, or any other capability inventory row
 
-The `Node not found or not live` failure mode is itself worth noting regardless of which option you pick. During any future phase that edits node config, **every concurrent admin test upload will fail with a misleading error** until the node is re-published. Candidates:
+## Files created
 
-- Document as a known operational gotcha in `docs/agents/workflows.md`
-- Open as a new finding in the risk register (severity probably Sev-3, similar to F-OPS-1 zombie pattern — operational hygiene, doesn't break the system, but creates confusing failures)
-- Consider an analyzer-side change: admin-test uploads (athlete_id = `FIXED_TEST_ATHLETE_ID`) could bypass the `status='live'` filter so dogfooding works on draft nodes. Out of scope for this slice; flag for Phase 2 backlog.
+- `docs/investigations/world-landmark-feasibility-research.md`
 
-## Decision needed
+## Surface deliverable on completion
 
-Pick **A** (trigger a fresh upload, then I run the full audit) or **B** (I write a halt-outcome doc against the failed 04-29 run only). Standing by.
+- Path to research doc
+- Section 4.1 recommendation summary (one paragraph)
+- Section 4.2 non-migration assertion (verbatim, for founder)
+- List of risk-register findings cross-referenced
