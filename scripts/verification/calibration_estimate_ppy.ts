@@ -224,9 +224,12 @@ function estimate(method: ToolMethod, raw: Record<string, unknown>): YamlMethod 
       }
       // pixel_height = real_height_yd * (1 - compression) * ppy
       // → ppy = pixel_height / (real_height_yd * (1 - compression))
-      // High compression → small denominator → high ppy. Low compression → low ppy.
-      const ppyLow = pixelHeight / (realHeightYd * (1 - compHighPct / 100));
-      const ppyHigh = pixelHeight / (realHeightYd * (1 - compLowPct / 100));
+      // Higher compression → smaller denominator → HIGHER ppy estimate (the
+      // athlete is "really" taller in pixels than what we see). So the LOWER
+      // ppy bound comes from the LOWER compression assumption, and the
+      // UPPER ppy bound comes from the HIGHER compression assumption.
+      const ppyLow = pixelHeight / (realHeightYd * (1 - compLowPct / 100));
+      const ppyHigh = pixelHeight / (realHeightYd * (1 - compHighPct / 100));
       return {
         id: "bbox_cross_check",
         name: "Athlete-height bbox cross-check",
