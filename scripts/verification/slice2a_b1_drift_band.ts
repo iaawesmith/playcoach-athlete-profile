@@ -339,7 +339,7 @@ function appendRow(
     `phase-2a-slice-b1-${label}`,
     `B1+B2 ${label === "baseline" ? "pre-B1 SHA" : "post-B1+B2 HEAD"} — Option D drift-band run`,
     String(pipelineRuntimeS),
-    `F-OPS-6 remediation — Phase 2a slice B1/B2 drift-band corroboration; run ${label}.`,
+    `F-OPS-6 remediation — Phase 2a slice B1/B2 drift-band corroboration; run ${label}${baselineUrlTag ? `; mediapipe_url_tag=${baselineUrlTag}` : ""}.`,
   ]
     .map((v) => {
       const s = String(v);
