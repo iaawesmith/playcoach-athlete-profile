@@ -162,13 +162,18 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
 
     keypoints: list[list[list[list[float]]]] = []
     scores: list[list[list[float]]] = []
+    # PHASE-2A-SLICE-B2: world landmarks plumbed alongside pixel keypoints.
+    # Same outer shape (frames × persons × 33 × 3); meters, hip-centered.
+    world_keypoints: list[list[list[list[float]]]] = []
     for pf in original_space:
         keypoints.append([[pt[:] for pt in pf.keypoints]])
         scores.append([pf.scores[:]])
+        world_keypoints.append([[pt[:] for pt in pf.world_keypoints]])
 
     response = AnalyzeResponse(
         keypoints=keypoints,
         scores=scores,
+        world_keypoints=world_keypoints,
         frame_count=len(original_space),
         fps=float(video.TARGET_FPS),
         pixels_per_yard=ppy,

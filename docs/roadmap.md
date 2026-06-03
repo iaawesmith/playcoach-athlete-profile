@@ -78,10 +78,10 @@ Three sub-phases. Sub-phase order is the recommended sequence; specific scope de
 | Slice | Status | Outcome doc |
 |---|---|---|
 | `PHASE-2A-SLICE-A1` | Shipped 2026-06-03 — calibration clip intake runbook (slant-route probe node, 3 scale-reference methodologies, halt conditions) | [`process/phase-2a-slice-a1-outcome.md`](process/phase-2a-slice-a1-outcome.md) |
-| `PHASE-2A-SLICE-A2` | Not started | (pending) |
+| `PHASE-2A-SLICE-A2` | Shipped 2026-06-03 — `calibration_estimate_ppy.ts` CLI (tape_measure / yard_line / bbox_cross_check); emits append-ready YAML fragments | [`process/phase-2a-slice-a2-outcome.md`](process/phase-2a-slice-a2-outcome.md) |
 | `PHASE-2A-SLICE-A3` | Not started | (pending) |
 | `PHASE-2A-SLICE-B1` | Shipped 2026-06-03 — `pose_world_landmarks` captured in `PoseFrame` (meters, hip-centered); zero inference-cost add | [`process/phase-2a-slice-b1-outcome.md`](process/phase-2a-slice-b1-outcome.md) |
-| `PHASE-2A-SLICE-B2` | Not started — must cite Supabase Edge Function response-size limit | (pending) |
+| `PHASE-2A-SLICE-B2` | Shipped 2026-06-03 — `world_keypoints` plumbed through `AnalyzeResponse`; always-on (~70 KB/clip; Supabase Edge Function has no documented response cap, 256 MB worker memory is the binding ceiling) | [`process/phase-2a-slice-b2-outcome.md`](process/phase-2a-slice-b2-outcome.md) |
 | `PHASE-2A-SLICE-B3` | Not started | (pending) |
 | `PHASE-2A-SLICE-C` | Not started — closure | (pending) |
 

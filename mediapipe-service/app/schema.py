@@ -42,6 +42,13 @@ class AnalyzeResponse(BaseModel):
     # Pose payload — outer person array length is 1 for single-athlete clips.
     keypoints: list[list[list[list[float]]]]
     scores: list[list[list[float]]]
+    # World landmarks (PHASE-2A-SLICE-B2): BlazePose GHUM 3D coords in **meters**,
+    # origin at the **midpoint of the hips**. Same outer shape as `keypoints`
+    # (frames × persons × 33 × 3). Always serialized — see
+    # docs/process/phase-2a-slice-b2-outcome.md for the Supabase Edge Function
+    # response-size analysis that justifies always-on rather than gated emission.
+    # Zero-filled 33×3 per frame when the frame had no detection (shape stable).
+    world_keypoints: list[list[list[list[float]]]] = Field(default_factory=list)
     frame_count: int
     fps: float
 
