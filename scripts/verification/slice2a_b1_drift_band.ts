@@ -311,6 +311,7 @@ function appendRow(
   uploadId: string,
   resultIdPrefix: string,
   pipelineRuntimeS: number,
+  baselineUrlTag: string | null,
 ): void {
   const hash = sha256(canonicalize(audit));
   const bodyBasedPpy = Number(audit.body_based_ppy);
