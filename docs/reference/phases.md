@@ -45,10 +45,10 @@ Phase 2a runs two parallel tracks (Track A — ground-truth data growth; Track B
 | Slice ID | Track | Scope (one line) | Outcome doc |
 |---|---|---|---|
 | `PHASE-2A-SLICE-A1` | A — data growth | Formalize calibration clip intake runbook against the slant-route published probe node. | [`process/phase-2a-slice-a1-outcome.md`](../process/phase-2a-slice-a1-outcome.md) |
-| `PHASE-2A-SLICE-A2` | A — data growth | Build `scripts/verification/calibration_estimate_ppy.ts` supporting tape-measure / yard-line / bbox cross-check methodologies. | (pending) |
+| `PHASE-2A-SLICE-A2` | A — data growth | `scripts/verification/calibration_estimate_ppy.ts` CLI supporting tape_measure / yard_line / bbox_cross_check; emits append-ready YAML fragments. | [`process/phase-2a-slice-a2-outcome.md`](../process/phase-2a-slice-a2-outcome.md) |
 | `PHASE-2A-SLICE-A3` | A — data growth | Build `scripts/verification/calibration_dataset_threshold.ts` to mechanically gate ADR-0004 re-open. | (pending) |
 | `PHASE-2A-SLICE-B1` | B — world landmarks | Extend `PoseFrame` in `mediapipe-service/app/pose.py` to capture `pose_world_landmarks` (3D meters, hip-centered). | [`process/phase-2a-slice-b1-outcome.md`](../process/phase-2a-slice-b1-outcome.md) |
-| `PHASE-2A-SLICE-B2` | B — world landmarks | Plumb `world_keypoints` through `AnalyzeResponse`; design against the documented Supabase Edge Function response size limit. | (pending) |
+| `PHASE-2A-SLICE-B2` | B — world landmarks | Plumb `world_keypoints` through `AnalyzeResponse`; always-on emission justified against Supabase Edge Function 256 MB memory cap (no documented response-size limit). | [`process/phase-2a-slice-b2-outcome.md`](../process/phase-2a-slice-b2-outcome.md) |
 | `PHASE-2A-SLICE-B3` | B — world landmarks | Add `coordinate_space: "pixel" \| "world"` (default `"pixel"`) to metric definitions and the metric registry. | (pending) |
 | `PHASE-2A-SLICE-C` | Closure | Update ADR-0004 and roadmap once dataset thresholds are met (or deferral renewed). | (pending) |
 
