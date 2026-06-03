@@ -27,13 +27,29 @@ LANDMARK_COUNT = 33
 
 @dataclass
 class PoseFrame:
-    """Per-frame pose result in pixel coords of the (possibly cropped) input frame."""
+    """Per-frame pose result.
+
+    `keypoints` / `scores` are in pixel coords of the (possibly cropped) input
+    frame — the long-standing 2D pipeline contract.
+
+    `world_keypoints` are BlazePose GHUM 3D landmarks in **meters**, with the
+    **origin at the midpoint of the hips** (see
+    `docs/investigations/world-landmark-feasibility-research.md` §2.1). They
+    come from the same `PoseLandmarkerResult` as `keypoints` at zero extra
+    inference cost. Captured here in PHASE-2A-SLICE-B1; not yet plumbed
+    through `AnalyzeResponse` (B2) or consumed by any metric (B3).
+    Defaults to a zero-filled 33×3 list when the frame had no detection so
+    downstream consumers can assume shape stability.
+    """
     detected: bool = False
     keypoints: list[list[float]] = field(
         default_factory=lambda: [[0.0, 0.0] for _ in range(LANDMARK_COUNT)]
     )
     scores: list[float] = field(
         default_factory=lambda: [0.0 for _ in range(LANDMARK_COUNT)]
+    )
+    world_keypoints: list[list[float]] = field(
+        default_factory=lambda: [[0.0, 0.0, 0.0] for _ in range(LANDMARK_COUNT)]
     )
 
 
@@ -101,11 +117,27 @@ class PoseEngine:
             kps.append([float(lm.x) * w, float(lm.y) * h])
             scs.append(float(getattr(lm, "visibility", 0.0)))
 
+        # World landmarks (PHASE-2A-SLICE-B1): meters, hip-centered, from the
+        # same PoseLandmarkerResult. Defensive against older mediapipe builds
+        # that may omit the attribute or return an empty list.
+        wkps: list[list[float]] = []
+        world_landmarks_all = getattr(result, "pose_world_landmarks", None) or []
+        if world_landmarks_all:
+            for lm in world_landmarks_all[0]:
+                wkps.append([float(lm.x), float(lm.y), float(lm.z)])
+
         # Defensive padding/truncation to LANDMARK_COUNT
         while len(kps) < LANDMARK_COUNT:
             kps.append([0.0, 0.0])
             scs.append(0.0)
-        return PoseFrame(detected=True, keypoints=kps[:LANDMARK_COUNT], scores=scs[:LANDMARK_COUNT])
+        while len(wkps) < LANDMARK_COUNT:
+            wkps.append([0.0, 0.0, 0.0])
+        return PoseFrame(
+            detected=True,
+            keypoints=kps[:LANDMARK_COUNT],
+            scores=scs[:LANDMARK_COUNT],
+            world_keypoints=wkps[:LANDMARK_COUNT],
+        )
 
 
 # --- Module-level singleton ---------------------------------------------------

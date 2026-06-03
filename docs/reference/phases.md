@@ -38,6 +38,23 @@ Phase 1c.2 is the only phase with named slices currently in scope. Slice IDs are
 
 ---
 
+## Slice ID registry (PHASE-2A)
+
+Phase 2a runs two parallel tracks (Track A — ground-truth data growth; Track B — world landmarks activation) plus a closure slice. Outcome docs land in `docs/process/` as each slice ships.
+
+| Slice ID | Track | Scope (one line) | Outcome doc |
+|---|---|---|---|
+| `PHASE-2A-SLICE-A1` | A — data growth | Formalize calibration clip intake runbook against the slant-route published probe node. | [`process/phase-2a-slice-a1-outcome.md`](../process/phase-2a-slice-a1-outcome.md) |
+| `PHASE-2A-SLICE-A2` | A — data growth | Build `scripts/verification/calibration_estimate_ppy.ts` supporting tape-measure / yard-line / bbox cross-check methodologies. | (pending) |
+| `PHASE-2A-SLICE-A3` | A — data growth | Build `scripts/verification/calibration_dataset_threshold.ts` to mechanically gate ADR-0004 re-open. | (pending) |
+| `PHASE-2A-SLICE-B1` | B — world landmarks | Extend `PoseFrame` in `mediapipe-service/app/pose.py` to capture `pose_world_landmarks` (3D meters, hip-centered). | [`process/phase-2a-slice-b1-outcome.md`](../process/phase-2a-slice-b1-outcome.md) |
+| `PHASE-2A-SLICE-B2` | B — world landmarks | Plumb `world_keypoints` through `AnalyzeResponse`; design against the documented Supabase Edge Function response size limit. | (pending) |
+| `PHASE-2A-SLICE-B3` | B — world landmarks | Add `coordinate_space: "pixel" \| "world"` (default `"pixel"`) to metric definitions and the metric registry. | (pending) |
+| `PHASE-2A-SLICE-C` | Closure | Update ADR-0004 and roadmap once dataset thresholds are met (or deferral renewed). | (pending) |
+
+---
+
+
 ## Usage rules
 
 1. **Scripts** — `scripts/verification/*` `VERIFIES:` headers reference phase or slice IDs from this file. If a script verifies behavior introduced across multiple slices, list them all.
