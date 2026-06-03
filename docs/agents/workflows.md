@@ -24,7 +24,8 @@ Slice outcomes capture the result of a bounded unit of work shipped during a pha
 2. Populate frontmatter (`slice_id`, `status`, `date_shipped`, `related_risks`, `related_findings`, `related_adrs`).
 3. Fill the standard sections: scope, what shipped, what didn't, verification, decisions made (link to ADRs), follow-ups.
 4. **Update [`docs/roadmap.md`](../roadmap.md) with the slice — listed under the phase's "Complete" section with a one-line outcome and a link to the outcome doc.** A slice is **not "shipped" until the roadmap reflects it**; this is closure work, not optional reporting. Skipping this step caused PHASE-1C3-PREP drift (six slices shipped without roadmap updates; see F-OPS-3 — *deferred work shipped earlier creates plan-vs-state drift*). The detector at `scripts/verification/check-roadmap-sync.ts` enforces this contract.
-5. If new risks surfaced, add them to the risk register (see workflow below).
+5. **Update [`docs/STATUS.md`](../STATUS.md) — the live "resume here" file at repo root.** Rewrite the `Last shipped` block to point at this slice (ID + outcome doc + one-line outcome), and rewrite the `Next queued` block to point at the next slice in the same track (or the closure slice when no more queued). Roadmap stays as the phase narrative; STATUS is the single file a returning operator reads first to know where to pick up. A slice is **not "shipped" until STATUS reflects it** (same contract as roadmap, established 2026-06-03).
+6. If new risks surfaced, add them to the risk register (see workflow below).
 
 ---
 
