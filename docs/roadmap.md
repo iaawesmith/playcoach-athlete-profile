@@ -14,7 +14,7 @@ Source of truth for phase ordering. When phase labels in any doc disagree with t
 | 1c.1 | Complete | Slice 2 + Slice 3 ship records |
 | 1c.2 | Complete | Slices A–E shipped; determinism stabilized; 6-pass repo + IA cleanup landed |
 | 1c.3 | **Complete (2026-04-30)** | Six slices A–F shipped: R2 stub sweep, Mechanics deletion + KB merges, write-path defect-class cleanup, 13 → 8 tab consolidation, R-07 backup audit + slice-tag normalization, retrospective + close. See [`process/phase-1c3-retrospective.md`](process/phase-1c3-retrospective.md). |
-| 2a | Not started | Calibration robustness (n=3+ ground truth dataset, multi-clip determinism) |
+| 2a | In progress | Calibration robustness **and world-landmark activation** — two parallel tracks: A grows ground-truth to n≥3 with cross-clip determinism ±1% per ADR-0005; B captures and plumbs BlazePose GHUM 3D world landmarks as an alternative coordinate space |
 | 2b | Not started | Cloud Run telemetry instrumentation (F-SLICE-E-2 escalation gate) |
 | 2c | Not started | Metric quality audit + scoring rule verification |
 | 3 | Not started | Athlete-facing UI surfaces on top of trusted metrics |
@@ -78,12 +78,14 @@ Three sub-phases. Sub-phase order is the recommended sequence; specific scope de
 | Slice | Status | Outcome doc |
 |---|---|---|
 | `PHASE-2A-SLICE-A1` | Shipped 2026-06-03 — calibration clip intake runbook (slant-route probe node, 3 scale-reference methodologies, halt conditions) | [`process/phase-2a-slice-a1-outcome.md`](process/phase-2a-slice-a1-outcome.md) |
-| `PHASE-2A-SLICE-A2` | Shipped 2026-06-03 — `calibration_estimate_ppy.ts` CLI (tape_measure / yard_line / bbox_cross_check); emits append-ready YAML fragments | [`process/phase-2a-slice-a2-outcome.md`](process/phase-2a-slice-a2-outcome.md) |
-| `PHASE-2A-SLICE-A3` | Not started | (pending) |
-| `PHASE-2A-SLICE-B1` | Shipped 2026-06-03 — `pose_world_landmarks` captured in `PoseFrame` (meters, hip-centered); zero inference-cost add | [`process/phase-2a-slice-b1-outcome.md`](process/phase-2a-slice-b1-outcome.md) |
-| `PHASE-2A-SLICE-B2` | Shipped 2026-06-03 — `world_keypoints` plumbed through `AnalyzeResponse`; always-on (~70 KB/clip; Supabase Edge Function has no documented response cap, 256 MB worker memory is the binding ceiling) | [`process/phase-2a-slice-b2-outcome.md`](process/phase-2a-slice-b2-outcome.md) |
-| `PHASE-2A-SLICE-B3` | Not started | (pending) |
-| `PHASE-2A-SLICE-C` | Not started — closure | (pending) |
+| `PHASE-2A-SLICE-A2` | **Code-complete 2026-06-03; verification pending** — `calibration_estimate_ppy.ts` CLI exists but the only numerical check ran against the n=1 dataset, which is the inadequacy Track A exists to fix. Re-verification: methodology cross-check on the first clip that admits ≥2 methodologies (waits on intake or on a re-inspection of the n=1 clip for a second usable reference). | [`process/phase-2a-slice-a2-outcome.md`](process/phase-2a-slice-a2-outcome.md) |
+| `PHASE-2A-SLICE-A3` | Blocked on Step 3 of Phase 2a remediation (drift-band corroboration of B1/B2) | (pending) |
+| `PHASE-2A-SLICE-B1` | **Code-complete 2026-06-03; verification pending** — `pose_world_landmarks` captured in `PoseFrame` (meters, hip-centered); structural check holds, drift-band Option D corroboration deferred into B2 (F-OPS-6 instance) and not run. Verification script at [`scripts/verification/slice2a_b1_drift_band.ts`](../scripts/verification/slice2a_b1_drift_band.ts). | [`process/phase-2a-slice-b1-outcome.md`](process/phase-2a-slice-b1-outcome.md) |
+| `PHASE-2A-SLICE-B2` | **Code-complete 2026-06-03; verification pending** — `world_keypoints` plumbed through `AnalyzeResponse`, always-on (decision moved to B1; honest reason: 70 KB is negligible, gating adds branching for no real saving). Same drift-band corroboration as B1 covers B2. | [`process/phase-2a-slice-b2-outcome.md`](process/phase-2a-slice-b2-outcome.md) |
+| `PHASE-2A-SLICE-B3` | Blocked on Step 3 of Phase 2a remediation (drift-band corroboration of B1/B2) | (pending) |
+| `PHASE-2A-SLICE-C` | Blocked — closure | (pending) |
+
+> **Why "code-complete, verification pending" instead of "shipped":** per [`agents/testing-philosophy.md`](agents/testing-philosophy.md) §4, verification is constitutive of shipping. B1 and B2 both deferred their verification — B1 across a slice boundary into B2, B2 inherited and skipped it. A2's only numerical check ran against the n=1 dataset, which is the very inadequacy Track A exists to remediate. Three slices, three forms of the same failure mode, registered as [F-OPS-6](risk-register/F-OPS-6-verification-deferral-across-slice-boundaries.md). The status here matches reality; the `check-roadmap-sync` script validates presence, not truth, so it will not catch this for us.
 
 ### 2b — Cloud Run telemetry
 

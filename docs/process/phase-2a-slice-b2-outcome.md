@@ -1,12 +1,17 @@
 ---
 slice_id: PHASE-2A-SLICE-B2
 title: Plumb world_keypoints through Cloud Run AnalyzeResponse
-date_shipped: 2026-06-03
-status: shipped
+date_shipped: null  # code-complete 2026-06-03; verification pending — covered by B1 drift-band run
+date_code_complete: 2026-06-03
+status: code-complete-verification-pending
 related_risks: []
-related_findings: [F-SLICE-B-1, F-CALIB-1]
-related_adrs: [ADR-0004, ADR-0009]
+related_findings: [F-SLICE-B-1, F-CALIB-1, F-SLICE-E-2, F-OPS-6]
+related_adrs: [ADR-0004, ADR-0005, ADR-0009]
 ---
+
+> **Status note (amended 2026-06-03):** originally marked Shipped. Re-classified to **code-complete-verification-pending** during Phase 2a remediation. B2 inherited B1's deferred drift-band verification and did not run it either — second instance of [F-OPS-6](../risk-register/F-OPS-6-verification-deferral-across-slice-boundaries.md). The same operator-run script ([`scripts/verification/slice2a_b1_drift_band.ts`](../../scripts/verification/slice2a_b1_drift_band.ts)) covers both B1 and B2, since B2 only adds serialization on top of B1's capture and the post-B1 baseline implicitly includes B2's bytes.
+>
+> The always-on emission decision has moved to [B1's outcome doc § Decisions made](phase-2a-slice-b1-outcome.md#decisions-made) — that's where the field is introduced, so that's where the gating decision belongs. The response-limit research below stands as transport-layer background, but it is **not** the constraint that drove the always-on call (the honest reason is "70 KB is negligible, gating adds maintenance cost for no real saving"; the 256 MB framing answered a question that was never tight).
 
 # PHASE-2A-SLICE-B2 — `world_keypoints` in `AnalyzeResponse`
 

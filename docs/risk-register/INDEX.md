@@ -2,7 +2,7 @@
 
 **Source:** Split from `docs/migration-risk-register.md` during Phase 1c.2 cleanup (Pass 4, 2026-04-26). One file per entry. Schema in [`_schema.md`](_schema.md). Original combined doc is now an R2 redirect stub.
 
-**Counts (reconciled in PHASE-1C3-SLICE-F, 2026-04-30; updated PHASE-2-PREP-FOLLOWUPS, 2026-05-01):** **27 total entries** — 12 risks (`R-01`–`R-12`) and **15 findings** (`F-*`). Plus **10 verification tasks** (`V-1c.3-01`–`V-1c.3-10`) tracked in [`docs/process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md). Status distribution: risks — 8 open, 3 mitigated (R-01, R-05, R-07), 1 closed (R-12); findings — 10 open, 2 deferred (F-SLICE-B-1, F-CALIB-1), 3 resolved (F-SLICE-E-4, E-5, E-6). New finding-area prefix `F-CALIB-` introduced for calibration-domain findings; matches the `F-<AREA>-<N>` convention in `_schema.md`.
+**Counts (reconciled in PHASE-1C3-SLICE-F, 2026-04-30; updated PHASE-2-PREP-FOLLOWUPS, 2026-05-01; updated PHASE-2A remediation, 2026-06-03 — F-OPS-6 opened):** **28 total entries** — 12 risks (`R-01`–`R-12`) and **16 findings** (`F-*`). Plus **10 verification tasks** (`V-1c.3-01`–`V-1c.3-10`) tracked in [`docs/process/phase-1c3-prep-backlog.md`](../process/phase-1c3-prep-backlog.md). Status distribution: risks — 8 open, 3 mitigated (R-01, R-05, R-07), 1 closed (R-12); findings — 11 open, 2 deferred (F-SLICE-B-1, F-CALIB-1), 3 resolved (F-SLICE-E-4, E-5, E-6). New finding-area prefix `F-CALIB-` introduced for calibration-domain findings; matches the `F-<AREA>-<N>` convention in `_schema.md`.
 
 **Severity scale** (unchanged from source):
 - **Sev-1** — blocks production analyses
@@ -39,6 +39,7 @@
 | [F-OPS-3](F-OPS-3-deferred-work-shipped-earlier-creates-plan-vs-state-drift.md) | Deferred work shipped earlier creates plan-vs-state drift | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-4 |
 | [F-OPS-4](F-OPS-4-pre-execution-inspection-scope-systematically-underestimates-reality.md) | Pre-execution inspection scope systematically underestimates reality | open | none | 1c.3-Slice-B | ADR-0015 | R-12, F-OPS-3 |
 | [F-OPS-5](F-OPS-5-admin-test-uploads-fail-silently-when-target-node-in-draft.md) | Admin-test uploads fail silently when target node is in draft | open | Sev-3 | post-1c | — | F-OPS-1 |
+| [F-OPS-6](F-OPS-6-verification-deferral-across-slice-boundaries.md) | Verification deferral across slice boundaries | open | none | PHASE-2A | ADR-0005, ADR-0006 | F-OPS-3, F-OPS-4, F-SLICE-E-3 |
 | [F-SEC-1](F-SEC-1-permissive-rls-on-admin-tables-public-storage-bucket-listing-sev.md) | Permissive RLS on admin tables + public storage bucket listing | open | Sev-2 | 1c.2-Slice-E | ADR-0001, ADR-0006 | — |
 | [F-CALIB-1](F-CALIB-1-top-level-result-data-shadow-values-disagree-with-calibration-audit.md) | Top-level `result_data` shadow values disagree with `calibration_audit` | deferred | Sev-3 | post-1c | ADR-0014, ADR-0004 | F-SLICE-B-1 |
 | [F-SLICE-B-1](F-SLICE-B-1-both-calibration-paths-produce-2-6-distance-errors-static-only.md) | Both calibration paths produce 2–6× distance errors; static-only is fundamentally limited for multi-context filming | deferred | Sev-2 | 1c.2-Slice-B | ADR-0004, ADR-0014 | F-CALIB-1 |

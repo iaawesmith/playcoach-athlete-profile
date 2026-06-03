@@ -1,12 +1,19 @@
 ---
 slice_id: PHASE-2A-SLICE-A2
 title: Calibration ppy estimator CLI (tape_measure / yard_line / bbox_cross_check)
-date_shipped: 2026-06-03
-status: shipped
+date_shipped: null  # code-complete 2026-06-03; verification pending — see Verification §
+date_code_complete: 2026-06-03
+status: code-complete-verification-pending
 related_risks: []
-related_findings: [F-SLICE-B-1, F-CALIB-1]
+related_findings: [F-SLICE-B-1, F-CALIB-1, F-OPS-6]
 related_adrs: [ADR-0004]
 ---
+
+> **Status note (amended 2026-06-03):** originally marked Shipped. Re-classified to **code-complete-verification-pending** during Phase 2a remediation. The only numerical check (the `bbox_cross_check` math reproducing the n=1 entry) ran against the **n=1 dataset — the very inadequacy Track A exists to remediate**. This is a different face of the same failure mode as B1/B2 ([F-OPS-6](../risk-register/F-OPS-6-verification-deferral-across-slice-boundaries.md)): the verification didn't defer into a future slice literally, it deferred into a dataset state that hasn't been reached yet (n≥3 across ≥2 contexts). Same shape, different boundary.
+>
+> **Interim bar (does not wait on A3 + intake):** methodology cross-check on any clip that admits ≥2 references. May be addressable now via re-inspection of the canonical Slant clip — if a yard-line marker is visible elsewhere in frame even though not the original measurement frame, a `yard_line` estimate can be cross-checked against the existing `bbox_cross_check` result. Operator to inspect and report.
+>
+> **Full bar:** 3-methodology cross-check on the first clip from intake that has tape-measure or yard-line plus athlete height in frame. Convergence within the documented ±5% inter-methodology envelope.
 
 # PHASE-2A-SLICE-A2 — `calibration_estimate_ppy.ts`
 
