@@ -168,20 +168,141 @@ function sha256(s: string): string {
   return createHash("sha256").update(s, "utf8").digest("hex");
 }
 
-async function runOnce(label: "baseline" | "postship"): Promise<void> {
-  // Implementation note: the actual admin-test upload + result poll logic
-  // mirrors scripts/verification/slice1c2_determinism_cloudrun.ts. Left as
-  // a small TODO for the operator to wire to current admin-test-upload
-  // edge function shape (the path changed once between Phase 1c.2 and
-  // Phase 2a). Inputs: CANONICAL_* constants above. Output: the parsed
-  // result_data.calibration_audit JSON object.
-  throw new Error(
-    "TODO: wire to admin-test-upload edge function — see " +
-      "scripts/verification/slice1c2_determinism_cloudrun.ts for the upload+poll pattern. " +
-      "Once wired, this function returns the calibration_audit object for the row built below.",
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const BUCKET = "athlete-videos";
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
+function requireEnv(): void {
+  const missing: string[] = [];
+  if (!SUPABASE_URL) missing.push("SUPABASE_URL or VITE_SUPABASE_URL");
+  if (!SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (missing.length) throw new Error(`Missing env: ${missing.join(", ")}`);
+}
+
+async function sbFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
+    apikey: SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+    ...((init.headers ?? {}) as Record<string, string>),
+  };
+  return fetch(`${SUPABASE_URL}${path}`, { ...init, headers });
+}
+
+async function signVideoUrl(): Promise<string> {
+  let objectPath = CANONICAL_VIDEO_PATH;
+  if (objectPath.startsWith(`${BUCKET}/`)) objectPath = objectPath.slice(BUCKET.length + 1);
+  const resp = await sbFetch(`/storage/v1/object/sign/${BUCKET}/${objectPath}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expiresIn: 60 * 60 }),
+  });
+  if (!resp.ok) throw new Error(`signVideoUrl: HTTP ${resp.status} ${await resp.text()}`);
+  const body = (await resp.json()) as { signedURL?: string; signedUrl?: string };
+  const rel = body.signedUrl ?? body.signedURL;
+  if (!rel) throw new Error("signVideoUrl: response missing signed url");
+  return rel.startsWith("http") ? rel : `${SUPABASE_URL}/storage/v1${rel}`;
+}
+
+async function getNodeVersion(): Promise<number> {
+  const resp = await sbFetch(
+    `/rest/v1/athlete_lab_nodes?id=eq.${CANONICAL_NODE_ID}&select=node_version`,
   );
-  // const audit = await uploadAndAwaitResult(...);
-  // appendRow(label, audit);
+  if (!resp.ok) throw new Error(`getNodeVersion: HTTP ${resp.status} ${await resp.text()}`);
+  const rows = (await resp.json()) as Array<{ node_version: number }>;
+  if (!rows.length) throw new Error(`Node ${CANONICAL_NODE_ID} not found`);
+  return rows[0].node_version;
+}
+
+async function createUpload(videoUrl: string, nodeVersion: number): Promise<string> {
+  const resp = await sbFetch(`/functions/v1/admin-create-athlete-upload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      athleteId: CANONICAL_ATHLETE_ID,
+      nodeId: CANONICAL_NODE_ID,
+      nodeVersion,
+      videoUrl,
+      cameraAngle: "sideline",
+      startSeconds: 0,
+      endSeconds: 3,
+      analysisContext: { source: "slice2a_b1_drift_band" },
+    }),
+  });
+  if (!resp.ok) throw new Error(`createUpload: HTTP ${resp.status} ${await resp.text()}`);
+  const body = (await resp.json()) as { uploadId?: string };
+  if (!body.uploadId) throw new Error(`createUpload: missing uploadId in ${JSON.stringify(body)}`);
+  return body.uploadId;
+}
+
+async function pollUntilTerminal(uploadId: string): Promise<{ status: string; error_message: string | null }> {
+  const t0 = Date.now();
+  let last = "";
+  while (Date.now() - t0 < POLL_TIMEOUT_MS) {
+    const resp = await sbFetch(`/functions/v1/admin-get-upload-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadId }),
+    });
+    if (resp.ok) {
+      const body = (await resp.json()) as {
+        upload?: { status: string; error_message: string | null; progress_message: string | null };
+      };
+      const up = body.upload;
+      if (up) {
+        if (up.status !== last) {
+          process.stderr.write(`  [poll] ${up.status}${up.progress_message ? ` — ${up.progress_message}` : ""}\n`);
+          last = up.status;
+        }
+        if (["completed", "failed", "error", "cancelled"].includes(up.status)) {
+          return { status: up.status, error_message: up.error_message };
+        }
+      }
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+  throw new Error(`pollUntilTerminal: timed out for upload ${uploadId}`);
+}
+
+async function fetchCalibrationAudit(uploadId: string): Promise<{
+  audit: Record<string, unknown>;
+  resultId: string;
+}> {
+  const resp = await sbFetch(
+    `/rest/v1/athlete_lab_results?upload_id=eq.${uploadId}&select=id,result_data`,
+  );
+  if (!resp.ok) throw new Error(`fetchCalibrationAudit: HTTP ${resp.status} ${await resp.text()}`);
+  const rows = (await resp.json()) as Array<{ id: string; result_data: Record<string, unknown> }>;
+  if (!rows.length) throw new Error(`No athlete_lab_results row for upload ${uploadId}`);
+  const audit = (rows[0].result_data ?? {}).calibration_audit as Record<string, unknown> | undefined;
+  if (!audit || typeof audit !== "object") {
+    throw new Error(`result_data.calibration_audit missing for upload ${uploadId}`);
+  }
+  return { audit, resultId: rows[0].id };
+}
+
+async function runOnce(
+  label: "baseline" | "postship",
+  baselineUrlTag: string | null,
+): Promise<void> {
+  requireEnv();
+  const t0 = Date.now();
+  process.stderr.write(`[${label}] sign → create → poll → fetch\n`);
+  const videoUrl = await signVideoUrl();
+  const nodeVersion = await getNodeVersion();
+  const uploadId = await createUpload(videoUrl, nodeVersion);
+  process.stderr.write(`  [upload] ${uploadId}\n`);
+  const terminal = await pollUntilTerminal(uploadId);
+  if (terminal.status !== "completed") {
+    throw new Error(
+      `Upload ${uploadId} status=${terminal.status}: ${terminal.error_message ?? "(no message)"}`,
+    );
+  }
+  const { audit, resultId } = await fetchCalibrationAudit(uploadId);
+  const runtimeS = (Date.now() - t0) / 1000;
+  appendRow(label, audit, uploadId, resultId.slice(0, 8), runtimeS, baselineUrlTag);
 }
 
 function appendRow(
