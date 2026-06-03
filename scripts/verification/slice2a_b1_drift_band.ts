@@ -450,11 +450,18 @@ async function main(): Promise<void> {
   }
   const labelIdx = args.indexOf("--label");
   if (labelIdx < 0 || !["baseline", "postship"].includes(args[labelIdx + 1])) {
-    console.error("Usage: --label <baseline|postship>  OR  --check");
+    console.error("Usage: --label <baseline|postship> [--baseline-url <url>]  OR  --check");
     process.exit(64);
   }
   const label = args[labelIdx + 1] as "baseline" | "postship";
-  await runOnce(label);
+  const urlIdx = args.indexOf("--baseline-url");
+  const baselineUrlTag = urlIdx >= 0 ? (args[urlIdx + 1] ?? null) : null;
+  // --baseline-url is a metadata tag written to the CSV `notes` column so
+  // each row records which Cloud Run revision was wired to
+  // analyze-athlete-video at the time of the run. The script does NOT
+  // route to that URL itself — the edge function reads MEDIAPIPE_SERVICE_URL
+  // from its own env. The operator must flip that secret between batches.
+  await runOnce(label, baselineUrlTag);
 }
 
 main().catch((err) => {
