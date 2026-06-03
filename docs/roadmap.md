@@ -67,13 +67,23 @@ Phase 2a unblocked.
 
 Three sub-phases. Sub-phase order is the recommended sequence; specific scope decided at 2a kickoff.
 
-### 2a — Calibration robustness — **next**
+### 2a — Calibration robustness — **in progress**
 
 **Goal:** Move calibration ground-truth dataset from n=1 to n≥3, with cross-clip determinism verified to within ±1% per ADR-0005.
 
 **Pre-conditions:** Phase 1c.3 closed. Calibration ground-truth structured as YAML (Pass 3b) so adding clips is mechanical, not prose-authoring.
 
-**Open question:** clip selection criteria. Logged at 2a kickoff, not pre-decided.
+**Structure:** two parallel tracks (A — ground-truth data growth; B — world landmarks activation) plus a closure slice. Slice IDs registered in [`reference/phases.md`](reference/phases.md).
+
+| Slice | Status | Outcome doc |
+|---|---|---|
+| `PHASE-2A-SLICE-A1` | Shipped 2026-06-03 — calibration clip intake runbook (slant-route probe node, 3 scale-reference methodologies, halt conditions) | [`process/phase-2a-slice-a1-outcome.md`](process/phase-2a-slice-a1-outcome.md) |
+| `PHASE-2A-SLICE-A2` | Not started | (pending) |
+| `PHASE-2A-SLICE-A3` | Not started | (pending) |
+| `PHASE-2A-SLICE-B1` | Shipped 2026-06-03 — `pose_world_landmarks` captured in `PoseFrame` (meters, hip-centered); zero inference-cost add | [`process/phase-2a-slice-b1-outcome.md`](process/phase-2a-slice-b1-outcome.md) |
+| `PHASE-2A-SLICE-B2` | Not started — must cite Supabase Edge Function response-size limit | (pending) |
+| `PHASE-2A-SLICE-B3` | Not started | (pending) |
+| `PHASE-2A-SLICE-C` | Not started — closure | (pending) |
 
 ### 2b — Cloud Run telemetry
 
