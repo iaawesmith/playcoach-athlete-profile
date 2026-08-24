@@ -1,0 +1,36 @@
+# Drive master content hashes — PHASE-2A Track A clip intake
+#
+# Source: Google Drive folder 1TUxdyCmaLNv4rTA77-E6dBYVjgM5O5i1
+# Retrieved: 2026-08-24 via Drive files.list (fields=files(id,name,size,md5Checksum,...))
+# Algorithm: MD5, as served by Drive's `md5Checksum` field (NOT SHA-256).
+#            Recorded in ground-truth provenance with source_hash_algo: drive_md5.
+#
+# Verify a local download with:   md5sum -c drive-masters.md5
+# (run from the directory holding the downloaded masters; missing files report FAILED open)
+#
+# KNOWN DUPLICATE — 20 files, 19 distinct hashes:
+#   Slant2-calibration-behind.MP4 and In6-calibration-behind.MP4 are byte-identical
+#   (5bf96b96f63014b8bc536e18d1e708ed, both 268708532 bytes). One of the two is
+#   mislabeled or a duplicate upload. Neither is admissible as a distinct clip until
+#   resolved. Does not affect the three side-angle intake candidates.
+
+24925f0e0f705044c106ecce5cf7e367  Slant2-calibration-side.MP4
+114b538b255c00bf730e88b512c5551e  Out3-calibration-side.MP4
+88b0eaff16c800483ff1fa27cfe8f141  Comeback5-calibration-side.MP4
+306ed1663bde3e6639e57cbb63a5bf09  In6-calibration-side.MP4
+9518fb6a3a83da3a67620613a933fdef  Post8-calibration-side.MP4
+cc8663be2d471c1c71b7ba72ebba9c88  Corner7-calibration-side.MP4
+a2efc07f9c48231df6301a72f18613ff  Curl4-calibration-side.MP4
+25260168de98e4d6b33725a9c14976f9  Go9-calibration-side.MP4
+4be3934d4671c0225edab9328e62fac3  Wheel1-calibration-side.MP4
+131e23868c0280c1d63ae7f139a69faa  Cross0-calibration-side.MP4
+5bf96b96f63014b8bc536e18d1e708ed  Slant2-calibration-behind.MP4
+5bf96b96f63014b8bc536e18d1e708ed  In6-calibration-behind.MP4
+08d583f5606e2ddfae4b11126c7b6329  Go9-calibration-behind.MP4
+482aacd4b8d9e2ffa7b839f056ec827c  Post8-calibration-behind.MP4
+bd1a4fb186682e2345a5d4ade2421ca1  Corner7-calibration-behind.MP4
+de7a9ab1079c07340ff4a0a98cf2fc81  Comeback5-calibration-behind.MP4
+c0c3410dbcde4e23aea7f85fe24ba909  Curl4-calibration-behind.MP4
+22555220a1e73f45866a82981e38e58e  Out3-calibration-behind.MP4
+cf567982bdedd5afef884871de494914  Wheel1-calibration-behind.MP4
+7da3a43334392a3d1c44390039454e73  Cross0-calibration-behind.MP4

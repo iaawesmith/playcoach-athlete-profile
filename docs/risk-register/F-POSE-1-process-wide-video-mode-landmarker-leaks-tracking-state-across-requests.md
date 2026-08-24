@@ -95,3 +95,69 @@ rebuilding the landmarker.
   under test.
 - Any fix changes landmarks → `body_based_ppy` → the `calibration_audit` hash,
   which resets the baseline artifact the band measures.
+
+## Ground-truth admissibility ruling (2026-08-24)
+
+The n=1 soccer-facility entry (`slant-route-reference-v1.mp4`) is the entire
+second filming context, so whether the fix invalidates it decides whether A3's
+plan is rescheduled or rebuilt. Ruling, per-field rather than per-entry, because
+the entry is not one measurement:
+
+**Admissible, unchanged — the fields the ADR-0004 threshold is actually counting.**
+
+- `true_ppy_estimate` (point 495, convergence 485–495). Produced by
+  least-squares circle fit on the visible arc plus a manual athlete-height
+  cross-check. Both are measurements of **pixels in frames**, taken by a human
+  against the master file. Neither consumes MediaPipe output. F-POSE-1 cannot
+  reach them.
+  - One qualifier, stated rather than buried: methodology #2 references a "cyan
+    diagnostic bbox" that *was* pipeline-derived. But the entry explicitly
+    **discards** it as contaminated by the dome wall (970 px overstated) and
+    substitutes hand-read head/foot coordinates (750–850 px). The recorded value
+    rests on the manual reading, not the pipeline's.
+- `notes.filming_context` — the soccer-dome identification. Observational.
+- `static_ppy_at_time_of_measurement: 80` — a compile-time constant, not a
+  measurement.
+- `measurement_confidence: medium` and its rationale — unaffected.
+
+**Stale, must be re-measured post-fix.**
+
+- `body_based_ppy_at_time_of_measurement.edge_function_*` — recorded as
+  `200.21` (5 runs) and `201.78` (1 run). **Those are precisely the two F-POSE-1
+  modes** identified in the correlation query above (mode A `200.21353797234588`,
+  mode B `201.7827255013638`). The entry has been recording this defect's
+  signature since 2026-04-26 under the label "possible Cloud Run instance
+  variance vs. real determinism issue." It was the real determinism issue.
+- `inter_run_drift_pct: 0.78` and the dataset-level `noise_floor_pct: 1.0` /
+  `noise_floor_origin` — these describe the defect, not the code. They become
+  historical record once the fix lands (see ADR-0005 supersede note).
+- `path_disagreement` Cloud Run 235.32 vs edge 200–202, and
+  `cloud_run_service_side` values — measured through the same defective engine.
+
+**Surviving conclusions, robust to the fix.** The directional finding
+(`body_based` under-reports ppy by 1.7–2.4×; static by 5–6.9×; both under-report
+vs ~495) holds. The mode spread is 0.78%; the conclusion rests on a 2×-order gap.
+A sub-1% perturbation cannot flip it. Same for the 14–15% path disagreement.
+
+**Answer to "n=1 or n=0 of trustworthy data": n=1.** Not n=0, and the difference
+is not a technicality. What ADR-0004's threshold counts is *ground-truth ppy per
+filming context* — the independent variable the calibration paths are scored
+against. That value is intact and was never pipeline-derived. What is invalidated
+is the *dependent* variable, the `body_based_ppy` the entry is scored against,
+and that is recoverable **without refilming**: the clip is still at
+`athlete-videos/test-clips/slant-route-reference-v1.mp4`, so re-measurement is
+one re-analysis after the fix, not a new context acquisition.
+
+**Consequence for A3: reschedule, not rebuild.** The `n>=3 across >=2 contexts`
+threshold remains reachable with the three side-angle clips from the new rig
+(context B) plus the retained soccer-facility entry (context A). The asymmetry
+already flagged — context A rests on a single measurement — is unchanged by this
+ruling, neither improved nor worsened.
+
+**Added obligation, and it is a real one:** every `body_based_ppy` in
+`ground-truth.yaml` must be re-measured post-fix, including the existing entry.
+Appending new entries measured post-fix alongside a stale pre-fix value would put
+two incomparable measurement regimes in one column with nothing marking the
+boundary — the same class of error as the pre-C.5 / post-C.5 comparability
+footnote the entry already carries. That is why step 2 stays held until the fix
+lands, rather than proceeding in parallel with the trim.
