@@ -29,6 +29,7 @@ When a new clip is analyzed, append an entry to `ground-truth.yaml` first. Add n
 |---|---|---|
 | `file_identifier` | string | Stable name. Never a signed URL. |
 | `bucket_path` | string | `athlete-videos/...` storage path. |
+| `provenance` | object | **Required** when the analyzed artifact is not the camera original. Records the derivation from master to uploaded clip. See structure below. Omit **only** for entries whose `bucket_path` artifact *is* the unmodified master — and see § Pre-schema entries for why omission is not self-describing. |
 | `video_dimensions` | object `{width, height, notes}` | Master file dimensions. `notes` flags preview-vs-master discrepancies. |
 | `true_ppy_estimate` | object `{point, range_low, range_high, basis}` | Best estimate (point) and defensible range. `basis` cites the methodology. |
 | `measurement_methodology` | list | Each method has `id`, `name`, `inputs`, `derived_value`, `notes`. |
