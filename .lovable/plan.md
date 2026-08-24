@@ -1,81 +1,55 @@
-# PHASE-2-PREP-RESEARCH — World-Landmark Feasibility Study
+# Phase 2a — Athlete Lab smoke testing with the new 20-clip set
 
-## Confirmed grounding (pre-execution sweep)
+## Where we actually are
 
-The Cloud Run `mediapipe-service` uses the **modern MediaPipe Tasks API**:
-- Import: `from mediapipe.tasks.python import vision as mp_vision` (`mediapipe-service/app/pose.py:21-22`)
-- Construction: `mp_vision.PoseLandmarker.create_from_options(...)` (`pose.py:46`)
-- Package: `mediapipe==0.10.18` (`mediapipe-service/requirements.txt:3`)
-- Model assets: `pose_landmarker_full.task` / `pose_landmarker_lite.task` (`Dockerfile:23-27`)
-- Result consumption: only `result.pose_landmarks` is read (2D normalized → pixel-scaled). `result.pose_world_landmarks` is **available on the same result object but never accessed** (`pose.py:91-99` referenced in capability inventory §1.2).
+Verified against the repo just now (nothing has moved since 2026-06-03):
 
-This is the path Capability Inventory §1.2 row "World landmarks" earmarked for Phase 2+. The legacy `mp.solutions.pose` API is **not** in use anywhere in the repo.
+- `ground-truth.yaml` — **n=1** (one entry, soccer training facility). Needs n≥3 across ≥2 contexts to re-open ADR-0004.
+- `determinism-drift.csv` — only the 5 historical seed rows. No `baseline`/`postship` rows, so B1/B2 are still verification-pending.
+- A1 shipped (intake runbook). A2 code-complete/verification-pending. B1+B2 code-complete/verification-pending. A3, B3, C blocked.
+- Repo connection intact; `docs/STATUS.md` is still the resume-here file and gets updated at every slice close.
 
-## Deliverable
+Your new clips unblock **Track A** directly. They do not unblock B1/B2 — that still needs a pre-B1 Cloud Run revision deployed alongside HEAD.
 
-A single research document: `docs/investigations/world-landmark-feasibility-research.md`
+## Answers to your three questions
 
-Read-only research slice. No code, schema, or config changes. No migrations.
+**Do we run all 20 through the pipeline?** No — not for calibration. Calibration ppy is a property of camera geometry, not route variety. Twenty clips of the same static rig in the same facility give roughly one calibration data point repeated twenty times, plus 20× Cloud Run cost and 20× dimension-confusion surface. Recommendation: **3 clips for calibration intake**, then the remaining 17 become the Phase 3 metric-regression corpus once calibration is trusted.
 
-## Document structure
+**Which 3?** The **side-angle** clips only, from 3 different routes. Behind-the-QB angles are the wrong surface for calibration and for distance/velocity metrics generally — lateral break distance is foreshortened toward the optical axis, so a yard-line ppy measured on a behind angle doesn't transfer. Behind angles stay valuable for a different question (break timing, hip/shoulder orientation from world landmarks in B3) and get logged as such, not discarded.
 
-### Section 1 — API path inventory (both paths, for completeness)
-- **1.1 Tasks API (current path)**: `PoseLandmarker` returns `PoseLandmarkerResult` with both `pose_landmarks` (normalized 2D + visibility/presence) and `pose_world_landmarks` (3D meters, hip-centered). Same detection call produces both; consuming world landmarks requires only reading the additional field — no second inference, no model swap, no API migration.
-- **1.2 Legacy Solutions API (NOT in use)**: `mp.solutions.pose.Pose` returns `pose_world_landmarks` similarly. Documented for completeness only; no code path in this repo uses it.
-- **Verdict surfaced upfront**: current API path is sufficient. Migration is not required.
+**Google Drive?** Not directly into the pipeline. The Drive connector can read the folder, but the analyze pipeline reads from the private `athlete-videos` bucket, and the runbook explicitly requires the **master file** as the analysis target (the n=1 entry's dimension-confusion footnote is exactly this failure). Drive commonly serves a transcoded preview. Path: pull the 3 masters via the Drive connector, verify pixel dimensions match the source, upload to `athlete-videos/test-clips/`, then run them. I'll record source Drive file IDs and dimensions in each ground-truth entry.
 
-### Section 2 — Accuracy analysis (covers both paths per request)
-- **2.1 Coordinate space and origin**: world landmarks are in meters, origin at the midpoint of the hips. Z axis depth derived from BlazePose GHUM regression head.
-- **2.2 Accuracy characteristics**:
-  - Lite vs Full vs Heavy model trade-offs for world-landmark depth quality
-  - Known weaknesses: Z accuracy degrades at frame edges, with occlusion, and for limbs extended toward/away from camera (relevant to release-mechanics and 40-yd framing)
-  - Tasks API vs Solutions API: regression head is the same GHUM model; differences are marginal and stem from preprocessing pipeline (Tasks API uses standardized ROI cropping). Note both paths for completeness; recommendation does not depend on this distinction.
-- **2.3 Comparison vs current ppy-calibrated 2D distance metrics**:
-  - F-SLICE-B-1 baseline: 2-6% distance error on static calibration
-  - Expected world-landmark error envelope for distance/velocity metrics in our framing conditions (single-camera, athlete roughly centered, 1-3s clips)
-  - Where world landmarks would improve correctness vs where they would not (e.g., depth-axis motion benefits; lateral-only motion may not justify the change)
+## The sequence, in order
 
-### Section 3 — Integration cost analysis (Tasks API path, since it's current)
-- **3.1 Service-side change surface**: extend `PoseFrame` dataclass with optional `world_keypoints` field; read `result.pose_world_landmarks` alongside `result.pose_landmarks` in `pose.py` detect loop. No new dependency, no model download, no Dockerfile change.
-- **3.2 Schema surface**: response payload from `/analyze` grows by ~33 × 3 floats per frame. Estimate impact on response size and edge-function deserialization.
-- **3.3 Edge-function consumption**: which downstream metrics in `analyze-athlete-video/index.ts` could opt-in to world-landmark-derived distance/velocity instead of ppy-calibrated 2D. Per-metric opt-in path (capability inventory §2 row 9) keeps blast radius small.
-- **3.4 Calibration pipeline interaction**: world landmarks bypass the entire ppy calibration chain for any metric that opts in. Document interaction with F-CALIB-1 (shadow values) and F-SLICE-B-1 (static calibration error) — world-landmark adoption is a candidate remediation path for both.
-- **3.5 Determinism**: world-landmark regression head determinism characteristics vs F-SLICE-E-2 (~0.78% drift on body-based ppy). Likely orthogonal but document expected behavior.
+**1. Clip selection + intake prep (no pipeline cost)**
+Link the Drive connector, list the folder, and pick 3 side-angle clips from 3 distinct routes. Verify each master's dimensions and that a yard-line pair is legible in the measurement frame. Halt per the A1 runbook if a chosen clip has no legible marking pair.
 
-### Section 4 — Recommendation chain
-- **4.1 Top recommendation**: per-metric opt-in to world landmarks for distance/velocity-class metrics, starting with one pilot metric on the slant-route reference clip. **No API migration required** — current Tasks API path supports this directly. Cost is bounded to: one optional field on `PoseFrame`, one additional read in `detect()`, one edge-function consumer per opted-in metric.
-- **4.2 Explicit non-migration note**: Per founder request, the recommendation does NOT require migrating from Tasks API to anything else. The Tasks API already exposes `pose_world_landmarks` on every detection result; we are simply reading a field we currently discard. Founders should not infer migration from this recommendation.
-- **4.3 Sequencing**: pilot metric → measurement vs ground truth → expand to second metric → consider as primary path for distance/velocity metrics class. Each step is its own slice; this research does not commit to any.
-- **4.4 Risk-register cross-links**: candidate Phase-2 remediation vector for F-SLICE-B-1, F-CALIB-1; orthogonal to F-SLICE-E-2.
-- **4.5 What this research does NOT recommend**: model variant change, confidence threshold change, segmentation mask, LIVE_STREAM mode, multi-pose. All remain in the "hold" disposition per Capability Inventory §2.
+**2. A2 interim-bar verification — replaces the n=1 re-inspection**
+Your clips are a strictly better interim bar than re-inspecting `slant-route-reference-v1.mp4`, because a football field with yard lines gives `yard_line` as a *primary* methodology rather than a scavenged secondary one. On clip 1, run `calibration_estimate_ppy.ts` twice — `yard_line` (yard-line pair) and `bbox_cross_check` (athlete height). Convergence within the documented ±5% envelope clears A2's **interim bar** and flips A2 to Shipped.
 
-### Section 5 — Open questions for Phase 2 planning
-- Which pilot metric? (release_speed candidate; cross-link F-SLICE-B1-2)
-- Ground-truth comparison methodology — extend existing calibration ground-truth dataset or build new?
-- Telemetry: how to record world-landmark-derived value alongside ppy-derived value for A/B comparison without committing to either as canonical (mirrors `calibration_audit` shadow-value pattern but with explicit governance to avoid F-CALIB-1 recurrence)
+The A2 doc's three named obligation fields stay as written: the **full bar** (3-methodology convergence) and the **surviving ADR-0005 obligation** (cross-clip determinism, ±1%, n≥3 across ≥2 contexts) both remain owed. I will not quietly fold them into this.
 
-## Sources to consult during execution
+**3. Track A intake ×3**
+Run each of the 3 clips through the A1 runbook end to end: upload against the published slant-route node, confirm the `calibration_audit` row is written (F-OPS-5 pre-flight, F-CALIB-1 — read the audit row, never top-level shadow values), estimate ppy per methodology, append entries verbatim per `_schema.md`.
 
-- MediaPipe Tasks Pose Landmarker official docs (Python guide, result schema, world-landmark section)
-- BlazePose GHUM paper / model card for accuracy envelope
-- `mediapipe==0.10.18` release notes / source for any API caveats at this pin
-- Existing repo references: capability inventory §1.2/§2 row 9, ADR-0009, F-SLICE-B-1, F-CALIB-1, F-SLICE-E-2
+Result: **n=4 across 2 filming contexts** (soccer facility + indoor football field). Both ADR-0004 thresholds satisfied.
 
-## Out of scope for this slice
+**4. `PHASE-2A-SLICE-A3` — threshold gate**
+Write `scripts/verification/calibration_dataset_threshold.ts`: reads `ground-truth.yaml`, applies `min_entries_for_b2_decision` and `min_filming_contexts_for_b2_decision`, exits non-zero when unmet. Running it green is what formally makes ADR-0004 eligible for re-open. A3 is currently blocked on B1/B2 drift-band corroboration (cross-track dependency), so step 5 has to land first — or you explicitly waive the dependency, which I'd rather you decide than assume.
 
-- Any code change, including the trivial `PoseFrame` extension
-- Any schema change to Cloud Run response or edge-function consumption
-- Any pilot run on real video
-- Phase 2a planning itself (this research feeds into it)
-- Recommendations on confidence thresholds, model variant, auto-zoom, or any other capability inventory row
+**5. Unblock B1/B2 (your side, parallel — start now)**
+Needs infrastructure moves I can't make from the sandbox: check out pre-B1 SHA **`2bcff8e`**, deploy `mediapipe-service` at that SHA as a parallel Cloud Run revision, keep HEAD (`7e4b403`) live too. Once both revision URLs exist, run baseline×10 and postship×10 against the canonical slant clip, append to `determinism-drift.csv`, hand me the finished CSV. I run `--check`. On exit 0: B1+B2 flip to Shipped, A3 and B3 unblock. On halt: first diagnostic is N more baseline runs at `2bcff8e` (mode undersampling), not a B1 investigation — per the ratified decision matrix.
 
-## Files created
+**6. Phase 3 corpus registration (cheap, no runs)**
+Register the remaining 17 clips as the metric-regression corpus: route, angle, Drive file ID. No analysis runs. This is what makes the 20-clip set pay off after calibration is trusted, instead of burning it now.
 
-- `docs/investigations/world-landmark-feasibility-research.md`
+## Technical notes
 
-## Surface deliverable on completion
+- Nothing in this plan touches athlete-facing tables or ships athlete-facing UI. No schema changes proposed.
+- No new database tables. Ground truth stays in `ground-truth.yaml` (append-only, git-tracked) — that's deliberate per ADR-0013.
+- Every slice closes with outcome doc + `roadmap.md` + `docs/STATUS.md` in the same commit, per the workflows checklist. F-OPS-6 applies: if a slice's verification can't run in-slice, the slice halts rather than deferring.
+- Clip selection and dimension verification happen before any upload, so no Cloud Run spend on a clip that can't anchor a methodology.
 
-- Path to research doc
-- Section 4.1 recommendation summary (one paragraph)
-- Section 4.2 non-migration assertion (verbatim, for founder)
-- List of risk-register findings cross-referenced
+## Open decision for you
+
+**A3 ordering.** A3 is formally blocked on the B1/B2 drift band. Steps 1–3 are independent and can run immediately either way. Do you want A3 to wait for the drift band to clear (strict, preserves the registered dependency), or should I treat the Track A threshold gate as independent of Track B and unblock it once n=4 lands? Strict is my default.
