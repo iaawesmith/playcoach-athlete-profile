@@ -72,6 +72,7 @@ Entries appended before this provenance block existed carry **unknown** provenan
 
 ## Append workflow
 
+0. If the analyzed artifact was derived from a master, populate `provenance` **before** running analysis, and confirm `post_trim_verified.dimensions` and `.codec` match the master. If they do not, the trim re-encoded — discard and re-trim. Do not analyze a clip whose provenance cannot be completed.
 1. Run analysis on the new clip; capture `calibration_audit` row from Supabase.
 2. Estimate true ppy by ≥2 independent methods. Record both.
 3. Append a new entry to `entries:` in `ground-truth.yaml`. Preserve every numeric value verbatim — do not round, do not reformat.
