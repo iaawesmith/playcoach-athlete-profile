@@ -198,15 +198,23 @@ async function probeCloudRunHealth(): Promise<Probe[]> {
     ]
   }
 
-  const healthUrl = `${base.replace(/\/+$/, '').replace(/\/analyze$/, '')}/health`
+  const healthUrl = serviceEndpoint(base, 'health')
   const started = Date.now()
   try {
     const res = await fetchWithTimeout(healthUrl, { method: 'GET' }, HEALTH_TIMEOUT_MS)
     const latency = Date.now() - started
-    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    const raw = await res.text()
+    let body: Record<string, unknown> = {}
+    try {
+      body = JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      body = {}
+    }
 
     if (!res.ok || body.ok !== true) {
-      const detail = `HTTP ${res.status}${body.detail ? ` — ${String(body.detail)}` : ''}`
+      const host = safeHost(healthUrl)
+      const snippet = raw.trim().slice(0, 180)
+      const detail = `HTTP ${res.status} from ${host}/health${snippet ? ` — ${snippet}` : ''}`
       return [
         probe('cloudrun_up', 'Cloud Run Pose Service', 'Pose service /health responding', 'fail', detail, latency),
         probe('cloudrun_model', 'Cloud Run Pose Service', 'MediaPipe model loaded', 'fail', 'Cannot read model — service unhealthy.'),
