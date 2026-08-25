@@ -277,7 +277,7 @@ async function probeCloudRunContract(deep: boolean): Promise<Probe> {
     const { data, error } = await admin().storage.from(VIDEO_BUCKET).createSignedUrl(REFERENCE_CLIP_PATH, 300)
     if (error || !data?.signedUrl) throw new Error(error?.message ?? 'could not sign reference clip')
 
-    const analyzeUrl = `${base.replace(/\/+$/, '').replace(/\/analyze$/, '')}/analyze`
+    const analyzeUrl = serviceEndpoint(base, 'analyze')
     const res = await fetchWithTimeout(
       analyzeUrl,
       {
