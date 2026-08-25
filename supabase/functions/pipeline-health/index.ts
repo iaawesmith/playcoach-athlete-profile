@@ -39,6 +39,26 @@ function poseServiceUrl(): string {
   )
 }
 
+/** Build `<origin>/<path>` from a configured service URL that may already
+ * carry a path (e.g. `.../analyze`) or a trailing slash. */
+function serviceEndpoint(base: string, path: 'health' | 'analyze'): string {
+  try {
+    return `${new URL(base).origin}/${path}`
+  } catch {
+    return `${base.replace(/\/+$/, '').replace(/\/(analyze|health)$/, '')}/${path}`
+  }
+}
+
+/** Host only — safe to surface in a probe detail; never the full secret URL. */
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return 'pose service'
+  }
+}
+
+
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), ms)
