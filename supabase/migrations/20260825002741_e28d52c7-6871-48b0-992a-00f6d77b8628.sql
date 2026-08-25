@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.pipeline_health_introspect() FROM anon, authenticated;
