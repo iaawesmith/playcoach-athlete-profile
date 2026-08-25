@@ -1,70 +1,96 @@
-# Phase 2a — Athlete Lab smoke testing with the verified 20-clip set
+# Pipeline Health Check — live green-checkmark panel
 
-## Where we actually are
+## Why
 
-Verified against the repo (nothing has moved since 2026-06-03):
+`PipelineSetupTab` today is a manual checklist: an admin ticks boxes by hand. It records what
+*was* set up, not what is *currently working*. When Cloud Run cold-starts wrong, a secret gets
+rotated, the DB webhook stops firing, or a storage bucket policy changes, nothing surfaces it —
+the first symptom is an upload stuck at `pending` or `failed`.
 
-- `ground-truth.yaml` — **n=1** (one entry, soccer training facility, master 4096×2304). Needs n≥3 across ≥2 contexts to re-open ADR-0004.
-- `determinism-drift.csv` — only the 5 historical seed rows. No `baseline`/`postship` rows, so B1/B2 stay verification-pending.
-- A1 shipped. A2, B1, B2 code-complete/verification-pending. A3, B3, C blocked.
-- Repo connection intact; `docs/STATUS.md` is still the resume-here file, updated at every slice close.
+This adds one button ("RUN HEALTH CHECK") that actively probes every component required for a
+video pose analysis, and renders a green check / red X / amber warning per component with the
+failure reason inline.
 
-## Drive folder — verified read-only
+## The components that must be live for a pose analysis
 
-Folder `1TUxdyCmaLNv4rTA77-E6dBYVjgM5O5i1`, connection "Eric's Google Drive" (gateway-backed, not linked to the project and it doesn't need to be). Contents confirmed: **20 files, 10 routes × 2 angles, all `video/mp4` at 3840×2160, 6.2–9.6 s, 235–369 MB.** Routes: Cross0, Wheel1, Slant2, Out3, Curl4, Comeback5, In6, Corner7, Post8, Go9. Filenames identify the angle (`-side` / `-behind`), so selection needs no frame pulls.
+Derived from the actual pipeline path (`athlete_uploads` INSERT → trigger → edge function →
+Cloud Run → results row). Each becomes one checkpoint row:
 
-Two things the listing surfaced:
+Ingest
+1. `athlete-videos` storage bucket reachable
+2. Upload can be written + signed-URL issued (the signed URL is what Cloud Run downloads)
+3. `athlete_uploads` table readable/insertable by the service role
 
-**These are the masters, not previews.** 4K at 235–369 MB is consistent with camera-native files, which clears the dimension-confusion halt condition up front. I'll still record `width`/`height` per entry from Drive metadata.
+Trigger
+4. `trigger_analysis_on_upload` function exists
+5. `on_athlete_upload_insert` trigger attached to `athlete_uploads`
+6. `pg_net` extension available (the trigger's `net.http_post` dependency)
 
-**Resolution differs from the n=1 entry** (3840×2160 vs 4096×2304). That's a feature, not a problem — it means the new entries genuinely exercise a second camera geometry rather than re-measuring the same rig, which is what "≥2 filming contexts" is supposed to buy.
+Edge function
+7. `analyze-athlete-video` deployed and responding
+8. Required secrets present and non-empty: `MEDIAPIPE_SERVICE_URL` (or `RTMLIB_URL`),
+   `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `LOVABLE_API_KEY` / `ANTHROPIC_API_KEY`
+   (reported as present/absent only — never the value)
 
-## Answers to your earlier questions
+Cloud Run pose service
+9. `/health` returns `ok: true` — service up
+10. Model actually loaded, and which one (`model` / `model_path` from `/health`)
+11. Cold-start latency measured on that probe (amber if > 15s)
+12. `/analyze` contract probe: tiny known-good window against the reference clip, assert the
+    response carries `keypoints`, `scores`, `world_keypoints`, `fps`, `frame_count`
+    (this is the check that catches a silently-broken deploy)
 
-**Run all 20?** No — not for calibration. ppy is a property of camera geometry, not route variety; 20 clips of one static rig in one facility is one calibration point measured twenty times, at 20× Cloud Run cost. **3 clips for intake**, the other 17 become the Phase 3 metric-regression corpus.
+Scoring + write path
+13. At least one node in `published` status with `key_metrics` non-empty (uploads against a
+    draft node fail silently — F-OPS-5)
+14. LLM gateway reachable (cheap 1-token ping)
+15. `athlete_lab_results` writable by service role
 
-**Which 3?** Side angles only, 3 different routes. Behind angles foreshorten lateral break distance toward the optical axis, so a yard-line ppy measured there doesn't transfer to distance/velocity metrics. Proposed: **`Slant2-calibration-side.MP4`** (same route as the n=1 entry, so it's the cleanest cross-context comparison), **`Out3-calibration-side.MP4`**, **`Comeback5-calibration-side.MP4`** — all three are sharp lateral breaks, which is where ppy error shows up most. Behind angles aren't discarded; they get registered as the B3 world-landmark corpus (hip/shoulder orientation is exactly what a behind angle is good for).
+Freshness signals (informational, not pass/fail)
+16. Most recent upload's status + age; count of uploads stuck `processing` > 15 min (F-OPS-1
+    zombie signal)
 
-**Drive as pipeline input?** No. The analyze path reads the private `athlete-videos` bucket, so the 3 selected masters get pulled from Drive and uploaded to `athlete-videos/test-clips/`. Drive is identification and verification, not ingestion.
+## How it works
 
-## The sequence
+A new edge function `pipeline-health` runs the probes server-side (it is the only place that can
+see secrets and use the service role) and returns a JSON array of
+`{ id, group, label, status: 'pass' | 'fail' | 'warn' | 'skip', detail, latency_ms }`.
 
-**1. Clip prep (no pipeline cost)**
-Pull the 3 side-angle masters via the Drive connector, confirm byte size and dimensions match the listing, upload to `athlete-videos/test-clips/`. Record Drive file IDs in each ground-truth entry for provenance.
+Probes are grouped and run in parallel per group, with a per-probe timeout so one dead dependency
+can't hang the whole report. Cheap probes (tables, secrets, `/health`) always run. The two
+expensive probes — the `/analyze` contract probe and the LLM ping — run only when the caller passes
+`deep: true`, so the default click is fast and free.
 
-**2. A2 interim-bar verification**
-On `Slant2-calibration-side.MP4`, run `calibration_estimate_ppy.ts` twice — `yard_line` (marking pair) and `bbox_cross_check` (athlete height). Convergence within the documented ±5% envelope clears A2's interim bar and flips A2 to Shipped.
+The UI adds a **PIPELINE HEALTH** panel at the top of the existing Pipeline Setup tab: one button,
+then grouped rows with a Material Symbols `check_circle` (primary-container green), `cancel`
+(error-dim), or `warning` (amber) per row, the probe detail text beneath any non-passing row, the
+measured latency on the Cloud Run rows, and an overall banner ("ALL SYSTEMS OPERATIONAL" /
+"N CHECKS FAILING"). A "DEEP CHECK" toggle enables the two expensive probes. Last-run timestamp
+is kept in local UI state; the manual checklist below stays untouched.
 
-Worth noting why this is better than the n=1 re-inspection we'd planned: the existing entry *does* already have two converging methods, but its primary was an **algebraic circle fit on a soccer center-circle arc**, which is not one of the three registered first-class methodologies. So it can't discharge the interim bar as written. A visible yard-line pair gives `yard_line` as a registered primary for the first time.
+## Design notes
 
-The A2 doc's other two obligation fields stay as written: the **full bar** (3-methodology convergence) and the **surviving ADR-0005 obligation** (cross-clip determinism, ±1%, n≥3 across ≥2 contexts) both remain owed. I won't fold them in quietly.
-
-**3. Track A intake ×3**
-Each clip through the A1 runbook: upload against the published slant-route node, confirm the `calibration_audit` row is written (F-OPS-5 pre-flight; F-CALIB-1 — read the audit row, never top-level shadow values), estimate ppy per methodology, append verbatim per `_schema.md`.
-
-Result: **n=4 across 2 filming contexts.** Both ADR-0004 thresholds met.
-
-**4. `PHASE-2A-SLICE-A3` — threshold gate**
-`scripts/verification/calibration_dataset_threshold.ts`: reads the YAML, applies `min_entries_for_b2_decision` (3) and `min_filming_contexts_for_b2_decision` (2), exits non-zero when unmet. Running it green is what formally makes ADR-0004 eligible for re-open.
-
-**5. Unblock B1/B2 (your side, start in parallel now)**
-Check out pre-B1 SHA **`2bcff8e`**, deploy `mediapipe-service` at that SHA as a parallel Cloud Run revision, keep HEAD (`7e4b403`) live. Once both revision URLs exist: baseline×10 and postship×10 against the canonical slant clip, append to `determinism-drift.csv`, hand me the finished CSV. I run `--check` only — per the wiring boundary you ruled, live-pipeline contact stays operator-side. On exit 0, B1+B2 flip to Shipped and A3/B3 unblock. On halt, first diagnostic is N more baseline runs at `2bcff8e`, not a B1 investigation.
-
-**6. Phase 3 corpus registration (no runs)**
-Register the remaining 17 clips — route, angle, Drive file ID, dimensions — as the metric-regression corpus. This is what makes the full 20-clip set pay off after calibration is trusted.
-
-## Flags to validate before I execute
-
-**Clip duration vs the analysis window.** The A1 runbook says cut-relevant action should be ≤3 s to match `MAX_WINDOW_SECONDS` in the analyze pipeline. These clips are 6.2–9.6 s. I grepped for that constant and did not find it, so I'm **not** asserting what the pipeline does with a 7-second clip — it may window internally, or it may analyze a stretch that doesn't contain the break. Confirming this is the first thing I'd check in step 1, before spending any Cloud Run time. If the pipeline doesn't window, the clips need trimming to the break, which is a real (small) step 1 addition.
-
-**4K ingest.** Nothing in the plan assumes the service downsamples. If it processes 4K natively, per-clip runtime and memory are higher than the n=1 baseline — relevant to cost on step 5's 20 runs, not to correctness.
+Existing dark/kinetic system only — `bg-surface-container-high` rows, ghost borders,
+`animate-pulse` skeletons while probing, uppercase `tracking-[0.4em]` group labels, no spinners,
+no new icon library.
 
 ## Technical notes
 
-- No athlete-facing UI, no athlete-facing table changes, no new database tables. Ground truth stays append-only in `ground-truth.yaml` per ADR-0013.
-- The Drive connector stays unlinked from the project — read-only one-off gateway calls only. The app has no runtime Drive dependency.
-- Every slice closes with outcome doc + `roadmap.md` + `docs/STATUS.md` in one commit. F-OPS-6 applies: verification that can't run in-slice halts the slice.
+- New function `supabase/functions/pipeline-health/index.ts`, `verify_jwt = false` in
+  `config.toml` to match the sibling admin functions (it returns no secret values — only
+  present/absent booleans and probe outcomes).
+- Secret checks report presence only. No secret value is ever returned, logged, or rendered.
+- Schema/trigger/extension probes go through `information_schema` / `pg_trigger` / `pg_extension`
+  via a read-only service-role query.
+- The `/analyze` deep probe reuses the existing reference clip already used by the verification
+  scripts, with a sub-1s window so Cloud Run cost stays negligible.
+- New service wrapper `runPipelineHealthCheck()` in `src/services/athleteLab.ts`; the component
+  makes no direct `fetch` call.
+- No change to `analyze-athlete-video`, `pose.py`, or any calibration code. This is observability
+  only — it does not touch the F-POSE-1 fix or Phase 2a slices.
 
-## Open decision
+## Out of scope
 
-**A3 ordering.** A3 is formally blocked on the B1/B2 drift band. Steps 1–3 run immediately either way. Do you want A3 to wait for the drift band (strict, preserves the registered dependency), or treat the Track A threshold gate as independent of Track B and unblock it once n=4 lands? Strict is my default.
+- Auto-remediation of any failing check
+- Scheduled/cron health runs and alerting (natural follow-up once the probe set is proven)
+- Replacing the manual setup checklist
