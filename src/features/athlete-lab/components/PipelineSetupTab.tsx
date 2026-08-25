@@ -260,6 +260,9 @@ export function PipelineSetupTab() {
         </p>
       </div>
 
+      {/* Live health probe */}
+      <PipelineHealthPanel />
+
       {/* Overall progress */}
       <div className="bg-surface-container rounded-xl p-5 border border-outline-variant/10">
         <div className="flex items-center justify-between mb-3">
