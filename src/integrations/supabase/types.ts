@@ -477,7 +477,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      pipeline_health_introspect: { Args: never; Returns: Json }
     }
     Enums: {
       [_ in never]: never
