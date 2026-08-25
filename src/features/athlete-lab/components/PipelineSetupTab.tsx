@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PipelineHealthPanel } from "./PipelineHealthPanel";
 
 interface ChecklistItem {
   item_id: string;
