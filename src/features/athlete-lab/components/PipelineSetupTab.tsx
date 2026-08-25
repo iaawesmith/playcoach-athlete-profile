@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PipelineHealthPanel } from "./PipelineHealthPanel";
 
 interface ChecklistItem {
   item_id: string;
@@ -258,6 +259,9 @@ export function PipelineSetupTab() {
           Step-by-step checklist for deploying the MediaPipe Pose estimation pipeline from zero to first successful athlete analysis.
         </p>
       </div>
+
+      {/* Live health probe */}
+      <PipelineHealthPanel />
 
       {/* Overall progress */}
       <div className="bg-surface-container rounded-xl p-5 border border-outline-variant/10">

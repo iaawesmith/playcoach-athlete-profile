@@ -906,3 +906,43 @@ export function filterAndSortAdminHistory(records: AdminHistoryRecord[], filters
     return filters.sort === "date_asc" ? aDate - bDate : bDate - aDate;
   });
 }
+
+/* ---------------------------------------------------------- pipeline health --- */
+
+export type HealthProbeStatus = "pass" | "fail" | "warn" | "skip";
+
+export interface HealthProbe {
+  id: string;
+  group: string;
+  label: string;
+  status: HealthProbeStatus;
+  detail: string;
+  latency_ms?: number;
+}
+
+export interface PipelineHealthReport {
+  ran_at: string;
+  deep: boolean;
+  duration_ms: number;
+  healthy: boolean;
+  summary: { pass: number; fail: number; warn: number; skip: number };
+  probes: HealthProbe[];
+}
+
+export async function runPipelineHealthCheck(deep = false): Promise<PipelineHealthReport> {
+  const { data, error } = await supabase.functions.invoke("pipeline-health", { body: { deep } });
+
+  if (error) {
+    throw new Error(error.message || "Health check could not run.");
+  }
+
+  const record = parseRecord(data);
+  if (typeof record.error === "string" && record.error) {
+    throw new Error(record.error);
+  }
+  if (!Array.isArray(record.probes)) {
+    throw new Error("Health check returned an unexpected response.");
+  }
+
+  return record as unknown as PipelineHealthReport;
+}
