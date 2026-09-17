@@ -414,6 +414,9 @@ function ActiveMetricsSection({
 export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
   const [draft, setDraft] = useState<TrainingNode>(node);
+  /* Which node the on-screen draft belongs to. Lets the resync effect tell a
+     selection change (always resync) from a background refresh (respect dirty). */
+  const draftNodeIdRef = useRef<string>(node.id);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
