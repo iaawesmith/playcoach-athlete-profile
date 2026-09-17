@@ -475,9 +475,15 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
     // Normalize metrics on load: ensure keypoint_mapping fields have defaults.
     // Resyncs whenever node.id or node.updated_at changes — covers both selecting
     // a different node AND receiving fresh content from a parent refresh after
-    // an out-of-band DB change. Skips while the local draft is dirty so an
-    // in-flight admin edit isn't clobbered by a background refresh.
-    if (dirty) return;
+    // an out-of-band DB change.
+    //
+    // The dirty guard protects an in-flight admin edit from being clobbered by a
+    // background refresh of the SAME node. It must never block a selection
+    // change: if node.id differs from the draft currently on screen, the user
+    // asked for a different node and the local draft is no longer relevant.
+    const isSelectionChange = draftNodeIdRef.current !== node.id;
+    if (dirty && !isSelectionChange) return;
+    draftNodeIdRef.current = node.id;
     const normalizedNode = {
       ...node,
       // det_frequency (root) dropped in 20260426025918; per-context fields below.
