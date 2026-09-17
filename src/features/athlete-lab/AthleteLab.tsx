@@ -60,6 +60,10 @@ export function AthleteLab() {
       const newNode = await createNode({ name: "New Training Node", position });
       setNodes((prev) => [...prev, newNode]);
       setSelectedId(newNode.id);
+      // Invalidate the list once the create succeeds so the sidebar reflects
+      // server state (ordering, defaults, rows added out of band) without a
+      // manual refresh click. Not polling — fires only on a successful create.
+      await refreshNodes({ silent: true });
     } catch {
       // handle error
     }
