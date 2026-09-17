@@ -47,7 +47,7 @@ interface NodeSidebarProps {
 }
 
 export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onRequestDelete }: NodeSidebarProps) {
-  const [posFilter, setPosFilter] = useState<"ALL" | NodePosition>("ALL");
+  const [posFilter, setPosFilter] = useState<SidebarFilter>("ALL");
   const [showPosPicker, setShowPosPicker] = useState(false);
 
   const filtered = posFilter === "ALL" ? nodes : nodes.filter((n) => n.position === posFilter);
