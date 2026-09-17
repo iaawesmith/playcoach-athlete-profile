@@ -2,9 +2,17 @@ import { useState } from "react";
 import type { TrainingNode, NodePosition } from "../types";
 import { computeCategories, computeScore, scoreColor } from "./NodeReadinessBar";
 
-const POSITION_TABS: Array<{ key: "ALL" | NodePosition; label: string }> = [
+/**
+ * Sidebar filter values. Widened beyond `NodePosition` so positions that exist
+ * on nodes (e.g. "TE") can be filtered without redesigning the legacy
+ * 3-position grouping used by the `Add New Node` picker.
+ */
+type SidebarFilter = "ALL" | NodePosition | "TE";
+
+const POSITION_TABS: Array<{ key: SidebarFilter; label: string }> = [
   { key: "ALL", label: "All" },
   { key: "WR", label: "WR" },
+  { key: "TE", label: "TE" },
   { key: "QB", label: "QB" },
   { key: "RB", label: "RB" },
 ];
