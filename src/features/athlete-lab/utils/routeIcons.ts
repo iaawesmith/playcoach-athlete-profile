@@ -1,25 +1,20 @@
-import comebackIconAsset from "@/assets/route-icons/comeback.art.png.asset.json";
-import cornerIconAsset from "@/assets/route-icons/corner.art.png.asset.json";
-import crossIconAsset from "@/assets/route-icons/cross.art.png.asset.json";
-import curlIconAsset from "@/assets/route-icons/curl.art.png.asset.json";
-import goIconAsset from "@/assets/route-icons/go.art.png.asset.json";
-import inIconAsset from "@/assets/route-icons/in.art.png.asset.json";
-import outIconAsset from "@/assets/route-icons/out.art.png.asset.json";
-import postIconAsset from "@/assets/route-icons/post.art.png.asset.json";
-import slantIconAsset from "@/assets/route-icons/slant.art.png.asset.json";
-import wheelIconAsset from "@/assets/route-icons/wheel.art.png.asset.json";
+import { supabase } from "@/integrations/supabase/client";
+
+function routeAssetUrl(fileName: string): string {
+  return supabase.storage.from("athlete-media").getPublicUrl(`route-icons/${fileName}`).data.publicUrl;
+}
 
 export const ROUTE_ICON_ASSETS = {
-  Slant: slantIconAsset.url,
-  Cross: crossIconAsset.url,
-  Out: outIconAsset.url,
-  In: inIconAsset.url,
-  Curl: curlIconAsset.url,
-  Comeback: comebackIconAsset.url,
-  Corner: cornerIconAsset.url,
-  Post: postIconAsset.url,
-  Wheel: wheelIconAsset.url,
-  Go: goIconAsset.url,
+  Slant: routeAssetUrl("slant.art.png"),
+  Cross: routeAssetUrl("cross.art.png"),
+  Out: routeAssetUrl("out.art.png"),
+  In: routeAssetUrl("in.art.png"),
+  Curl: routeAssetUrl("curl.art.png"),
+  Comeback: routeAssetUrl("comeback.art.png"),
+  Corner: routeAssetUrl("corner.art.png"),
+  Post: routeAssetUrl("post.art.png"),
+  Wheel: routeAssetUrl("wheel.art.png"),
+  Go: routeAssetUrl("go.art.png"),
 } as const;
 
 export type MappedRouteName = keyof typeof ROUTE_ICON_ASSETS;
