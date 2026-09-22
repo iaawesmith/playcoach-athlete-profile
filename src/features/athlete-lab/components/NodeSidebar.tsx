@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { TrainingNode, NodePosition } from "../types";
 import { computeCategories, computeScore, scoreColor } from "./NodeReadinessBar";
+import { getMappedRouteName, resolveNodeIcon } from "../utils/routeIcons";
 
 /**
  * Sidebar filter values. Widened beyond `NodePosition` so positions that exist
@@ -120,6 +121,8 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onRequestDelet
           const categories = computeCategories(node);
           const score = computeScore(categories);
           const color = scoreColor(score);
+          const routeName = getMappedRouteName(node.name);
+          const iconUrl = resolveNodeIcon(node.name, node.icon_url);
           return (
           <div
             key={node.id}
@@ -131,9 +134,19 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onRequestDelet
             style={selectedId === node.id ? { backgroundColor: '#2A323F' } : undefined}
             onClick={() => onSelect(node.id)}
           >
+            {iconUrl ? (
+              <img
+                src={iconUrl}
+                alt={routeName ? `${routeName} route diagram` : `${node.name} icon`}
+                className="w-9 h-9 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <span className="material-symbols-outlined text-on-surface-variant/40 shrink-0" style={{ fontSize: 24 }}>neurology</span>
+            )}
             <span
-              className="w-3 h-3 rounded-full shrink-0"
+              className="w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: node.status === "live" ? "#00e639" : "#f59e0b" }}
+              title={node.status === "live" ? "Live" : "Draft"}
             />
             <span className="text-on-surface text-sm font-medium truncate">{node.name}</span>
 

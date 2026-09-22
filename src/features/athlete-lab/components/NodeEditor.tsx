@@ -18,6 +18,7 @@ import { applyConfirmedCues, nextMigrationStatus } from "../utils/migrateCoachin
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
 import { generateTabMarkdown } from "../utils/nodeExport";
+import { getMappedRouteName, resolveNodeIcon } from "../utils/routeIcons";
 
 type CopyState = "idle" | "success" | "error";
 
@@ -53,7 +54,6 @@ function TabCopyButton({ onClick, title }: { onClick: () => Promise<void>; title
 interface NodeEditorProps {
   node: TrainingNode;
   onUpdated: (node: TrainingNode) => void;
-  onIconChange?: (nodeId: string, iconUrl: string | null) => void;
 }
 
 // Phase 1c.3-D: Tab consolidation 13 → 8. Surviving tabs:
@@ -411,7 +411,7 @@ function ActiveMetricsSection({
   );
 }
 
-export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
+export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
   const [draft, setDraft] = useState<TrainingNode>(node);
   /* Which node the on-screen draft belongs to. Lets the resync effect tell a
@@ -697,14 +697,16 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
 
   const currentStatus: NodeStatus = draft.status ?? "draft";
   const isLive = currentStatus === "live";
+  const mappedRouteName = getMappedRouteName(draft.name);
+  const resolvedIconUrl = resolveNodeIcon(draft.name, draft.icon_url);
 
   return (
     <div className="flex-1 h-full overflow-y-auto" style={{ backgroundColor: '#111720' }}>
       {/* ── Node title bar ── */}
       <div className="sticky top-0 z-10 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-outline-variant/20" style={{ backgroundColor: 'rgba(26,32,41,0.92)' }}>
         <div className="flex items-center gap-3">
-          {draft.icon_url ? (
-            <img src={draft.icon_url} alt="" className="w-6 h-6 rounded object-cover" />
+          {resolvedIconUrl ? (
+            <img src={resolvedIconUrl} alt={mappedRouteName ? `${mappedRouteName} route diagram` : ""} className="w-7 h-7 rounded-full object-cover" />
           ) : (
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 24 }}>neurology</span>
           )}
@@ -876,49 +878,28 @@ export function NodeEditor({ node, onUpdated, onIconChange }: NodeEditorProps) {
             <div>
               <div className="flex items-center gap-1.5 mb-2">
                 <label className={LABEL_CLASS}>Icon / Visual Diagram</label>
-                <SectionTooltip tip="Displayed next to this node everywhere it appears in the athlete app. Use a clear diagram that shows the route or movement pattern at a glance." />
+                <SectionTooltip tip="Official PlayCoach diagrams are assigned automatically by route name and shared across positions." />
               </div>
               <div className="flex items-center gap-3">
-                {draft.icon_url ? (
-                  <div className="relative group">
-                    <img src={draft.icon_url} alt="Node icon" className="w-14 h-14 rounded-xl object-cover border border-outline-variant/20" style={{ backgroundColor: '#0E1319' }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    <button
-                      onClick={() => {
-                        update("icon_url", null);
-                        onIconChange?.(draft.id, null);
-                      }}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 12 }}>close</span>
-                    </button>
-                  </div>
+                {resolvedIconUrl ? (
+                  <img
+                    src={resolvedIconUrl}
+                    alt={mappedRouteName ? `${mappedRouteName} route diagram` : "Node icon"}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
                 ) : (
                   <div className="w-14 h-14 rounded-xl border border-outline-variant/20 flex items-center justify-center" style={{ backgroundColor: '#0E1319' }}>
                     <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 24 }}>image</span>
                   </div>
                 )}
-                <label className="h-11 px-5 rounded-xl border border-outline-variant/20 text-on-surface-variant text-xs font-semibold uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors" style={{ backgroundColor: '#1A2029' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>upload</span>
-                  {draft.icon_url ? "Replace" : "Upload"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const { supabase } = await import("@/integrations/supabase/client");
-                      const ext = file.name.split(".").pop() || "png";
-                      const path = `node-icons/${draft.id}-${Date.now()}.${ext}`;
-                      const { error } = await supabase.storage.from("athlete-media").upload(path, file, { upsert: true });
-                      if (!error) {
-                        const { data: urlData } = supabase.storage.from("athlete-media").getPublicUrl(path);
-                        update("icon_url", urlData.publicUrl);
-                        onIconChange?.(draft.id, urlData.publicUrl);
-                      }
-                    }}
-                  />
-                </label>
+                <div>
+                  <p className="text-on-surface text-xs font-semibold uppercase tracking-widest">
+                    {mappedRouteName ? `${mappedRouteName} Route` : "Custom Node Icon"}
+                  </p>
+                  <p className="text-on-surface-variant/60 text-[11px] mt-1">
+                    {mappedRouteName ? "Assigned automatically from the official route library." : "No official route diagram matches this node name."}
+                  </p>
+                </div>
               </div>
             </div>
 
