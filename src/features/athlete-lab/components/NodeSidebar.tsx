@@ -18,6 +18,43 @@ const POSITION_TABS: Array<{ key: SidebarFilter; label: string }> = [
   { key: "RB", label: "RB" },
 ];
 
+const ALL_POSITION_ORDER: Record<string, number> = {
+  WR: 0,
+  TE: 1,
+  RB: 2,
+};
+
+const ALL_ROUTE_ORDER: Record<string, number> = {
+  Cross: 0,
+  Wheel: 1,
+  Slant: 2,
+  Out: 3,
+  Curl: 4,
+  Comeback: 5,
+  In: 6,
+  Corner: 7,
+  Post: 8,
+  Go: 9,
+};
+
+function sortNodesForAll(nodes: TrainingNode[]): TrainingNode[] {
+  return nodes.map((node, index) => ({ node, index })).sort((a, b) => {
+    const positionDifference =
+      (ALL_POSITION_ORDER[a.node.position ?? ""] ?? Number.MAX_SAFE_INTEGER) -
+      (ALL_POSITION_ORDER[b.node.position ?? ""] ?? Number.MAX_SAFE_INTEGER);
+
+    if (positionDifference !== 0) return positionDifference;
+
+    const aRoute = getMappedRouteName(a.node.name) ?? "";
+    const bRoute = getMappedRouteName(b.node.name) ?? "";
+    const routeDifference =
+      (ALL_ROUTE_ORDER[aRoute] ?? Number.MAX_SAFE_INTEGER) -
+      (ALL_ROUTE_ORDER[bRoute] ?? Number.MAX_SAFE_INTEGER);
+
+    return routeDifference !== 0 ? routeDifference : a.index - b.index;
+  }).map(({ node }) => node);
+}
+
 /**
  * Color map for the sidebar position pill. Only the legacy 3 NodePosition
  * grouping values have explicit colors. Slice 3 widened
@@ -51,7 +88,9 @@ export function NodeSidebar({ nodes, selectedId, onSelect, onAdd, onRequestDelet
   const [posFilter, setPosFilter] = useState<SidebarFilter>("ALL");
   const [showPosPicker, setShowPosPicker] = useState(false);
 
-  const filtered = posFilter === "ALL" ? nodes : nodes.filter((n) => n.position === posFilter);
+  const filtered = posFilter === "ALL"
+    ? sortNodesForAll(nodes)
+    : nodes.filter((node) => node.position === posFilter);
 
   return (
     <div className="w-72 min-w-[288px] h-full flex flex-col border-r-2 border-primary-container/15" style={{ backgroundColor: '#1C222B' }}>
