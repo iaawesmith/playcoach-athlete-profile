@@ -344,23 +344,23 @@ async function probeCloudRunContract(deep: boolean): Promise<Probe> {
 async function probePublishedNode(): Promise<Probe> {
   const id = 'published_node'
   const group = 'Scoring & Write'
-  const label = 'At least one published node with key metrics'
+  const label = 'At least one live node with key metrics'
   try {
     const { data, error } = await admin()
       .from('athlete_lab_nodes')
       .select('id, name, status, key_metrics')
-      .eq('status', 'published')
+      .eq('status', 'live')
       .limit(50)
     if (error) throw error
 
     const withMetrics = (data ?? []).filter((n) => Array.isArray(n.key_metrics) && n.key_metrics.length > 0)
     if (!data?.length) {
-      return probe(id, group, label, 'fail', 'No published nodes. Uploads against draft nodes fail silently (F-OPS-5).')
+      return probe(id, group, label, 'fail', 'No live nodes. Uploads against draft nodes fail silently (F-OPS-5).')
     }
     if (!withMetrics.length) {
-      return probe(id, group, label, 'fail', `${data.length} published node(s) but none define key_metrics — scoring will produce nothing.`)
+      return probe(id, group, label, 'fail', `${data.length} live node(s) but none define key_metrics — scoring will produce nothing.`)
     }
-    return probe(id, group, label, 'pass', `${withMetrics.length} published node(s) with metrics: ${withMetrics.slice(0, 3).map((n) => n.name).join(', ')}.`)
+    return probe(id, group, label, 'pass', `${withMetrics.length} live node(s) with metrics: ${withMetrics.slice(0, 3).map((n) => n.name).join(', ')}.`)
   } catch (err) {
     return probe(id, group, label, 'fail', (err as Error).message)
   }
