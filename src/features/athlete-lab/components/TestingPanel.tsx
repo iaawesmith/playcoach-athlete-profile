@@ -15,6 +15,9 @@ import {
 } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { AnalysisLog } from "./AnalysisLog";
+import { GroundTruthComparison } from "./GroundTruthComparison";
+import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
+import { buildLibraryRunTag, type CalibrationClip } from "@/services/calibrationLibrary";
 import { cn } from "@/lib/utils";
 
 const MAX_CLIP_WINDOW_SECONDS = 3;
@@ -256,6 +259,34 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [localProgressMessage, setLocalProgressMessage] = useState("");
   const [preparationNotice, setPreparationNotice] = useState<string | null>(null);
   const [openDocs, setOpenDocs] = useState<Set<string>>(new Set());
+  const [libraryClip, setLibraryClip] = useState<CalibrationClip | null>(null);
+  const pendingLibraryRun = useCalibrationLibraryStore((s) => s.pending);
+  const clearPendingLibraryRun = useCalibrationLibraryStore((s) => s.clearPending);
+
+  useEffect(() => {
+    if (!pendingLibraryRun || pendingLibraryRun.clip.node_id !== node.id) return;
+    const { clip, signedUrl } = pendingLibraryRun;
+    localAbortRef.current?.abort();
+    setError(null);
+    setResult(null);
+    setActiveUpload(null);
+    setRunStage("idle");
+    setUploadedFile(null);
+    setVideoUrl(signedUrl);
+    setVideoDesc(clip.title);
+    setContextEnabled(true);
+    setCameraAngle(clip.camera_angle);
+    setPeopleInVideo(clip.people_in_video);
+    setBreakDirection(clip.route_direction);
+    setCatchStatus(clip.catch_status);
+    setAthleteLevel(clip.athlete_level);
+    setAthleteHeight(clip.athlete_height !== null ? String(clip.athlete_height) : "");
+    setAthleteHeightUnit(clip.athlete_height_unit);
+    setAthleteWingspan(clip.athlete_wingspan !== null ? String(clip.athlete_wingspan) : "");
+    setAthleteWingspanUnit(clip.athlete_wingspan_unit);
+    setLibraryClip(clip);
+    clearPendingLibraryRun();
+  }, [pendingLibraryRun, node.id, clearPendingLibraryRun]);
 
   const docByMetricName = useMemo(() => {
     const map = new Map<string, string>();
@@ -280,6 +311,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const poseQualityAudit = result ? buildPoseQualityAudit(result) : null;
 
   const handleFileSelect = (file: File) => {
+    setLibraryClip(null);
     setUploadedFile(file);
     setVideoUrl("");
   };
@@ -346,6 +378,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setUploadedFile(null);
     setVideoUrl("");
     setVideoDesc("");
+    setLibraryClip(null);
   };
 
   const handleRetry = () => {
@@ -421,7 +454,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
           cameraAngle,
           startSeconds: 0,
           endSeconds: normalizedEndSeconds,
-          analysisContext: contextEnabled ? buildContext() : {
+          analysisContext: { ...(contextEnabled ? buildContext() : {
             camera_angle: cameraAngle,
             people_in_video: peopleInVideo,
             ...buildRouteDirectionPayload(breakDirection),
@@ -430,7 +463,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             athlete_level: athleteLevel,
             focus_area: "",
             performance_description: videoDesc.trim(),
-          },
+          }), ...(libraryClip ? buildLibraryRunTag(libraryClip) : {}) },
         },
         {
           signal: abortController.signal,
@@ -771,7 +804,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
           <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Or Paste Direct Video URL</label>
           <input
             value={videoUrl}
-            onChange={(e) => { setVideoUrl(e.target.value); if (e.target.value) setUploadedFile(null); }}
+            onChange={(e) => { setVideoUrl(e.target.value); setLibraryClip(null); if (e.target.value) setUploadedFile(null); }}
             placeholder="https://..."
             className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
           />
@@ -930,8 +963,18 @@ export function TestingPanel({ node }: TestingPanelProps) {
         </div>
       )}
 
+      {libraryClip && (
+        <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-surface-container-high px-4 py-3 text-xs text-on-surface">
+          <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>video_library</span>
+          <span className="font-black uppercase tracking-widest text-[10px] text-on-surface-variant">Library clip</span>
+          <span className="flex-1 truncate">{libraryClip.title} — stored file reused, context prefilled</span>
+          <button onClick={() => { setLibraryClip(null); setVideoUrl(""); }} className="text-on-surface-variant hover:text-on-surface">Clear</button>
+        </div>
+      )}
+
       {result && (
         <div className="space-y-5">
+          {libraryClip && <GroundTruthComparison clip={libraryClip} node={node} result={result} />}
           <div className="rounded-xl border border-white/5 bg-surface-container p-5">
             <div className="flex flex-wrap items-center gap-5">
               <div className={cn("flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-3xl font-black", scoreClasses(result.aggregateScore).ring)}>

@@ -17,6 +17,7 @@ import { CoachingCuesMigrationBanner } from "./CoachingCuesMigrationBanner";
 import { applyConfirmedCues, nextMigrationStatus } from "../utils/migrateCoachingCues";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
+import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 import { generateTabMarkdown } from "../utils/nodeExport";
 import { getMappedRouteName, resolveNodeIcon } from "../utils/routeIcons";
 
@@ -413,6 +414,10 @@ function ActiveMetricsSection({
 
 export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
   const [tab, setTab] = useState<TabKey>("basics");
+  const pendingLibraryNodeId = useCalibrationLibraryStore((s) => s.pending?.clip.node_id ?? null);
+  useEffect(() => {
+    if (pendingLibraryNodeId && pendingLibraryNodeId === node.id) setTab("test");
+  }, [pendingLibraryNodeId, node.id]);
   const [draft, setDraft] = useState<TrainingNode>(node);
   /* Which node the on-screen draft belongs to. Lets the resync effect tell a
      selection change (always resync) from a background refresh (respect dirty). */
