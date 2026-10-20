@@ -162,8 +162,7 @@ Deno.serve(async (req) => {
   }
 });
 
-// deno-lint-ignore no-explicit-any
-async function countRuns(db: any, clipId: string): Promise<number> {
+async function countRuns(db: ReturnType<typeof createClient>, clipId: string): Promise<number> {
   const { count, error } = await db
     .from("athlete_uploads")
     .select("id", { count: "exact", head: true })
