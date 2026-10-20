@@ -1,4 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  DEFAULT_MIN_PASS_RATIO,
+  buildLowQualityFeedback,
+  checkPlausibility,
+  evaluateErrorRules,
+  median,
+  passesWindowGate,
+} from './quality.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -2273,7 +2281,8 @@ async function calculateAllMetrics(
     // Check confidence
     const confidenceCheck = checkConfidence(
       phaseFrames, phaseScores, personIndex,
-      bilateralDecision.effectiveIndices, metric.name, mapping.confidence_threshold || 0.70
+      bilateralDecision.effectiveIndices, metric.name, mapping.confidence_threshold || 0.70,
+      typeof mapping.min_pass_ratio === 'number' ? mapping.min_pass_ratio : DEFAULT_MIN_PASS_RATIO,
     )
 
     if (!confidenceCheck.passed) {
@@ -2296,19 +2305,21 @@ async function calculateAllMetrics(
     
     switch (mapping.calculation_type) {
       case 'angle':
-        metricValue = calculateAngle(phaseFrames, personIndex, bilateralDecision.effectiveIndices)
+        metricValue = calculateAngle(phaseFrames, personIndex, bilateralDecision.effectiveIndices, phaseScores, mapping.confidence_threshold || 0.70)
         break
       case 'distance':
         metricValue = calculateDistance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           calibration,
-          fallbackBehavior
+          fallbackBehavior,
+          phaseScores, mapping.confidence_threshold || 0.70,
         )
         break
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 3, fps, calibration, fallbackBehavior
+          mapping.temporal_window || 3, fps, calibration, fallbackBehavior,
+          phaseScores, mapping.confidence_threshold || 0.70,
         )
         break
       case 'acceleration':
@@ -2816,8 +2827,15 @@ function calculateDistanceVariance(
 }
 
 // HELPERS
-function getMidpoint(kps: PersonKeypoints, indices: number[]): Point | null {
-  const points = indices.map(i => kps[i]).filter(p => p && p[0] > 0)
+function isValidPoint(p: Point | undefined, score: number | undefined, threshold: number | undefined): p is Point {
+  if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1]) || p[0] <= 0 || p[1] <= 0) return false
+  if (threshold !== undefined && (typeof score !== 'number' || score < threshold)) return false
+  return true
+}
+
+function getMidpoint(kps: PersonKeypoints, indices: number[], personScores?: PersonScores, threshold?: number): Point | null {
+  if (indices.some(i => !isValidPoint(kps[i], personScores?.[i], personScores ? threshold : undefined))) return null
+  const points = indices.map(i => kps[i])
   if (points.length === 0) return null
   return [
     points.reduce((s, p) => s + p[0], 0) / points.length,
@@ -2827,7 +2845,8 @@ function getMidpoint(kps: PersonKeypoints, indices: number[]): Point | null {
 
 function checkConfidence(
   frames: VideoKeypoints, scores: VideoScores,
-  personIdx: number, indices: number[], metricName: string, threshold: number
+  personIdx: number, indices: number[], metricName: string, threshold: number,
+  minPassRatio: number = DEFAULT_MIN_PASS_RATIO,
 ): ConfidenceCheckResult {
   let totalChecks = 0
   let passedChecks = 0
@@ -2888,7 +2907,7 @@ function checkConfidence(
     total_keypoint_checks: totalChecks,
     passed_checks: passedChecks,
     pass_ratio: passRatio,
-    threshold: 0.4,
+    threshold: minPassRatio,
     confidence_threshold: threshold,
     per_keypoint_avg_confidence: perKeypointAvgConfidence,
     lowest_confidence_keypoint: lowestConfidenceEntry ? Number(lowestConfidenceEntry[0]) : null,
@@ -2901,7 +2920,7 @@ function checkConfidence(
   })
 
   return {
-    passed: passRatio >= 0.4,
+    passed: passesWindowGate(passRatio, minPassRatio),
     diagnostics,
   }
 }
