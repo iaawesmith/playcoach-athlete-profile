@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.4"
   }
   public: {
     Tables: {
@@ -438,6 +438,119 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "athlete_uploads_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_lab_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calibration_clips: {
+        Row: {
+          archived: boolean
+          athlete_height: number | null
+          athlete_height_unit: string
+          athlete_level: string
+          athlete_wingspan: number | null
+          athlete_wingspan_unit: string
+          break_yard_line: number | null
+          camera_angle: string
+          camera_distance_notes: string
+          camera_setup: string
+          catch_status: string
+          created_at: string
+          created_by: string | null
+          depth_metric_key: string | null
+          duration_seconds: number | null
+          expected_calibration_source: string
+          expected_route_depth_yards: number | null
+          file_size_bytes: number | null
+          fps: number | null
+          hand_timed_splits: string
+          id: string
+          node_id: string | null
+          notes: string
+          people_in_video: string
+          resolution: string | null
+          route_direction: string
+          start_yard_line: number | null
+          storage_path: string
+          title: string
+          updated_at: string
+          yard_line_notes: string
+          yard_lines_visible: boolean
+        }
+        Insert: {
+          archived?: boolean
+          athlete_height?: number | null
+          athlete_height_unit?: string
+          athlete_level?: string
+          athlete_wingspan?: number | null
+          athlete_wingspan_unit?: string
+          break_yard_line?: number | null
+          camera_angle?: string
+          camera_distance_notes?: string
+          camera_setup?: string
+          catch_status?: string
+          created_at?: string
+          created_by?: string | null
+          depth_metric_key?: string | null
+          duration_seconds?: number | null
+          expected_calibration_source?: string
+          expected_route_depth_yards?: number | null
+          file_size_bytes?: number | null
+          fps?: number | null
+          hand_timed_splits?: string
+          id?: string
+          node_id?: string | null
+          notes?: string
+          people_in_video?: string
+          resolution?: string | null
+          route_direction?: string
+          start_yard_line?: number | null
+          storage_path: string
+          title: string
+          updated_at?: string
+          yard_line_notes?: string
+          yard_lines_visible?: boolean
+        }
+        Update: {
+          archived?: boolean
+          athlete_height?: number | null
+          athlete_height_unit?: string
+          athlete_level?: string
+          athlete_wingspan?: number | null
+          athlete_wingspan_unit?: string
+          break_yard_line?: number | null
+          camera_angle?: string
+          camera_distance_notes?: string
+          camera_setup?: string
+          catch_status?: string
+          created_at?: string
+          created_by?: string | null
+          depth_metric_key?: string | null
+          duration_seconds?: number | null
+          expected_calibration_source?: string
+          expected_route_depth_yards?: number | null
+          file_size_bytes?: number | null
+          fps?: number | null
+          hand_timed_splits?: string
+          id?: string
+          node_id?: string | null
+          notes?: string
+          people_in_video?: string
+          resolution?: string | null
+          route_direction?: string
+          start_yard_line?: number | null
+          storage_path?: string
+          title?: string
+          updated_at?: string
+          yard_line_notes?: string
+          yard_lines_visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_clips_node_id_fkey"
             columns: ["node_id"]
             isOneToOne: false
             referencedRelation: "athlete_lab_nodes"
