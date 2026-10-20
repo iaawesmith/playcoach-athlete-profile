@@ -1,5 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
+  computeHeightCalibration,
+  windowScale,
+  parseResolutionHeight,
+  STATIC_ASSUMED_HEIGHT_PX,
+  DEPTH_MOTION_THRESHOLD,
+  type HeightCalibration,
+} from './calibration.ts'
+import {
   DEFAULT_MIN_PASS_RATIO,
   buildLowQualityFeedback,
   checkPlausibility,
@@ -47,7 +55,9 @@ type ReferenceFallbackBehavior = 'pixel_warning' | 'disable_distance'
 
 type ResolvedCalibration = {
   pixelsPerYard: number | null
-  source: 'dynamic' | 'body_based' | 'static' | 'none'
+  source: 'dynamic' | 'height_based' | 'body_based' | 'static' | 'none'
+  // Smoothed per-frame px/yd series (height_based per-frame mode only).
+  perFrame?: number[] | null
   confidence: number
   reason: string
   details: JsonRecord
@@ -76,8 +86,14 @@ type DynamicAuditStatus =
   | 'failed'
 
 type CalibrationAudit = {
-  selected_source: 'dynamic' | 'body_based' | 'static' | 'none'
+  selected_source: 'dynamic' | 'height_based' | 'body_based' | 'static' | 'none'
   selected_ppy: number | null
+  selected_mode: 'per_frame' | 'single' | null
+  selection_rule: string
+  candidates: JsonRecord[]
+  rejected_reasons: Record<string, string>
+  per_frame_scale: JsonRecord | null
+  flags: JsonRecord[]
   dynamic_status: DynamicAuditStatus
   dynamic_failure_reason: string | null
   body_based_status: BodyBasedAuditStatus
@@ -1486,6 +1502,7 @@ function resolveCalibration(
   athleteHeight: AthleteHeightMeasurement | undefined,
   nodeConfig: any,
   cameraAngle: string,
+  resolutionHeight: number | null = null,
 ): CalibrationResolutionOutcome {
   const dynamicAssessment = isDynamicCalibrationTrusted(cloudRunCalibration)
 
@@ -1515,6 +1532,13 @@ function resolveCalibration(
   const staticCalibration = selectCalibration(nodeConfig, cameraAngle)
   const staticPixelsPerYard = getPixelsPerYardValue(staticCalibration)
 
+  const heightYards = athleteHeight ? convertHeightToYards(athleteHeight) : null
+  const heightCalibration: HeightCalibration | null = heightYards
+    ? computeHeightCalibration(keypoints.map((f) => f?.[0]), scores.map((f) => f?.[0]), heightYards)
+    : null
+  const heightPerFrameOk = Boolean(heightCalibration?.perFrame.accepted && heightCalibration.perFrame.series)
+  const heightSingleOk = Boolean(heightCalibration?.single.accepted && heightCalibration.single.ppy)
+
   const bodyBasedAcceptable = bodyBasedCalibration !== null
     && bodyBasedCalibration.pixelsPerYard !== null
     && bodyBasedCalibration.confidence >= 0.3
@@ -1540,6 +1564,26 @@ function resolveCalibration(
         goodLinePairs: dynamicAssessment.goodLinePairs,
         rejectionReason: dynamicAssessment.rejectionReason,
         ...dynamicAssessment.details,
+      },
+    }
+  } else if (heightCalibration && (heightPerFrameOk || heightSingleOk)) {
+    selectedSource = 'height_based'
+    const series = heightPerFrameOk ? heightCalibration.perFrame.series : null
+    const ppy = series
+      ? windowScale(series, 0, series.length - 1)
+      : heightCalibration.single.ppy
+    resolved = {
+      pixelsPerYard: ppy,
+      perFrame: series,
+      source: 'height_based',
+      confidence: series ? 0.85 : 0.7,
+      reason: series ? 'height_based_per_frame_accepted' : 'height_based_single_accepted',
+      details: {
+        method: series ? 'per_frame_height' : 'single_height_p80_upright',
+        pixelsPerYard: ppy,
+        dynamicFailureReason,
+        perFrame: { ...heightCalibration.perFrame, series: undefined },
+        single: heightCalibration.single,
       },
     }
   } else if (athleteHeight && bodyBasedAcceptable && bodyBasedCalibration) {
@@ -1588,6 +1632,8 @@ function resolveCalibration(
         pixelsPerYard: staticPixelsPerYard,
         dynamicFailureReason,
         matchedCalibration: staticCalibration ?? {},
+        resolutionHeight,
+        assumedResolutionHeight: STATIC_ASSUMED_HEIGHT_PX,
       },
     }
   } else {
@@ -1640,9 +1686,84 @@ function resolveCalibration(
     staticStatus = 'computed_but_not_selected'
   }
 
+  const serviceSource = getCalibrationSourceLabel(cloudRunCalibration)
+  const candidates: JsonRecord[] = [
+    {
+      source: 'dynamic',
+      ppy: serviceSource === 'dynamic' ? dynamicAssessment.pixelsPerYard : null,
+      status: dynamicAssessment.accepted ? 'used' : 'rejected',
+      reason: dynamicAssessment.accepted ? dynamicAssessment.reason : (serviceSource === 'dynamic' ? dynamicAssessment.reason : 'no_line_detection_in_service'),
+    },
+    {
+      source: 'service_body_width',
+      ppy: serviceSource === 'dynamic' ? null : dynamicAssessment.pixelsPerYard,
+      status: 'reference_only',
+      reason: 'service width estimate (fixed 0.45 yd shoulders / 0.32 yd hips); not used for selection',
+      details: dynamicAssessment.details,
+    },
+    {
+      source: 'height_based',
+      ppy: heightCalibration
+        ? (heightPerFrameOk ? windowScale(heightCalibration.perFrame.series as number[], 0, (heightCalibration.perFrame.series as number[]).length - 1) : heightCalibration.single.ppy)
+        : null,
+      status: selectedSource === 'height_based' ? 'used' : heightCalibration ? ((heightPerFrameOk || heightSingleOk) ? 'computed_but_not_selected' : 'rejected') : 'not_attempted_no_athlete_height',
+      mode: heightPerFrameOk ? 'per_frame' : heightSingleOk ? 'single' : null,
+      per_frame: heightCalibration ? { ...heightCalibration.perFrame, series: undefined } : null,
+      single: heightCalibration?.single ?? null,
+    },
+    {
+      source: 'body_width',
+      ppy: bodyBasedCalibration?.pixelsPerYard ?? null,
+      status: selectedSource === 'body_based' ? 'used' : bodyBasedAcceptable ? 'computed_but_not_selected' : 'rejected',
+      confidence: bodyBasedCalibration?.confidence ?? null,
+      details: bodyBasedCalibration?.details ?? null,
+    },
+    {
+      source: 'static',
+      ppy: staticPixelsPerYard,
+      status: selectedSource === 'static' ? 'used' : staticPixelsPerYard === null ? 'unusable_no_value' : 'computed_but_not_selected',
+      camera_angle: cameraAngle,
+      resolution_assumed: `${STATIC_ASSUMED_HEIGHT_PX}p`,
+      clip_resolution_height: resolutionHeight,
+    },
+  ]
+  const rejectedReasons: Record<string, string> = {}
+  if (!dynamicAssessment.accepted) rejectedReasons.dynamic = String(candidates[0].reason)
+  if (heightCalibration && !heightPerFrameOk) rejectedReasons.height_based_per_frame = heightCalibration.perFrame.reason
+  if (heightCalibration && !heightSingleOk) rejectedReasons.height_based_single = heightCalibration.single.reason
+  if (!athleteHeight) rejectedReasons.height_based = 'no_athlete_height'
+  if (bodyBasedCalibration && !bodyBasedAcceptable) rejectedReasons.body_width = 'confidence_below_0.3_or_no_value'
+
+  const flags: JsonRecord[] = []
+  if (selectedSource === 'height_based' && heightPerFrameOk && heightCalibration?.depthMotionPresent) {
+    flags.push({
+      flag: 'depth_motion_present',
+      change_pct: heightCalibration.perFrame.changePct,
+      threshold: DEPTH_MOTION_THRESHOLD,
+      note: 'Athlete moves toward or away from the camera; motion along that axis is not captured, so speed and distance along it may read low.',
+    })
+  }
+  if (selectedSource === 'static' && resolutionHeight !== null && resolutionHeight !== STATIC_ASSUMED_HEIGHT_PX) {
+    flags.push({
+      flag: 'static_resolution_mismatch',
+      clip_resolution_height: resolutionHeight,
+      assumed_resolution_height: STATIC_ASSUMED_HEIGHT_PX,
+      note: 'Static px/yd assumes 1080p; this clip differs, so distances and speeds are likely off.',
+    })
+  }
+
+  const series = resolved.perFrame ?? null
   const audit: CalibrationAudit = {
     selected_source: selectedSource,
     selected_ppy: resolved.pixelsPerYard,
+    selected_mode: selectedSource === 'height_based' ? (series ? 'per_frame' : 'single') : null,
+    selection_rule: 'first acceptable in priority order: dynamic > height_based (per_frame, then single) > body_width > static',
+    candidates,
+    rejected_reasons: rejectedReasons,
+    per_frame_scale: series
+      ? { enabled: true, min: Math.min(...series), max: Math.max(...series), start: series[0], end: series[series.length - 1], smoothing: 'median5 + mean5, max step 3%', series }
+      : null,
+    flags,
     dynamic_status: dynamicAssessment.accepted ? 'used' : 'failed',
     dynamic_failure_reason: dynamicFailureReason,
     body_based_status: bodyBasedStatus,
