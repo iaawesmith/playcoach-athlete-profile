@@ -508,7 +508,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
           cameraAngle,
           startSeconds: 0,
           endSeconds: normalizedEndSeconds,
-          analysisContext: outgoingContext,
+          analysisContext: { ...buildContext(), ...outgoingContext },
         },
         {
           signal: abortController.signal,

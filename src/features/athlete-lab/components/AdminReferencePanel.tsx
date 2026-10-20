@@ -11,6 +11,7 @@ import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
 import { PipelineSetupTab } from "./PipelineSetupTab";
 import { ImplementationDocsTab } from "./ImplementationDocsTab";
+import { LibraryRunContextPanel } from "./LibraryRunContextPanel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -723,6 +724,7 @@ function RecentTestRunsSection() {
                       <TableRow key={`${record.uploadId}-detail`} className="hover:bg-transparent">
                         <TableCell colSpan={12} className="bg-surface px-4 py-5">
                           <div className="space-y-4">
+                            <LibraryRunContextPanel context={record.analysisContext.raw} />
                             <div className="grid gap-4 lg:grid-cols-3">
                               <HistoryDetailBlock label="Run Summary">
                                 <div className="space-y-2 text-sm text-on-surface">
