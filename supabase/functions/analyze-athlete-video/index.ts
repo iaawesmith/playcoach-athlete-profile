@@ -771,7 +771,11 @@ Deno.serve(async (req) => {
     )
 
     await setUploadProgress(upload.id, 'Running dynamic calibration...')
-    const resolutionHeight = await lookupClipResolutionHeight(context)
+    const serviceFrame = rtmlibResult as unknown as { frame_width?: unknown; frame_height?: unknown }
+    const serviceHeight = typeof serviceFrame.frame_height === 'number' && serviceFrame.frame_height > 0
+      ? Math.min(serviceFrame.frame_height, typeof serviceFrame.frame_width === 'number' && serviceFrame.frame_width > 0 ? serviceFrame.frame_width : serviceFrame.frame_height)
+      : null
+    const resolutionHeight = serviceHeight ?? await lookupClipResolutionHeight(context)
     const { resolved: resolvedCalibration, audit: calibrationAudit } = resolveCalibration(
       rtmlibResult,
       trackedPersonFrames.keypoints,
