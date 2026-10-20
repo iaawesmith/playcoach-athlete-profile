@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isLibraryRun } from "@/services/calibrationLibrary";
 import type {
   TrainingNode,
   AnalysisLogData,
@@ -6,6 +7,7 @@ import type {
   AdminHistoryCalibrationSummary,
   AdminHistoryDateRange,
   AdminHistoryRecord,
+  AdminHistoryRunSourceFilter,
   AdminHistorySortOption,
   AdminHistoryStatusFilter,
   NodeStatus,
