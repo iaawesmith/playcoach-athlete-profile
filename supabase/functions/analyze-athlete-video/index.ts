@@ -18,6 +18,9 @@ const RTMLIB_FALLBACK =
 
 const MAX_CLIP_WINDOW_SECONDS = 3
 
+// Fallback temporal windows used by calculateAllMetrics when a mapping omits one.
+const DEFAULT_TEMPORAL_WINDOW: Record<string, number> = { velocity: 3, acceleration: 5, frame_delta: 10, distance_variance: 10 }
+
 type JsonRecord = Record<string, unknown>
 type Point = [number, number]
 type PersonKeypoints = Point[]
@@ -838,7 +841,20 @@ Deno.serve(async (req) => {
     // STEP 11: Call Claude API
     await ensureNotCancelled(upload.id)
     let feedback = 'Pose confidence was too low to generate coaching feedback. Please try a clearer video — stand 10–15 yards away, film perpendicular to your route, and make sure your full body stays in frame.'
-    if (!poseQualityAudit.usableData) {
+    if (scoreResult.rejected) {
+      const phaseNames = new Map(parsePhaseBreakdown(nodeConfig.phase_breakdown).map((p) => [p.id, p.name]))
+      const affected = metricResults
+        .filter((m: any) => m.status !== 'scored')
+        .map((m: any) => phaseNames.get(m.keypoint_mapping?.phase_id) ?? '')
+      feedback = buildLowQualityFeedback(affected)
+      logData.claude_api = {
+        model: 'claude-sonnet-4-5',
+        status: 'SKIPPED',
+        skipped_reason: 'low_quality_clip',
+        target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+      }
+      logInfo('claude_skipped_low_quality_clip', { uploadId, reason: scoreResult.reason })
+    } else if (!poseQualityAudit.usableData) {
       logData.claude_api = {
         model: 'claude-sonnet-4-5',
         status: 'SKIPPED',
@@ -1081,9 +1097,9 @@ function buildMetricLogEntries(metricResults: any[], phaseWindows: Record<string
       calculation_type: typeof metric?.keypoint_mapping?.calculation_type === 'string'
         ? metric.keypoint_mapping.calculation_type
         : 'unknown',
-      temporal_window: typeof metric?.keypoint_mapping?.temporal_window === 'number'
+      temporal_window: typeof metric?.keypoint_mapping?.temporal_window === 'number' && metric.keypoint_mapping.temporal_window > 0
         ? metric.keypoint_mapping.temporal_window
-        : 0,
+        : DEFAULT_TEMPORAL_WINDOW[metric?.keypoint_mapping?.calculation_type as string] ?? 0,
       extracted_values: value !== null ? formatNumber(value) : summarizeValue(detail),
       calculated_result: value !== null ? formatNumber(value) : metric?.reason || 'N/A',
       unit: typeof metric?.unit === 'string' ? metric.unit : '',
@@ -1097,29 +1113,16 @@ function buildMetricLogEntries(metricResults: any[], phaseWindows: Record<string
   })
 }
 
-function buildErrorDetectionLog(errors: any[], metricResults: any[], errorResults: { detected: string[] }) {
-  const metricMap = new Map<string, number>()
-  metricResults.forEach((metric) => {
-    if (metric?.status === 'scored' && typeof metric?.value === 'number' && Number.isFinite(metric.value)) {
-      metricMap.set(metric.name, metric.value)
-    }
-  })
-
-  return Array.isArray(errors)
-    ? errors.map((error) => {
-        const condition = typeof error?.auto_detection_condition === 'string' ? error.auto_detection_condition : ''
-        const metricName = condition.match(/^(.+?)\s*(>|<|>=|<=|=|!=)\s*[\d.]+$/)?.[1]?.trim() ?? ''
-        const metricValue = metricName && metricMap.has(metricName) ? formatNumber(metricMap.get(metricName), 2) : 'N/A'
-        return {
-          name: typeof error?.error === 'string' ? error.error : typeof error?.name === 'string' ? error.name : 'Rule',
-          auto_detectable: Boolean(error?.auto_detectable && condition),
-          condition,
-          metric_value: metricValue,
-          evaluation_expression: condition || 'Manual review',
-          triggered: errorResults.detected.includes(error?.error) || errorResults.detected.includes(error?.name),
-        }
-      })
-    : []
+function buildErrorDetectionLog(_errors: any[], _metricResults: any[], errorResults: { evaluations: ReturnType<typeof evaluateErrorRules> }) {
+  return errorResults.evaluations.map((e) => ({
+    name: e.name,
+    auto_detectable: e.auto_detectable,
+    condition: e.condition,
+    metric_value: e.metric_value === null ? 'N/A' : formatNumber(e.metric_value, 2),
+    evaluation_expression: e.condition || 'Manual review',
+    triggered: e.triggered,
+    reason: e.reason,
+  }))
 }
 
 
@@ -2387,6 +2390,26 @@ async function calculateAllMetrics(
       continue
     }
 
+    // Physical plausibility: out-of-range values are never scored.
+    const plausibility = checkPlausibility(metric.name, metric.unit || '', metricValue.value)
+    if (!plausibility.ok) {
+      const implausibleDetail = {
+        ...(metricValue.detail || {}),
+        raw_value: metricValue.value,
+        plausible_range: plausibility.range,
+        confidenceDiagnostics: confidenceCheck.diagnostics,
+        bilateralDecision,
+      }
+      logWarn('metric_skipped', { ...metricContext, reason: 'implausible_value', detail: implausibleDetail })
+      results.push({
+        ...metric,
+        status: 'skipped',
+        reason: 'implausible_value',
+        detail: implausibleDetail,
+      })
+      continue
+    }
+
     // Score the metric
     const score = scoreMetric(metricValue.value, metric.eliteTarget, metric.tolerance)
     logInfo('metric_scored', {
@@ -3244,56 +3267,13 @@ function calculateAggregateScore(
 
 
 function detectErrors(errors: any[], metricResults: any[]) {
-  const metricMap: Record<string, number> = {}
-  for (const m of metricResults) {
-    if (m.status === 'scored') metricMap[m.name] = m.value
-  }
-
-  const detected: string[] = []
-  const context: string[] = []
-
-  for (const error of errors) {
-    if (!error.auto_detectable || !error.auto_detection_condition) {
-      context.push(error.name)
-      continue
-    }
-
-    // Parse condition: "MetricName operator value"
-    // e.g. "Break Angle > 52"
-    const parts = error.auto_detection_condition.match(
-      /^(.+?)\s*(>|<|>=|<=|=|!=)\s*([\d.]+)$/
-    )
-    if (!parts) {
-      context.push(error.name)
-      continue
-    }
-
-    const [, metricName, operator, thresholdStr] = parts
-    const metricValue = metricMap[metricName.trim()]
-    const threshold = parseFloat(thresholdStr)
-
-    if (metricValue === undefined) {
-      context.push(error.name)
-      continue
-    }
-
-    let triggered = false
-    switch (operator) {
-      case '>':  triggered = metricValue > threshold; break
-      case '<':  triggered = metricValue < threshold; break
-      case '>=': triggered = metricValue >= threshold; break
-      case '<=': triggered = metricValue <= threshold; break
-      case '=':  triggered = metricValue === threshold; break
-      case '!=': triggered = metricValue !== threshold; break
-    }
-
-    if (triggered) detected.push(error.name)
-    else context.push(error.name)
-  }
-
-  return { detected, context }
+  const evaluations = evaluateErrorRules(errors, metricResults)
+  const detected = evaluations
+    .filter(e => e.triggered)
+    .map(e => ({ name: e.name, condition: e.condition, metric_value: e.metric_value, severity: e.severity }))
+  const context = evaluations.filter(e => !e.triggered).map(e => e.name)
+  return { detected, context, evaluations }
 }
-
 
 async function callClaude(
   nodeConfig: any,
@@ -3309,7 +3289,7 @@ async function callClaude(
     metric_results: formatMetricResults(metricResults),
     confidence_flags: formatConfidenceFlags(metricResults),
     detected_errors: errorResults.detected.length > 0
-      ? `Confirmed errors observed: ${errorResults.detected.join(', ')}`
+      ? `Confirmed errors observed: ${errorResults.detected.map((e: { name: string }) => e.name).join(', ')}`
       : '',
     athlete_name: context.athlete_name || 'Athlete',
     node_name: nodeConfig.name,
@@ -3319,9 +3299,7 @@ async function callClaude(
     position: nodeConfig.position || '',
     athlete_level: context.athlete_level || 'high_school',
     focus_area: context.focus_area || '',
-    skipped_metrics: scoreResult.skipped_metrics
-      ? `Note: ${scoreResult.skipped_metrics} were not evaluated on this rep (no catch recorded).`
-      : ''
+    skipped_metrics: formatSkippedMetrics(metricResults),
   }
 
   // Observability: surface which template variables were resolved with real
@@ -3650,14 +3628,39 @@ async function writeResults(
         log_data: logData,
         calibration_audit: calibrationAudit,
       },
-      confidence_flags: metricResults
-        .filter(m => m.status === 'flagged')
-        .map(m => ({ metric: m.name, reason: m.reason })),
+      confidence_flags: buildConfidenceFlags(metricResults, logData.rtmlib?.keypoint_confidence),
       detected_errors: errorResults.detected,
       analyzed_at: new Date().toISOString()
     })
 
   if (error) throw new Error(`Failed to write results: ${error.message}`)
+}
+
+function buildConfidenceFlags(metricResults: any[], keypointConfidence: unknown) {
+  const flags: Array<Record<string, unknown>> = []
+  for (const m of metricResults) {
+    if (m.status === 'flagged') flags.push({ metric: m.name, reason: m.reason || 'low_confidence' })
+    if (m.status === 'skipped' && m.reason === 'implausible_value') {
+      flags.push({ metric: m.name, reason: 'implausible_value', raw_value: m.detail?.raw_value ?? null, plausible_range: m.detail?.plausible_range ?? null })
+    }
+  }
+  const unreliable = new Map<number, number>()
+  if (Array.isArray(keypointConfidence)) {
+    for (const entry of keypointConfidence as Array<Record<string, unknown>>) {
+      if (entry?.status === 'UNRELIABLE' && typeof entry.index === 'number') {
+        unreliable.set(entry.index, typeof entry.mean_confidence === 'number' ? entry.mean_confidence : 0)
+      }
+    }
+  }
+  for (const m of metricResults) {
+    if (m.status !== 'scored') continue
+    const indices: number[] = m.detail?.bilateralDecision?.effectiveIndices ?? m.keypoint_mapping?.keypoint_indices ?? []
+    const hits = indices.filter(i => unreliable.has(i))
+    if (hits.length > 0) {
+      flags.push({ metric: m.name, reason: 'keypoint_warning', keypoints: hits, note: 'Keypoint UNRELIABLE at clip level but passed window check; metric still scored.' })
+    }
+  }
+  return flags
 }
 
 async function ensureNotCancelled(uploadId: string) {
@@ -3716,6 +3719,21 @@ function formatMetricResults(metrics: any[]): string {
     .filter(m => m.status === 'scored')
     .map(m => `${m.name}: ${m.value}${m.unit} (target ${m.elite_target}${m.unit}, score ${m.score}/100)`)
     .join('\n')
+}
+
+const SKIP_REASON_TEXT: Record<string, string> = {
+  no_catch: 'no catch recorded',
+  low_confidence: 'body tracking was not clear enough',
+  implausible_value: 'the measurement was outside a physically possible range',
+  insufficient_valid_frames: 'not enough clearly tracked frames',
+  no_calibration_available: 'distance calibration unavailable',
+}
+
+function formatSkippedMetrics(metrics: any[]): string {
+  const notScored = metrics.filter(m => m.status !== 'scored')
+  if (notScored.length === 0) return ''
+  const lines = notScored.map(m => `- ${m.name}: ${SKIP_REASON_TEXT[m.reason] ?? (m.reason || 'not evaluated')}`)
+  return `Not evaluated on this rep (do not quote numbers for these):\n${lines.join('\n')}`
 }
 
 function formatConfidenceFlags(metrics: any[]): string {
