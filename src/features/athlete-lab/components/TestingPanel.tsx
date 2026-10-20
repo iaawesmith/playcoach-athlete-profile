@@ -19,6 +19,7 @@ import { GroundTruthComparison } from "./GroundTruthComparison";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 import { buildLibraryRunTag, type CalibrationClip } from "@/services/calibrationLibrary";
 import { cn } from "@/lib/utils";
+import { roundScore } from "../utils/pipelineResults";
 
 const MAX_CLIP_WINDOW_SECONDS = 3;
 
@@ -309,6 +310,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const isRunning = ["preparing_video", "uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
   const poseQualityAudit = result ? buildPoseQualityAudit(result) : null;
+  const keypointWarnings = (result?.log_data?.rtmlib?.keypoint_confidence ?? []).filter((kp) => kp.status === "MARGINAL" || kp.status === "UNRELIABLE");
 
   const handleFileSelect = (file: File) => {
     setLibraryClip(null);
