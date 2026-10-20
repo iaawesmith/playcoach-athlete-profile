@@ -43,6 +43,12 @@ export function VideoLibraryPanel({ nodes, onClose, onSelectNode }: VideoLibrary
   const [blockedDelete, setBlockedDelete] = useState<CalibrationClip | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const setPending = useCalibrationLibraryStore((s) => s.setPending);
+  const editClip = useCalibrationLibraryStore((s) => s.editClip);
+  const clearClipEditor = useCalibrationLibraryStore((s) => s.clearClipEditor);
+
+  useEffect(() => {
+    if (editClip) setForm({ mode: "edit", clip: editClip });
+  }, [editClip]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -221,9 +227,10 @@ export function VideoLibraryPanel({ nodes, onClose, onSelectNode }: VideoLibrary
         <ClipForm
           state={form}
           nodes={nodes}
-          onCancel={() => setForm(null)}
+          onCancel={() => { setForm(null); clearClipEditor(); }}
           onSaved={() => {
             setForm(null);
+            clearClipEditor();
             void load();
           }}
         />
