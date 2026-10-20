@@ -1,3 +1,4 @@
+import { parseDetectedErrors, parseMetricResults } from "@/features/athlete-lab/utils/pipelineResults";
 import { supabase } from "@/integrations/supabase/client";
 import { isLibraryRun } from "@/services/calibrationLibrary";
 import type {
@@ -410,32 +411,6 @@ function parseRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function parseMetricResults(value: unknown): PipelineMetricResult[] {
-  if (!Array.isArray(value)) return [];
-
-  return value.map((entry, index) => {
-    const record = parseRecord(entry);
-    return {
-      name: typeof record.name === "string" ? record.name : `Metric ${index + 1}`,
-      unit: typeof record.unit === "string" ? record.unit : "",
-      value: parseNumber(record.value),
-      elite_target: typeof record.elite_target === "string" ? record.elite_target : "",
-      tolerance: parseNumber(record.tolerance),
-      deviation: parseNumber(record.deviation),
-      score: parseNumber(record.score),
-      weight: parseNumber(record.weight) ?? 0,
-      status: typeof record.status === "string" ? (record.status as PipelineMetricResult["status"]) : "failed",
-      reason: typeof record.reason === "string" ? record.reason : undefined,
-      detail: record.detail && typeof record.detail === "object" && !Array.isArray(record.detail)
-        ? (record.detail as Record<string, unknown>)
-        : undefined,
-      phase_id: typeof record.phase_id === "string" ? record.phase_id : null,
-      phase_name: typeof record.phase_name === "string" ? record.phase_name : null,
-      calculation_type: typeof record.calculation_type === "string" ? record.calculation_type : null,
-    };
-  });
-}
-
 function mapPhaseBreakdown(phaseScores: Record<string, number>, node: TrainingNode): PipelinePhaseScore[] {
   const configured = node.phase_breakdown.map((phase) => ({
     id: phase.id ?? phase.name,
@@ -504,9 +479,9 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
     aggregateScore: parseNumber(row.aggregate_score),
     phaseScores,
     phaseBreakdown: mapPhaseBreakdown(phaseScores, node),
-    metricResults: parseMetricResults(row.metric_results),
+    metricResults: parseMetricResults(row.metric_results, node.phase_breakdown),
     confidenceFlags: Array.isArray(row.confidence_flags) ? row.confidence_flags as PipelineConfidenceFlag[] : [],
-    detectedErrors: Array.isArray(row.detected_errors) ? row.detected_errors as Array<Record<string, unknown>> : [],
+    detectedErrors: parseDetectedErrors(row.detected_errors),
     feedback: typeof row.feedback === "string" ? row.feedback : "",
     analyzedAt: typeof row.analyzed_at === "string" ? row.analyzed_at : null,
     errorMessage: null,
@@ -716,11 +691,6 @@ function parseConfidenceFlags(value: unknown): PipelineConfidenceFlag[] {
     const reason = typeof record.reason === "string" ? record.reason : "No reason provided";
     return [{ metric, reason, ...record }];
   });
-}
-
-function parseDetectedErrors(value: unknown): Array<Record<string, unknown>> {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => parseRecord(entry));
 }
 
 function parsePhaseScores(value: unknown): Record<string, number> {
