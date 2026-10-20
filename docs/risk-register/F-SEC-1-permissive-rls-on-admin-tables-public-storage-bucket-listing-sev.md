@@ -34,3 +34,5 @@ last_updated: 2026-04-26
 - **Cross-reference:** Slice E E.2 security linter output (`docs/phase-1c2-slice-e-outcome.md`).
 
 ---
+
+- **2026-10-20 note:** `calibration_clips` (Video Library) is service-role only, but its admin function is callable by anyone who can open Athlete Lab. Gate it behind `has_role(..., 'admin')` when admin login lands.
