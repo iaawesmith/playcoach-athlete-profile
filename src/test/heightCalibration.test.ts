@@ -48,7 +48,13 @@ describe("height-based calibration", () => {
     expect(series[0]).toBeGreaterThan(215);
     expect(series[n - 1]).toBeLessThan(175);
     expect(cal.depthMotionPresent).toBe(true);
-    // Raw-spread gate still applies to the single-value fallback.
+    // The single-value fallback still sees the raw perspective spread.
+    expect(cal.single.rawSpread).toBeGreaterThan(1.25);
+  });
+
+  it("single-value fallback rejects raw p90/p10 spread above 1.35", () => {
+    const frames = Array.from({ length: 40 }, (_, i) => uprightFrame(i < 20 ? 300 : 450));
+    const cal = computeHeightCalibration(frames, frames.map(() => conf), HEIGHT_69_IN_YD);
     expect(cal.single.accepted).toBe(false);
     expect(cal.single.reason).toBe("raw_spread_exceeds_limit");
   });
