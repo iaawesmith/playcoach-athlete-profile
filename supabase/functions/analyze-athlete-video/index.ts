@@ -1717,6 +1717,8 @@ function resolveCalibration(
       status: selectedSource === 'height_based' ? 'used' : heightCalibration ? ((heightPerFrameOk || heightSingleOk) ? 'computed_but_not_selected' : 'rejected') : 'not_attempted_no_athlete_height',
       mode: heightPerFrameOk ? 'per_frame' : heightSingleOk ? 'single' : null,
       per_frame: heightCalibration ? { ...heightCalibration.perFrame, series: undefined } : null,
+      raw_series: heightCalibration?.rawSeries ?? null,
+      outlier_frames: heightCalibration?.outlierFrames ?? [],
       single: heightCalibration?.single ?? null,
     },
     {

@@ -115,18 +115,27 @@ function windowed(values: number[], radius: number, fn: (w: number[]) => number)
   return values.map((_, i) => fn(values.slice(Math.max(0, i - radius), Math.min(values.length, i + radius + 1))))
 }
 
-/** Centered median(5) → moving average(5) → clamp frame-to-frame change. */
+/**
+ * Centered median(5) → moving average(5) → clamp frame-to-frame change.
+ * The step clamp is anchored at the frame closest to the series median and
+ * propagates outward, so a bad first frame cannot drag the whole series.
+ */
 export function smoothScale(values: number[], maxStep = MAX_STEP_CHANGE): number[] {
   const med = windowed(values, 2, (w) => percentile(w, 0.5) as number)
   const avg = windowed(med, 2, (w) => w.reduce((s, v) => s + v, 0) / w.length)
-  const out: number[] = []
-  for (let i = 0; i < avg.length; i++) {
-    if (i === 0) { out.push(avg[0]); continue }
-    const prev = out[i - 1]
-    out.push(Math.max(prev * (1 - maxStep), Math.min(prev * (1 + maxStep), avg[i])))
-  }
+  if (avg.length === 0) return avg
+  const center = percentile(avg, 0.5) as number
+  let anchor = 0
+  avg.forEach((v, i) => { if (Math.abs(v - center) < Math.abs(avg[anchor] - center)) anchor = i })
+  const out = [...avg]
+  const clampTo = (prev: number, v: number) => Math.max(prev * (1 - maxStep), Math.min(prev * (1 + maxStep), v))
+  for (let i = anchor + 1; i < out.length; i++) out[i] = clampTo(out[i - 1], avg[i])
+  for (let i = anchor - 1; i >= 0; i--) out[i] = clampTo(out[i + 1], avg[i])
   return out
 }
+
+/** Drop samples more than 1.5x / below 0.67x of the clip median (detector glitches). */
+export const OUTLIER_RATIO = 1.5
 
 export type HeightCalibration = {
   perFrame: {
@@ -151,6 +160,8 @@ export type HeightCalibration = {
     rawSpread: number | null
   }
   depthMotionPresent: boolean
+  rawSeries: (number | null)[]
+  outlierFrames: number[]
 }
 
 export function computeHeightCalibration(
@@ -159,8 +170,16 @@ export function computeHeightCalibration(
   heightYards: number,
 ): HeightCalibration {
   const total = keypoints.length
-  const samples = keypoints.map((kp, i) => sampleFrameHeight(kp, scores[i], i, heightYards))
+  const rawSamples = keypoints.map((kp, i) => sampleFrameHeight(kp, scores[i], i, heightYards))
+  const rawMedian = percentile(rawSamples.filter((s): s is FrameHeightSample => s !== null).map((s) => s.ppy), 0.5)
+  const outlierFrames: number[] = []
+  const samples = rawSamples.map((s) => {
+    if (!s || rawMedian === null) return s
+    if (s.ppy > rawMedian * OUTLIER_RATIO || s.ppy < rawMedian / OUTLIER_RATIO) { outlierFrames.push(s.frame); return null }
+    return s
+  })
   const valid = samples.filter((s): s is FrameHeightSample => s !== null)
+  const rawSeries = rawSamples.map((s) => (s ? Number(s.ppy.toFixed(2)) : null))
 
   // Per-frame mode — spread gate on residuals after removing the smoothed trend.
   let perFrame: HeightCalibration['perFrame']
@@ -213,7 +232,7 @@ export function computeHeightCalibration(
   }
 
   const depthMotionPresent = perFrame.accepted && (perFrame.changePct ?? 0) > DEPTH_MOTION_THRESHOLD
-  return { perFrame, single, depthMotionPresent }
+  return { perFrame, single, depthMotionPresent, rawSeries, outlierFrames }
 }
 
 /** Scale to apply to a phase window [start, end] from a per-frame series. */
