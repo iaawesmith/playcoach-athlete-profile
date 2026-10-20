@@ -7,3 +7,10 @@
 - [ ] Lock Video Library to signed-in admins (blocked: needs admin login, tracked in F-SEC-1).
 - [x] Slant 4K30 fixes: velocity whole-window, confidence gate 0.8 (window-only) + keypoint_warning flags, plausibility bounds, error-rule fix + detected_errors objects, results display parsing, low-quality LLM guard; reran clip.
 - [ ] Node review: "Hands Extension at Catch" measures distance between both index fingers (kp 19↔20), not extension (left unchanged by request).
+
+## Calibration v2 (approved Oct 20)
+- [x] Height-based per-frame scale + candidate audit + depth_motion_present + static resolution flag (analyzer)
+- [x] Calibration block in Testing Panel
+- [x] Pose-service diff (item 2) prepared separately — deploy order: repo service as-is → analyzer → diff
+- [ ] Deploy pose service (a) then diff (c), rerun 4K30 twice to confirm identical results — waiting on user deploy
+- [ ] Re-check catch-frame scale vs manual 170 px/yd estimate (frame check reads ~215–225) — waiting on user

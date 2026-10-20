@@ -481,7 +481,18 @@ export interface PipelineAnalysisResult {
     selected_ppy: number | null;
     body_based_ppy: number | null;
     static_ppy: number | null;
+    selected_mode?: string | null;
+    candidates?: PipelineCalibrationCandidate[];
+    flags?: { flag: string; note: string }[];
+    per_frame_scale?: { start: number | null; end: number | null; min: number | null; max: number | null } | null;
   } | null;
+}
+
+export interface PipelineCalibrationCandidate {
+  source: string;
+  ppy: number | null;
+  status: string;
+  reason: string | null;
 }
 
 export type AdminHistoryDateRange = "today" | "last_7_days" | "all";
