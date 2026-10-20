@@ -2427,88 +2427,100 @@ async function calculateAllMetrics(
 
 // ANGLE: geometric angle at vertex (middle keypoint)
 // keypoints order: endpoint → vertex → endpoint
-function calculateAngle(frames: VideoKeypoints, personIdx: number, indices: number[]): MetricValueResult {
+// Frames around the phase midpoint (±2) whose keypoints all pass confidence.
+function collectMidWindowFrames(
+  frames: VideoKeypoints, scores: VideoScores | undefined, personIdx: number,
+  indices: number[], threshold: number | undefined,
+): Array<{ frame: number; points: Point[] }> {
   const midFrame = Math.floor(frames.length / 2)
-  const kps = frames[midFrame]?.[personIdx]
-   if (!kps) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
-
-  const [p1, vertex, p2] = indices.map(i => kps[i])
-   if (!p1 || !vertex || !p2) {
-    return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
-   }
-
-  const v1 = [p1[0] - vertex[0], p1[1] - vertex[1]]
-  const v2 = [p2[0] - vertex[0], p2[1] - vertex[1]]
-  
-  const dot = v1[0]*v2[0] + v1[1]*v2[1]
-  const mag1 = Math.sqrt(v1[0]**2 + v1[1]**2)
-  const mag2 = Math.sqrt(v2[0]**2 + v2[1]**2)
-  
-  if (mag1 === 0 || mag2 === 0) {
-    return { value: null, reason: 'zero_magnitude_angle', detail: { midFrame, indices } }
+  const out: Array<{ frame: number; points: Point[] }> = []
+  for (let f = Math.max(0, midFrame - 2); f <= Math.min(frames.length - 1, midFrame + 2); f++) {
+    const kps = frames[f]?.[personIdx]
+    if (!kps) continue
+    const personScores = scores?.[f]?.[personIdx]
+    const points = indices.map(i => kps[i])
+    const ok = indices.every((i, n) => isValidPoint(points[n], personScores?.[i], scores ? threshold : undefined))
+    if (ok) out.push({ frame: f, points })
   }
-  
+  return out
+}
+
+function calculateAngle(
+  frames: VideoKeypoints, personIdx: number, indices: number[],
+  scores?: VideoScores, threshold?: number,
+): MetricValueResult {
+  const midFrame = Math.floor(frames.length / 2)
+  if (!frames[midFrame]?.[personIdx]) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
+  const valid = collectMidWindowFrames(frames, scores, personIdx, indices, threshold)
+  if (valid.length === 0) {
+    return { value: null, reason: 'insufficient_valid_frames', detail: { midFrame, indices } }
+  }
+  const angles: number[] = []
+  for (const { points: [p1, vertex, p2] } of valid) {
+    const v1 = [p1[0] - vertex[0], p1[1] - vertex[1]]
+    const v2 = [p2[0] - vertex[0], p2[1] - vertex[1]]
+    const mag1 = Math.sqrt(v1[0]**2 + v1[1]**2)
+    const mag2 = Math.sqrt(v2[0]**2 + v2[1]**2)
+    if (mag1 === 0 || mag2 === 0) continue
+    const dot = v1[0]*v2[0] + v1[1]*v2[1]
+    angles.push(Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI))
+  }
+  const value = median(angles)
+  if (value === null) return { value: null, reason: 'zero_magnitude_angle', detail: { midFrame, indices } }
   return {
-    value: Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI),
-    detail: { midFrame, indices },
+    value,
+    detail: { midFrame, indices, framesUsed: valid.map(v => v.frame), method: 'median_mid_window' },
   }
 }
 
-// DISTANCE: Euclidean pixel distance converted to yards
+// DISTANCE: Euclidean pixel distance converted to yards (median of mid-window frames)
 function calculateDistance(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
+  indices: number[], calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior,
+  scores?: VideoScores, threshold?: number,
 ): MetricValueResult {
   const midFrame = Math.floor(frames.length / 2)
-  const kps = frames[midFrame]?.[personIdx]
-  if (!kps) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
-
-  const [p1, p2] = indices.map(i => kps[i])
-  if (!p1 || !p2) return { value: null, reason: 'missing_keypoints', detail: { midFrame, indices } }
-
-  const pixelDist = Math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+  if (!frames[midFrame]?.[personIdx]) return { value: null, reason: 'no_person_frames', detail: { midFrame, personIdx } }
+  const valid = collectMidWindowFrames(frames, scores, personIdx, indices.slice(0, 2), threshold)
+  if (valid.length === 0) return { value: null, reason: 'insufficient_valid_frames', detail: { midFrame, indices } }
+  const pixelDist = median(valid.map(({ points: [p1, p2] }) => Math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2))) as number
+  const framesUsed = valid.map(v => v.frame)
   const calibrationDetail = getCalibrationMetricDetail(calibration)
-  
+
   if (!calibration.pixelsPerYard || calibration.pixelsPerYard <= 0) {
     if (fallbackBehavior === 'disable_distance') {
       return {
         value: null,
         status: 'skipped',
         reason: 'no_calibration_available',
-        detail: { midFrame, indices, pixelDistance: pixelDist, ...calibrationDetail },
+        detail: { midFrame, indices, framesUsed, pixelDistance: pixelDist, ...calibrationDetail },
       }
     }
-
     return {
       value: pixelDist,
       reason: 'missing_calibration',
-      detail: {
-        midFrame,
-        indices,
-        pixelDistance: pixelDist,
-        warning: 'uncalibrated_pixel_value',
-        ...calibrationDetail,
-      },
+      detail: { midFrame, indices, framesUsed, pixelDistance: pixelDist, warning: 'uncalibrated_pixel_value', ...calibrationDetail },
     }
   }
-  
+
   return {
     value: pixelDist / calibration.pixelsPerYard,
-    detail: { midFrame, indices, pixelsPerYard: calibration.pixelsPerYard, ...calibrationDetail },
+    detail: { midFrame, indices, framesUsed, pixelDistance: pixelDist, pixelsPerYard: calibration.pixelsPerYard, ...calibrationDetail },
   }
 }
 
 // VELOCITY: net phase displacement / elapsed time → mph
-// Option A (net displacement): instead of summing per-frame magnitudes (which
-// compounds detection jitter and lets a single bad frame dominate), measure
-// the net displacement of the keypoint midpoint between the first and last
-// valid frames in the supplied window, then divide by elapsed time. This is
-// the metric definition the elite targets were derived from.
+// Measures the net displacement of the keypoint midpoint between the first and
+// last confidence-valid frames across the WHOLE phase window. temporalWindow is
+// the minimum elapsed-frame span required; shorter spans are skipped instead of
+// letting a single frame-pair jump define the metric.
 function calculateVelocity(
   frames: VideoKeypoints, personIdx: number,
-  indices: number[], temporalWindow: number, fps: number, calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior
+  indices: number[], temporalWindow: number, fps: number, calibration: ResolvedCalibration, fallbackBehavior: ReferenceFallbackBehavior,
+  scores?: VideoScores, threshold?: number,
 ): MetricValueResult {
-  const window = frames.slice(0, Math.min(temporalWindow, frames.length))
+  const window = frames
+  const minElapsed = Math.max(2, temporalWindow)
   if (window.length < 2) {
     return {
       value: null,
@@ -2518,16 +2530,16 @@ function calculateVelocity(
   }
 
   const calibrationDetail = getCalibrationMetricDetail(calibration)
-
-  // Walk inward from each end to find the first/last frames with a valid
-  // midpoint for this person. This keeps the metric anchored at true phase
-  // boundaries while tolerating dropped detections at the edges.
-  let firstIdx = -1
-  let firstPos: [number, number] | null = null
-  for (let f = 0; f < window.length; f++) {
+  const midpointAt = (f: number): Point | null => {
     const person = window[f]?.[personIdx]
-    if (!person) continue
-    const pos = getMidpoint(person, indices)
+    if (!person) return null
+    return getMidpoint(person, indices, scores?.[f]?.[personIdx], threshold)
+  }
+
+  let firstIdx = -1
+  let firstPos: Point | null = null
+  for (let f = 0; f < window.length; f++) {
+    const pos = midpointAt(f)
     if (!pos) continue
     firstIdx = f
     firstPos = pos
@@ -2535,23 +2547,23 @@ function calculateVelocity(
   }
 
   let lastIdx = -1
-  let lastPos: [number, number] | null = null
+  let lastPos: Point | null = null
   for (let f = window.length - 1; f > firstIdx; f--) {
-    const person = window[f]?.[personIdx]
-    if (!person) continue
-    const pos = getMidpoint(person, indices)
+    const pos = midpointAt(f)
     if (!pos) continue
     lastIdx = f
     lastPos = pos
     break
   }
 
-  if (firstPos === null || lastPos === null || lastIdx <= firstIdx) {
+  if (firstPos === null || lastPos === null || lastIdx - firstIdx < minElapsed) {
     return {
       value: null,
-      reason: 'no_velocity_samples',
+      status: 'skipped',
+      reason: 'insufficient_valid_frames',
       detail: {
         temporalWindow,
+        minElapsedFrames: minElapsed,
         indices,
         personIdx,
         actualWindow: window.length,
