@@ -1033,9 +1033,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
         </div>
       )}
 
+      {activeUpload && <LibraryRunContextPanel context={activeUpload.analysis_context} />}
       {result && (
         <div className="space-y-5">
-          {activeUpload && <LibraryRunContextPanel context={activeUpload.analysis_context} />}
           {libraryClip && <GroundTruthComparison clip={libraryClip} node={node} result={result} />}
           <div className="rounded-xl border border-white/5 bg-surface-container p-5">
             <div className="flex flex-wrap items-center gap-5">
