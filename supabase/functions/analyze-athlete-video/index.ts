@@ -771,13 +771,15 @@ Deno.serve(async (req) => {
     )
 
     await setUploadProgress(upload.id, 'Running dynamic calibration...')
+    const resolutionHeight = await lookupClipResolutionHeight(context)
     const { resolved: resolvedCalibration, audit: calibrationAudit } = resolveCalibration(
       rtmlibResult,
       trackedPersonFrames.keypoints,
       trackedPersonFrames.scores,
       getAthleteHeightMeasurement(context),
       nodeConfig,
-      context.camera_angle || upload.camera_angle || ''
+      context.camera_angle || upload.camera_angle || '',
+      resolutionHeight,
     )
 
     // STEP 7: Divide frames into phase windows
@@ -1470,6 +1472,8 @@ function logCalibrationSource(calibration: ResolvedCalibration) {
 
   if (calibration.source === 'dynamic') {
     message = `Calibration source: dynamic (${goodLinePairs ?? 'unknown'} line pairs, ${pixelsPerYard !== null ? pixelsPerYard.toFixed(1) : 'n/a'} px/yard)`
+  } else if (calibration.source === 'height_based') {
+    message = `Calibration source: height-based ${calibration.perFrame ? 'per-frame' : 'single'} (${pixelsPerYard !== null ? pixelsPerYard.toFixed(1) : 'n/a'} px/yard median)`
   } else if (calibration.source === 'body_based') {
     message = 'Calibration source: body-based (using athlete height)'
   } else if (calibration.source === 'static') {
@@ -1780,6 +1784,15 @@ function resolveCalibration(
   logInfo('calibration_audit', audit)
 
   return { resolved, audit }
+}
+
+async function lookupClipResolutionHeight(context: any): Promise<number | null> {
+  const direct = parseResolutionHeight(context?.resolution ?? context?.video_resolution)
+  if (direct !== null) return direct
+  const clipId = typeof context?.calibration_clip_id === 'string' ? context.calibration_clip_id : null
+  if (!clipId) return null
+  const { data } = await supabase.from('calibration_clips').select('resolution').eq('id', clipId).maybeSingle()
+  return parseResolutionHeight(data?.resolution)
 }
 
 function convertHeightToYards(height: AthleteHeightMeasurement): number | null {
@@ -2424,6 +2437,12 @@ async function calculateAllMetrics(
       continue
     }
 
+    // Per-frame height scale: use the median scale across this phase window.
+    const windowPpy = calibration.perFrame ? windowScale(calibration.perFrame, window.start, window.end) : null
+    const metricCalibration: ResolvedCalibration = windowPpy !== null
+      ? { ...calibration, pixelsPerYard: windowPpy, details: { ...calibration.details, windowPixelsPerYard: windowPpy, windowStart: window.start, windowEnd: window.end } }
+      : calibration
+
     // Calculate based on type
     let metricValue: MetricValueResult = { value: null, reason: 'unsupported_calculation_type' }
     
@@ -2434,7 +2453,7 @@ async function calculateAllMetrics(
       case 'distance':
         metricValue = calculateDistance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          calibration,
+          metricCalibration,
           fallbackBehavior,
           phaseScores, mapping.confidence_threshold || 0.70,
         )
@@ -2442,14 +2461,14 @@ async function calculateAllMetrics(
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 3, fps, calibration, fallbackBehavior,
+          mapping.temporal_window || 3, fps, metricCalibration, fallbackBehavior,
           phaseScores, mapping.confidence_threshold || 0.70,
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 5, fps, calibration, fallbackBehavior
+          mapping.temporal_window || 5, fps, metricCalibration, fallbackBehavior
         )
         break
       case 'frame_delta':
@@ -2461,7 +2480,7 @@ async function calculateAllMetrics(
       case 'distance_variance':
         metricValue = calculateDistanceVariance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 10, calibration, fallbackBehavior, metric.name
+          mapping.temporal_window || 10, metricCalibration, fallbackBehavior, metric.name
         )
         break
     }
