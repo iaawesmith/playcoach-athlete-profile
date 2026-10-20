@@ -18,7 +18,9 @@ import { AnalysisLog } from "./AnalysisLog";
 import { GroundTruthComparison } from "./GroundTruthComparison";
 import { CalibrationAuditPanel } from "./CalibrationAuditPanel";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
-import { buildLibraryRunTag, type CalibrationClip } from "@/services/calibrationLibrary";
+import { buildLibraryRunTag, listCalibrationClips, type CalibrationClip } from "@/services/calibrationLibrary";
+import { libraryClipValues, libraryContextDifferences, libraryAnalysisContext, LIBRARY_CONTEXT_LABELS, type LibraryContextValues } from "@/services/libraryRunContext";
+import { LibraryRunContextPanel } from "./LibraryRunContextPanel";
 import { cn } from "@/lib/utils";
 import { roundScore } from "../utils/pipelineResults";
 
@@ -223,6 +225,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [catchStatus, setCatchStatus] = useState<CatchOption>("yes");
   const [athleteLevel, setAthleteLevel] = useState<AthleteLevelOption>("high_school");
   const [focusArea, setFocusArea] = useState("");
+  const [libraryClip, setLibraryClip] = useState<CalibrationClip | null>(null);
+  const [overrideLibrary, setOverrideLibrary] = useState(false);
+  const openClipEditor = useCalibrationLibraryStore((s) => s.openClipEditor);
   // PHASE-2-PREP-FOLLOWUPS — persist height across sessions so the
   // canonical test athlete's measurement survives page reloads. Closes
   // the smoke-test failure mode where an empty height field silently
@@ -240,17 +245,17 @@ export function TestingPanel({ node }: TestingPanelProps) {
     return stored === "cm" || stored === "inches" ? stored : "inches";
   });
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || libraryClip) return;
     if (athleteHeight) {
       window.localStorage.setItem(ATHLETE_HEIGHT_KEY, athleteHeight);
     } else {
       window.localStorage.removeItem(ATHLETE_HEIGHT_KEY);
     }
-  }, [athleteHeight]);
+  }, [athleteHeight, libraryClip]);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || libraryClip) return;
     window.localStorage.setItem(ATHLETE_HEIGHT_UNIT_KEY, athleteHeightUnit);
-  }, [athleteHeightUnit]);
+  }, [athleteHeightUnit, libraryClip]);
   const [athleteWingspan, setAthleteWingspan] = useState("");
   const [athleteWingspanUnit, setAthleteWingspanUnit] = useState<MeasurementUnit>("inches");
   const [endSeconds, setEndSeconds] = useState(
@@ -261,7 +266,6 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [localProgressMessage, setLocalProgressMessage] = useState("");
   const [preparationNotice, setPreparationNotice] = useState<string | null>(null);
   const [openDocs, setOpenDocs] = useState<Set<string>>(new Set());
-  const [libraryClip, setLibraryClip] = useState<CalibrationClip | null>(null);
   const pendingLibraryRun = useCalibrationLibraryStore((s) => s.pending);
   const clearPendingLibraryRun = useCalibrationLibraryStore((s) => s.clearPending);
 
@@ -275,7 +279,10 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setRunStage("idle");
     setUploadedFile(null);
     setVideoUrl(signedUrl);
-    setVideoDesc(clip.title);
+    setVideoDesc(clip.notes);
+    setFocusArea("");
+    setEndSeconds(String(libraryClipValues(clip).end_seconds ?? ""));
+    setOverrideLibrary(false);
     setContextEnabled(true);
     setCameraAngle(clip.camera_angle);
     setPeopleInVideo(clip.people_in_video);
@@ -314,6 +321,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const keypointWarnings = (result?.log_data?.rtmlib?.keypoint_confidence ?? []).filter((kp) => kp.status === "MARGINAL" || kp.status === "UNRELIABLE");
 
   const handleFileSelect = (file: File) => {
+    if (libraryClip) return;
     setLibraryClip(null);
     setUploadedFile(file);
     setVideoUrl("");
@@ -382,6 +390,19 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setVideoUrl("");
     setVideoDesc("");
     setLibraryClip(null);
+    setOverrideLibrary(false);
+    setContextEnabled(true);
+    setCameraAngle("sideline");
+    setPeopleInVideo("solo");
+    setBreakDirection("left");
+    setCatchStatus("yes");
+    setAthleteLevel("high_school");
+    setFocusArea("");
+    setAthleteHeight(window.localStorage.getItem(ATHLETE_HEIGHT_KEY) ?? "");
+    setAthleteHeightUnit(window.localStorage.getItem(ATHLETE_HEIGHT_UNIT_KEY) === "cm" ? "cm" : "inches");
+    setAthleteWingspan("");
+    setAthleteWingspanUnit("inches");
+    setEndSeconds(String(Math.min(node.clip_duration_max, MAX_CLIP_WINDOW_SECONDS)));
   };
 
   const handleRetry = () => {
@@ -445,9 +466,39 @@ export function TestingPanel({ node }: TestingPanelProps) {
       const parsedEndSeconds = endSeconds.trim() ? Number(endSeconds) : Number.NaN;
       const effectiveMax = Math.min(node.clip_duration_max, MAX_CLIP_WINDOW_SECONDS);
       const effectiveMin = Math.min(node.clip_duration_min, effectiveMax);
-      const normalizedEndSeconds = Number.isFinite(parsedEndSeconds)
+      const normalizedEndSeconds = libraryClip ? parsedEndSeconds : Number.isFinite(parsedEndSeconds)
         ? Math.min(Math.max(parsedEndSeconds, effectiveMin), effectiveMax)
         : effectiveMax;
+
+      let outgoingContext: Record<string, unknown> = contextEnabled ? buildContext() : {
+        camera_angle: cameraAngle, people_in_video: peopleInVideo,
+        ...buildRouteDirectionPayload(breakDirection), catch_included: catchStatus !== "no",
+        catch_status: catchStatus, athlete_level: athleteLevel, focus_area: "", performance_description: videoDesc.trim(),
+      };
+      if (libraryClip) {
+        const freshClip = (await listCalibrationClips(true)).find((clip) => clip.id === libraryClip.id);
+        if (!freshClip) throw new Error("Library clip no longer exists. Clear and choose another clip.");
+        if (freshClip.archived) throw new Error("This library clip is archived and cannot be used in a new test.");
+        const measurement = (value: string) => value.trim() && Number.isFinite(Number(value)) ? Number(value) : null;
+        const values: LibraryContextValues = {
+          camera_angle: cameraAngle, people_in_video: peopleInVideo, route_direction: breakDirection,
+          catch_status: catchStatus, athlete_level: athleteLevel, athlete_height: measurement(athleteHeight),
+          athlete_height_unit: athleteHeightUnit, athlete_wingspan: measurement(athleteWingspan),
+          athlete_wingspan_unit: athleteWingspanUnit, focus_area: focusArea, performance_description: videoDesc,
+          end_seconds: Number.isFinite(normalizedEndSeconds) ? normalizedEndSeconds : null,
+        };
+        const differences = libraryContextDifferences(freshClip, values);
+        if (!overrideLibrary && differences.length) {
+          throw new Error(`Library context differs: ${differences.map((entry) => LIBRARY_CONTEXT_LABELS[entry.field]).join(", ")}. Reload the clip or enable Override for this run.`);
+        }
+        if (values.end_seconds === null || values.end_seconds <= 0 || values.end_seconds > 3) {
+          throw new Error("Library run needs a valid clip end between 0 and 3 seconds. Edit the clip if its duration is missing.");
+        }
+        outgoingContext = {
+          ...libraryAnalysisContext(values), ...buildLibraryRunTag(freshClip),
+          library_clip_snapshot: freshClip, overrides: overrideLibrary ? differences : [],
+        };
+      }
 
       const submission = await submitRunAnalysisJob(
         {
@@ -457,16 +508,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
           cameraAngle,
           startSeconds: 0,
           endSeconds: normalizedEndSeconds,
-          analysisContext: { ...(contextEnabled ? buildContext() : {
-            camera_angle: cameraAngle,
-            people_in_video: peopleInVideo,
-            ...buildRouteDirectionPayload(breakDirection),
-            catch_included: catchStatus !== "no",
-            catch_status: catchStatus,
-            athlete_level: athleteLevel,
-            focus_area: "",
-            performance_description: videoDesc.trim(),
-          }), ...(libraryClip ? buildLibraryRunTag(libraryClip) : {}) },
+          analysisContext: { ...buildContext(), ...outgoingContext },
         },
         {
           signal: abortController.signal,
@@ -598,6 +640,25 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
   return (
     <div className="space-y-6">
+      {libraryClip && (
+        <div className="flex flex-wrap items-center gap-3 bg-surface-container-high px-4 py-3 text-xs text-on-surface">
+          <span className="material-symbols-outlined text-primary">video_library</span>
+          <span className="min-w-0 flex-1 break-words"><span className="block font-black uppercase">From library clip</span>{libraryClip.title}</span>
+          <label className="flex items-center gap-2 uppercase"><input type="checkbox" checked={overrideLibrary} disabled={isRunning} onChange={(e) => {
+            setOverrideLibrary(e.target.checked);
+            if (!e.target.checked) {
+              const clip = libraryClip;
+              setCameraAngle(clip.camera_angle); setPeopleInVideo(clip.people_in_video); setBreakDirection(clip.route_direction);
+              setCatchStatus(clip.catch_status); setAthleteLevel(clip.athlete_level);
+              setAthleteHeight(clip.athlete_height === null ? "" : String(clip.athlete_height)); setAthleteHeightUnit(clip.athlete_height_unit);
+              setAthleteWingspan(clip.athlete_wingspan === null ? "" : String(clip.athlete_wingspan)); setAthleteWingspanUnit(clip.athlete_wingspan_unit);
+              setVideoDesc(clip.notes); setFocusArea(""); setEndSeconds(String(libraryClipValues(clip).end_seconds ?? ""));
+            }
+          }} />Override for this run</label>
+          <button type="button" disabled={isRunning} onClick={() => openClipEditor(libraryClip)} className="uppercase text-primary underline">Edit clip</button>
+          <button type="button" disabled={isRunning} onClick={handleRerun} className="uppercase text-on-surface-variant">Clear</button>
+        </div>
+      )}
       <div className="rounded-xl border border-white/5 bg-surface-container">
         <div className="flex items-center justify-between p-5 pb-0">
           <div className="flex items-center gap-2">
@@ -608,6 +669,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
             </button>
           </div>
           <button
+            disabled={Boolean(libraryClip)}
+            aria-label="Enable analysis context"
             onClick={() => setContextEnabled(!contextEnabled)}
             className={cn(
               "relative h-5 w-10 rounded-full transition-colors duration-200",
@@ -622,7 +685,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         </div>
 
         {contextEnabled && (
-          <div className="space-y-4 p-5 pt-4">
+          <fieldset disabled={Boolean(libraryClip) && (!overrideLibrary || isRunning)} className="min-w-0 space-y-4 p-5 pt-4">
             <div>
               <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Camera Angle</label>
               <RadioPills value={cameraAngle} onChange={(v) => setCameraAngle(v as CameraAngleOption)} options={[
@@ -760,7 +823,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
                 </div>
               </div>
             </div>
-          </div>
+          </fieldset>
         )}
       </div>
 
@@ -771,7 +834,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { if (!libraryClip) fileInputRef.current?.click(); }}
             className={cn(
               "flex min-h-[90px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-surface-container-lowest transition-colors",
               dragOver
@@ -781,7 +844,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
                   : "border-outline-variant/20 hover:border-outline-variant/40",
             )}
           >
-            <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileSelect(file); }} />
+            <input disabled={Boolean(libraryClip)} ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileSelect(file); }} />
             {uploadedFile ? (
               <div className="flex items-center gap-3 px-4 py-3">
                 <span className="material-symbols-outlined text-primary" style={{ fontSize: 24 }}>videocam</span>
@@ -806,6 +869,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         <div>
           <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Or Paste Direct Video URL</label>
           <input
+            readOnly={Boolean(libraryClip)}
             value={videoUrl}
             onChange={(e) => { setVideoUrl(e.target.value); setLibraryClip(null); if (e.target.value) setUploadedFile(null); }}
             placeholder="https://..."
@@ -817,6 +881,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         <div>
           <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Performance Description (Optional)</label>
           <textarea
+            readOnly={Boolean(libraryClip) && (!overrideLibrary || isRunning)}
             value={videoDesc}
             onChange={(e) => setVideoDesc(e.target.value)}
             placeholder="Describe the rep for later result review..."
@@ -827,15 +892,17 @@ export function TestingPanel({ node }: TestingPanelProps) {
         <div>
           <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Clip End Seconds</label>
           <input
+            readOnly={Boolean(libraryClip) && (!overrideLibrary || isRunning)}
             type="number"
-            min={Math.min(node.clip_duration_min, MAX_CLIP_WINDOW_SECONDS)}
+            min={libraryClip ? 0 : Math.min(node.clip_duration_min, MAX_CLIP_WINDOW_SECONDS)}
             max={MAX_CLIP_WINDOW_SECONDS}
             step="0.1"
             value={endSeconds}
             onChange={(e) => setEndSeconds(e.target.value)}
             className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
           />
-          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">3-second clips are currently supported; longer clips coming soon. Start seconds are fixed at 0; end seconds are clamped to {MAX_CLIP_WINDOW_SECONDS}s.</p>
+          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">{libraryClip ? "From library clip: stored duration capped at 3 seconds; start is 0." : "Start is 0; end seconds are clamped to the node limits and 3 seconds."}</p>
+          {libraryClip && Number(endSeconds) < node.clip_duration_min && <p className="mt-2 text-xs text-destructive-foreground">This clip is shorter than the node minimum of {node.clip_duration_min}s. The current pipeline will reject it at preflight; its duration will not be padded.</p>}
         </div>
 
         <div className="rounded-xl border border-white/5 bg-surface-container-high/50 p-4">
@@ -966,15 +1033,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         </div>
       )}
 
-      {libraryClip && (
-        <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-surface-container-high px-4 py-3 text-xs text-on-surface">
-          <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>video_library</span>
-          <span className="font-black uppercase tracking-widest text-[10px] text-on-surface-variant">Library clip</span>
-          <span className="flex-1 truncate">{libraryClip.title} — stored file reused, context prefilled</span>
-          <button onClick={() => { setLibraryClip(null); setVideoUrl(""); }} className="text-on-surface-variant hover:text-on-surface">Clear</button>
-        </div>
-      )}
-
+      {activeUpload && <LibraryRunContextPanel context={activeUpload.analysis_context} />}
       {result && (
         <div className="space-y-5">
           {libraryClip && <GroundTruthComparison clip={libraryClip} node={node} result={result} />}

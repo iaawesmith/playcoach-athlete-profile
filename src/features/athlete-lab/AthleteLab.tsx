@@ -6,6 +6,7 @@ import { NodeEditor } from "./components/NodeEditor";
 import { AdminReferencePanel } from "./components/AdminReferencePanel";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { VideoLibraryPanel } from "./components/VideoLibraryPanel";
+import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 
 export function AthleteLab() {
   const [nodes, setNodes] = useState<TrainingNode[]>([]);
@@ -14,6 +15,8 @@ export function AthleteLab() {
   const [refreshing, setRefreshing] = useState(false);
   const [showAdminRef, setShowAdminRef] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
+  const editClip = useCalibrationLibraryStore((s) => s.editClip);
+  const clearClipEditor = useCalibrationLibraryStore((s) => s.clearClipEditor);
   const [pendingDeleteNode, setPendingDeleteNode] = useState<TrainingNode | null>(null);
 
   useEffect(() => {
@@ -131,7 +134,7 @@ export function AthleteLab() {
       </div>
 
       {showAdminRef && <AdminReferencePanel onClose={() => setShowAdminRef(false)} />}
-      {showLibrary && <VideoLibraryPanel nodes={nodes} onClose={() => setShowLibrary(false)} onSelectNode={setSelectedId} />}
+      {(showLibrary || editClip) && <VideoLibraryPanel nodes={nodes} onClose={() => { setShowLibrary(false); clearClipEditor(); }} onSelectNode={setSelectedId} />}
       <ConfirmModal
         open={pendingDeleteNode !== null}
         title="Delete Training Node?"
