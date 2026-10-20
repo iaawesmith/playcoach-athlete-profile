@@ -86,6 +86,11 @@ Deno.serve(async (req) => {
       log_data: row.result_data && typeof row.result_data === "object" && !Array.isArray(row.result_data)
         ? (row.result_data as Record<string, unknown>).log_data ?? null
         : null,
+      result_data: {
+        calibration_audit: row.result_data && typeof row.result_data === "object" && !Array.isArray(row.result_data)
+          ? (row.result_data as Record<string, unknown>).calibration_audit ?? null
+          : null,
+      },
     },
   });
 });
