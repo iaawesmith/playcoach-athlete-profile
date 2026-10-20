@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Audit and lock library run context, explicit changed-field overrides, fresh pre-submit comparison, clip-duration cap, edit link and result context; no analyzer or node changes.
+- [x] Audit and lock library run context, explicit changed-field overrides, fresh pre-submit comparison, clip-duration cap, edit link and result context; no analyzer or node changes. Verified UI, saved height override, mismatch blocking, Clear, and 2.27s preflight rejection; 32 tests pass.
 
 - [x] Audit the specified 15 nodes' phase descriptions, coaching cues, and metric descriptions without changing node data.
 - [x] Change only the ALL-tab display order to WR, TE, RB and official route order.
