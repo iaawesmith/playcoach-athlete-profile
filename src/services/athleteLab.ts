@@ -455,6 +455,33 @@ function parseCalibrationAudit(value: unknown): PipelineAnalysisResult["calibrat
     selected_ppy: n(r.selected_ppy),
     body_based_ppy: n(r.body_based_ppy),
     static_ppy: n(r.static_ppy),
+    selected_mode: typeof r.selected_mode === "string" ? r.selected_mode : null,
+    candidates: Array.isArray(r.candidates)
+      ? r.candidates.flatMap((c) => {
+          if (!c || typeof c !== "object") return [];
+          const rec = c as Record<string, unknown>;
+          if (typeof rec.source !== "string") return [];
+          return [{
+            source: rec.source,
+            ppy: n(rec.ppy),
+            status: typeof rec.status === "string" ? rec.status : "unknown",
+            reason: typeof rec.reason === "string" ? rec.reason : null,
+          }];
+        })
+      : [],
+    flags: Array.isArray(r.flags)
+      ? r.flags.flatMap((f) => {
+          if (!f || typeof f !== "object") return [];
+          const rec = f as Record<string, unknown>;
+          return typeof rec.flag === "string" ? [{ flag: rec.flag, note: typeof rec.note === "string" ? rec.note : "" }] : [];
+        })
+      : [],
+    per_frame_scale: r.per_frame_scale && typeof r.per_frame_scale === "object"
+      ? (() => {
+          const pf = r.per_frame_scale as Record<string, unknown>;
+          return { start: n(pf.start), end: n(pf.end), min: n(pf.min), max: n(pf.max) };
+        })()
+      : null,
   };
 }
 
