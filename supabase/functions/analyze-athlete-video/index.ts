@@ -2462,7 +2462,7 @@ function collectMidWindowFrames(
     if (!kps) continue
     const personScores = scores?.[f]?.[personIdx]
     const points = indices.map(i => kps[i])
-    const ok = indices.every((i, n) => isValidPoint(points[n], personScores?.[i], scores ? threshold : undefined))
+    const ok = indices.every((i, n) => isValidScoredPoint(points[n], personScores?.[i], scores ? threshold : undefined))
     if (ok) out.push({ frame: f, points })
   }
   return out
@@ -2862,14 +2862,14 @@ function calculateDistanceVariance(
 }
 
 // HELPERS
-function isValidPoint(p: Point | undefined, score: number | undefined, threshold: number | undefined): p is Point {
+function isValidScoredPoint(p: Point | undefined, score: number | undefined, threshold: number | undefined): p is Point {
   if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1]) || p[0] <= 0 || p[1] <= 0) return false
   if (threshold !== undefined && (typeof score !== 'number' || score < threshold)) return false
   return true
 }
 
 function getMidpoint(kps: PersonKeypoints, indices: number[], personScores?: PersonScores, threshold?: number): Point | null {
-  if (indices.some(i => !isValidPoint(kps[i], personScores?.[i], personScores ? threshold : undefined))) return null
+  if (indices.some(i => !isValidScoredPoint(kps[i], personScores?.[i], personScores ? threshold : undefined))) return null
   const points = indices.map(i => kps[i])
   if (points.length === 0) return null
   return [
