@@ -823,7 +823,11 @@ function RecentTestRunsSection() {
                                 {record.detectedErrors.length > 0 ? (
                                   <div className="space-y-2">
                                     {record.detectedErrors.map((entry, index) => (
-                                      <pre key={`${record.uploadId}-error-${index}`} className="overflow-x-auto rounded-lg bg-surface-container-lowest p-3 text-[11px] text-on-surface-variant">{JSON.stringify(entry, null, 2)}</pre>
+                                      <div key={`${record.uploadId}-error-${index}`} className="rounded-lg bg-surface-container-lowest p-3 text-[11px] text-on-surface-variant">
+                                        <span className="font-semibold text-on-surface">{entry.name}</span>
+                                        {entry.condition ? ` · ${entry.condition}` : ""}
+                                        {entry.metric_value !== null ? ` · measured ${entry.metric_value}` : ""}
+                                      </div>
                                     ))}
                                   </div>
                                 ) : (

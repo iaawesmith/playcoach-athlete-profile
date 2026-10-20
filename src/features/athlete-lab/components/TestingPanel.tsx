@@ -19,6 +19,7 @@ import { GroundTruthComparison } from "./GroundTruthComparison";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 import { buildLibraryRunTag, type CalibrationClip } from "@/services/calibrationLibrary";
 import { cn } from "@/lib/utils";
+import { roundScore } from "../utils/pipelineResults";
 
 const MAX_CLIP_WINDOW_SECONDS = 3;
 
@@ -309,6 +310,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const isRunning = ["preparing_video", "uploading", "queued", "processing", "fetching_results"].includes(runStage);
   const hasInput = Boolean(videoUrl.trim() || uploadedFile);
   const poseQualityAudit = result ? buildPoseQualityAudit(result) : null;
+  const keypointWarnings = (result?.log_data?.rtmlib?.keypoint_confidence ?? []).filter((kp) => kp.status === "MARGINAL" || kp.status === "UNRELIABLE");
 
   const handleFileSelect = (file: File) => {
     setLibraryClip(null);
@@ -1042,7 +1044,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={cn("rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em]", metricStyles.badge)}>
-                          {metric.score ?? "—"}
+                          {roundScore(metric.score)}
                         </span>
                         <span className="rounded-full border border-outline-variant/10 bg-surface-container-lowest px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">
                           Weight {metric.weight}
@@ -1169,6 +1171,19 @@ export function TestingPanel({ node }: TestingPanelProps) {
                   ))}
                 </ul>
               )}
+              {keypointWarnings.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant/60">Keypoint warnings ({keypointWarnings.length})</p>
+                  <ul className="space-y-1">
+                    {keypointWarnings.map((kp) => (
+                      <li key={kp.index} className="flex justify-between rounded-lg bg-surface-container-lowest px-3 py-2 text-[11px] text-on-surface-variant">
+                        <span>Keypoint {kp.index}</span>
+                        <span>{kp.status} · {kp.percent_below}% frames below</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             <div className="rounded-xl border border-white/5 bg-surface-container p-5">
               <h4 className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">
@@ -1180,7 +1195,14 @@ export function TestingPanel({ node }: TestingPanelProps) {
               ) : (
                 <div className="space-y-2">
                   {result.detectedErrors.map((entry, index) => (
-                    <pre key={index} className="overflow-x-auto rounded-lg bg-surface-container-high p-3 text-[11px] text-on-surface-variant">{JSON.stringify(entry, null, 2)}</pre>
+                    <div key={`${entry.name}-${index}`} className="rounded-lg bg-surface-container-high px-3 py-3 text-xs">
+                      <div className="font-semibold text-on-surface">{entry.name}</div>
+                      <div className="mt-1 text-on-surface-variant">
+                        {entry.condition ?? "Condition not recorded"}
+                        {entry.metric_value !== null ? ` · measured ${entry.metric_value}` : ""}
+                        {entry.severity ? ` · ${entry.severity.toUpperCase()}` : ""}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

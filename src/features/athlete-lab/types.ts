@@ -416,6 +416,13 @@ export interface PipelinePhaseScore {
   score: number;
 }
 
+export interface PipelineDetectedError {
+  name: string;
+  condition: string | null;
+  metric_value: number | null;
+  severity: string | null;
+}
+
 export interface PipelineConfidenceFlag {
   metric: string;
   reason: string;
@@ -463,7 +470,7 @@ export interface PipelineAnalysisResult {
   phaseBreakdown: PipelinePhaseScore[];
   metricResults: PipelineMetricResult[];
   confidenceFlags: PipelineConfidenceFlag[];
-  detectedErrors: Array<Record<string, unknown>>;
+  detectedErrors: PipelineDetectedError[];
   feedback: string;
   analyzedAt: string | null;
   errorMessage: string | null;
@@ -521,7 +528,7 @@ export interface AdminHistoryRecord {
   phaseBreakdown: PipelinePhaseScore[];
   metricResults: PipelineMetricResult[];
   confidenceFlags: PipelineConfidenceFlag[];
-  detectedErrors: Array<Record<string, unknown>>;
+  detectedErrors: PipelineDetectedError[];
   feedback: string;
   calibration: AdminHistoryCalibrationSummary | null;
   analysisContext: AdminHistoryContextSnapshot;
