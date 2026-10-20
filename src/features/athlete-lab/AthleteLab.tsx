@@ -5,6 +5,7 @@ import { NodeSidebar } from "./components/NodeSidebar";
 import { NodeEditor } from "./components/NodeEditor";
 import { AdminReferencePanel } from "./components/AdminReferencePanel";
 import { ConfirmModal } from "./components/ConfirmModal";
+import { VideoLibraryPanel } from "./components/VideoLibraryPanel";
 
 export function AthleteLab() {
   const [nodes, setNodes] = useState<TrainingNode[]>([]);
@@ -12,6 +13,7 @@ export function AthleteLab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdminRef, setShowAdminRef] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [pendingDeleteNode, setPendingDeleteNode] = useState<TrainingNode | null>(null);
 
   useEffect(() => {
@@ -113,6 +115,13 @@ export function AthleteLab() {
           </span>
         </button>
         <button
+          onClick={() => setShowLibrary(true)}
+          title="Calibration Video Library"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface-variant hover:bg-surface-container-high transition-colors"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>video_library</span>
+        </button>
+        <button
           onClick={() => setShowAdminRef(true)}
           title="Admin Reference & Handoff Prompt"
           className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface-variant hover:bg-surface-container-high transition-colors"
@@ -122,6 +131,7 @@ export function AthleteLab() {
       </div>
 
       {showAdminRef && <AdminReferencePanel onClose={() => setShowAdminRef(false)} />}
+      {showLibrary && <VideoLibraryPanel nodes={nodes} onClose={() => setShowLibrary(false)} onSelectNode={setSelectedId} />}
       <ConfirmModal
         open={pendingDeleteNode !== null}
         title="Delete Training Node?"

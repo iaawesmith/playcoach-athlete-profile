@@ -426,6 +426,7 @@ const HISTORY_FILTER_DEFAULTS: AdminHistoryFilters = {
   nodeId: "all",
   dateRange: "last_7_days",
   calibrationSource: "all",
+  runSource: "all",
   status: "all",
   sort: "date_desc",
 };
@@ -592,6 +593,19 @@ function RecentTestRunsSection() {
             <option value="body_based">Body Based</option>
             <option value="static">Static</option>
             <option value="none">None</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Run source</span>
+          <select
+            value={filters.runSource ?? "all"}
+            onChange={(e) => setFilters((current) => ({ ...current, runSource: e.target.value as AdminHistoryFilters["runSource"] }))}
+            className="h-10 w-full rounded-lg border border-outline-variant/10 bg-surface-container-lowest px-3 text-xs text-on-surface focus:outline-none focus:border-primary-container/30"
+          >
+            <option value="all">All</option>
+            <option value="library">Library runs</option>
+            <option value="athlete">Athlete uploads</option>
           </select>
         </label>
 

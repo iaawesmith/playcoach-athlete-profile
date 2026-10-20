@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isLibraryRun } from "@/services/calibrationLibrary";
 import type {
   TrainingNode,
   AnalysisLogData,
@@ -6,6 +7,7 @@ import type {
   AdminHistoryCalibrationSummary,
   AdminHistoryDateRange,
   AdminHistoryRecord,
+  AdminHistoryRunSourceFilter,
   AdminHistorySortOption,
   AdminHistoryStatusFilter,
   NodeStatus,
@@ -153,6 +155,7 @@ export interface AdminHistoryFilters {
   nodeId: string;
   dateRange: AdminHistoryDateRange;
   calibrationSource: AdminHistoryCalibrationFilter;
+  runSource?: AdminHistoryRunSourceFilter;
   status: AdminHistoryStatusFilter;
   sort: AdminHistorySortOption;
 }
@@ -468,6 +471,18 @@ function normalizeUploadSnapshot(value: unknown): PipelineUploadSnapshot | null 
   };
 }
 
+function parseCalibrationAudit(value: unknown): PipelineAnalysisResult["calibrationAudit"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const r = value as Record<string, unknown>;
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  return {
+    selected_source: typeof r.selected_source === "string" ? r.selected_source : null,
+    selected_ppy: n(r.selected_ppy),
+    body_based_ppy: n(r.body_based_ppy),
+    static_ppy: n(r.static_ppy),
+  };
+}
+
 function normalizePipelineResult(value: unknown, uploadId: string, node: TrainingNode): PipelineAnalysisResult | null {
   const row = parseRecord(value);
   const resultId = typeof row.id === "string" ? row.id : "";
@@ -498,6 +513,7 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
     log_data: rawLogData && typeof rawLogData === "object" && !Array.isArray(rawLogData)
       ? rawLogData as AnalysisLogData
       : undefined,
+    calibrationAudit: parseCalibrationAudit(resultData.calibration_audit),
   };
 }
 
@@ -798,6 +814,7 @@ function normalizeHistoryRow(upload: UploadHistoryRow, result: ResultHistoryRow 
     analyzedAt: result?.analyzed_at ?? null,
     videoUrl: upload.video_url,
     videoIdentifier: extractVideoIdentifier(upload.video_url, upload.id),
+    isLibraryRun: isLibraryRun(context),
     aggregateScore: result?.aggregate_score ?? null,
     phaseScores,
     phaseBreakdown: Object.entries(phaseScores).map(([id, score]) => ({ id, name: id, score: Math.round(score) })),
@@ -885,6 +902,8 @@ export function filterAndSortAdminHistory(records: AdminHistoryRecord[], filters
   const filtered = records.filter((record) => {
     if (filters.nodeId !== "all" && record.nodeId !== filters.nodeId) return false;
     if (filters.status !== "all" && record.status !== filters.status) return false;
+    if (filters.runSource === "library" && !record.isLibraryRun) return false;
+    if (filters.runSource === "athlete" && record.isLibraryRun) return false;
     if (filters.calibrationSource !== "all" && (record.calibration?.normalizedSource ?? "none") !== filters.calibrationSource) return false;
 
     const timestamp = record.analyzedAt ?? record.uploadCreatedAt;

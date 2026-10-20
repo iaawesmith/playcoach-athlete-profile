@@ -1,0 +1,2 @@
+- Calibration library clips are reached only through the `admin-calibration-clips` function (service role); the table has no browser policies until admin auth lands (F-SEC-1).
+- Library runs are tagged inside `athlete_uploads.analysis_context` (`source: "calibration_library"`, `calibration_clip_id`) rather than a new column, so the analyzer stays untouched.

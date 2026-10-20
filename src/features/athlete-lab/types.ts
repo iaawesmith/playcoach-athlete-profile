@@ -468,6 +468,13 @@ export interface PipelineAnalysisResult {
   analyzedAt: string | null;
   errorMessage: string | null;
   log_data?: AnalysisLogData;
+  /** result_data.calibration_audit from analyze-athlete-video, when present. */
+  calibrationAudit?: {
+    selected_source: string | null;
+    selected_ppy: number | null;
+    body_based_ppy: number | null;
+    static_ppy: number | null;
+  } | null;
 }
 
 export type AdminHistoryDateRange = "today" | "last_7_days" | "all";
@@ -475,6 +482,8 @@ export type AdminHistoryDateRange = "today" | "last_7_days" | "all";
 export type AdminHistoryCalibrationFilter = "all" | "dynamic" | "body_based" | "static" | "none";
 
 export type AdminHistoryStatusFilter = "all" | "complete" | "failed" | "cancelled";
+
+export type AdminHistoryRunSourceFilter = "all" | "library" | "athlete";
 
 export type AdminHistorySortOption = "date_desc" | "date_asc" | "score_asc" | "score_desc" | "node_name_asc";
 
@@ -516,4 +525,5 @@ export interface AdminHistoryRecord {
   feedback: string;
   calibration: AdminHistoryCalibrationSummary | null;
   analysisContext: AdminHistoryContextSnapshot;
+  isLibraryRun: boolean;
 }
