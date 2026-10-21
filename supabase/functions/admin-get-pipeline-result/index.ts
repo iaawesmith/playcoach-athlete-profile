@@ -90,6 +90,9 @@ Deno.serve(async (req) => {
         calibration_audit: row.result_data && typeof row.result_data === "object" && !Array.isArray(row.result_data)
           ? (row.result_data as Record<string, unknown>).calibration_audit ?? null
           : null,
+        diagnostics: row.result_data && typeof row.result_data === "object" && !Array.isArray(row.result_data)
+          ? (row.result_data as Record<string, unknown>).diagnostics ?? null
+          : null,
       },
     },
   });
