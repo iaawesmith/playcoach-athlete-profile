@@ -285,12 +285,14 @@ def recover_frames(
                               if not is_target(r) and summary(r)), None)
             anchors = [a for a in (first_det, earliest_probe) if a is not None]
             if anchors:
-                anchor = min(anchors, key=lambda a: a[0])[1]
+                anchor_frame, anchor = min(anchors, key=lambda a: a[0])
                 rect = framing.recovery_crop(anchor, ref_h, width, height, max_factor)
                 for i in leading:
                     pf = attempt(i, rect)
                     got = summary(pf) if pf else None
-                    ok = got is not None and framing.accept_recovery(got[0], got[1], anchor, ref_h, abs(i - (first_det or (i,))[0]) or 1)
+                    ok = got is not None and framing.accept_recovery(
+                        got[0], got[1], anchor, ref_h, max(1, abs(i - anchor_frame))
+                    )
                     attempts.append({"frame": i, "kind": "leading", "crop": rect, "recovered": ok})
                     if ok and pf is not None:
                         results[i] = pf
