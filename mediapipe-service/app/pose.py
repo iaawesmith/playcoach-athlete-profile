@@ -231,3 +231,67 @@ def recover_leading_frames(
                 results[i] = pf
                 recovered.append(i)
     return recovered
+
+
+FALLBACK_MIN_DETECTION_CONFIDENCE = 0.3
+
+
+def fallback_full_frame(
+    original_frames: list[np.ndarray],
+    processed_results: list[PoseFrame],
+    mapped_results: list[PoseFrame],
+    width: int,
+    height: int,
+) -> list[int]:
+    """When zoomed, re-detect on the full frame any frame where the athlete is
+    lost or touches the crop edge. Uses its own stateless IMAGE-mode engine so
+    the main VIDEO tracker's timeline is never disturbed. Mutates
+    `mapped_results` (original coords) in place; returns replaced indices."""
+    from . import framing
+
+    targets = [
+        i for i, pf in enumerate(processed_results)
+        if not pf.detected or framing.touches_edge(framing.bbox(pf.keypoints, pf.scores), width, height)
+    ]
+    if not targets:
+        return []
+    replaced: list[int] = []
+    with PoseEngine(image_mode=True, min_detection_confidence=FALLBACK_MIN_DETECTION_CONFIDENCE) as probe:
+        for i in targets:
+            pf = probe.detect(original_frames[i])
+            if pf.detected:
+                mapped_results[i] = pf
+                replaced.append(i)
+    return replaced
+
+
+MAX_CONSECUTIVE_REJECTS = 5
+
+
+def reject_partial_detections(
+    results: list[PoseFrame], width: int, height: int
+) -> dict[int, str]:
+    """Mark cut-off / implausible detections as not detected (zeroed). Returns
+    {frame_index: reason}. Limits are relative to body height (see framing)."""
+    from . import framing
+
+    rejected: dict[int, str] = {}
+    prev_hip: tuple[float, float] | None = None
+    prev_h: float | None = None
+    streak = 0
+    for i, pf in enumerate(results):
+        if not pf.detected:
+            continue
+        reason = framing.validate_frame(pf.keypoints, pf.scores, width, height, prev_hip, prev_h)
+        if reason is not None and reason in ("height_jump", "hip_jump") and streak >= MAX_CONSECUTIVE_REJECTS:
+            # Re-anchor after a long gap so one bad reference can't reject the rest.
+            reason = framing.validate_frame(pf.keypoints, pf.scores, width, height, None, None)
+        if reason is not None:
+            rejected[i] = reason
+            results[i] = PoseFrame(detected=False)
+            streak += 1
+            continue
+        streak = 0
+        prev_hip = framing.hip_center(pf.keypoints, pf.scores) or prev_hip
+        prev_h = framing.athlete_height(pf.keypoints, pf.scores) or prev_h
+    return rejected

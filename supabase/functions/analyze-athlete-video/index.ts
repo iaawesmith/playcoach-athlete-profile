@@ -1,5 +1,18 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
+  computeReleaseAnchor,
+  findCatchArrival,
+  hipSeries,
+  offsetWindows,
+  resolveSideRule,
+  sideForRoute,
+  type FrameKps,
+  type FrameScores,
+  type ReleaseAnchor,
+  type SideRule,
+  type SideRuleSource,
+} from './segmentation.ts'
+import {
   computeHeightCalibration,
   windowScale,
   parseResolutionHeight,
@@ -182,6 +195,8 @@ type BilateralMappingInput = {
   bilateral?: string | null
   bilateral_override?: string | null
   keypoint_indices?: number[] | null
+  side_rule?: string | null
+  calculation_type?: string | null
 }
 
 type BilateralDecision = {
@@ -193,6 +208,8 @@ type BilateralDecision = {
   effectiveIndices: number[]
   leftAverageConfidence: number | null
   rightAverageConfidence: number | null
+  side_rule?: SideRule
+  side_rule_source?: SideRuleSource
 }
 
 const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap()
@@ -275,6 +292,13 @@ type CloudRunResponse = {
   det_frequency_used?: number | null
   frame_width?: number | null
   frame_height?: number | null
+  // Stage 1 additive fields (absent on older service revisions)
+  timings_ms?: Record<string, number> | null
+  service_build?: string | null
+  service_revision?: string | null
+  zoom_fallback_frame_indices?: number[] | null
+  rejected_frame_indices?: number[] | null
+  rejected_frame_reasons?: Record<string, string> | null
 }
 
 type CloudRunMetadata = {
@@ -324,6 +348,7 @@ type PipelineLogData = {
     average_keypoint_confidence?: number
     reliable_frame_percentage?: number
     most_common_issue?: string
+    release_anchor?: ReleaseAnchor
     phase_windows?: Array<{
       phase: string
       start: number
@@ -514,16 +539,19 @@ async function buildRunDiagnostics(input: {
     : null
   const scaleSeries = Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : null
 
+  const missedSet = new Set<number>(Array.isArray(rtmlibResult.missed_frame_indices) ? rtmlibResult.missed_frame_indices : [])
   const perFrame: JsonRecord[] = trackedKeypoints.map((frame, index) => {
     const person = frame?.[0]
     const personScores = trackedScores[index]?.[0]
-    const detected = Array.isArray(person) && person.length > 0
+    // Zero-filled frames (service "no detection") and service-reported misses are not detected.
+    const allZero = Array.isArray(person) && person.every((p) => !p || (p[0] === 0 && p[1] === 0))
+    const detected = Array.isArray(person) && person.length > 0 && !allZero && !missedSet.has(index)
     const meanConfidence = Array.isArray(personScores) && personScores.length > 0
       ? round3(personScores.reduce((sum, s) => sum + (typeof s === 'number' ? s : 0), 0) / personScores.length)
       : null
     let hipCenterX: number | null = null
     let hipCenterY: number | null = null
-    if (detected && person[23] && person[24]) {
+    if (detected && person && person[23] && person[24]) {
       hipCenterX = round3((person[23][0] + person[24][0]) / 2)
       hipCenterY = round3((person[23][1] + person[24][1]) / 2)
     }
@@ -569,8 +597,12 @@ async function buildRunDiagnostics(input: {
       mean_keypoint_confidence_before: rtmlibResult.mean_keypoint_confidence_before_auto_zoom ?? rtmlibResult.meanKeypointConfidenceBeforeAutoZoom ?? null,
       mean_keypoint_confidence_after: rtmlibResult.mean_keypoint_confidence_after_auto_zoom ?? rtmlibResult.meanKeypointConfidenceAfterAutoZoom ?? null,
     },
-    // The pose service logs per-stage timings but does not return them.
-    timings: null,
+    timings_ms: rtmlibResult.timings_ms ?? null,
+    service_build: rtmlibResult.service_build ?? null,
+    service_revision: rtmlibResult.service_revision ?? null,
+    zoom_fallback_frame_indices: rtmlibResult.zoom_fallback_frame_indices ?? null,
+    rejected_frame_indices: rtmlibResult.rejected_frame_indices ?? null,
+    rejected_frame_reasons: rtmlibResult.rejected_frame_reasons ?? null,
   }
 
   const [keypointsHash, metricsHash, calibrationHash] = await Promise.all([
@@ -982,17 +1014,29 @@ Deno.serve(async (req) => {
 
     // STEP 7: Divide frames into phase windows
     await setUploadProgress(upload.id, 'Segmenting the rep into route phases...')
-    const phaseWindows = calculatePhaseWindows(
-      rtmlibResult.frame_count,
-      nodeConfig.phase_breakdown,
-      3,
+    // Movement-anchored Release: the first phase starts at the first sustained
+    // hip movement; remaining frames are split proportionally as before.
+    const releaseAnchor: ReleaseAnchor = computeReleaseAnchor(
+      hipSeries(trackedPersonFrames.keypoints as unknown as FrameKps[], trackedPersonFrames.scores as unknown as FrameScores[]),
+      Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : resolvedCalibration.pixelsPerYard,
     )
+    const anchorFrame = releaseAnchor.applied ? releaseAnchor.frame : 0
+    const phaseWindows = offsetWindows(
+      calculatePhaseWindows(
+        rtmlibResult.frame_count - anchorFrame,
+        nodeConfig.phase_breakdown,
+        3,
+      ),
+      anchorFrame,
+    )
+    logInfo('release_anchor', { uploadId, ...releaseAnchor })
     if (logData.rtmlib) {
       logData.rtmlib.phase_windows = buildPhaseWindowLog(
         phaseWindows,
         nodeConfig.phase_breakdown,
         rtmlibResult.frame_count,
       )
+      logData.rtmlib.release_anchor = releaseAnchor
     }
 
     // STEP 8: Calculate all metrics
@@ -1007,7 +1051,8 @@ Deno.serve(async (req) => {
       (nodeConfig.reference_fallback_behavior as ReferenceFallbackBehavior | undefined) || 'pixel_warning',
       context,
       rtmlibResult.fps,
-      uploadId
+      uploadId,
+      nodeConfig.phase_breakdown,
     )
     logInfo('metric_calculation_complete', {
       uploadId,
@@ -2585,9 +2630,14 @@ async function calculateAllMetrics(
   fallbackBehavior: ReferenceFallbackBehavior,
   context: any,
   fps: number,
-  uploadId?: string | null
+  uploadId?: string | null,
+  phaseBreakdown: any[] = [],
 ) {
   const results: any[] = []
+  const phaseNameById = new Map(parsePhaseBreakdown(phaseBreakdown).map((p) => [p.id, p.name]))
+  // Ball arrival for catch-anchored distance metrics (computed lazily per threshold).
+  const personOnlyKps = keypoints.map((f) => [f?.[personIndex]]) as unknown as FrameKps[]
+  const personOnlyScores = scores.map((f) => [f?.[personIndex]]) as unknown as FrameScores[]
 
   // Filter out metrics flagged as inactive (preserved in storage, excluded from scoring)
   const activeMetrics = (metrics ?? []).filter((m: any) => m?.active !== false)
@@ -2633,6 +2683,7 @@ async function calculateAllMetrics(
       phaseScores,
       personIndex,
       metric.name,
+      phaseNameById.get(mapping.phase_id) ?? null,
     )
     logInfo('metric_window_selected', {
       ...metricContext,
@@ -2686,7 +2737,40 @@ async function calculateAllMetrics(
       case 'angle':
         metricValue = calculateAngle(phaseFrames, personIndex, bilateralDecision.effectiveIndices, phaseScores, mapping.confidence_threshold || 0.70)
         break
-      case 'distance':
+      case 'distance': {
+        const phaseName = phaseNameById.get(mapping.phase_id) ?? ''
+        if (/catch/i.test(phaseName)) {
+          // Catch-anchored: measure around ball arrival, never elsewhere.
+          const threshold = mapping.confidence_threshold || 0.70
+          const arrival = findCatchArrival(personOnlyKps, personOnlyScores, threshold)
+          if (!arrival.ok) {
+            metricValue = { value: null, status: 'skipped', reason: 'catch_frames_unavailable', detail: { catchAnchor: arrival } }
+            break
+          }
+          const from = Math.max(0, arrival.frame - 2)
+          const to = Math.min(keypoints.length - 1, arrival.frame + 2)
+          const catchFrames = keypoints.slice(from, to + 1)
+          const catchScores = scores.slice(from, to + 1)
+          // Centre the ±2 window on arrival even when clamped at the clip end.
+          const result = calculateDistance(
+            catchFrames, personIndex, bilateralDecision.effectiveIndices,
+            metricCalibration, fallbackBehavior, catchScores, threshold,
+          )
+          if (result.value === null && result.status !== 'skipped') {
+            metricValue = { value: null, status: 'skipped', reason: 'catch_frames_unavailable', detail: { catchAnchor: arrival, inner_reason: result.reason ?? null } }
+          } else {
+            metricValue = {
+              ...result,
+              detail: {
+                ...(result.detail || {}),
+                method: 'catch_anchored',
+                catchAnchor: arrival,
+                framesUsed: Array.isArray(result.detail?.framesUsed) ? (result.detail!.framesUsed as number[]).map((f) => f + from) : [],
+              },
+            }
+          }
+          break
+        }
         metricValue = calculateDistance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           metricCalibration,
@@ -2694,6 +2778,7 @@ async function calculateAllMetrics(
           phaseScores, mapping.confidence_threshold || 0.70,
         )
         break
+      }
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
@@ -3445,6 +3530,7 @@ function resolveBilateralSelection(
   phaseScores: VideoScores,
   personIdx: number,
   metricName: string,
+  phaseName: string | null = null,
 ): BilateralDecision {
   const baseIndices = Array.isArray(mapping.keypoint_indices) ? mapping.keypoint_indices : []
   const leftIndices = mapIndicesToSide(baseIndices, 'left')
@@ -3504,10 +3590,19 @@ function resolveBilateralSelection(
   }
 
   if (routeSide) {
-    const effectiveIndices = routeSide === 'left' ? leftIndices : rightIndices
-    logBilateralDecision(metricName, 'route_direction', routeSide, leftIndices, rightIndices, effectiveIndices, null, null)
+    const sideRule = resolveSideRule({
+      sideRule: mapping.side_rule,
+      calculationType: mapping.calculation_type,
+      keypointIndices: baseIndices,
+      phaseName,
+    })
+    const side = sideForRoute(routeSide, sideRule.rule)
+    const effectiveIndices = side === 'left' ? leftIndices : rightIndices
+    logBilateralDecision(metricName, 'route_direction', side, leftIndices, rightIndices, effectiveIndices, null, null)
     return {
-      side: routeSide,
+      side_rule: sideRule.rule,
+      side_rule_source: sideRule.source,
+      side,
       source: 'route_direction',
       baseIndices,
       leftIndices,
@@ -3632,10 +3727,15 @@ function calculateAggregateScore(
   for (const [phaseId, metrics] of Object.entries(phaseGroups)) {
     phase_scores[phaseId] = metrics.reduce((s, m) => s + m.score, 0) / metrics.length
   }
+  // Phases with no scored metric are reported as not measured (never 0).
+  const unmeasured_phases = parsePhaseBreakdown(nodeConfig.phase_breakdown)
+    .filter((p) => !(p.id in phase_scores))
+    .map((p) => ({ id: p.id, name: p.name, status: 'not_measured' as const }))
 
   return {
     aggregate_score: Math.round(aggregate_score),
     phase_scores,
+    unmeasured_phases,
     skipped_metrics: skipped.map(m => m.name).join(', '),
     scoring_config_applied,
   }
@@ -4099,9 +4199,11 @@ async function setUploadProgress(uploadId: string, message: string) {
 
 
 function formatPhaseScores(phaseScores: Record<string, number>, phases: any[]): string {
-  if (!phaseScores || !phases) return ''
+  if (!phaseScores || !Array.isArray(phases)) return ''
+  // Unmeasured phases are left out entirely (never rendered as 0/100).
   return phases
-    .map(p => `${p.name}: ${Math.round(phaseScores[p.id] || 0)}/100`)
+    .filter(p => typeof phaseScores[p.id] === 'number')
+    .map(p => `${p.name}: ${Math.round(phaseScores[p.id])}/100`)
     .join(', ')
 }
 
@@ -4118,6 +4220,7 @@ const SKIP_REASON_TEXT: Record<string, string> = {
   implausible_value: 'the measurement was outside a physically possible range',
   insufficient_valid_frames: 'not enough clearly tracked frames',
   no_calibration_available: 'distance calibration unavailable',
+  catch_frames_unavailable: 'the catch frames were not clearly tracked',
 }
 
 function formatSkippedMetrics(metrics: any[]): string {

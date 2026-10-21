@@ -16,3 +16,9 @@
 - [x] Pose-service diff (item 2) prepared separately — deploy order: repo service as-is → analyzer → diff
 - [ ] Deploy pose service (a) then diff (c), rerun 4K30 twice to confirm identical results — waiting on user deploy
 - [ ] Re-check catch-frame scale vs manual 170 px/yd estimate (frame check reads ~215–225) — waiting on user
+
+## Run 44c52897 fixes (approved Oct 21)
+- [x] Stage 1 pose service: 150 px zoom gate, path-covering crop, IMAGE-mode exit fallback, body-height-relative partial-detection rejection, timings + build id (framing.py tested)
+- [ ] Deploy Stage 1 from Cloud Shell (set SERVICE_BUILD) — waiting on user
+- [x] Stage 2 analyzer: outside-foot plant rule (side_rule / Break heuristic), movement-anchored Release, catch-anchored Hands, not-measured phases out of prompt, export fixes; deployed
+- [ ] Rerun 4K30 Slant twice after Stage 1 deploy and compare to 44c52897 — waiting on user deploy

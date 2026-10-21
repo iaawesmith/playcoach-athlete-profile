@@ -413,7 +413,8 @@ export type PipelineMetricStatus = "scored" | "flagged" | "skipped" | "failed";
 export interface PipelinePhaseScore {
   id: string;
   name: string;
-  score: number;
+  /** null = no scored metric in this phase ("not measured"). */
+  score: number | null;
 }
 
 export interface PipelineDetectedError {

@@ -1066,6 +1066,16 @@ export function TestingPanel({ node }: TestingPanelProps) {
             </h4>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {result.phaseBreakdown.map((phase) => {
+                if (phase.score === null) {
+                  return (
+                    <div key={phase.id} className="rounded-xl border border-white/5 bg-surface-container-high p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold text-on-surface">{phase.name}</span>
+                        <span className="rounded-lg bg-surface-container-lowest px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Not measured</span>
+                      </div>
+                    </div>
+                  );
+                }
                 const phaseStyles = scoreClasses(phase.score);
                 return (
                   <div key={phase.id} className="rounded-xl border border-white/5 bg-surface-container-high p-4">
