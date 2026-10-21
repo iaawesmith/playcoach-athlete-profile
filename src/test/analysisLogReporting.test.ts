@@ -26,7 +26,7 @@ describe("Analysis Log reporting", () => {
   it("prefers recorded passing active-window checks over clip-global marginal status", () => {
     const nodeMetric = { ...metrics[0], keypoint_mapping: { keypoint_indices: [25] } } as KeyMetric;
     const log = { rtmlib: { keypoint_confidence: [{ index: 25, status: "MARGINAL" }] } } as AnalysisLogData;
-    const result = { name: "Plant Leg Extension", detail: { confidenceDiagnostics: { pass_ratio: 1, threshold: 0.8, per_keypoint_avg_confidence: { "25": 0.7876 } } } } as PipelineMetricResult;
+    const result: PipelineMetricResult = { name: "Plant Leg Extension", unit: "degrees", value: 139.61, elite_target: "140", weight: 59, status: "scored", detail: { confidenceDiagnostics: { pass_ratio: 1, threshold: 0.8, per_keypoint_avg_confidence: { "25": 0.7876 } } } };
     expect(buildAnalysisLogReporting(log, [nodeMetric], [result]).warnings).toHaveLength(0);
     const failing = { ...result, detail: { confidenceDiagnostics: { pass_ratio: 0.6, threshold: 0.8, per_keypoint_avg_confidence: { "25": 0.3 } } } };
     expect(buildAnalysisLogReporting(log, [nodeMetric], [failing]).warnings).toHaveLength(1);
