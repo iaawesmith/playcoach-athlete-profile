@@ -28,6 +28,7 @@ import {
   median,
   passesWindowGate,
 } from './quality.ts'
+import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -975,7 +976,18 @@ Deno.serve(async (req) => {
 
     // STEP 5: Apply temporal smoothing to keypoints
     await setUploadProgress(upload.id, 'Applying temporal smoothing to tracked keypoints...')
-    const smoothedKeypoints = applyTemporalSmoothing(rtmlibResult.keypoints, rtmlibResult.scores, nodeConfig)
+    const smoothingExcluded = new Set<number>([
+      ...(Array.isArray(rtmlibResult.missed_frame_indices) ? rtmlibResult.missed_frame_indices : []),
+      ...(Array.isArray(rtmlibResult.rejected_frame_indices) ? rtmlibResult.rejected_frame_indices : []),
+    ])
+    const smoothing = applyTemporalSmoothing(rtmlibResult.keypoints, rtmlibResult.scores, nodeConfig, smoothingExcluded)
+    const smoothedKeypoints = smoothing.keypoints
+    if (logData.rtmlib) {
+      ;(logData.rtmlib as Record<string, unknown>).temporal_smoothing = {
+        keypoint_windows: smoothing.keypointWindows,
+        excluded_frames: Array.from(smoothingExcluded).sort((a, b) => a - b),
+      }
+    }
     const smoothedScores = rtmlibResult.scores
 
     // STEP 6: Lock onto target person
@@ -1394,7 +1406,9 @@ function buildMetricLogEntries(metricResults: any[], phaseWindows: Record<string
       calculation_type: typeof metric?.keypoint_mapping?.calculation_type === 'string'
         ? metric.keypoint_mapping.calculation_type
         : 'unknown',
-      temporal_window: typeof metric?.keypoint_mapping?.temporal_window === 'number' && metric.keypoint_mapping.temporal_window > 0
+      temporal_window: typeof metric?.temporal_window === 'number' && metric.temporal_window > 0
+        ? metric.temporal_window
+        : typeof metric?.keypoint_mapping?.temporal_window === 'number' && metric.keypoint_mapping.temporal_window > 0
         ? metric.keypoint_mapping.temporal_window
         : DEFAULT_TEMPORAL_WINDOW[metric?.keypoint_mapping?.calculation_type as string] ?? 0,
       extracted_values: value !== null ? formatNumber(value) : summarizeValue(detail),
@@ -2284,14 +2298,16 @@ function buildTemporalSmoothingConfig(nodeConfig: unknown) {
     ? ((nodeConfig as Record<string, unknown>).key_metrics as unknown[])
     : []
 
-  const keypointSettings = new Map<number, { windowSize: number; confidenceThreshold: number }>()
+  const keypointSettings = new Map<number, KeypointSmoothingSetting>()
 
   for (const metric of metrics) {
     const mapping = extractMetricMapping(metric)
     const keypointIndices = extractMetricKeypointIndices(metric)
     if (!mapping || keypointIndices.length === 0) continue
 
-    const windowSize = normalizeWindowSize(mapping.temporal_window)
+    // The metric's top-level temporal_window is authoritative; mapping value is a legacy fallback.
+    const topLevel = (metric as Record<string, unknown>).temporal_window
+    const windowSize = normalizeWindowSize(isFiniteNumber(topLevel) && topLevel > 0 ? topLevel : mapping.temporal_window)
     const confidenceThreshold = normalizeConfidenceThreshold(mapping.confidence_threshold)
 
     for (const keypointIndex of keypointIndices) {
@@ -2303,140 +2319,30 @@ function buildTemporalSmoothingConfig(nodeConfig: unknown) {
     }
   }
 
-  const keypointIndices = Array.from(keypointSettings.keys()).sort((a, b) => a - b)
-  const defaultWindowSize = keypointIndices.length > 0
-    ? Math.max(...keypointIndices.map((index) => keypointSettings.get(index)?.windowSize ?? 3))
-    : 3
-
-  return { keypointIndices, keypointSettings, defaultWindowSize }
+  return { keypointSettings }
 }
 
-function interpolateLowConfidenceGap(series: Array<number | null>, reliableFrames: boolean[], maxGap = 5): Array<number | null> {
-  const repaired = [...series]
-  let frameIndex = 0
-
-  while (frameIndex < repaired.length) {
-    if (reliableFrames[frameIndex]) {
-      frameIndex += 1
-      continue
-    }
-
-    const gapStart = frameIndex
-    while (frameIndex < repaired.length && !reliableFrames[frameIndex]) {
-      frameIndex += 1
-    }
-
-    const gapEnd = frameIndex - 1
-    const gapLength = gapEnd - gapStart + 1
-    const leftIndex = gapStart - 1
-    const rightIndex = frameIndex
-
-    if (
-      gapLength > maxGap ||
-      leftIndex < 0 ||
-      rightIndex >= repaired.length ||
-      !reliableFrames[leftIndex] ||
-      !reliableFrames[rightIndex] ||
-      repaired[leftIndex] === null ||
-      repaired[rightIndex] === null
-    ) {
-      continue
-    }
-
-    const leftValue = repaired[leftIndex] as number
-    const rightValue = repaired[rightIndex] as number
-    const span = rightIndex - leftIndex
-
-    for (let offset = 1; offset < span; offset += 1) {
-      const ratio = offset / span
-      repaired[leftIndex + offset] = leftValue + (rightValue - leftValue) * ratio
-    }
-  }
-
-  return repaired
-}
-
-function applyCenteredMovingAverage(series: Array<number | null>, windowSize: number): Array<number | null> {
-  const halfWindow = Math.floor(windowSize / 2)
-
-  return series.map((value, index) => {
-    const windowValues: number[] = []
-    for (let frameIndex = Math.max(0, index - halfWindow); frameIndex <= Math.min(series.length - 1, index + halfWindow); frameIndex += 1) {
-      const frameValue = series[frameIndex]
-      if (frameValue !== null) {
-        windowValues.push(frameValue)
-      }
-    }
-
-    if (windowValues.length < 2) {
-      return value
-    }
-
-    return average(windowValues)
-  })
-}
-
-function cloneVideoKeypoints(keypoints: VideoKeypoints): VideoKeypoints {
-  return keypoints.map((frame) => frame.map((person) => person.map((point) => [point[0], point[1]] as Point)))
-}
-
-function applyTemporalSmoothing(keypoints: VideoKeypoints, scores: VideoScores, nodeConfig: unknown): VideoKeypoints {
-  const { keypointIndices, keypointSettings, defaultWindowSize } = buildTemporalSmoothingConfig(nodeConfig)
-  if (keypoints.length === 0 || keypointIndices.length === 0) {
-    return keypoints
-  }
-
-  const smoothed = cloneVideoKeypoints(keypoints)
-  const frameCount = keypoints.length
-  const maxPersonCount = keypoints.reduce((maxCount, frame) => Math.max(maxCount, frame.length), 0)
-
-  for (let personIndex = 0; personIndex < maxPersonCount; personIndex += 1) {
-    for (const keypointIndex of keypointIndices) {
-      const settings = keypointSettings.get(keypointIndex)
-      if (!settings) continue
-
-      const xSeries: Array<number | null> = Array.from({ length: frameCount }, () => null)
-      const ySeries: Array<number | null> = Array.from({ length: frameCount }, () => null)
-      const reliableFrames = Array.from({ length: frameCount }, () => false)
-
-      for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
-        const point = keypoints[frameIndex]?.[personIndex]?.[keypointIndex]
-        const score = scores[frameIndex]?.[personIndex]?.[keypointIndex]
-        if (!isValidPoint(point)) continue
-
-        xSeries[frameIndex] = point[0]
-        ySeries[frameIndex] = point[1]
-        reliableFrames[frameIndex] = isFiniteNumber(score) && score >= settings.confidenceThreshold
-      }
-
-      const repairedX = interpolateLowConfidenceGap(xSeries, reliableFrames)
-      const repairedY = interpolateLowConfidenceGap(ySeries, reliableFrames)
-      const smoothedX = applyCenteredMovingAverage(repairedX, settings.windowSize)
-      const smoothedY = applyCenteredMovingAverage(repairedY, settings.windowSize)
-
-      for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
-        const nextX = smoothedX[frameIndex]
-        const nextY = smoothedY[frameIndex]
-        if (nextX === null || nextY === null || !smoothed[frameIndex]?.[personIndex]?.[keypointIndex]) continue
-
-        smoothed[frameIndex][personIndex][keypointIndex] = [nextX, nextY]
-      }
-    }
-  }
-
-  const keypointWindowMap = Object.fromEntries(
-    keypointIndices.map((keypointIndex) => [String(keypointIndex), keypointSettings.get(keypointIndex)?.windowSize ?? 3])
+function applyTemporalSmoothing(
+  keypoints: VideoKeypoints,
+  scores: VideoScores,
+  nodeConfig: unknown,
+  excludedFrames: Set<number>,
+): { keypoints: VideoKeypoints; keypointWindows: Record<string, number> } {
+  const { keypointSettings } = buildTemporalSmoothingConfig(nodeConfig)
+  const keypointWindows = Object.fromEntries(
+    Array.from(keypointSettings.keys()).sort((a, b) => a - b).map((k) => [String(k), keypointSettings.get(k)?.windowSize ?? 3])
   )
+  if (keypoints.length === 0 || keypointSettings.size === 0) {
+    return { keypoints, keypointWindows }
+  }
+  const smoothed = smoothKeypoints(keypoints, scores, keypointSettings, excludedFrames) as VideoKeypoints
   logInfo('temporal_smoothing_applied', {
-    message: `Applied temporal smoothing (window = ${defaultWindowSize} frames) for ${keypointIndices.length} keypoints`,
-    windowSize: defaultWindowSize,
-    keypointCount: keypointIndices.length,
-    keypointWindows: keypointWindowMap,
+    message: `Applied temporal smoothing for ${keypointSettings.size} keypoints`,
+    keypointWindows,
+    excludedFrameCount: excludedFrames.size,
   })
-
-  return smoothed
+  return { keypoints: smoothed, keypointWindows }
 }
-
 
 function lockTargetPerson(
   keypoints: VideoKeypoints,
