@@ -293,6 +293,8 @@ export interface MetricLogEntry {
   keypoints: string;
   calculation_type: string;
   temporal_window: number;
+  /** Reporting-only actual sample count, separate from configured measurement window. */
+  frames_used?: number;
   extracted_values?: string;
   calculated_result: string;
   unit: string;
@@ -329,6 +331,10 @@ export interface AnalysisLogData {
     calibration_source?: string;
     pixels_per_yard?: number;
     processing_time_ms?: number;
+    service_revision?: string | null;
+    service_build?: string | null;
+    timings_ms?: Record<string, number>;
+    temporal_smoothing?: { smoothing_window_frames?: number; keypoint_windows?: Record<string, number> };
     person_detected?: boolean;
     average_keypoint_confidence?: number;
     reliable_frame_percentage?: number;

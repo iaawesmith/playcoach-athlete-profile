@@ -1352,7 +1352,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         </div>
       )}
 
-      <AnalysisLog logData={result?.log_data} nodeName={node.name} hasResult={!!result} />
+      <AnalysisLog logData={result?.log_data} nodeName={node.name} nodeMetrics={node.key_metrics} metricResults={result?.metricResults ?? []} hasResult={!!result} />
     </div>
   );
 }

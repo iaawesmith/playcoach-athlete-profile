@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Correct Analysis Log reporting only: node measurement windows, separate smoothing/frames, active-used keypoint warnings, service identity/timings, optional variable display; real result 3e01efe2 verified in browser (3/15/10, smoothing 3, zero warnings, PASS); 11 reporting/export tests pass.
+
 - [x] Audit and lock library run context, explicit changed-field overrides, fresh pre-submit comparison, clip-duration cap, edit link and result context; no analyzer or node changes. Verified UI, saved height override, mismatch blocking, Clear, and 2.27s preflight rejection; 32 tests pass.
 
 - [x] Audit the specified 15 nodes' phase descriptions, coaching cues, and metric descriptions without changing node data.

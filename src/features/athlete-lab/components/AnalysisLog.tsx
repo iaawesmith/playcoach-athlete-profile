@@ -1,11 +1,15 @@
 import { useState, useRef } from "react";
-import type { AnalysisLogData } from "../types";
+import type { AnalysisLogData, KeyMetric, PipelineMetricResult } from "../types";
+
+import { buildAnalysisLogReporting, isOptionalLogVariable } from "../utils/analysisLogReporting";
 
 type CopyState = "idle" | "success" | "error";
 
 interface AnalysisLogProps {
   logData: AnalysisLogData | null | undefined;
   nodeName: string;
+  nodeMetrics: KeyMetric[];
+  metricResults: PipelineMetricResult[];
   hasResult: boolean;
 }
 
@@ -34,7 +38,7 @@ function deriveOverallStatus(logData: AnalysisLogData): LogStatus {
   const poseEngineLog = logData.rtmlib;
   if (logData.preflight?.checks?.some(c => c.result === "FAIL")) return "ERROR";
   if (logData.claude_api?.status === "FAILED") return "ERROR";
-  if (poseEngineLog?.keypoint_confidence?.some(kp => kp.status === "UNRELIABLE")) return "WARN";
+  if (poseEngineLog?.keypoint_confidence?.some(kp => kp.status !== "RELIABLE")) return "WARN";
   if (logData.metrics?.some(m => m.status === "SKIPPED" || m.status === "FLAGGED")) return "WARN";
   if (logData.preflight?.checks?.some(c => c.result === "WARN")) return "WARN";
   return "PASS";
@@ -104,7 +108,7 @@ function CollapsibleSection({ title, status, defaultOpen = false, children }: {
       </button>
       <div
         className="overflow-hidden transition-all duration-300"
-        style={{ maxHeight: open ? "2000px" : "0px", opacity: open ? 1 : 0 }}
+        style={{ maxHeight: open ? "10000px" : "0px", opacity: open ? 1 : 0 }}
       >
         <div className="px-4 py-4 space-y-3 bg-surface-container">
           {children}
@@ -163,7 +167,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string
   md += `---\n\n## Pose Engine Output\n\n`;
   const r = logData.rtmlib;
   if (r) {
-    md += `Solution Class: ${r.solution_class ?? "N/A"}\nModel: ${r.model ?? "N/A"}\nBackend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nProcessing time: ${r.processing_time_ms ?? "N/A"}ms\n\n`;
+    md += `Solution Class: ${r.solution_class ?? "N/A"}\nModel: ${r.model ?? "N/A"}\nBackend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nService revision: ${r.service_revision ?? "not recorded"}\nService build: ${r.service_build ?? "not recorded"}\nProcessing time (total): ${r.timings_ms?.total ?? r.processing_time_ms ?? "not recorded"}ms\nPose loop: ${r.timings_ms?.pose_loop ?? "not recorded"}ms\n\n`;
     if (r.phase_windows?.length) {
       md += `Phase Frame Windows:\n`;
       for (const pw of r.phase_windows) {
@@ -182,7 +186,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string
   // Metrics
   md += `---\n\n## Metric Calculations\n\n`;
   for (const m of logData.metrics ?? []) {
-    md += `### ${m.name} (${m.weight}%)\nPhase: ${m.phase}\nFrames: ${m.frames_evaluated} (${m.frame_range})\nKeypoints: ${m.keypoints}\nCalc type: ${m.calculation_type}\nTemporal window: ${m.temporal_window} frames\nRaw value: ${m.calculated_result} ${m.unit}\nElite target: ${m.elite_target}\nDeviation: ${m.deviation}\nRaw score: ${m.raw_score}\nWeighted contribution: ${m.weighted_contribution}\nStatus: ${m.status}${m.skip_reason ? `\nReason: ${m.skip_reason}` : ""}\n\n`;
+    md += `### ${m.name} (${m.weight}%)\nPhase: ${m.phase}\nFrames: ${m.frames_evaluated} (${m.frame_range})\nKeypoints: ${m.keypoints}\nCalc type: ${m.calculation_type}\nTemporal window: ${m.temporal_window} frames\nSmoothing: ${logData.rtmlib?.temporal_smoothing?.smoothing_window_frames ?? "not recorded"} frames\nFrames used: ${m.frames_used ?? m.frames_evaluated}\nRaw value: ${m.calculated_result} ${m.unit}\nElite target: ${m.elite_target}\nDeviation: ${m.deviation}\nRaw score: ${m.raw_score}\nWeighted contribution: ${m.weighted_contribution}\nStatus: ${m.status}${m.skip_reason ? `\nReason: ${m.skip_reason}` : ""}\n\n`;
   }
   if (logData.aggregate) {
     md += `AGGREGATE:\n  Total Mastery Score: ${logData.aggregate.mastery_score}/100\n  Confidence-adjusted: ${logData.aggregate.confidence_adjusted ? "Yes" : "No"}\n  Metrics skipped: ${logData.aggregate.metrics_skipped} of ${logData.aggregate.metrics_total}\n\n`;
@@ -221,7 +225,19 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string
   return md;
 }
 
-export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) {
+export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricResults, hasResult }: AnalysisLogProps) {
+  const reporting = storedLog ? buildAnalysisLogReporting(storedLog, nodeMetrics, metricResults) : null;
+  const logData = storedLog && reporting ? {
+    ...storedLog,
+    metrics: reporting.metrics,
+    rtmlib: { ...storedLog.rtmlib, keypoint_confidence: (storedLog.rtmlib?.keypoint_confidence ?? []).filter(kp => kp.status === "RELIABLE" || reporting.warningIndices.has(kp.index)) },
+    claude_api: storedLog.claude_api ? {
+      ...storedLog.claude_api,
+      missing_variables: storedLog.claude_api.missing_variables?.filter(name => !isOptionalLogVariable(name)),
+      variables_injected: storedLog.claude_api.variables_injected?.map(variable => !variable.present && isOptionalLogVariable(variable.name)
+        ? { ...variable, value_summary: "none", present: true } : variable),
+    } : undefined,
+  } : storedLog;
   const [expanded, setExpanded] = useState(false);
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const copyTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -278,7 +294,8 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
 
   const handleCopy = async () => {
     try {
-      const md = generateLogMarkdown(logData, nodeName);
+      const md = generateLogMarkdown(logData, nodeName) + (reporting?.informational.length
+        ? `\nInformational keypoints (not counted as warnings):\n${reporting.informational.map(kp => `Index ${kp.index}: ${kp.status} — ${reporting.activeIndices.has(kp.index) ? "active measurement window passed" : "not used by active metrics"}`).join("\n")}\n` : "");
       await navigator.clipboard.writeText(md);
       setCopyState("success");
     } catch {
@@ -408,7 +425,11 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
                   <div className="text-on-surface">Backend: {logData.rtmlib.backend ?? "N/A"}</div>
                   <div className="text-on-surface">Total frames: {logData.rtmlib.total_frames ?? "N/A"}</div>
                   <div className="text-on-surface">Source FPS: {logData.rtmlib.source_fps ?? "N/A"}</div>
-                  <div className="text-on-surface">Processing time: {logData.rtmlib.processing_time_ms ?? "N/A"}ms</div>
+                  <div className="text-on-surface">Service revision: {logData.rtmlib.service_revision ?? "not recorded"}</div>
+                  <div className="text-on-surface">Service build: {logData.rtmlib.service_build ?? "not recorded"}</div>
+                  <div className="text-on-surface">Processing time (total): {logData.rtmlib.timings_ms?.total ?? logData.rtmlib.processing_time_ms ?? "not recorded"} ms</div>
+                  <div className="text-on-surface">Pose loop: {logData.rtmlib.timings_ms?.pose_loop ?? "not recorded"} ms</div>
+                  <div className="text-on-surface">Confidence warnings: {reporting?.warnings.length ?? 0}</div>
                 </div>
 
                 {logData.rtmlib.phase_windows?.length ? (
@@ -452,6 +473,11 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
                           </div>
                         );
                       })}
+                      {reporting?.informational.map(kp => (
+                        <div key={`info-${kp.index}`} className={`${MONO} ${DIM}`}>
+                          Index {kp.index} — {kp.status} · Informational: {reporting.activeIndices.has(kp.index) ? "active measurement window passed" : "not used by active metrics"} · Mean {kp.mean_confidence} · {kp.percent_below}% frames below
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ) : null}
@@ -479,6 +505,8 @@ export function AnalysisLog({ logData, nodeName, hasResult }: AnalysisLogProps) 
                         <div>Keypoints: {m.keypoints}</div>
                         <div>Calc type: {m.calculation_type}</div>
                         <div>Temporal window: {m.temporal_window} frames</div>
+                        <div>Smoothing: {logData.rtmlib?.temporal_smoothing?.smoothing_window_frames ?? "not recorded"} frames</div>
+                        <div>Frames used: {m.frames_used ?? m.frames_evaluated}</div>
                         {m.extracted_values && <div>Extracted values: [{m.extracted_values}]</div>}
                         <div>Result: {m.calculated_result} {m.unit}</div>
                         <div>Elite target: {m.elite_target}</div>
