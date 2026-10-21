@@ -1,11 +1,13 @@
 """Auto-zoom decision + landmark reverse-mapping.
 
 Strategy:
-  - Sample 6 frames evenly across the clip, run pose on them.
-  - Compute athlete bbox fill ratio (bbox_area / frame_area).
-  - If avg fill >= 0.30, skip zoom.
-  - Else crop a region centered on the median hip, sized to bring fill ~ 0.45,
-    capped at MAX_FACTOR (1.75x). Resize cropped region back to original (W, H).
+  - Sample frames evenly across the clip, run pose on them (IMAGE mode).
+  - If the median athlete height is >= MIN_ATHLETE_HEIGHT_PX (150 px), skip zoom.
+  - Else build a crop that contains the union of every sampled athlete box plus
+    margin (so the whole path stays in frame), capped at MAX_FACTOR (1.75x).
+    Resize cropped region back to original (W, H).
+  - fill ratio is reported as athlete height / frame height (area against a
+    4K frame was ~0.001 for any normal sideline clip).
   - Track padding/crop so landmarks can be reverse-mapped to original coords.
   - Safety-backoff: if mean confidence drops post-zoom vs pre-zoom, undo.
 """
@@ -18,16 +20,17 @@ from typing import Any
 import cv2
 import numpy as np
 
+from . import framing
 from .pose import LANDMARK_COUNT, PoseEngine, PoseFrame
 
 
 def _resolve_sample_count() -> int:
-    """AUTOZOOM_SAMPLE_COUNT env override, clamped to [3, 12]. Default 4."""
-    raw = os.environ.get("AUTOZOOM_SAMPLE_COUNT", "4")
+    """AUTOZOOM_SAMPLE_COUNT env override, clamped to [3, 12]. Default 8."""
+    raw = os.environ.get("AUTOZOOM_SAMPLE_COUNT", "8")
     try:
         val = int(raw)
     except (TypeError, ValueError):
-        val = 4
+        val = 8
     return max(3, min(12, val))
 
 
@@ -138,47 +141,35 @@ def _decide_with_probe(
     sample_results = [engine.detect(frames[i]) for i in idxs]
     state.mean_conf_before = _mean_conf(sample_results)
 
-    fills = [_bbox_fill(pf, width, height) for pf in sample_results]
-    avg_fill = float(sum(fills) / len(fills)) if fills else 0.0
-    state.final_fill_ratio = round(avg_fill, 4)
+    heights = [
+        h for h in (framing.athlete_height(pf.keypoints, pf.scores) for pf in sample_results if pf.detected)
+        if h is not None
+    ]
+    med_h = framing.median(heights)
+    state.final_fill_ratio = round(med_h / float(height), 4) if med_h else 0.0
 
-    if avg_fill >= FILL_THRESHOLD:
+    if med_h is None:
         state.applied = False
-        state.reason = f"fill_ratio {avg_fill:.2f} >= {FILL_THRESHOLD}"
+        state.reason = "no reliable athlete box in probe frames"
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    hip = _median_hip(sample_results)
-    if hip is None:
+    if med_h >= framing.MIN_ATHLETE_HEIGHT_PX:
         state.applied = False
-        state.reason = "no reliable hip landmarks for centering"
+        state.reason = f"athlete height {med_h:.0f}px >= {framing.MIN_ATHLETE_HEIGHT_PX:.0f}px"
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    # Compute factor needed to reach TARGET_FILL, capped at MAX_FACTOR.
-    if avg_fill <= 0.0:
-        factor = MAX_FACTOR
-    else:
-        factor = min(MAX_FACTOR, (TARGET_FILL / avg_fill) ** 0.5)
-    factor = max(1.0, factor)
-    if factor <= 1.0:
+    boxes = [b for b in (framing.bbox(pf.keypoints, pf.scores) for pf in sample_results if pf.detected) if b]
+    crop = framing.path_crop(boxes, med_h, width, height, MAX_FACTOR)
+    if crop is None:
         state.applied = False
-        state.reason = "no zoom needed"
+        state.reason = "athlete path too wide to crop usefully"
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    # Crop window (in original coords) sized 1/factor of (W, H), centered on hip.
-    cw = max(1, int(round(width / factor)))
-    ch = max(1, int(round(height / factor)))
-    cx, cy = hip
-    x0 = int(round(cx - cw / 2.0))
-    y0 = int(round(cy - ch / 2.0))
-    # Clamp so the crop sits inside the frame.
-    x0 = max(0, min(width - cw, x0))
-    y0 = max(0, min(height - ch, y0))
-
-    crop_rect = {"x": x0, "y": y0, "w": cw, "h": ch}
-    # Padding tells how much was trimmed off each edge of the original frame.
+    crop_rect, factor = crop
+    x0, y0, cw, ch = crop_rect["x"], crop_rect["y"], crop_rect["w"], crop_rect["h"]
     padding = {
         "top": y0,
         "bottom": height - (y0 + ch),
@@ -217,7 +208,9 @@ def _decide_with_probe(
     state.factor = round(factor, 4)
     state.crop_rect = crop_rect
     state.padding = padding
-    state.reason = f"fill_ratio {avg_fill:.2f} < {FILL_THRESHOLD}"
+    state.reason = (
+        f"athlete height {med_h:.0f}px < {framing.MIN_ATHLETE_HEIGHT_PX:.0f}px; path crop {factor:.3f}x"
+    )
     return processed, state
 
 
