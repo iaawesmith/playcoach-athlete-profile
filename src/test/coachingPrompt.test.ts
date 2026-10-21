@@ -37,3 +37,37 @@ describe('coaching prompt grounding', () => {
     expect(renderTemplate('Adjust for {{athlete_level}}', { athlete_level: 'High School' })).toBe('Adjust for High School')
   })
 })
+
+import { buildFallbackFeedback, checkFeedback } from '../../supabase/functions/analyze-athlete-video/prompt'
+
+describe('coaching feedback post-check', () => {
+  it('always bans level-of-play words', () => {
+    expect(checkFeedback('Your break was elite.', false).violations).toEqual(['level-of-play word "elite"'])
+  })
+
+  it('bans other players only on solo reps', () => {
+    expect(checkFeedback('Beat press off the line.', true).passed).toBe(false)
+    expect(checkFeedback('Beat press off the line.', false).passed).toBe(true)
+  })
+
+  it('allows movement words framed as checks', () => {
+    expect(checkFeedback('Check your film for stuttering.', true).passed).toBe(true)
+  })
+
+  it('fails over 150 words', () => {
+    expect(checkFeedback(Array(151).fill('go').join(' '), true).passed).toBe(false)
+    expect(checkFeedback(Array(150).fill('go').join(' '), true).passed).toBe(true)
+  })
+
+  it('fallback uses whole sentences and drops ones naming other players on solo reps', () => {
+    const text = buildFallbackFeedback(
+      [{ name: 'Release Speed', status: 'scored', value: 3.76, unit: 'mph', elite_target: 7 }],
+      [{ name: 'Slow release off the line', correction: 'You start slowly. A slow start lets the defender stay square.', metric: 'Release Speed' }],
+      true,
+    )
+    expect(text).toContain('Release Speed: 3.76 mph against a 7 mph target (3.24 mph below target).')
+    expect(text).toContain('You start slowly.')
+    expect(text).not.toContain('defender')
+    expect(checkFeedback(text, true).passed).toBe(true)
+  })
+})
