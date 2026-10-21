@@ -59,15 +59,46 @@ describe('coaching feedback post-check', () => {
     expect(checkFeedback(Array(150).fill('go').join(' '), true).passed).toBe(true)
   })
 
-  it('fallback uses whole sentences and drops ones naming other players on solo reps', () => {
+  it('fallback addresses the athlete without using node correction text', () => {
     const text = buildFallbackFeedback(
       [{ name: 'Release Speed', status: 'scored', value: 3.76, unit: 'mph', elite_target: 7 }],
       [{ name: 'Slow release off the line', correction: 'You start slowly. A slow start lets the defender stay square.', metric: 'Release Speed' }],
       true,
     )
-    expect(text).toContain('Release Speed: 3.76 mph against a 7 mph target (3.24 mph below target).')
-    expect(text).toContain('You start slowly.')
+    expect(text).toContain('Your Release Speed: 3.76 mph against a 7 mph target (3.24 mph below target).')
+    expect(text).not.toContain('You start slowly.')
     expect(text).not.toContain('defender')
     expect(checkFeedback(text, true).passed).toBe(true)
+  })
+
+  it.each(['defense', 'coverage', 'window'])('bans %s only on solo reps', (word) => {
+    expect(checkFeedback(`Improve your ${word}.`, true).passed).toBe(false)
+    expect(checkFeedback(`Improve your ${word}.`, false).passed).toBe(true)
+  })
+
+  it('uses the specified Release Speed drill', () => {
+    const text = buildFallbackFeedback(
+      [{ name: 'Release Speed', status: 'scored', value: 3.76, unit: 'mph', elite_target: 7 }],
+      [{ name: 'Slow release off the line', metric: 'Release Speed' }], true,
+    )
+    expect(text).toContain('five 5-yard starts from your stance at full effort, pushing the ground back hard on the first two steps.')
+  })
+
+  it('describes Hip Stability 0.01 against 0.05 as inside the target', () => {
+    expect(buildFallbackFeedback(
+      [{ name: 'Hip Stability', status: 'scored', value: 0.01, unit: 'yd', elite_target: 0.05 }], [], true,
+    )).toContain('Your Hip Stability: 0.01 yd against a 0.05 yd target (inside the target).')
+  })
+
+  it('retains the generic drill for other errors', () => {
+    expect(buildFallbackFeedback([], [{ name: 'Rounding the break' }], true))
+      .toContain('five reps focused only on this, working to bring this area, then film one and compare.')
+  })
+
+  it('never returns a failing fallback even with prohibited metric and error names', () => {
+    expect(checkFeedback(buildFallbackFeedback(
+      [{ name: 'Coverage window', status: 'scored', value: 1, elite_target: 2 }],
+      [{ name: 'Elite defense', correction: 'The athlete was elite.' }], true,
+    ), true).passed).toBe(true)
   })
 })
