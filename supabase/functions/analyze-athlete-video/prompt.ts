@@ -121,3 +121,95 @@ export function renderTemplate(template: string, variables: Record<string, strin
   }
   return out
 }
+
+// ---------------------------------------------------------------------------
+// Post-check on the model's coaching feedback.
+
+export const MAX_FEEDBACK_WORDS = 150
+
+const ALWAYS_BANNED: Array<[string, RegExp]> = [
+  ['elite', /\belite\b/i],
+  ['NFL', /\bNFL\b/i],
+  ['D1', /\bD-?1\b|\bDivision (I|1)\b/i],
+  ['pro-level', /\bpro[- ]level\b/i],
+  ['textbook', /\btextbook\b/i],
+  ['college-level', /\bcollege[- ]level\b/i],
+]
+
+const SOLO_BANNED: Array<[string, RegExp]> = [
+  ['defender', /\bdefenders?\b/i],
+  ['DB', /\bDBs?\b/],
+  ['cornerback', /\bcornerbacks?\b|\bcorners?\b/i],
+  ['press', /\bpress\b/i],
+  ['jam', /\bjam(s|med|ming)?\b/i],
+  ['separation', /\bseparation\b/i],
+  ['quarterback', /\bquarterbacks?\b|\bQBs?\b/i],
+  ['snap', /\bsnap(s|ped|ping)?\b/i],
+  ['throw', /\bthrow(s|n|ing)?\b|\bthrew\b/i],
+]
+
+export type FeedbackCheck = { passed: boolean; violations: string[]; word_count: number }
+
+export function countWords(text: string): number {
+  const t = text.trim()
+  return t.length === 0 ? 0 : t.split(/\s+/).length
+}
+
+export function checkFeedback(text: string, solo: boolean): FeedbackCheck {
+  const violations: string[] = []
+  for (const [label, re] of ALWAYS_BANNED) if (re.test(text)) violations.push(`level-of-play word "${label}"`)
+  if (solo) for (const [label, re] of SOLO_BANNED) if (re.test(text)) violations.push(`"${label}" on a solo rep`)
+  const word_count = countWords(text)
+  if (word_count > MAX_FEEDBACK_WORDS) violations.push(`${word_count} words (limit ${MAX_FEEDBACK_WORDS})`)
+  if (text.trim().length === 0) violations.push('empty response')
+  return { passed: violations.length === 0, violations, word_count }
+}
+
+export function splitSentences(text: string): string[] {
+  return (text.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) ?? []).map((s) => s.trim()).filter(Boolean)
+}
+
+/** Keep whole sentences that pass the check; drop the rest. */
+function cleanSentences(text: string, solo: boolean): string[] {
+  return splitSentences(text).filter((s) => checkFeedback(s, solo).violations.every((v) => v.includes('words')))
+}
+
+type FallbackMetric = MetricResultLike
+type FallbackError = { name: string; correction?: string | null; metric?: string | null }
+
+/**
+ * Built from the data only: each scored metric against its target, the
+ * triggered error with the node's correction, and one drill for it. Whole
+ * sentences only; stays under the word limit by dropping trailing sentences.
+ */
+export function buildFallbackFeedback(
+  metrics: FallbackMetric[],
+  errors: FallbackError[],
+  solo: boolean,
+): string {
+  const lines: string[] = []
+  for (const m of metrics.filter((x) => x.status === 'scored')) {
+    const u = unitText(m.unit)
+    const v = typeof m.value === 'number' ? m.value : Number(m.value)
+    const t = typeof m.elite_target === 'number' ? m.elite_target : Number(m.elite_target)
+    let rel = 'on target'
+    if (Number.isFinite(v) && Number.isFinite(t) && Math.abs(v - t) > Math.max(Math.abs(t) * 0.02, 0.005)) {
+      rel = `${round(Math.abs(v - t))}${u} ${v > t ? 'above' : 'below'} target`
+    }
+    lines.push(`${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} target (${rel}).`)
+  }
+  const err = errors[0]
+  if (err) {
+    lines.push(`Flagged: ${err.name}.`)
+    lines.push(...cleanSentences(err.correction ?? '', solo))
+    const metric = err.metric ? metrics.find((m) => m.name === err.metric) : undefined
+    const focus = metric ? `${metric.name.toLowerCase()} toward ${round(metric.elite_target)}${unitText(metric.unit)}` : 'this area'
+    lines.push(`Drill: five reps focused only on this, working to bring ${focus}, then film one and compare.`)
+  }
+  const out: string[] = []
+  for (const line of lines) {
+    if (countWords([...out, line].join(' ')) > MAX_FEEDBACK_WORDS) break
+    out.push(line)
+  }
+  return out.join('\n')
+}
