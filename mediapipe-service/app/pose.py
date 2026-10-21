@@ -56,14 +56,24 @@ class PoseFrame:
 class PoseEngine:
     """MediaPipe PoseLandmarker (VIDEO mode), constructed eagerly."""
 
-    def __init__(self, model_path: str = MODEL_PATH) -> None:
+    def __init__(
+        self,
+        model_path: str = MODEL_PATH,
+        image_mode: bool = False,
+        min_detection_confidence: float = 0.5,
+    ) -> None:
+        # F-POSE-1: one engine per request (VIDEO) so tracking state and the
+        # timestamp clock never leak between requests or from auto-zoom probes.
+        # image_mode=True builds a stateless IMAGE-mode landmarker (probes /
+        # frame recovery) whose detect() ignores timestamps.
         self.model_path = model_path
+        self.image_mode = image_mode
         base_options = mp_python.BaseOptions(model_asset_path=model_path)
         options = mp_vision.PoseLandmarkerOptions(
             base_options=base_options,
-            running_mode=mp_vision.RunningMode.VIDEO,
+            running_mode=mp_vision.RunningMode.IMAGE if image_mode else mp_vision.RunningMode.VIDEO,
             num_poses=1,
-            min_pose_detection_confidence=0.5,
+            min_pose_detection_confidence=min_detection_confidence,
             min_pose_presence_confidence=0.5,
             min_tracking_confidence=0.5,
         )
@@ -72,6 +82,18 @@ class PoseEngine:
         # (VIDEO mode requires non-decreasing timestamps across detect calls).
         self._next_ts_ms = 0
         self._ts_lock = threading.Lock()
+
+    def close(self) -> None:
+        landmarker = getattr(self, "_landmarker", None)
+        if landmarker is not None:
+            landmarker.close()
+            self._landmarker = None
+
+    def __enter__(self) -> "PoseEngine":
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.close()
 
     def reserve_timestamp_range(self, n_frames: int, fps: float) -> int:
         """Atomically reserve a contiguous timestamp range for a batch of frames.
@@ -104,7 +126,10 @@ class PoseEngine:
         h, w = frame_bgr.shape[:2]
         rgb = np.ascontiguousarray(frame_bgr[:, :, ::-1])
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-        result = self._landmarker.detect_for_video(mp_image, timestamp_ms)
+        if self.image_mode:
+            result = self._landmarker.detect(mp_image)
+        else:
+            result = self._landmarker.detect_for_video(mp_image, timestamp_ms)
 
         pose_landmarks = result.pose_landmarks
         if not pose_landmarks:
@@ -183,3 +208,26 @@ def run_with_skip(
             last = engine.detect(frame, timestamp_ms)
         results.append(last)
     return results
+
+
+RECOVERY_FRAMES = 3
+RECOVERY_MIN_DETECTION_CONFIDENCE = 0.3
+
+
+def recover_leading_frames(
+    frames: list[np.ndarray], results: list[PoseFrame]
+) -> list[int]:
+    """Re-detect missed frames among the first RECOVERY_FRAMES with a stateless
+    IMAGE-mode landmarker at a lower detection threshold. Mutates `results` in
+    place and returns the indices that were recovered."""
+    missing = [i for i in range(min(RECOVERY_FRAMES, len(results))) if not results[i].detected]
+    if not missing:
+        return []
+    recovered: list[int] = []
+    with PoseEngine(image_mode=True, min_detection_confidence=RECOVERY_MIN_DETECTION_CONFIDENCE) as probe:
+        for i in missing:
+            pf = probe.detect(frames[i])
+            if pf.detected:
+                results[i] = pf
+                recovered.append(i)
+    return recovered

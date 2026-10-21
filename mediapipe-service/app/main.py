@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 
 from . import auto_zoom as az
 from . import calibration, video
-from .pose import LANDMARK_COUNT, get_engine, run_with_skip
+from .pose import LANDMARK_COUNT, PoseEngine, recover_leading_frames, run_with_skip
 from .schema import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -23,6 +23,7 @@ from .schema import (
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+SHORT_CLIP_FRAMES = 120
 log = logging.getLogger("mediapipe-service")
 
 MAX_WINDOW_SECONDS = 3.0
@@ -32,7 +33,8 @@ KEEPALIVE_INTERVAL_S = 10.0
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("warming pose engine")
-    _ = get_engine()
+    # Warm the model file; engines are per request (F-POSE-1).
+    PoseEngine().close()
     log.info("pose engine warm")
     yield
 
@@ -112,49 +114,59 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
             )
         )
 
-        engine = get_engine()
+        # F-POSE-1: fresh VIDEO-mode engine per request; timestamps start at 0.
+        engine = PoseEngine()
+        try:
 
-        # 1) Auto-zoom decision.
-        autozoom_start = time.perf_counter()
-        processed_frames, zoom = await asyncio.to_thread(
-            az.decide_and_apply, engine, frames, width, height
-        )
-        t_autozoom = time.perf_counter() - autozoom_start
+            # Short clips: detect every frame (no forward-fill gaps).
+            det_frequency = 1 if total <= SHORT_CLIP_FRAMES else req.det_frequency
 
-        progress.append(
-            ProgressUpdate(
-                message=f"Auto-zoom: {'applied' if zoom.applied else 'skipped'}",
-                frame=total,
-                total_frames=total,
-                detection_every_n=req.det_frequency,
+            # 1) Auto-zoom decision.
+            autozoom_start = time.perf_counter()
+            processed_frames, zoom = await asyncio.to_thread(
+                az.decide_and_apply, engine, frames, width, height
             )
-        )
+            t_autozoom = time.perf_counter() - autozoom_start
 
-        # 2) Pose loop on processed frames.
-        pose_loop_start = time.perf_counter()
-        pose_results = await asyncio.to_thread(
-            run_with_skip, engine, processed_frames, req.det_frequency, video.TARGET_FPS
-        )
-        t_pose_loop = time.perf_counter() - pose_loop_start
-
-        progress.append(
-            ProgressUpdate(
-                message="Detected pose",
-                frame=total,
-                total_frames=total,
-                detection_every_n=req.det_frequency,
+            progress.append(
+                ProgressUpdate(
+                    message=f"Auto-zoom: {'applied' if zoom.applied else 'skipped'}",
+                    frame=total,
+                    total_frames=total,
+                    detection_every_n=req.det_frequency,
+                )
             )
-        )
 
-        # 3) Reverse-map landmarks back to original video coords.
-        reverse_start = time.perf_counter()
-        original_space = az.reverse_map_landmarks(pose_results, zoom, width, height)
-        t_reverse_map = time.perf_counter() - reverse_start
+            # 2) Pose loop on processed frames.
+            pose_loop_start = time.perf_counter()
+            pose_results = await asyncio.to_thread(
+                run_with_skip, engine, processed_frames, det_frequency, video.TARGET_FPS
+            )
+            recovered_indices = await asyncio.to_thread(
+                recover_leading_frames, processed_frames, pose_results
+            )
+            t_pose_loop = time.perf_counter() - pose_loop_start
 
-        # 4) Body-based calibration.
-        calibration_start = time.perf_counter()
-        ppy, calib_conf, calib_details = calibration.estimate(original_space)
-        t_calibration = time.perf_counter() - calibration_start
+            progress.append(
+                ProgressUpdate(
+                    message="Detected pose",
+                    frame=total,
+                    total_frames=total,
+                    detection_every_n=req.det_frequency,
+                )
+            )
+
+            # 3) Reverse-map landmarks back to original video coords.
+            reverse_start = time.perf_counter()
+            original_space = az.reverse_map_landmarks(pose_results, zoom, width, height)
+            t_reverse_map = time.perf_counter() - reverse_start
+
+            # 4) Body-based calibration.
+            calibration_start = time.perf_counter()
+            ppy, calib_conf, calib_details = calibration.estimate(original_space)
+            t_calibration = time.perf_counter() - calibration_start
+        finally:
+            engine.close()
 
     detected_frac = (
         sum(1 for pf in original_space if pf.detected) / max(1, len(original_space))
@@ -189,6 +201,12 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         # Motion is hard-coded in v1 — motion.py removed.
         movement_direction="stationary",
         movement_confidence=0.0,
+        frame_width=width,
+        frame_height=height,
+        frames_detected=sum(1 for pf in original_space if pf.detected),
+        missed_frame_indices=[i for i, pf in enumerate(original_space) if not pf.detected],
+        recovered_frame_indices=recovered_indices,
+        det_frequency_used=det_frequency,
         person_detection_confidence=round(detected_frac, 3),
         safety_backoff_applied=zoom.safety_backoff,
         athlete_framing_message=(

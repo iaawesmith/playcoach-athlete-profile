@@ -120,6 +120,21 @@ def decide_and_apply(
 
     idxs = _sample_indices(n, SAMPLE_COUNT)
     state.sample_indices = idxs
+    # F-POSE-1: probes run on a stateless IMAGE-mode engine so they never seed
+    # the main VIDEO pass with a stale tracking ROI. `engine` is unused here.
+    with PoseEngine(image_mode=True) as probe:
+        return _decide_with_probe(probe, frames, width, height, idxs, state)
+
+
+def _decide_with_probe(
+    engine: PoseEngine,
+    frames: list[np.ndarray],
+    width: int,
+    height: int,
+    idxs: list[int],
+    state: ZoomState,
+) -> tuple[list[np.ndarray], ZoomState]:
+    n = len(frames)
     sample_results = [engine.detect(frames[i]) for i in idxs]
     state.mean_conf_before = _mean_conf(sample_results)
 
