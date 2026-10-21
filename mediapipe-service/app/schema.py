@@ -89,6 +89,8 @@ class AnalyzeResponse(BaseModel):
     zoom_fallback_frame_indices: list[int] = Field(default_factory=list)
     rejected_frame_indices: list[int] = Field(default_factory=list)
     rejected_frame_reasons: dict[str, str] = Field(default_factory=dict)
+    # Pre-rejection height/hip per rejected frame: {frame: {height_px, hip_x, hip_y}}.
+    rejected_frame_details: dict[str, dict[str, float | None]] = Field(default_factory=dict)
 
     # Service timings (ms) and build identity (additive)
     timings_ms: dict[str, float] = Field(default_factory=dict)

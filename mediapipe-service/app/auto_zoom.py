@@ -2,7 +2,7 @@
 
 Strategy:
   - Sample frames evenly across the clip, run pose on them (IMAGE mode).
-  - If the median athlete height is >= MIN_ATHLETE_HEIGHT_PX (150 px), skip zoom.
+  - If the median athlete height is >= MIN_ATHLETE_HEIGHT_FRAC (20%) of frame height, skip zoom.
   - Else build a crop that contains the union of every sampled athlete box plus
     margin (so the whole path stays in frame), capped at MAX_FACTOR (1.75x).
     Resize cropped region back to original (W, H).
@@ -53,6 +53,8 @@ class ZoomState:
     mean_conf_before: float = 0.0
     mean_conf_after: float = 0.0
     sample_indices: list[int] = field(default_factory=list)
+    # Path crop from the probes, kept even when zoom is skipped (leading-frame recovery).
+    probe_crop_rect: dict[str, int] | None = None
 
 
 def _sample_indices(n: int, k: int = SAMPLE_COUNT) -> list[int]:
@@ -117,14 +119,19 @@ def _decide_with_probe(
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    if med_h >= framing.MIN_ATHLETE_HEIGHT_PX:
+    boxes = [b for b in (framing.bbox(pf.keypoints, pf.scores) for pf in sample_results if pf.detected) if b]
+    crop = framing.path_crop(boxes, med_h, width, height, MAX_FACTOR)
+    if crop is not None:
+        state.probe_crop_rect = crop[0]
+    share = med_h / float(height)
+    limit = framing.MIN_ATHLETE_HEIGHT_FRAC
+
+    if not framing.needs_zoom(med_h, height):
         state.applied = False
-        state.reason = f"athlete height {med_h:.0f}px >= {framing.MIN_ATHLETE_HEIGHT_PX:.0f}px"
+        state.reason = f"athlete {share * 100:.1f}% of frame height >= {limit * 100:.0f}%"
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    boxes = [b for b in (framing.bbox(pf.keypoints, pf.scores) for pf in sample_results if pf.detected) if b]
-    crop = framing.path_crop(boxes, med_h, width, height, MAX_FACTOR)
     if crop is None:
         state.applied = False
         state.reason = "athlete path too wide to crop usefully"
@@ -172,7 +179,7 @@ def _decide_with_probe(
     state.crop_rect = crop_rect
     state.padding = padding
     state.reason = (
-        f"athlete height {med_h:.0f}px < {framing.MIN_ATHLETE_HEIGHT_PX:.0f}px; path crop {factor:.3f}x"
+        f"athlete {share * 100:.1f}% of frame height < {limit * 100:.0f}%; path crop {factor:.3f}x"
     )
     return processed, state
 
