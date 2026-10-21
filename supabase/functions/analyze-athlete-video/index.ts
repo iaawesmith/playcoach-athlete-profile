@@ -870,6 +870,9 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json()
+    if (payload && typeof payload.replay_feedback_for_result_id === 'string') {
+      return await handleFeedbackReplay(req, payload)
+    }
     const upload = payload.record
     if (!upload?.id) {
       throw new Error('Invalid webhook payload: missing record.id')
