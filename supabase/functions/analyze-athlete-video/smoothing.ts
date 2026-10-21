@@ -46,18 +46,25 @@ export function interpolateGap(series: Array<number | null>, reliable: boolean[]
   return out
 }
 
-/** Centered moving average over present values; a missing frame stays missing. */
+/**
+ * Centered moving average; a missing frame stays missing. The window is kept
+ * symmetric: near a gap or clip edge it shrinks to the number of contiguous
+ * present frames on the shorter side, so a moving point isn't pulled toward
+ * one side (one-sided averaging biases gap-edge frames).
+ */
 export function centeredAverage(series: Array<number | null>, windowSize: number): Array<number | null> {
   const half = Math.floor(windowSize / 2)
   return series.map((value, index) => {
     if (value === null) return null
-    const vals: number[] = []
-    for (let j = Math.max(0, index - half); j <= Math.min(series.length - 1, index + half); j += 1) {
-      const v = series[j]
-      if (v !== null) vals.push(v)
-    }
-    if (vals.length < 2) return value
-    return vals.reduce((a, b) => a + b, 0) / vals.length
+    let left = 0
+    while (left < half && index - left - 1 >= 0 && series[index - left - 1] !== null) left += 1
+    let right = 0
+    while (right < half && index + right + 1 < series.length && series[index + right + 1] !== null) right += 1
+    const k = Math.min(left, right)
+    if (k === 0) return value
+    let sum = 0
+    for (let j = index - k; j <= index + k; j += 1) sum += series[j] as number
+    return sum / (2 * k + 1)
   })
 }
 

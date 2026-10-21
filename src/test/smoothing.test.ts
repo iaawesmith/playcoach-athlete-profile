@@ -51,7 +51,7 @@ describe("temporal smoothing on run 39702081", () => {
     expect(Math.abs(x21 - 1152)).toBeLessThan(25);
     expect(Math.abs(y21 - 1277)).toBeLessThan(15);
     const [x29, y29] = hip(out, 29);
-    expect(Math.abs(x29 - 1341)).toBeLessThan(60);
+    expect(Math.abs(x29 - 1341)).toBeLessThan(25);
     expect(Math.abs(y29 - 1251)).toBeLessThan(15);
   });
 
