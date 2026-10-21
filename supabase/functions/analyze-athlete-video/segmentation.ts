@@ -2,8 +2,10 @@
 // plant-side selection. No I/O so they can be unit-tested from src/test.
 
 export type Pt = [number, number]
-export type FrameKps = Array<Array<Pt | number[]> | undefined>
-export type FrameScores = Array<Array<number[] | undefined> | undefined>
+/** One frame: persons → 33 keypoints. */
+export type FrameKps = Array<number[][] | undefined>
+/** One frame: persons → 33 scores. */
+export type FrameScores = Array<number[] | undefined>
 
 const HIP_L = 23
 const HIP_R = 24
@@ -31,8 +33,8 @@ export type ReleaseAnchor = {
 /** Hip centre per frame from person-0 keypoints; null when hips are missing or low confidence. */
 export function hipSeries(keypoints: FrameKps[], scores: FrameScores[]): Array<Pt | null> {
   return keypoints.map((frame, i) => {
-    const person = frame?.[0] as number[][] | undefined
-    const s = scores[i]?.[0] as number[] | undefined
+    const person = frame?.[0]
+    const s = scores[i]?.[0]
     const l = person?.[HIP_L]
     const r = person?.[HIP_R]
     if (!l || !r) return null
@@ -119,7 +121,7 @@ export function findCatchArrival(keypoints: FrameKps[], scores: FrameScores[], t
   const meanConf = (idx: number): number | null => {
     const vals: number[] = []
     for (let f = start; f < n; f++) {
-      const v = (scores[f]?.[0] as number[] | undefined)?.[idx]
+      const v = (scores[f]?.[0])?.[idx]
       vals.push(typeof v === 'number' ? v : 0)
     }
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
@@ -132,8 +134,8 @@ export function findCatchArrival(keypoints: FrameKps[], scores: FrameScores[], t
   let bestFrame = -1
   let bestY = Infinity
   for (let f = start; f < n; f++) {
-    const p = (keypoints[f]?.[0] as number[][] | undefined)?.[best.idx]
-    const s = (scores[f]?.[0] as number[] | undefined)?.[best.idx] ?? 0
+    const p = (keypoints[f]?.[0])?.[best.idx]
+    const s = (scores[f]?.[0])?.[best.idx] ?? 0
     if (!p || s < threshold || (p[0] === 0 && p[1] === 0)) continue
     if (p[1] < bestY) { bestY = p[1]; bestFrame = f }
   }
