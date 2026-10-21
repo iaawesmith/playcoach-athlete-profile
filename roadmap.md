@@ -31,3 +31,8 @@
 - [ ] Rerun 4K30 Slant clip twice after user deploys service; compare vs 39702081 / a634fbec (blocked: user Cloud Shell deploy)
 - [x] Analyzer: missed/rejected/(0,0)/score-0 points excluded from smoothing; no fabricated points; dedicated 3-frame smoothing window (constant, independent of metric measurement windows) recorded in export; symmetric window at gaps; deployed
 - [ ] Deploy service from Cloud Shell — waiting on user
+
+## Grounded coaching feedback (approved Oct 21)
+- [x] Metric descriptions + run context in prompt; system instructions get placeholders filled; Slant WR prompt v9 with evidence rules incl. no level-of-play comparisons
+- [x] Admin-only replay (admin-replay-feedback → analyzer replay mode, nothing saved)
+- [ ] Replays of 3e01efe2 still slip ("elite", "press", "separation", "stuttering") — awaiting user decision on an automatic wording check + one retry
