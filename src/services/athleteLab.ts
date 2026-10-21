@@ -492,6 +492,21 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
   if (!resultId) return null;
   const resultData = parseRecord(row.result_data);
   const rawLogData = row.log_data ?? resultData.log_data;
+  const diagnostics = parseRecord(resultData.diagnostics);
+  const service = parseRecord(diagnostics.service);
+  const parsedLog = rawLogData && typeof rawLogData === "object" && !Array.isArray(rawLogData)
+    ? rawLogData as AnalysisLogData : undefined;
+  const timings = Object.fromEntries(Object.entries(parseRecord(service.timings_ms))
+    .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1])));
+  const reportingLog = parsedLog ? {
+    ...parsedLog,
+    rtmlib: {
+      ...parsedLog.rtmlib,
+      service_revision: typeof service.service_revision === "string" ? service.service_revision : parsedLog.rtmlib?.service_revision,
+      service_build: typeof service.service_build === "string" ? service.service_build : parsedLog.rtmlib?.service_build,
+      timings_ms: Object.keys(timings).length ? timings : parsedLog.rtmlib?.timings_ms,
+    },
+  } : undefined;
 
   const phaseScores = Object.entries(parseRecord(row.phase_scores)).reduce<Record<string, number>>((acc, [key, rawValue]) => {
     if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
@@ -513,9 +528,7 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
     feedback: typeof row.feedback === "string" ? row.feedback : "",
     analyzedAt: typeof row.analyzed_at === "string" ? row.analyzed_at : null,
     errorMessage: null,
-    log_data: rawLogData && typeof rawLogData === "object" && !Array.isArray(rawLogData)
-      ? rawLogData as AnalysisLogData
-      : undefined,
+    log_data: reportingLog,
     calibrationAudit: parseCalibrationAudit(resultData.calibration_audit),
   };
 }
