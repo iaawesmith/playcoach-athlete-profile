@@ -152,8 +152,13 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
             pose_results = await asyncio.to_thread(
                 run_with_skip, engine, processed_frames, det_frequency, video.TARGET_FPS
             )
+            # Leading-run recovery. Zoomed: processed frames are already cropped.
+            # Not zoomed: use the probe path crop so a small athlete is large enough.
             recovered_indices = await asyncio.to_thread(
-                recover_leading_frames, processed_frames, pose_results
+                recover_leading_frames,
+                processed_frames,
+                pose_results,
+                None if zoom.applied else zoom.probe_crop_rect,
             )
             t_pose_loop = time.perf_counter() - pose_loop_start
 
@@ -174,7 +179,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
                 fallback_indices = await asyncio.to_thread(
                     fallback_full_frame, frames, pose_results, original_space, width, height
                 )
-            rejected = reject_partial_detections(original_space, width, height)
+            rejected, rejected_details = reject_partial_detections(original_space, width, height)
             t_reverse_map = time.perf_counter() - reverse_start
 
             # 4) Body-based calibration.
@@ -235,6 +240,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         zoom_fallback_frame_indices=fallback_indices,
         rejected_frame_indices=sorted(rejected.keys()),
         rejected_frame_reasons={str(k): v for k, v in rejected.items()},
+        rejected_frame_details={str(k): v for k, v in rejected_details.items()},
         timings_ms={
             "download": round(t_download * 1000, 1),
             "decode": round(t_decode * 1000, 1),

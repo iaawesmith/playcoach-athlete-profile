@@ -18,8 +18,8 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-# Zoom is skipped when the athlete is already at least this tall (px).
-MIN_ATHLETE_HEIGHT_PX = _env_float("AUTOZOOM_MIN_HEIGHT_PX", 150.0)
+# Zoom when the athlete's median height is under this share of frame height.
+MIN_ATHLETE_HEIGHT_FRAC = _env_float("AUTOZOOM_MIN_HEIGHT_FRAC", 0.20)
 # Crop margin around the union of all athlete positions, as a fraction of box size.
 PATH_MARGIN_FRAC = 0.15
 # Below this effective zoom factor the crop is not worth applying.
@@ -161,3 +161,77 @@ def validate_frame(
             if dist > MAX_HIP_JUMP_BODY_HEIGHTS * prev_height:
                 return "hip_jump"
     return None
+
+
+def needs_zoom(median_height: float, frame_height: int, frac: float | None = None) -> bool:
+    """True when the athlete occupies less than `frac` of the frame height."""
+    limit = MIN_ATHLETE_HEIGHT_FRAC if frac is None else frac
+    return frame_height > 0 and median_height < limit * frame_height
+
+
+def leading_missed_run(detected: Sequence[bool]) -> list[int]:
+    """Indices from frame 0 up to (not including) the first detected frame."""
+    out: list[int] = []
+    for i, d in enumerate(detected):
+        if d:
+            break
+        out.append(i)
+    return out
+
+
+# Robust-reference plausibility check.
+REF_NEIGHBORS = 5  # nearest candidates per side
+MIN_REF_POINTS = 3
+
+
+def robust_validate(
+    series: Sequence[tuple[float, tuple[float, float] | None] | None],
+) -> dict[int, str]:
+    """Reject frames whose height / hip disagree with the median of nearby frames.
+
+    `series[i]` is (height_px, hip) for candidate frames, None for frames that are
+    already missing. Iterates until stable; a rejected frame is removed from the
+    pool so it can never become a reference. Returns {index: reason}.
+    """
+    pool = {i: v for i, v in enumerate(series) if v is not None}
+    rejected: dict[int, str] = {}
+    changed = True
+    while changed:
+        changed = False
+        idxs = sorted(pool)
+        verdicts: dict[int, str] = {}
+        for pos, i in enumerate(idxs):
+            left = idxs[max(0, pos - REF_NEIGHBORS):pos]
+            right = idxs[pos + 1:pos + 1 + REF_NEIGHBORS]
+            neigh = left + right
+            if len(neigh) < MIN_REF_POINTS:
+                continue
+            ref_h = median([pool[j][0] for j in neigh])
+            if not ref_h:
+                continue
+            h, hip = pool[i]
+            if abs(h - ref_h) > MAX_HEIGHT_CHANGE_FRAC * ref_h:
+                verdicts[i] = "height_jump"
+                continue
+            hips = [pool[j][1] for j in neigh if pool[j][1] is not None]
+            if hip is not None and len(hips) >= MIN_REF_POINTS:
+                rx = median([p[0] for p in hips])
+                ry = median([p[1] for p in hips])
+                # Allow for genuine motion: scale by distance to the farthest neighbour used.
+                span = max(abs(j - i) for j in neigh)
+                limit = MAX_HIP_JUMP_BODY_HEIGHTS * ref_h * max(1.0, span / 2.0)
+                if ((hip[0] - rx) ** 2 + (hip[1] - ry) ** 2) ** 0.5 > limit:
+                    verdicts[i] = "hip_jump"
+        if verdicts:
+            # Remove only the single worst offender per pass so one ghost can't
+            # drag good neighbours out with it.
+            def dev(i: int) -> float:
+                idxs_n = [j for j in sorted(pool) if j != i]
+                near = sorted(idxs_n, key=lambda j: abs(j - i))[: 2 * REF_NEIGHBORS]
+                ref = median([pool[j][0] for j in near]) or 1.0
+                return abs(pool[i][0] - ref) / ref
+            worst = max(verdicts, key=dev)
+            rejected[worst] = verdicts[worst]
+            del pool[worst]
+            changed = True
+    return rejected

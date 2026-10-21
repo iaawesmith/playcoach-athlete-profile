@@ -22,3 +22,9 @@
 - [ ] Deploy Stage 1 from Cloud Shell (set SERVICE_BUILD) — waiting on user
 - [x] Stage 2 analyzer: outside-foot plant rule (side_rule / Break heuristic), movement-anchored Release, catch-anchored Hands, not-measured phases out of prompt, export fixes; deployed
 - [ ] Rerun 4K30 Slant twice after Stage 1 deploy and compare to 44c52897 — waiting on user deploy
+
+## Runs 39702081 / 59d79766 fixes (approved Oct 21)
+- [x] Service: zoom when athlete < 20% of frame height; leading-run recovery on path crop; robust-reference plausibility; rejected_frame_details (tests pass)
+- [x] Analyzer: missed/rejected/(0,0)/score-0 points excluded from smoothing; no fabricated points; metric top-level temporal_window with per-keypoint windows recorded; symmetric window at gaps; deployed
+- [ ] Deploy service from Cloud Shell — waiting on user
+- [ ] Rerun 4K30 Slant twice after deploy and compare to 39702081 — waiting on user deploy

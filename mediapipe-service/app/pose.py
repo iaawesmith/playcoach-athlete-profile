@@ -210,23 +210,49 @@ def run_with_skip(
     return results
 
 
-RECOVERY_FRAMES = 3
 RECOVERY_MIN_DETECTION_CONFIDENCE = 0.3
 
 
+def _detect_on_crop(probe: "PoseEngine", frame: np.ndarray, crop: dict[str, int] | None) -> PoseFrame:
+    """Detect on a crop (upscaled to frame size) and map landmarks back to frame coords."""
+    if not crop:
+        return probe.detect(frame)
+    import cv2
+
+    h, w = frame.shape[:2]
+    x0, y0, cw, ch = crop["x"], crop["y"], crop["w"], crop["h"]
+    resized = cv2.resize(frame[y0:y0 + ch, x0:x0 + cw], (w, h), interpolation=cv2.INTER_LINEAR)
+    pf = probe.detect(resized)
+    if not pf.detected:
+        return pf
+    sx, sy = cw / float(w), ch / float(h)
+    return PoseFrame(
+        detected=True,
+        keypoints=[[x * sx + x0, y * sy + y0] for x, y in pf.keypoints],
+        scores=pf.scores[:],
+        world_keypoints=[row[:] for row in pf.world_keypoints],  # metres, not pixel space
+    )
+
+
 def recover_leading_frames(
-    frames: list[np.ndarray], results: list[PoseFrame]
+    frames: list[np.ndarray],
+    results: list[PoseFrame],
+    crop: dict[str, int] | None = None,
 ) -> list[int]:
-    """Re-detect missed frames among the first RECOVERY_FRAMES with a stateless
-    IMAGE-mode landmarker at a lower detection threshold. Mutates `results` in
-    place and returns the indices that were recovered."""
-    missing = [i for i in range(min(RECOVERY_FRAMES, len(results))) if not results[i].detected]
+    """Re-detect the whole leading run of missed frames (frame 0 up to the first
+    detection) with a stateless IMAGE-mode landmarker, on the athlete-path crop
+    when one is given. `frames`/`results` must be in the same coordinate space;
+    recovered landmarks are mapped back to that space. Mutates `results` in place
+    and returns the recovered indices."""
+    from . import framing
+
+    missing = framing.leading_missed_run([r.detected for r in results])
     if not missing:
         return []
     recovered: list[int] = []
     with PoseEngine(image_mode=True, min_detection_confidence=RECOVERY_MIN_DETECTION_CONFIDENCE) as probe:
         for i in missing:
-            pf = probe.detect(frames[i])
+            pf = _detect_on_crop(probe, frames[i], crop)
             if pf.detected:
                 results[i] = pf
                 recovered.append(i)
@@ -265,33 +291,44 @@ def fallback_full_frame(
     return replaced
 
 
-MAX_CONSECUTIVE_REJECTS = 5
-
-
 def reject_partial_detections(
     results: list[PoseFrame], width: int, height: int
-) -> dict[int, str]:
-    """Mark cut-off / implausible detections as not detected (zeroed). Returns
-    {frame_index: reason}. Limits are relative to body height (see framing)."""
+) -> tuple[dict[int, str], dict[int, dict[str, float | None]]]:
+    """Mark cut-off / implausible detections as not detected (zeroed).
+
+    Pass 1: per-frame checks (edge clipping, too few landmarks). Pass 2: height
+    and hip vs the median of nearby accepted frames on both sides, iterated so a
+    rejected frame never serves as a reference. Returns ({index: reason},
+    {index: pre-rejection {height_px, hip_x, hip_y}})."""
     from . import framing
 
     rejected: dict[int, str] = {}
-    prev_hip: tuple[float, float] | None = None
-    prev_h: float | None = None
-    streak = 0
+    details: dict[int, dict[str, float | None]] = {}
+    series: list[tuple[float, tuple[float, float] | None] | None] = []
+
+    def snapshot(pf: PoseFrame) -> dict[str, float | None]:
+        hip = framing.hip_center(pf.keypoints, pf.scores)
+        h = framing.athlete_height(pf.keypoints, pf.scores)
+        return {
+            "height_px": round(h, 2) if h is not None else None,
+            "hip_x": round(hip[0], 2) if hip else None,
+            "hip_y": round(hip[1], 2) if hip else None,
+        }
+
     for i, pf in enumerate(results):
         if not pf.detected:
+            series.append(None)
             continue
-        reason = framing.validate_frame(pf.keypoints, pf.scores, width, height, prev_hip, prev_h)
-        if reason is not None and reason in ("height_jump", "hip_jump") and streak >= MAX_CONSECUTIVE_REJECTS:
-            # Re-anchor after a long gap so one bad reference can't reject the rest.
-            reason = framing.validate_frame(pf.keypoints, pf.scores, width, height, None, None)
+        reason = framing.validate_frame(pf.keypoints, pf.scores, width, height, None, None)
         if reason is not None:
             rejected[i] = reason
-            results[i] = PoseFrame(detected=False)
-            streak += 1
+            series.append(None)
             continue
-        streak = 0
-        prev_hip = framing.hip_center(pf.keypoints, pf.scores) or prev_hip
-        prev_h = framing.athlete_height(pf.keypoints, pf.scores) or prev_h
-    return rejected
+        h = framing.athlete_height(pf.keypoints, pf.scores)
+        series.append((h, framing.hip_center(pf.keypoints, pf.scores)) if h else None)
+
+    rejected.update(framing.robust_validate(series))
+    for i in rejected:
+        details[i] = snapshot(results[i])
+        results[i] = PoseFrame(detected=False)
+    return rejected, details
