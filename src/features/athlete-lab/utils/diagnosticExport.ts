@@ -44,7 +44,7 @@ export interface DiagnosticExportInput {
     aggregate_score: number | null;
     phase_scores: JsonRecord;
     metric_results: unknown;
-    confidence_flags: unknown;
+    confidence_flags?: unknown;
     detected_errors: unknown;
     feedback: string | null;
     analyzed_at: string | null;
@@ -52,6 +52,26 @@ export interface DiagnosticExportInput {
   } | null;
   clip: CalibrationClip | null;
   includeRawKeypoints: boolean;
+}
+
+/**
+ * Older exports marked zero-filled (service "no detection") frames as detected.
+ * A frame is detected only when it is not a reported miss and has a real hip position.
+ */
+function normalizePerFrame(rows: unknown[] | null, service: JsonRecord | null): unknown[] | null {
+  if (!rows) return null;
+  const missed = new Set<number>(
+    (asArray(service?.missed_frame_indices) ?? []).filter((v): v is number => typeof v === "number"),
+  );
+  return rows.map((row) => {
+    const r = asRecord(row);
+    if (!r) return row;
+    const frame = typeof r.frame === "number" ? r.frame : -1;
+    const zeroHip = r.hip_center_x === 0 && r.hip_center_y === 0;
+    const noHip = r.hip_center_x === null || r.hip_center_x === undefined;
+    const detected = r.detected === true && !missed.has(frame) && !zeroHip && !noHip;
+    return { ...r, detected };
+  });
 }
 
 export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord {
@@ -113,7 +133,7 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
       analyzer_build: present(diagnostics?.analyzer_build as string | undefined),
       deployment_id: present(diagnostics?.deployment_id as string | null | undefined),
       cloud_run_revision: present(diagnostics?.cloud_run_revision as string | null | undefined),
-      service_build: NOT_RECORDED, // the pose service does not report a build identifier
+      service_build: present((service?.service_build as string | null | undefined) ?? (service?.service_revision as string | null | undefined)),
     },
     input: {
       library_clip_id: present(typeof context.calibration_clip_id === "string" ? context.calibration_clip_id : null),
@@ -137,7 +157,9 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
       end_seconds: present(upload.end_seconds),
     },
     service_diagnostics: service ?? NOT_RECORDED,
-    per_frame: (diagnostics ? asArray(diagnostics.per_frame) : null) ?? NOT_RECORDED,
+    per_frame: normalizePerFrame(diagnostics ? asArray(diagnostics.per_frame) : null, service) ?? NOT_RECORDED,
+    release_anchor: (rtmlibLog ? asRecord(rtmlibLog.release_anchor) : null) ?? NOT_RECORDED,
+    confidence_flags: result ? present(result.confidence_flags ?? null) : NOT_RECORDED,
     calibration_audit: asRecord(resultData.calibration_audit) ?? NOT_RECORDED,
     phase_windows: (rtmlibLog ? asArray(rtmlibLog.phase_windows) : null) ?? NOT_RECORDED,
     metrics: metrics ?? NOT_RECORDED,
