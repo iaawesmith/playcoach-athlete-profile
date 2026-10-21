@@ -4140,3 +4140,47 @@ function formatConfidenceFlags(metrics: any[]): string {
   return `Low confidence on: ${flagged.map(m => m.name).join(', ')}. ` +
     `Ensure full body visibility when filming.`
 }
+
+// Admin-only: rebuild the coaching prompt from a stored result and call the
+// model N times without a pose run and without writing anything back. Used
+// for prompt tuning. Guarded by the service-role key (same trust level as the
+// admin-* functions' server-side access).
+async function handleFeedbackReplay(req: Request, payload: Record<string, unknown>): Promise<Response> {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!serviceKey || bearer !== serviceKey) return json({ error: 'admin only' }, 403)
+
+  const resultId = String(payload.replay_feedback_for_result_id)
+  const count = Math.min(5, Math.max(1, Number(payload.replay_count) || 1))
+  const { data: result, error } = await supabase
+    .from('athlete_lab_results')
+    .select('id, upload_id, aggregate_score, phase_scores, metric_results, detected_errors')
+    .eq('id', resultId)
+    .single()
+  if (error || !result) return json({ error: 'result not found' }, 404)
+  const { data: upload, error: uErr } = await supabase
+    .from('athlete_uploads')
+    .select('id, node_id, camera_angle, analysis_context')
+    .eq('id', result.upload_id)
+    .single()
+  if (uErr || !upload) return json({ error: 'upload not found' }, 404)
+  const nodeConfig = await fetchNodeConfig(upload.node_id)
+  const context = (upload.analysis_context ?? {}) as Record<string, unknown>
+  const metricResults = Array.isArray(result.metric_results) ? result.metric_results : []
+  const detected = (Array.isArray(result.detected_errors) ? result.detected_errors : [])
+    .map((e: unknown) => (typeof e === 'string' ? { name: e } : e))
+    .filter((e: any) => e && typeof e.name === 'string' && e.triggered !== false)
+  const scoreResult = { aggregate_score: result.aggregate_score, phase_scores: result.phase_scores ?? {} }
+
+  const runs = []
+  for (let i = 0; i < count; i++) {
+    const r = await callClaude(nodeConfig, scoreResult, metricResults, { detected }, upload, context)
+    runs.push({ response: r.feedback, input_tokens: r.diagnostics.input_tokens, output_tokens: r.diagnostics.output_tokens, word_count: r.log?.word_count })
+    if (i === 0) {
+      runs[0] = { ...runs[0], prompt: r.diagnostics.prompt, system_instructions: r.diagnostics.system_instructions }
+    }
+  }
+  return json({ result_id: resultId, node_version: nodeConfig.node_version, runs })
+}
