@@ -70,6 +70,14 @@ class AnalyzeResponse(BaseModel):
     movement_direction: Literal["left_to_right", "right_to_left", "stationary"] = "stationary"
     movement_confidence: float = 0.0
 
+    # Frame diagnostics (F-POSE-1 follow-up)
+    frame_width: int = 0
+    frame_height: int = 0
+    frames_detected: int = 0
+    missed_frame_indices: list[int] = Field(default_factory=list)
+    recovered_frame_indices: list[int] = Field(default_factory=list)
+    det_frequency_used: int = 1
+
     # Quality / safety
     person_detection_confidence: float = 0.0
     safety_backoff_applied: bool = False
