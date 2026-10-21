@@ -341,6 +341,7 @@ type PipelineLogData = {
     average_keypoint_confidence?: number
     reliable_frame_percentage?: number
     most_common_issue?: string
+    release_anchor?: ReleaseAnchor
     phase_windows?: Array<{
       phase: string
       start: number
@@ -1021,6 +1022,7 @@ Deno.serve(async (req) => {
         nodeConfig.phase_breakdown,
         rtmlibResult.frame_count,
       )
+      logData.rtmlib.release_anchor = releaseAnchor
     }
 
     // STEP 8: Calculate all metrics
@@ -3711,10 +3713,15 @@ function calculateAggregateScore(
   for (const [phaseId, metrics] of Object.entries(phaseGroups)) {
     phase_scores[phaseId] = metrics.reduce((s, m) => s + m.score, 0) / metrics.length
   }
+  // Phases with no scored metric are reported as not measured (never 0).
+  const unmeasured_phases = parsePhaseBreakdown(nodeConfig.phase_breakdown)
+    .filter((p) => !(p.id in phase_scores))
+    .map((p) => ({ id: p.id, name: p.name, status: 'not_measured' as const }))
 
   return {
     aggregate_score: Math.round(aggregate_score),
     phase_scores,
+    unmeasured_phases,
     skipped_metrics: skipped.map(m => m.name).join(', '),
     scoring_config_applied,
   }
@@ -4178,9 +4185,11 @@ async function setUploadProgress(uploadId: string, message: string) {
 
 
 function formatPhaseScores(phaseScores: Record<string, number>, phases: any[]): string {
-  if (!phaseScores || !phases) return ''
+  if (!phaseScores || !Array.isArray(phases)) return ''
+  // Unmeasured phases are left out entirely (never rendered as 0/100).
   return phases
-    .map(p => `${p.name}: ${Math.round(phaseScores[p.id] || 0)}/100`)
+    .filter(p => typeof phaseScores[p.id] === 'number')
+    .map(p => `${p.name}: ${Math.round(phaseScores[p.id])}/100`)
     .join(', ')
 }
 
