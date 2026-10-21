@@ -25,6 +25,7 @@
 
 ## Runs 39702081 / 59d79766 fixes (approved Oct 21)
 - [x] Service: zoom when athlete < 20% of frame height; leading-run recovery on path crop; robust-reference plausibility; rejected_frame_details (tests pass)
+- [x] Service: path-fit zoom (min of cap and fit), probe record + retries, athlete-sized recovery crops (RECOVERY_CROP_HEIGHT_MULT=5) for leading frames and a following crop replacing the full-frame fallback
+- [ ] Rerun 4K30 Slant clip twice after user deploys service; compare vs 39702081 / a634fbec (blocked: user Cloud Shell deploy)
 - [x] Analyzer: missed/rejected/(0,0)/score-0 points excluded from smoothing; no fabricated points; dedicated 3-frame smoothing window (constant, independent of metric measurement windows) recorded in export; symmetric window at gaps; deployed
 - [ ] Deploy service from Cloud Shell — waiting on user
-- [ ] Rerun 4K30 Slant twice after deploy and compare to 39702081 — waiting on user deploy

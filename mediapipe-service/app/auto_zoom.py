@@ -3,8 +3,9 @@
 Strategy:
   - Sample frames evenly across the clip, run pose on them (IMAGE mode).
   - If the median athlete height is >= MIN_ATHLETE_HEIGHT_FRAC (20%) of frame height, skip zoom.
-  - Else build a crop that contains the union of every sampled athlete box plus
-    margin (so the whole path stays in frame), capped at MAX_FACTOR (1.75x).
+  - Missed probes are retried on an athlete-sized crop around the position
+    interpolated from detected probes; trailing gaps are extended to the last frame.
+  - zoom = min(MAX_FACTOR, factor fitting the union of probe boxes + one body height).
     Resize cropped region back to original (W, H).
   - fill ratio is reported as athlete height / frame height (area against a
     4K frame was ~0.001 for any normal sideline clip).
@@ -55,6 +56,13 @@ class ZoomState:
     sample_indices: list[int] = field(default_factory=list)
     # Path crop from the probes, kept even when zoom is skipped (leading-frame recovery).
     probe_crop_rect: dict[str, int] | None = None
+    # Probe record + path fit (diagnostics), probe-retry crop attempts.
+    probes: list[dict[str, Any]] = field(default_factory=list)
+    path: dict[str, Any] | None = None
+    probe_attempts: list[dict[str, Any]] = field(default_factory=list)
+    athlete_height: float | None = None
+    # Earliest probed position (frame, hip) — anchor for leading-frame recovery.
+    earliest_probe: tuple[int, tuple[float, float]] | None = None
 
 
 def _sample_indices(n: int, k: int = SAMPLE_COUNT) -> list[int]:
@@ -63,7 +71,10 @@ def _sample_indices(n: int, k: int = SAMPLE_COUNT) -> list[int]:
     if n <= k:
         return list(range(n))
     step = n / float(k)
-    return [min(n - 1, int(round(i * step))) for i in range(k)]
+    idx = {min(n - 1, int(round(i * step))) for i in range(k)}
+    # Always sample the end of the route.
+    idx.update({n - 1, max(0, n - 2)})
+    return sorted(idx)
 
 
 def _mean_conf(frames: list[PoseFrame]) -> float:
@@ -106,21 +117,88 @@ def _decide_with_probe(
     sample_results = [engine.detect(frames[i]) for i in idxs]
     state.mean_conf_before = _mean_conf(sample_results)
 
-    heights = [
-        h for h in (framing.athlete_height(pf.keypoints, pf.scores) for pf in sample_results if pf.detected)
-        if h is not None
-    ]
-    med_h = framing.median(heights)
-    state.final_fill_ratio = round(med_h / float(height), 4) if med_h else 0.0
+    def summary(pf: PoseFrame) -> tuple[Any, Any, Any]:
+        if not pf.detected:
+            return None, None, None
+        return (
+            framing.bbox(pf.keypoints, pf.scores),
+            framing.hip_center(pf.keypoints, pf.scores),
+            framing.athlete_height(pf.keypoints, pf.scores),
+        )
 
+    info = {i: summary(pf) for i, pf in zip(idxs, sample_results)}
+    heights = [v[2] for v in info.values() if v[2] is not None]
+    med_h = framing.median(heights)
+    state.athlete_height = med_h
+
+    # Retry missed probes on an athlete-sized crop around the interpolated position.
+    retried: dict[int, dict[str, int]] = {}
+    if med_h:
+        from .pose import _detect_on_crop
+        good = [(i, v[1]) for i, v in sorted(info.items()) if v[1] is not None]
+        for i in idxs:
+            if info[i][0] is not None and info[i][1] is not None:
+                continue
+            pred = framing.interpolate_hip(good, i)
+            if pred is None:
+                continue
+            rect = framing.recovery_crop(pred, med_h, width, height, MAX_FACTOR)
+            pf = _detect_on_crop(engine, frames[i], rect)
+            got = summary(pf)
+            ok = got[0] is not None and got[1] is not None and framing.accept_recovery(
+                got[2], got[1], pred, med_h, max(1, min((abs(i - g[0]) for g in good), default=1))
+            )
+            retried[i] = rect
+            state.probe_attempts.append({"frame": i, "kind": "probe_retry", "crop": rect, "recovered": ok})
+            if ok:
+                info[i] = got
+        heights = [v[2] for v in info.values() if v[2] is not None]
+        med_h = framing.median(heights)
+        state.athlete_height = med_h
+
+    for i in idxs:
+        b, hip, h = info[i]
+        state.probes.append({
+            "frame": i,
+            "detected": b is not None,
+            "retried": i in retried,
+            "retry_crop": retried.get(i),
+            "box": [round(v, 1) for v in b] if b else None,
+            "hip": [round(v, 1) for v in hip] if hip else None,
+            "height_px": round(h, 1) if h else None,
+        })
+    first = next(((i, v[1]) for i, v in sorted(info.items()) if v[1] is not None), None)
+    state.earliest_probe = first
+
+    state.final_fill_ratio = round(med_h / float(height), 4) if med_h else 0.0
     if med_h is None:
         state.applied = False
         state.reason = "no reliable athlete box in probe frames"
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    boxes = [b for b in (framing.bbox(pf.keypoints, pf.scores) for pf in sample_results if pf.detected) if b]
+    boxes = [v[0] for v in info.values() if v[0] is not None]
+    # Trailing probes still missing: extend the path along the measured motion.
+    hips_t = [(i, v[1]) for i, v in sorted(info.items()) if v[1] is not None]
+    extended_to = None
+    if hips_t and hips_t[-1][0] < n - 1:
+        end = framing.predict_hip(hips_t, n - 1)
+        if end is not None:
+            ex = max(0.0, min(float(width), end[0]))
+            ey = max(0.0, min(float(height), end[1]))
+            boxes.append((ex - med_h * 0.3, ey - med_h * 0.55, ex + med_h * 0.3, ey + med_h * 0.45))
+            extended_to = [round(ex, 1), round(ey, 1)]
+    union = framing.union_box(boxes)
+    fit = framing.fit_factor(union, med_h, width, height) if union else None
     crop = framing.path_crop(boxes, med_h, width, height, MAX_FACTOR)
+    state.path = {
+        "union_box": [round(v, 1) for v in union] if union else None,
+        "extended_to_last_frame": extended_to,
+        "margin_px": round(med_h, 1),
+        "fit_factor": round(fit, 4) if fit else None,
+        "cap": MAX_FACTOR,
+        "chosen_factor": round(crop[1], 4) if crop else None,
+    }
     if crop is not None:
         state.probe_crop_rect = crop[0]
     share = med_h / float(height)

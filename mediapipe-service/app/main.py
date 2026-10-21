@@ -16,8 +16,7 @@ from . import calibration, video
 from .pose import (
     LANDMARK_COUNT,
     PoseEngine,
-    fallback_full_frame,
-    recover_leading_frames,
+    recover_frames,
     reject_partial_detections,
     run_with_skip,
 )
@@ -152,14 +151,6 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
             pose_results = await asyncio.to_thread(
                 run_with_skip, engine, processed_frames, det_frequency, video.TARGET_FPS
             )
-            # Leading-run recovery. Zoomed: processed frames are already cropped.
-            # Not zoomed: use the probe path crop so a small athlete is large enough.
-            recovered_indices = await asyncio.to_thread(
-                recover_leading_frames,
-                processed_frames,
-                pose_results,
-                None if zoom.applied else zoom.probe_crop_rect,
-            )
             t_pose_loop = time.perf_counter() - pose_loop_start
 
             progress.append(
@@ -174,11 +165,24 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
             # 3) Reverse-map landmarks back to original video coords.
             reverse_start = time.perf_counter()
             original_space = az.reverse_map_landmarks(pose_results, zoom, width, height)
-            fallback_indices: list[int] = []
-            if zoom.applied:
-                fallback_indices = await asyncio.to_thread(
-                    fallback_full_frame, frames, pose_results, original_space, width, height
-                )
+            # Leading-frame recovery + following crop: athlete-sized crops of the
+            # original frames, IMAGE-mode engine, zoom on or off.
+            (
+                recovered_indices,
+                follow_attempted,
+                fallback_indices,
+                recovery_attempts,
+            ) = await asyncio.to_thread(
+                recover_frames,
+                frames,
+                original_space,
+                width,
+                height,
+                az.MAX_FACTOR,
+                zoom.crop_rect if zoom.applied else None,
+                zoom.athlete_height,
+                zoom.earliest_probe,
+            )
             rejected, rejected_details = reject_partial_detections(original_space, width, height)
             t_reverse_map = time.perf_counter() - reverse_start
 
@@ -238,6 +242,11 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         mean_keypoint_confidence_before_auto_zoom=zoom.mean_conf_before,
         mean_keypoint_confidence_after_auto_zoom=zoom.mean_conf_after,
         zoom_fallback_frame_indices=fallback_indices,
+        follow_crop_attempted_indices=follow_attempted,
+        follow_crop_recovered_indices=fallback_indices,
+        recovery_attempts=zoom.probe_attempts + recovery_attempts,
+        auto_zoom_probes=zoom.probes,
+        auto_zoom_path=zoom.path,
         rejected_frame_indices=sorted(rejected.keys()),
         rejected_frame_reasons={str(k): v for k, v in rejected.items()},
         rejected_frame_details={str(k): v for k, v in rejected_details.items()},

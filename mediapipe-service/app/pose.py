@@ -234,61 +234,94 @@ def _detect_on_crop(probe: "PoseEngine", frame: np.ndarray, crop: dict[str, int]
     )
 
 
-def recover_leading_frames(
+def recover_frames(
     frames: list[np.ndarray],
     results: list[PoseFrame],
-    crop: dict[str, int] | None = None,
-) -> list[int]:
-    """Re-detect the whole leading run of missed frames (frame 0 up to the first
-    detection) with a stateless IMAGE-mode landmarker, on the athlete-path crop
-    when one is given. `frames`/`results` must be in the same coordinate space;
-    recovered landmarks are mapped back to that space. Mutates `results` in place
-    and returns the recovered indices."""
-    from . import framing
-
-    missing = framing.leading_missed_run([r.detected for r in results])
-    if not missing:
-        return []
-    recovered: list[int] = []
-    with PoseEngine(image_mode=True, min_detection_confidence=RECOVERY_MIN_DETECTION_CONFIDENCE) as probe:
-        for i in missing:
-            pf = _detect_on_crop(probe, frames[i], crop)
-            if pf.detected:
-                results[i] = pf
-                recovered.append(i)
-    return recovered
-
-
-FALLBACK_MIN_DETECTION_CONFIDENCE = 0.3
-
-
-def fallback_full_frame(
-    original_frames: list[np.ndarray],
-    processed_results: list[PoseFrame],
-    mapped_results: list[PoseFrame],
     width: int,
     height: int,
-) -> list[int]:
-    """When zoomed, re-detect on the full frame any frame where the athlete is
-    lost or touches the crop edge. Uses its own stateless IMAGE-mode engine so
-    the main VIDEO tracker's timeline is never disturbed. Mutates
-    `mapped_results` (original coords) in place; returns replaced indices."""
+    max_factor: float,
+    zoom_crop: dict[str, int] | None,
+    athlete_h: float | None,
+    earliest_probe: tuple[int, tuple[float, float]] | None,
+) -> tuple[list[int], list[int], list[int], list[dict]]:
+    """Leading-frame recovery + following crop, both on athlete-sized crops of the
+    ORIGINAL frames through a separate stateless IMAGE-mode engine (the main VIDEO
+    tracker is never touched). `results` are in original coordinates and are
+    mutated in place.
+
+    Returns (leading_recovered, follow_attempted, follow_recovered, attempts)."""
     from . import framing
 
-    targets = [
-        i for i, pf in enumerate(processed_results)
-        if not pf.detected or framing.touches_edge(framing.bbox(pf.keypoints, pf.scores), width, height)
-    ]
-    if not targets:
-        return []
-    replaced: list[int] = []
-    with PoseEngine(image_mode=True, min_detection_confidence=FALLBACK_MIN_DETECTION_CONFIDENCE) as probe:
-        for i in targets:
-            pf = probe.detect(original_frames[i])
-            if pf.detected:
-                mapped_results[i] = pf
-                replaced.append(i)
-    return replaced
+    def summary(pf: PoseFrame) -> tuple[float, tuple[float, float]] | None:
+        if not pf.detected:
+            return None
+        h = framing.athlete_height(pf.keypoints, pf.scores)
+        hip = framing.hip_center(pf.keypoints, pf.scores)
+        return (h, hip) if h is not None and hip is not None else None
+
+    def is_target(pf: PoseFrame) -> bool:
+        if not pf.detected:
+            return True
+        visible = sum(1 for s in pf.scores if s >= framing.MIN_VIS)
+        if visible < framing.MIN_VISIBLE_SHARE * len(pf.scores):
+            return True
+        b = framing.bbox(pf.keypoints, pf.scores)
+        return b is None or framing.box_touches_rect(b, zoom_crop)
+
+    attempts: list[dict] = []
+    leading_rec: list[int] = []
+    good_h = [s[0] for s in (summary(r) for r in results if not is_target(r)) if s]
+    ref_h = framing.median(good_h) or athlete_h
+
+    with PoseEngine(image_mode=True, min_detection_confidence=RECOVERY_MIN_DETECTION_CONFIDENCE) as probe:
+        def attempt(i: int, rect: dict[str, int]) -> PoseFrame | None:
+            pf = _detect_on_crop(probe, frames[i], rect)
+            return pf if pf.detected else None
+
+        # 1) Leading run: crop around the earliest detected or probed position.
+        leading = framing.leading_missed_run([not is_target(r) for r in results])
+        if leading and ref_h:
+            first_det = next(((i, summary(r)[1]) for i, r in enumerate(results)
+                              if not is_target(r) and summary(r)), None)
+            anchors = [a for a in (first_det, earliest_probe) if a is not None]
+            if anchors:
+                anchor_frame, anchor = min(anchors, key=lambda a: a[0])
+                rect = framing.recovery_crop(anchor, ref_h, width, height, max_factor)
+                for i in leading:
+                    pf = attempt(i, rect)
+                    got = summary(pf) if pf else None
+                    ok = got is not None and framing.accept_recovery(
+                        got[0], got[1], anchor, ref_h, max(1, abs(i - anchor_frame))
+                    )
+                    attempts.append({"frame": i, "kind": "leading", "crop": rect, "recovered": ok})
+                    if ok and pf is not None:
+                        results[i] = pf
+                        leading_rec.append(i)
+
+        # 2) Following crop for every later lost / partial / crop-edge frame.
+        detected = [None if is_target(r) else summary(r) for r in results]
+        targets = [i for i, r in enumerate(results) if is_target(r) and i not in leading_rec]
+        found: dict[int, PoseFrame] = {}
+
+        def try_detect(i: int, rect: dict[str, int]):
+            pf = attempt(i, rect)
+            if pf is None:
+                return None
+            found[i] = pf
+            return summary(pf)
+
+        follow = framing.plan_follow(detected, targets, width, height, max_factor, try_detect)
+        for a in follow:
+            if a["recovered"]:
+                results[a["frame"]] = found[a["frame"]]
+        attempts.extend(follow)
+
+    return (
+        leading_rec,
+        [a["frame"] for a in follow],
+        [a["frame"] for a in follow if a["recovered"]],
+        attempts,
+    )
 
 
 def reject_partial_detections(

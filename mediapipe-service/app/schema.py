@@ -91,6 +91,15 @@ class AnalyzeResponse(BaseModel):
     rejected_frame_reasons: dict[str, str] = Field(default_factory=dict)
     # Pre-rejection height/hip per rejected frame: {frame: {height_px, hip_x, hip_y}}.
     rejected_frame_details: dict[str, dict[str, float | None]] = Field(default_factory=dict)
+    # Following crop (replaces the full-frame fallback) + recovery record (additive).
+    follow_crop_attempted_indices: list[int] = Field(default_factory=list)
+    follow_crop_recovered_indices: list[int] = Field(default_factory=list)
+    # Every recovery attempt: {frame, kind: probe_retry|leading|follow, crop, recovered}.
+    recovery_attempts: list[dict[str, Any]] = Field(default_factory=list)
+    # Probe record: {frame, detected, retried, retry_crop, box, hip, height_px}.
+    auto_zoom_probes: list[dict[str, Any]] = Field(default_factory=list)
+    # Path fit: {union_box, extended_to_last_frame, margin_px, fit_factor, cap, chosen_factor}.
+    auto_zoom_path: dict[str, Any] | None = None
 
     # Service timings (ms) and build identity (additive)
     timings_ms: dict[str, float] = Field(default_factory=dict)
