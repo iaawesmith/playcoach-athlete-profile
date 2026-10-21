@@ -117,7 +117,7 @@ export function formatRunContext(context: Record<string, unknown>, upload: Recor
 export function renderTemplate(template: string, variables: Record<string, string>): string {
   let out = template
   for (const [key, value] of Object.entries(variables)) {
-    out = out.replaceAll(`{{${key}}}`, value)
+    out = out.split(`{{${key}}}`).join(value)
   }
   return out
 }
