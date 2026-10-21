@@ -292,6 +292,13 @@ type CloudRunResponse = {
   det_frequency_used?: number | null
   frame_width?: number | null
   frame_height?: number | null
+  // Stage 1 additive fields (absent on older service revisions)
+  timings_ms?: Record<string, number> | null
+  service_build?: string | null
+  service_revision?: string | null
+  zoom_fallback_frame_indices?: number[] | null
+  rejected_frame_indices?: number[] | null
+  rejected_frame_reasons?: Record<string, string> | null
 }
 
 type CloudRunMetadata = {
@@ -532,16 +539,19 @@ async function buildRunDiagnostics(input: {
     : null
   const scaleSeries = Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : null
 
+  const missedSet = new Set<number>(Array.isArray(rtmlibResult.missed_frame_indices) ? rtmlibResult.missed_frame_indices : [])
   const perFrame: JsonRecord[] = trackedKeypoints.map((frame, index) => {
     const person = frame?.[0]
     const personScores = trackedScores[index]?.[0]
-    const detected = Array.isArray(person) && person.length > 0
+    // Zero-filled frames (service "no detection") and service-reported misses are not detected.
+    const allZero = Array.isArray(person) && person.every((p) => !p || (p[0] === 0 && p[1] === 0))
+    const detected = Array.isArray(person) && person.length > 0 && !allZero && !missedSet.has(index)
     const meanConfidence = Array.isArray(personScores) && personScores.length > 0
       ? round3(personScores.reduce((sum, s) => sum + (typeof s === 'number' ? s : 0), 0) / personScores.length)
       : null
     let hipCenterX: number | null = null
     let hipCenterY: number | null = null
-    if (detected && person[23] && person[24]) {
+    if (detected && person && person[23] && person[24]) {
       hipCenterX = round3((person[23][0] + person[24][0]) / 2)
       hipCenterY = round3((person[23][1] + person[24][1]) / 2)
     }
@@ -587,8 +597,12 @@ async function buildRunDiagnostics(input: {
       mean_keypoint_confidence_before: rtmlibResult.mean_keypoint_confidence_before_auto_zoom ?? rtmlibResult.meanKeypointConfidenceBeforeAutoZoom ?? null,
       mean_keypoint_confidence_after: rtmlibResult.mean_keypoint_confidence_after_auto_zoom ?? rtmlibResult.meanKeypointConfidenceAfterAutoZoom ?? null,
     },
-    // The pose service logs per-stage timings but does not return them.
-    timings: null,
+    timings_ms: rtmlibResult.timings_ms ?? null,
+    service_build: rtmlibResult.service_build ?? null,
+    service_revision: rtmlibResult.service_revision ?? null,
+    zoom_fallback_frame_indices: rtmlibResult.zoom_fallback_frame_indices ?? null,
+    rejected_frame_indices: rtmlibResult.rejected_frame_indices ?? null,
+    rejected_frame_reasons: rtmlibResult.rejected_frame_reasons ?? null,
   }
 
   const [keypointsHash, metricsHash, calibrationHash] = await Promise.all([
@@ -4206,6 +4220,7 @@ const SKIP_REASON_TEXT: Record<string, string> = {
   implausible_value: 'the measurement was outside a physically possible range',
   insufficient_valid_frames: 'not enough clearly tracked frames',
   no_calibration_available: 'distance calibration unavailable',
+  catch_frames_unavailable: 'the catch frames were not clearly tracked',
 }
 
 function formatSkippedMetrics(metrics: any[]): string {
