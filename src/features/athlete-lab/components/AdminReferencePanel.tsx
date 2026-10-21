@@ -6,6 +6,7 @@ import {
   type AdminHistoryFilters,
 } from "@/services/athleteLab";
 import type { AdminHistoryRecord, PipelineMetricResult } from "@/features/athlete-lab/types";
+import { DiagnosticExportButton } from "./DiagnosticExportButton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";

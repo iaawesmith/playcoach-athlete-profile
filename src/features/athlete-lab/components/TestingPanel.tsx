@@ -15,6 +15,7 @@ import {
 } from "@/services/athleteLab";
 import { SectionTooltip } from "./SectionTooltip";
 import { AnalysisLog } from "./AnalysisLog";
+import { DiagnosticExportButton } from "./DiagnosticExportButton";
 import { GroundTruthComparison } from "./GroundTruthComparison";
 import { CalibrationAuditPanel } from "./CalibrationAuditPanel";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
