@@ -5,7 +5,7 @@ import {
   renderTemplate,
 } from '../../supabase/functions/analyze-athlete-video/prompt'
 
-const nodeMetrics = [{ name: 'Release Speed', description: 'Hip speed over the first 10 frames off the line.' }]
+const nodeMetrics = [{ name: 'Release Speed', description: 'Hip speed over the first 10 frames off the line. Elite receivers hit 7 mph.' }]
 const phases = [{ id: 'p1', name: 'Release' }]
 
 describe('coaching prompt grounding', () => {
@@ -26,7 +26,7 @@ describe('coaching prompt grounding', () => {
   })
 
   it('tells the model a solo rep had no defender or quarterback', () => {
-    expect(formatRunContext({ people_in_video: 'solo' })).toContain('no defender, no quarterback')
+    expect(formatRunContext({ people_in_video: 'solo' })).toContain('no defender, DB or cornerback, no quarterback')
   })
 
   it('lists a defender only when one was present', () => {

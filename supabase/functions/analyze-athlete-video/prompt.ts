@@ -66,15 +66,23 @@ export function formatMetricResults(
       const head = phase ? `${m.name} (${phase} phase)` : m.name
       const score = typeof m.score === 'number' ? Math.round(m.score) : m.score
       let line = `- ${head}: ${round(m.value)}${u}, target ${round(m.elite_target)}${u}, score ${score}/100.`
-      const desc = descriptions.get(m.name.trim().toLowerCase())
+      const desc = firstSentence(descriptions.get(m.name.trim().toLowerCase()))
       if (desc) line += ` Measures: ${desc}`
       return line
     })
     .join('\n')
 }
 
+/** Only the first sentence: what the metric measures. Later sentences carry
+ *  benchmark language ("Elite receivers…") that invites level comparisons. */
+export function firstSentence(text: string | undefined): string {
+  if (!text) return ''
+  const match = text.match(/^.*?[.!?](?=\s|$)/)
+  return (match ? match[0] : text).trim()
+}
+
 const PEOPLE_TEXT: Record<PeopleScenario, string> = {
-  solo: 'People in video: the athlete only (solo rep — no defender, no quarterback).',
+  solo: 'People in video: the athlete only (solo rep — no defender, DB or cornerback, no quarterback, no snap or throw).',
   with_defender: 'People in video: the athlete and one defender.',
   multiple: 'People in video: the athlete and multiple other players.',
 }
