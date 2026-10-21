@@ -146,7 +146,7 @@ def _decide_with_probe(
             pf = _detect_on_crop(engine, frames[i], rect)
             got = summary(pf)
             ok = got[0] is not None and got[1] is not None and framing.accept_recovery(
-                got[2], got[1], pred, med_h, 1 + max(0, min(abs(i - g[0]) for g in good) // 4)
+                got[2], got[1], pred, med_h, max(1, min((abs(i - g[0]) for g in good), default=1))
             )
             retried[i] = rect
             state.probe_attempts.append({"frame": i, "kind": "probe_retry", "crop": rect, "recovered": ok})
