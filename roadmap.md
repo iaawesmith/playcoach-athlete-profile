@@ -35,4 +35,6 @@
 ## Grounded coaching feedback (approved Oct 21)
 - [x] Metric descriptions + run context in prompt; system instructions get placeholders filled; Slant WR prompt v9 with evidence rules incl. no level-of-play comparisons
 - [x] Admin-only replay (admin-replay-feedback → analyzer replay mode, nothing saved)
-- [ ] Replays of 3e01efe2 still slip ("elite", "press", "separation", "stuttering") — awaiting user decision on an automatic wording check + one retry
+- [x] Replays of 3e01efe2 checked automatically (see feedback_check)
+- [x] Post-check (level-of-play words always; other players on solo reps; 150 words), one named retry, data-only fallback; recorded as feedback_check in diagnostics
+- [ ] Add example response to Slant system instructions — waiting on user approval of the wording
