@@ -25,7 +25,7 @@ const ppy = RUN.map(([, , s]) => s);
 
 describe("release anchor", () => {
   it("anchors run 44c52897 at frame 10-12", () => {
-    const a = computeReleaseAnchor([...hips, ...hips.slice(-1).map(() => [1400, 1244] as Pt)].slice(0, 30), ppy);
+    const a = computeReleaseAnchor(hips, ppy);
     expect(a.applied).toBe(true);
     expect(a.frame).toBeGreaterThanOrEqual(10);
     expect(a.frame).toBeLessThanOrEqual(12);
