@@ -182,6 +182,8 @@ type BilateralMappingInput = {
   bilateral?: string | null
   bilateral_override?: string | null
   keypoint_indices?: number[] | null
+  side_rule?: string | null
+  calculation_type?: string | null
 }
 
 type BilateralDecision = {
@@ -193,6 +195,8 @@ type BilateralDecision = {
   effectiveIndices: number[]
   leftAverageConfidence: number | null
   rightAverageConfidence: number | null
+  side_rule?: SideRule
+  side_rule_source?: SideRuleSource
 }
 
 const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap()
@@ -2633,6 +2637,7 @@ async function calculateAllMetrics(
       phaseScores,
       personIndex,
       metric.name,
+      phaseNameById.get(mapping.phase_id) ?? null,
     )
     logInfo('metric_window_selected', {
       ...metricContext,
@@ -3445,6 +3450,7 @@ function resolveBilateralSelection(
   phaseScores: VideoScores,
   personIdx: number,
   metricName: string,
+  phaseName: string | null = null,
 ): BilateralDecision {
   const baseIndices = Array.isArray(mapping.keypoint_indices) ? mapping.keypoint_indices : []
   const leftIndices = mapIndicesToSide(baseIndices, 'left')
@@ -3504,10 +3510,19 @@ function resolveBilateralSelection(
   }
 
   if (routeSide) {
-    const effectiveIndices = routeSide === 'left' ? leftIndices : rightIndices
-    logBilateralDecision(metricName, 'route_direction', routeSide, leftIndices, rightIndices, effectiveIndices, null, null)
+    const sideRule = resolveSideRule({
+      sideRule: mapping.side_rule,
+      calculationType: mapping.calculation_type,
+      keypointIndices: baseIndices,
+      phaseName,
+    })
+    const side = sideForRoute(routeSide, sideRule.rule)
+    const effectiveIndices = side === 'left' ? leftIndices : rightIndices
+    logBilateralDecision(metricName, 'route_direction', side, leftIndices, rightIndices, effectiveIndices, null, null)
     return {
-      side: routeSide,
+      side_rule: sideRule.rule,
+      side_rule_source: sideRule.source,
+      side,
       source: 'route_direction',
       baseIndices,
       leftIndices,
