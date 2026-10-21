@@ -1,3 +1,10 @@
+import {
+  formatAthleteLevel,
+  formatMetricResults,
+  formatRunContext,
+  normalizePeopleInVideo,
+  renderTemplate,
+} from './prompt.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   computeReleaseAnchor,
@@ -863,6 +870,9 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json()
+    if (payload && typeof payload.replay_feedback_for_result_id === 'string') {
+      return await handleFeedbackReplay(req, payload)
+    }
     const upload = payload.record
     if (!upload?.id) {
       throw new Error('Invalid webhook payload: missing record.id')
@@ -1441,23 +1451,6 @@ function buildErrorDetectionLog(_errors: any[], _metricResults: any[], errorResu
 function clampDetFrequency(value: unknown, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
   return Math.max(1, Math.round(value))
-}
-
-function normalizePeopleInVideo(peopleInVideo: unknown): 'solo' | 'with_defender' | 'multiple' {
-  if (typeof peopleInVideo === 'string') {
-    const normalized = peopleInVideo.trim().toLowerCase()
-    if (normalized === 'with_defender') return 'with_defender'
-    if (normalized === 'multiple') return 'multiple'
-    if (normalized === 'solo' || normalized === 'unknown' || normalized.length === 0) return 'solo'
-  }
-
-  if (typeof peopleInVideo === 'number' && Number.isFinite(peopleInVideo)) {
-    if (peopleInVideo <= 1) return 'solo'
-    if (peopleInVideo === 2) return 'with_defender'
-    if (peopleInVideo > 2) return 'multiple'
-  }
-
-  return 'solo'
 }
 
 function getScenarioDetFrequency(nodeConfig: any, scenario: 'solo' | 'with_defender' | 'multiple'): number {
@@ -3669,28 +3662,30 @@ async function callClaude(
   upload: any,
   context: any
 ): Promise<ClaudeCallResult> {
-  const variables = {
+  const variables: Record<string, string> = {
     mastery_score: scoreResult.aggregate_score?.toString() || 'N/A',
     phase_scores: formatPhaseScores(scoreResult.phase_scores, nodeConfig.phase_breakdown),
-    metric_results: formatMetricResults(metricResults),
+    metric_results: formatMetricResults(
+      metricResults,
+      Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : [],
+      parsePhaseBreakdown(nodeConfig.phase_breakdown),
+    ),
+    run_context: formatRunContext(context ?? {}, upload ?? {}),
     confidence_flags: formatConfidenceFlags(metricResults),
     detected_errors: errorResults.detected.length > 0
       ? `Confirmed errors observed: ${errorResults.detected.map((e: { name: string }) => e.name).join(', ')}`
       : '',
     athlete_name: context.athlete_name || 'Athlete',
-    node_name: nodeConfig.name,
-    // A4: position now wired from nodeConfig (was previously omitted, so any
-    // {{position}} token in a prompt template silently rendered as the literal
-    // placeholder string instead of the node's configured position).
+    node_name: String(nodeConfig.name ?? '').trim(),
+    // A4: position now wired from nodeConfig.
     position: nodeConfig.position || '',
-    athlete_level: context.athlete_level || 'high_school',
+    athlete_level: formatAthleteLevel(context.athlete_level),
     focus_area: context.focus_area || '',
     skipped_metrics: formatSkippedMetrics(metricResults),
   }
 
   // Observability: surface which template variables were resolved with real
-  // values vs left empty. Lets admins confirm new vars (e.g. {{position}})
-  // are actually wired before they edit prompt templates that rely on them.
+  // values vs left empty.
   const template = nodeConfig.llm_prompt_template || ''
   logInfo('variables_injected', {
     nodeId: nodeConfig.id,
@@ -3706,11 +3701,16 @@ async function callClaude(
     }),
   })
 
-  // Inject variables into template
-  let prompt = template
-  for (const [key, value] of Object.entries(variables)) {
-    prompt = prompt.replaceAll(`{{${key}}}`, value as string)
-  }
+  const prompt = renderTemplate(template, variables)
+  // System instructions get the same placeholders filled; empty optional
+  // values read "none" so the model never sees a literal {{placeholder}}.
+  const systemVariables = Object.fromEntries(
+    Object.entries(variables).map(([k, v]) => [k, v.trim().length > 0 ? v : 'none']),
+  )
+  const systemText = renderTemplate(
+    typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : '',
+    systemVariables,
+  )
 
   const claudeLog: PipelineLogData['claude_api'] = {
     model: 'claude-sonnet-4-5',
@@ -3752,7 +3752,7 @@ async function callClaude(
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500,
-        system: nodeConfig.llm_system_instructions || '',
+        system: systemText,
         messages: [{ role: 'user', content: prompt }]
       })
     })
@@ -3837,7 +3837,7 @@ async function callClaude(
     diagnostics: {
       model: 'claude-sonnet-4-5',
       status: 'COMPLETE',
-      system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
+      system_instructions: systemText || null,
       prompt,
       response: feedback,
       input_tokens: inputTokens ?? null,
@@ -4117,12 +4117,6 @@ function formatPhaseScores(phaseScores: Record<string, number>, phases: any[]): 
     .join(', ')
 }
 
-function formatMetricResults(metrics: any[]): string {
-  return metrics
-    .filter(m => m.status === 'scored')
-    .map(m => `${m.name}: ${m.value}${m.unit} (target ${m.elite_target}${m.unit}, score ${m.score}/100)`)
-    .join('\n')
-}
 
 const SKIP_REASON_TEXT: Record<string, string> = {
   no_catch: 'no catch recorded',
@@ -4145,4 +4139,48 @@ function formatConfidenceFlags(metrics: any[]): string {
   if (flagged.length === 0) return ''
   return `Low confidence on: ${flagged.map(m => m.name).join(', ')}. ` +
     `Ensure full body visibility when filming.`
+}
+
+// Admin-only: rebuild the coaching prompt from a stored result and call the
+// model N times without a pose run and without writing anything back. Used
+// for prompt tuning. Guarded by the service-role key (same trust level as the
+// admin-* functions' server-side access).
+async function handleFeedbackReplay(req: Request, payload: Record<string, unknown>): Promise<Response> {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!serviceKey || bearer !== serviceKey) return json({ error: 'admin only' }, 403)
+
+  const resultId = String(payload.replay_feedback_for_result_id)
+  const count = Math.min(5, Math.max(1, Number(payload.replay_count) || 1))
+  const { data: result, error } = await supabase
+    .from('athlete_lab_results')
+    .select('id, upload_id, aggregate_score, phase_scores, metric_results, detected_errors')
+    .eq('id', resultId)
+    .single()
+  if (error || !result) return json({ error: 'result not found' }, 404)
+  const { data: upload, error: uErr } = await supabase
+    .from('athlete_uploads')
+    .select('id, node_id, camera_angle, analysis_context')
+    .eq('id', result.upload_id)
+    .single()
+  if (uErr || !upload) return json({ error: 'upload not found' }, 404)
+  const nodeConfig = await fetchNodeConfig(upload.node_id)
+  const context = (upload.analysis_context ?? {}) as Record<string, unknown>
+  const metricResults = Array.isArray(result.metric_results) ? result.metric_results : []
+  const detected = (Array.isArray(result.detected_errors) ? result.detected_errors : [])
+    .map((e: unknown) => (typeof e === 'string' ? { name: e } : e))
+    .filter((e: any) => e && typeof e.name === 'string' && e.triggered !== false)
+  const scoreResult = { aggregate_score: result.aggregate_score, phase_scores: result.phase_scores ?? {} }
+
+  const runs = []
+  for (let i = 0; i < count; i++) {
+    const r = await callClaude(nodeConfig, scoreResult, metricResults, { detected }, upload, context)
+    runs.push({ response: r.feedback, input_tokens: r.diagnostics.input_tokens, output_tokens: r.diagnostics.output_tokens, word_count: r.log?.word_count })
+    if (i === 0) {
+      runs[0] = { ...runs[0], prompt: r.diagnostics.prompt, system_instructions: r.diagnostics.system_instructions }
+    }
+  }
+  return json({ result_id: resultId, node_version: nodeConfig.node_version, runs })
 }
