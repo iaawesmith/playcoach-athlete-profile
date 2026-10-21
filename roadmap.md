@@ -25,6 +25,6 @@
 
 ## Runs 39702081 / 59d79766 fixes (approved Oct 21)
 - [x] Service: zoom when athlete < 20% of frame height; leading-run recovery on path crop; robust-reference plausibility; rejected_frame_details (tests pass)
-- [x] Analyzer: missed/rejected/(0,0)/score-0 points excluded from smoothing; no fabricated points; metric top-level temporal_window with per-keypoint windows recorded; symmetric window at gaps; deployed
+- [x] Analyzer: missed/rejected/(0,0)/score-0 points excluded from smoothing; no fabricated points; dedicated 3-frame smoothing window (constant, independent of metric measurement windows) recorded in export; symmetric window at gaps; deployed
 - [ ] Deploy service from Cloud Shell — waiting on user
 - [ ] Rerun 4K30 Slant twice after deploy and compare to 39702081 — waiting on user deploy

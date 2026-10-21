@@ -159,6 +159,8 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
     service_diagnostics: service ?? NOT_RECORDED,
     per_frame: normalizePerFrame(diagnostics ? asArray(diagnostics.per_frame) : null, service) ?? NOT_RECORDED,
     release_anchor: (rtmlibLog ? asRecord(rtmlibLog.release_anchor) : null) ?? NOT_RECORDED,
+    // Keypoint smoothing window — separate from each metric's measurement window (metrics[].temporal_window).
+    temporal_smoothing: (rtmlibLog ? asRecord(rtmlibLog.temporal_smoothing) : null) ?? NOT_RECORDED,
     confidence_flags: result ? present(result.confidence_flags ?? null) : NOT_RECORDED,
     calibration_audit: asRecord(resultData.calibration_audit) ?? NOT_RECORDED,
     phase_windows: (rtmlibLog ? asArray(rtmlibLog.phase_windows) : null) ?? NOT_RECORDED,

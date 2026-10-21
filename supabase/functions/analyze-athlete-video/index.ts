@@ -984,6 +984,7 @@ Deno.serve(async (req) => {
     const smoothedKeypoints = smoothing.keypoints
     if (logData.rtmlib) {
       ;(logData.rtmlib as Record<string, unknown>).temporal_smoothing = {
+        smoothing_window_frames: SMOOTHING_WINDOW_FRAMES,
         keypoint_windows: smoothing.keypointWindows,
         excluded_frames: Array.from(smoothingExcluded).sort((a, b) => a - b),
       }
@@ -2293,6 +2294,9 @@ function extractMetricKeypointIndices(metric: unknown): number[] {
   return Array.from(new Set([...indices, ...singleIndex].map((value) => Math.round(value))))
 }
 
+/** Keypoint temporal-smoothing window (frames, odd). Independent of metric measurement windows. */
+const SMOOTHING_WINDOW_FRAMES = 3
+
 function buildTemporalSmoothingConfig(nodeConfig: unknown) {
   const metrics = Array.isArray((nodeConfig as Record<string, unknown> | null)?.key_metrics)
     ? ((nodeConfig as Record<string, unknown>).key_metrics as unknown[])
@@ -2305,9 +2309,9 @@ function buildTemporalSmoothingConfig(nodeConfig: unknown) {
     const keypointIndices = extractMetricKeypointIndices(metric)
     if (!mapping || keypointIndices.length === 0) continue
 
-    // The metric's top-level temporal_window is authoritative; mapping value is a legacy fallback.
-    const topLevel = (metric as Record<string, unknown>).temporal_window
-    const windowSize = normalizeWindowSize(isFiniteNumber(topLevel) && topLevel > 0 ? topLevel : mapping.temporal_window)
+    // Smoothing window is a dedicated constant, never a metric's temporal_window
+    // (that is the metric's measurement window).
+    const windowSize = normalizeWindowSize(SMOOTHING_WINDOW_FRAMES)
     const confidenceThreshold = normalizeConfidenceThreshold(mapping.confidence_threshold)
 
     for (const keypointIndex of keypointIndices) {

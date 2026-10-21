@@ -29,9 +29,10 @@ const hip = (k: SKeypoints, i: number) => [
   (k[i][0][23][1] + k[i][0][24][1]) / 2,
 ];
 
+// Dedicated 3-frame smoothing window (not any metric's measurement window).
 const settings = new Map([
-  [23, { windowSize: 15, confidenceThreshold: 0.4 }],
-  [24, { windowSize: 15, confidenceThreshold: 0.4 }],
+  [23, { windowSize: 3, confidenceThreshold: 0.4 }],
+  [24, { windowSize: 3, confidenceThreshold: 0.4 }],
 ]);
 
 describe("temporal smoothing on run 39702081", () => {
@@ -53,6 +54,19 @@ describe("temporal smoothing on run 39702081", () => {
     const [x29, y29] = hip(out, 29);
     expect(Math.abs(x29 - 1341)).toBeLessThan(25);
     expect(Math.abs(y29 - 1251)).toBeLessThan(15);
+  });
+
+  it("hip values match a 3-frame window, not 15", () => {
+    // Frame 35 sits inside a long clean run, so both windows would be full width.
+    const raw = (i: number) => (fixture.kp23[i][0] + fixture.kp24[i][0]) / 2;
+    const mean = (a: number, b: number) => {
+      let s = 0;
+      for (let i = a; i <= b; i += 1) s += raw(i);
+      return s / (b - a + 1);
+    };
+    const [x35] = hip(out, 35);
+    expect(x35).toBeCloseTo(mean(34, 36), 6);
+    expect(Math.abs(x35 - mean(28, 40))).toBeGreaterThan(1);
   });
 
   it("the 7-frame gap 22-28 is not filled (longer than 5)", () => {
