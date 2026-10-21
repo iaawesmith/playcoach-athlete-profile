@@ -37,4 +37,4 @@
 - [x] Admin-only replay (admin-replay-feedback → analyzer replay mode, nothing saved)
 - [x] Replays of 3e01efe2 checked automatically (see feedback_check)
 - [x] Post-check (level-of-play words always; other players on solo reps; 150 words), one named retry, data-only fallback; recorded as feedback_check in diagnostics
-- [ ] Add example response to Slant system instructions — waiting on user approval of the wording
+- [ ] Add approved Slant example, extend solo bans, revise second-person fallback and Hip Stability wording; replay 3e01efe2 five times and report counts.
