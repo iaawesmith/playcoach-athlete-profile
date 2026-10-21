@@ -1,71 +1,90 @@
-# Pose service: leading-frame loss, ghost detections, filter cascade
+# Pose service: crop that covers the path, and a following crop for lost frames
 
-Reference runs 39702081 / 59d79766 (service 0dbf5ae, revision 00017-cdz). Pose service only (`mediapipe-service/`). No analyzer, node data, weights, status or 3-second window changes.
+Reference runs a634fbec / 6733a304 (service 370f40c, revision 00019, zoom 1.75x, crop x 490-2684, y 644-1878). Comparison: unzoomed run 39702081 (same clip).
 
-## What the runs show (from stored diagnostics)
+## Diagnosis
+
+### 1. Why the crop used the 1.75x cap
+
+The rule is already "fit, then cap": `path_crop` computes the zoom that fits the combined box plus margin, then takes `min(1.75, fit)`. The cap only wins when the combined box is small. So the box was too small, not too large: the probes didn't see the end of the route.
+
+Probe frames (8 samples, IMAGE mode, full 4K frame): 0, 11, 22, 34, 45, 56, 68, 79.
 
 ```text
-frame  detected  hip (x, y)    height px
-0-17   no        -             -
-18     yes       790, 847      383    <- ghost
-19     yes       1178, 1274    110    <- partial (half body)
-20     yes       1165, 1278    115    <- partial
-21     yes       772, 852      398    <- ghost
-22-23  no (detector miss)
-24-28  rejected height_jump (vs frame 21)
-29     yes       902, 833      499    <- ghost
-30-45  yes       1365 -> 1833, ~1250   230 -> 185   <- true track
+probe   hips in 39702081 (truth)   what the crop implies
+0       (no detection)             seen      ~1008
+11      (no detection)             seen      ~1016
+22      (no detection)             seen      ~1166
+34      1481                       seen
+45      1833                       seen
+56      2194                       seen
+68      2663                       NOT seen  (crop edge 2684 = hip at 68)
+79      3124                       NOT seen
+end     3518 (frame 89)            never sampled
 ```
 
-Zoom: skipped, "athlete height 184px >= 150px", fill 0.0853. Recovered frames: none.
+The crop centre (x 1587) and width (2194) match a combined box that runs from about x 950 to 2260, which is probes 0-56 only. That box needs about 2.3x to fit, so the 1.75x cap applied. Probes 68 and 79 probably missed because the athlete is ~230-256 px tall (8.5%) and IMAGE mode on the full 4K frame misses a figure that small. This is the same failure we saw in leading-frame recovery.
 
-## 1. Zoom rule: share of frame height
+Unconfirmed: probe results aren't recorded anywhere, so this is inferred from the crop geometry. The first build step adds a record of the probes, and the rerun confirms or corrects this.
 
-- Replace the 150 px rule with: zoom when median athlete height < 20% of frame height (432 px on 2160). Configurable (`AUTOZOOM_MIN_HEIGHT_FRAC`, default 0.20). The existing path-covering crop and 1.75x cap are unchanged.
-- This run (8.5%) would zoom again, as in the previous revision that detected these frames.
-- Reason text reports the share, e.g. "athlete 8.5% of frame height < 20%".
+Two more gaps:
+- No probe falls after frame 79, so even perfect probes would miss frames 80-89 (hips 3124 to 3518).
+- Correct fit for the true path, hips 1008 to 3518 (2510 px):
+  - plus one body height (~256 px) on each side: about 1.27x
+  - with the current margin (15% of path width = 377 px per side): about 1.12x, which is just above the 1.1x "not worth it" floor
 
-## 2. Why frames 0-2 recovery recovered nothing
+  So the margin rule decides whether we zoom at all on long routes.
 
-- It re-ran the same full 4K frame through a fresh engine with a lower threshold (0.3). MediaPipe shrinks the whole frame to a small detector input, so a 184 px athlete in a 3840 px frame becomes a few pixels. The problem is size, not the threshold, so lowering it changes nothing.
-- With zoom off, "processed frames" are the originals, so no crop was ever tried.
-- It was also capped at frames 0-2; the loss ran 0-17.
+### 2. Why frames 70-89 weren't recovered
 
-Fix: recover the whole leading run of missed frames (from frame 0 until the first accepted detection), on a crop around the athlete's path (probe boxes + margin), with a separate IMAGE-mode engine, mapping landmarks back to original coordinates. Applies whether zoom was on or off. Recovered frames still go through the plausibility check (item 4).
+They did trigger the fallback. `fallback_full_frame` targets every frame that was missed or touched the crop edge, so 66 and 69-89 were all attempted. `zoom_fallback_frame_indices` only lists frames the fallback detected something on:
+- 66 and 69 came back as partial bodies and were then rejected (`too_few_visible_landmarks`).
+- 70-89 returned nothing on the full 4K frame in IMAGE mode.
 
-## 3. "Coordinate scale bug": diagnosis does not support it
+The service doesn't record attempted frames separately, which made it look like only 66 and 69 were tried. The real failure is the one you named: re-detecting on the full frame can't find an athlete this small.
 
-The brief asks for a path that returns landmarks in resized space without mapping back. The code and data don't show one:
-- With zoom off there is no resize anywhere: frames are decoded at 3840x2160, MediaPipe returns 0-1 coordinates, and they are multiplied by that same width/height. Fallback and reverse-mapping only run when zoom is applied (it wasn't).
-- If 18/21/29 were scaled to two-thirds, the athlete would also be two-thirds the size (~150 px). Instead they are 1.7-2.2x larger (383-499 px vs ~230), with x and y off by different ratios. That is the tracker locking onto a wrong, larger shape (a ghost), not a coordinate bug.
-- Frames 19-20 are a second problem: same position as the true track but only ~110 px tall (half a body).
+## Proposed changes (pose service only)
 
-Proposed fix instead: these are caught by the robust-reference check in item 4 (height and hip position vs the median of nearby good frames). No mapping code changes, because none is wrong. If you have evidence of a resized path I haven't found, I'll trace it before building.
+### A. Probes that see the whole path
+- Record every probe in the output (`auto_zoom_probes`): frame, detected, box, hip, height, plus the combined box and the fit and cap factors. You can then see why a given zoom was chosen.
+- Add probes at the last frame and the second-to-last frame, so the end of the route is always sampled.
+- Re-try missed probes the same way leading-frame recovery does: crop at 1.75x around the position predicted from the neighbouring probes that did detect, using the IMAGE-mode engine, then map the result back.
+- If a trailing probe still misses, extend the combined box along the measured path direction to the last frame, using the speed from the detected probes and staying inside the frame. The crop then never ends before the route does.
+- Zoom = the smaller of the cap and the fit of the combined box plus margin, with margin = one body height (no longer the larger of 15% of path width and one body height). On this clip that gives about 1.27x.
+- If the fit falls below the 1.1x floor, skip the zoom and use the following crop (B) on the unzoomed frames.
 
-## 4. Plausibility filter: robust reference
+### B. Following crop instead of the full-frame fallback
+- Replaces the full-frame re-detect. A frame is a target when it was missed, rejected as a partial body, or its box touches the crop edge.
+- Frames are processed in time order. For each target:
+  - Predict the hip from the last good hips: the average speed over the last 5 good frames, carried forward by the number of frames since the last good one.
+  - Crop the same size as the zoom crop (or a 1.75x crop when zoom was skipped), centred on the predicted hip and kept inside the frame.
+  - Detect with the separate IMAGE-mode engine (the main VIDEO tracker is never touched) and map the landmarks back to original coordinates.
+- A recovered frame becomes the newest "last good" frame only if it passes the same plausibility check as everything else, so a bad recovery can't steer later crops.
+- Stop after 10 consecutive misses, so a real exit from the scene isn't chased.
+- New outputs: `follow_crop_attempted_indices`, `follow_crop_recovered_indices`, and the crop used per frame. `zoom_fallback_frame_indices` stays and keeps its meaning.
 
-Replace "compare to last accepted frame" with a two-pass check:
-1. Pass 1: basic checks per frame (clipped at edge, under 60% landmarks visible) as now.
-2. Pass 2: for each candidate, reference = median height and median hip of up to 5 nearest candidates on each side (excluding the frame itself). Reject if height differs by more than 40% of reference, or hip is more than half a reference height away.
-3. Iterate: rejected frames are removed from the pool and pass 2 reruns until nothing changes, so an invalid frame can never serve as a reference.
-4. Need at least 3 neighbours for a reference; otherwise keep the frame and record `insufficient_reference`.
+## Tests (no model needed, pure rules in framing.py)
 
-Expected on this run: 18, 21, 29 rejected (ghost); 19, 20 rejected (half body); 24-28 accepted.
+New fixture: the full 90-frame hip and height series from 39702081, `run_39702081_full_series.json`.
 
-## 5. Tests (no model needed)
+1. Path crop: with probe boxes built from this series (including the extension when probes 68 and 79 are missing), the crop contains every detected hip from 0 to 89 plus one body height of margin. The zoom is about 1.27x, not 1.75x.
+2. Cap still applies: a short path that fits at more than 1.75x is capped at 1.75x.
+3. Following crop: with the 370f40c crop (x 490-2684) and frames 66-89 marked lost, each predicted crop for frames 66-89 contains that frame's true hip from 39702081, chained frame by frame from the last good hips (frames 63-68).
+4. Stop rule: after 10 consecutive lost frames with no recovery, no more crops are issued.
+5. A recovery that fails plausibility doesn't become the anchor for the next prediction.
 
-`mediapipe-service/tests/test_framing.py`, using this run's stored series:
-- Frames 18, 21, 29 rejected; 30-45 accepted; 19, 20 rejected.
-- Frames 24-28 accepted.
-- Zoom gate: 184/2160 zooms; 450/2160 doesn't.
-- Leading-run detection: finds 0-17.
+## Not changed
+Analyzer, node data, weights, status, the 3-second window, the VIDEO-mode main pass, and the existing leading-frame recovery.
 
-Limitation: frames 24-28 were zeroed after rejection before storage, so their real landmarks aren't in the run. The test uses values interpolated between frame 20 and 30 for those five frames, marked as such. To fix this going forward, the service will also return the pre-rejection height/hip per rejected frame (additive field), so next run's real values can replace the interpolated ones.
+## Deploy
+After approval and build, the files go on main; you deploy from Cloud Shell. I then rerun the clip twice and compare against 39702081 and a634fbec:
+- the probe record
+- the zoom factor
+- detected frames 66-89
+- hip coordinates
 
 ## Technical details
-
-- `framing.py`: `MIN_ATHLETE_HEIGHT_FRAC`, `needs_zoom(med_h, frame_h)`, `leading_missed_run(results)`, `robust_validate(series)` (pure, iterative).
-- `auto_zoom.py`: gate uses the fraction; keep the probe path crop in `ZoomState` even when zoom is skipped, for recovery.
-- `pose.py`: `recover_leading_frames` takes the path crop, crops/maps back, no 3-frame cap; `reject_partial_detections` delegates to `robust_validate`.
-- `main.py` / `schema.py`: pass crop to recovery; add `rejected_frame_details` (height, hip before rejection).
-- After you deploy from Cloud Shell, I rerun the 4K30 Slant clip twice and compare to 39702081.
+- `framing.py`: `fit_factor(union, body_h, w, h)`, `extend_union_to_end(probes, n_frames)`, `predict_hip(last_good, k=5, steps)`, `follow_crop_rect(center, cw, ch, w, h)`, `MAX_FOLLOW_MISSES=10`, `PATH_MARGIN = body height`.
+- `auto_zoom.py`: sample indices include `n-1` and `n-2`; missed probes are retried on a predicted crop through the probe engine; `ZoomState.probes` and `fit_factor`.
+- `pose.py`: `follow_crop_recover(frames, results, crop_size, w, h)` replaces `fallback_full_frame` in `main.py`. It runs before `reject_partial_detections`, and edge and partial candidates are checked with the same per-frame rules.
+- `schema.py`: additive fields only.
