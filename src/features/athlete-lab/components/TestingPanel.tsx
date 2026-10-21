@@ -1051,6 +1051,9 @@ export function TestingPanel({ node }: TestingPanelProps) {
                   {result.analyzedAt && <span>Analyzed: <span className="font-bold text-on-surface">{new Date(result.analyzedAt).toLocaleString()}</span></span>}
                   {result.resultId && <span>Result ID: <span className="font-mono text-on-surface">{result.resultId}</span></span>}
                 </div>
+                <div className="mt-3">
+                  <DiagnosticExportButton uploadId={result.uploadId} nodeId={node.id} />
+                </div>
               </div>
             </div>
           </div>
