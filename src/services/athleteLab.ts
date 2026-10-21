@@ -416,7 +416,7 @@ function mapPhaseBreakdown(phaseScores: Record<string, number>, node: TrainingNo
   const configured = node.phase_breakdown.map((phase) => ({
     id: phase.id ?? phase.name,
     name: phase.name,
-    score: Math.round(phaseScores[phase.id ?? phase.name] ?? 0),
+    score: typeof phaseScores[phase.id ?? phase.name] === "number" ? Math.round(phaseScores[phase.id ?? phase.name]) : null,
   }));
 
   const extras = Object.entries(phaseScores)
