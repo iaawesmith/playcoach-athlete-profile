@@ -84,11 +84,6 @@ def test_cut_off_and_sparse_rejected():
     assert f.validate_frame(k, [0.9] * 15 + [0.1] * 18, W, H, None, None) == "too_few_visible_landmarks"
 
 
-if __name__ == "__main__":
-    for name, fn in list(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("pass", name)
 
 
 # --- Path crop + athlete-sized recovery crops (run a634fbec / 39702081) -------
@@ -189,3 +184,10 @@ def test_implausible_recovery_never_anchors():
     attempts = f.plan_follow(detected, lost, W, H, 1.75, det)
     assert attempts[0]["recovered"] is False
     assert all(a["recovered"] for a in attempts[1:])
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_"):
+            fn()
+            print("pass", name)
