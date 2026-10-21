@@ -146,6 +146,9 @@ const SOLO_BANNED: Array<[string, RegExp]> = [
   ['quarterback', /\bquarterbacks?\b|\bQBs?\b/i],
   ['snap', /\bsnap(s|ped|ping)?\b/i],
   ['throw', /\bthrow(s|n|ing)?\b|\bthrew\b/i],
+  ['defense', /\bdefenses?\b/i],
+  ['coverage', /\bcoverage\b/i],
+  ['window', /\bwindows?\b/i],
 ]
 
 export type FeedbackCheck = { passed: boolean; violations: string[]; word_count: number }
@@ -169,17 +172,12 @@ export function splitSentences(text: string): string[] {
   return (text.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) ?? []).map((s) => s.trim()).filter(Boolean)
 }
 
-/** Keep whole sentences that pass the check; drop the rest. */
-function cleanSentences(text: string, solo: boolean): string[] {
-  return splitSentences(text).filter((s) => checkFeedback(s, solo).violations.every((v) => v.includes('words')))
-}
-
 type FallbackMetric = MetricResultLike
 type FallbackError = { name: string; correction?: string | null; metric?: string | null }
 
 /**
  * Built from the data only: each scored metric against its target, the
- * triggered error with the node's correction, and one drill for it. Whole
+ * triggered error without node correction text, and one drill for it. Whole
  * sentences only; stays under the word limit by dropping trailing sentences.
  */
 export function buildFallbackFeedback(
@@ -193,23 +191,28 @@ export function buildFallbackFeedback(
     const v = typeof m.value === 'number' ? m.value : Number(m.value)
     const t = typeof m.elite_target === 'number' ? m.elite_target : Number(m.elite_target)
     let rel = 'on target'
-    if (Number.isFinite(v) && Number.isFinite(t) && Math.abs(v - t) > Math.max(Math.abs(t) * 0.02, 0.005)) {
+    if (m.name.trim().toLowerCase() === 'hip stability' && Number.isFinite(v) && Number.isFinite(t) && v <= t) {
+      rel = 'inside the target'
+    } else if (Number.isFinite(v) && Number.isFinite(t) && Math.abs(v - t) > Math.max(Math.abs(t) * 0.02, 0.005)) {
       rel = `${round(Math.abs(v - t))}${u} ${v > t ? 'above' : 'below'} target`
     }
-    lines.push(`${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} target (${rel}).`)
+    lines.push(`Your ${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} target (${rel}).`)
   }
   const err = errors[0]
   if (err) {
-    lines.push(`Flagged: ${err.name}.`)
-    lines.push(...cleanSentences(err.correction ?? '', solo))
+    lines.push(`Your flagged issue: ${err.name}.`)
     const metric = err.metric ? metrics.find((m) => m.name === err.metric) : undefined
     const focus = metric ? `${metric.name.toLowerCase()} toward ${round(metric.elite_target)}${unitText(metric.unit)}` : 'this area'
-    lines.push(`Drill: five reps focused only on this, working to bring ${focus}, then film one and compare.`)
+    const releaseFocused = metric?.name.trim().toLowerCase() === 'release speed' || /slow release/i.test(err.name)
+    lines.push(releaseFocused
+      ? 'For your next rep: five 5-yard starts from your stance at full effort, pushing the ground back hard on the first two steps.'
+      : `For your next rep: five reps focused only on this, working to bring ${focus}, then film one and compare.`)
   }
   const out: string[] = []
   for (const line of lines) {
+    if (!checkFeedback(line, solo).passed) continue
     if (countWords([...out, line].join(' ')) > MAX_FEEDBACK_WORDS) break
     out.push(line)
   }
-  return out.join('\n')
+  return out.join('\n') || 'Your measurements need review before coaching feedback is available. Film another rep and compare your measured results with their targets.'
 }
