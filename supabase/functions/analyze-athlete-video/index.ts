@@ -1,5 +1,18 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
+  computeReleaseAnchor,
+  findCatchArrival,
+  hipSeries,
+  offsetWindows,
+  resolveSideRule,
+  sideForRoute,
+  type FrameKps,
+  type FrameScores,
+  type ReleaseAnchor,
+  type SideRule,
+  type SideRuleSource,
+} from './segmentation.ts'
+import {
   computeHeightCalibration,
   windowScale,
   parseResolutionHeight,
@@ -986,11 +999,22 @@ Deno.serve(async (req) => {
 
     // STEP 7: Divide frames into phase windows
     await setUploadProgress(upload.id, 'Segmenting the rep into route phases...')
-    const phaseWindows = calculatePhaseWindows(
-      rtmlibResult.frame_count,
-      nodeConfig.phase_breakdown,
-      3,
+    // Movement-anchored Release: the first phase starts at the first sustained
+    // hip movement; remaining frames are split proportionally as before.
+    const releaseAnchor: ReleaseAnchor = computeReleaseAnchor(
+      hipSeries(trackedPersonFrames.keypoints as unknown as FrameKps[], trackedPersonFrames.scores as unknown as FrameScores[]),
+      Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : resolvedCalibration.pixelsPerYard,
     )
+    const anchorFrame = releaseAnchor.applied ? releaseAnchor.frame : 0
+    const phaseWindows = offsetWindows(
+      calculatePhaseWindows(
+        rtmlibResult.frame_count - anchorFrame,
+        nodeConfig.phase_breakdown,
+        3,
+      ),
+      anchorFrame,
+    )
+    logInfo('release_anchor', { uploadId, ...releaseAnchor })
     if (logData.rtmlib) {
       logData.rtmlib.phase_windows = buildPhaseWindowLog(
         phaseWindows,
@@ -1011,7 +1035,8 @@ Deno.serve(async (req) => {
       (nodeConfig.reference_fallback_behavior as ReferenceFallbackBehavior | undefined) || 'pixel_warning',
       context,
       rtmlibResult.fps,
-      uploadId
+      uploadId,
+      nodeConfig.phase_breakdown,
     )
     logInfo('metric_calculation_complete', {
       uploadId,
@@ -2589,9 +2614,14 @@ async function calculateAllMetrics(
   fallbackBehavior: ReferenceFallbackBehavior,
   context: any,
   fps: number,
-  uploadId?: string | null
+  uploadId?: string | null,
+  phaseBreakdown: any[] = [],
 ) {
   const results: any[] = []
+  const phaseNameById = new Map(parsePhaseBreakdown(phaseBreakdown).map((p) => [p.id, p.name]))
+  // Ball arrival for catch-anchored distance metrics (computed lazily per threshold).
+  const personOnlyKps = keypoints.map((f) => [f?.[personIndex]]) as unknown as FrameKps[]
+  const personOnlyScores = scores.map((f) => [f?.[personIndex]]) as unknown as FrameScores[]
 
   // Filter out metrics flagged as inactive (preserved in storage, excluded from scoring)
   const activeMetrics = (metrics ?? []).filter((m: any) => m?.active !== false)
@@ -2691,7 +2721,40 @@ async function calculateAllMetrics(
       case 'angle':
         metricValue = calculateAngle(phaseFrames, personIndex, bilateralDecision.effectiveIndices, phaseScores, mapping.confidence_threshold || 0.70)
         break
-      case 'distance':
+      case 'distance': {
+        const phaseName = phaseNameById.get(mapping.phase_id) ?? ''
+        if (/catch/i.test(phaseName)) {
+          // Catch-anchored: measure around ball arrival, never elsewhere.
+          const threshold = mapping.confidence_threshold || 0.70
+          const arrival = findCatchArrival(personOnlyKps, personOnlyScores, threshold)
+          if (!arrival.ok) {
+            metricValue = { value: null, status: 'skipped', reason: 'catch_frames_unavailable', detail: { catchAnchor: arrival } }
+            break
+          }
+          const from = Math.max(0, arrival.frame - 2)
+          const to = Math.min(keypoints.length - 1, arrival.frame + 2)
+          const catchFrames = keypoints.slice(from, to + 1)
+          const catchScores = scores.slice(from, to + 1)
+          // Centre the ±2 window on arrival even when clamped at the clip end.
+          const result = calculateDistance(
+            catchFrames, personIndex, bilateralDecision.effectiveIndices,
+            metricCalibration, fallbackBehavior, catchScores, threshold,
+          )
+          if (result.value === null && result.status !== 'skipped') {
+            metricValue = { value: null, status: 'skipped', reason: 'catch_frames_unavailable', detail: { catchAnchor: arrival, inner_reason: result.reason ?? null } }
+          } else {
+            metricValue = {
+              ...result,
+              detail: {
+                ...(result.detail || {}),
+                method: 'catch_anchored',
+                catchAnchor: arrival,
+                framesUsed: Array.isArray(result.detail?.framesUsed) ? (result.detail!.framesUsed as number[]).map((f) => f + from) : [],
+              },
+            }
+          }
+          break
+        }
         metricValue = calculateDistance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
           metricCalibration,
@@ -2699,6 +2762,7 @@ async function calculateAllMetrics(
           phaseScores, mapping.confidence_threshold || 0.70,
         )
         break
+      }
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
