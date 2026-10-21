@@ -29,4 +29,3 @@
 - [ ] Rerun 4K30 Slant clip twice after user deploys service; compare vs 39702081 / a634fbec (blocked: user Cloud Shell deploy)
 - [x] Analyzer: missed/rejected/(0,0)/score-0 points excluded from smoothing; no fabricated points; dedicated 3-frame smoothing window (constant, independent of metric measurement windows) recorded in export; symmetric window at gaps; deployed
 - [ ] Deploy service from Cloud Shell — waiting on user
-- [ ] Rerun 4K30 Slant twice after deploy and compare to 39702081 — waiting on user deploy
