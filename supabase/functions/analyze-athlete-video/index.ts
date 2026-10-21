@@ -1,4 +1,7 @@
 import {
+  buildFallbackFeedback,
+  checkFeedback,
+  countWords,
   formatAthleteLevel,
   formatMetricResults,
   formatRunContext,
@@ -470,7 +473,18 @@ type ClaudeCallResult = {
     input_tokens: number | null
     output_tokens: number | null
     skipped_reason: string | null
+    feedback_check?: FeedbackCheckRecord
   }
+}
+
+type FeedbackCheckRecord = {
+  passed: boolean
+  violations: string[]
+  retried: boolean
+  retry_violations: string[]
+  fallback_used: boolean
+  first_response?: string
+  retry_response?: string
 }
 
 type LlmDiagnostics = ClaudeCallResult['diagnostics']
@@ -1176,7 +1190,7 @@ Deno.serve(async (req) => {
       })
     } else {
       await setUploadProgress(upload.id, 'Generating coaching feedback...')
-      const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+      const claudeResult = await generateCheckedFeedback(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
       feedback = claudeResult.feedback
       logData.claude_api = claudeResult.log
       llmDiagnostics = claudeResult.diagnostics
@@ -3660,7 +3674,8 @@ async function callClaude(
   metricResults: any[],
   errorResults: any,
   upload: any,
-  context: any
+  context: any,
+  retryNote = '',
 ): Promise<ClaudeCallResult> {
   const variables: Record<string, string> = {
     mastery_score: scoreResult.aggregate_score?.toString() || 'N/A',
@@ -3701,7 +3716,7 @@ async function callClaude(
     }),
   })
 
-  const prompt = renderTemplate(template, variables)
+  const prompt = renderTemplate(template, variables) + retryNote
   // System instructions get the same placeholders filled; empty optional
   // values read "none" so the model never sees a literal {{placeholder}}.
   const systemVariables = Object.fromEntries(
@@ -4176,11 +4191,64 @@ async function handleFeedbackReplay(req: Request, payload: Record<string, unknow
 
   const runs = []
   for (let i = 0; i < count; i++) {
-    const r = await callClaude(nodeConfig, scoreResult, metricResults, { detected }, upload, context)
-    runs.push({ response: r.feedback, input_tokens: r.diagnostics.input_tokens, output_tokens: r.diagnostics.output_tokens, word_count: r.log?.word_count })
+    const r = await generateCheckedFeedback(nodeConfig, scoreResult, metricResults, { detected }, upload, context)
+    runs.push({ response: r.feedback, feedback_check: r.diagnostics.feedback_check, word_count: countWords(r.feedback) })
     if (i === 0) {
       runs[0] = { ...runs[0], prompt: r.diagnostics.prompt, system_instructions: r.diagnostics.system_instructions }
     }
   }
   return json({ result_id: resultId, node_version: nodeConfig.node_version, runs })
+}
+
+
+// Runs the model, checks the response (level-of-play words always, other
+// players on solo reps, 150-word limit), retries once naming the violations,
+// and falls back to a data-only summary. A failing response is never shipped.
+async function generateCheckedFeedback(
+  nodeConfig: any,
+  scoreResult: any,
+  metricResults: any[],
+  errorResults: any,
+  upload: any,
+  context: any,
+): Promise<ClaudeCallResult> {
+  const solo = normalizePeopleInVideo(context?.people_in_video) === 'solo'
+  const first = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+  const firstCheck = checkFeedback(first.feedback, solo)
+  const record: FeedbackCheckRecord = {
+    passed: firstCheck.passed, violations: firstCheck.violations, retried: false, retry_violations: [], fallback_used: false,
+  }
+  if (firstCheck.passed) return withCheck(first, record)
+
+  record.first_response = first.feedback
+  record.retried = true
+  const note = `\n\nYOUR PREVIOUS DRAFT WAS REJECTED for: ${firstCheck.violations.join('; ')}. ` +
+    `Rewrite it from scratch under ${150} words, following every evidence rule, with none of those problems.`
+  const second = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, note)
+  const secondCheck = checkFeedback(second.feedback, solo)
+  record.retry_violations = secondCheck.violations
+  if (secondCheck.passed) {
+    record.passed = true
+    return withCheck(second, record)
+  }
+
+  record.retry_response = second.feedback
+  record.fallback_used = true
+  const nodeErrors: any[] = Array.isArray(nodeConfig.common_errors) ? nodeConfig.common_errors : []
+  const errors = (errorResults?.detected ?? []).map((e: any) => {
+    const def = nodeErrors.find((n) => n?.error === e.name)
+    const metric = typeof e.condition === 'string' ? e.condition.split(/[<>=]/)[0].trim() : null
+    return { name: e.name, correction: def?.correction ?? null, metric }
+  })
+  const fallback = buildFallbackFeedback(metricResults, errors, solo)
+  record.passed = checkFeedback(fallback, solo).passed
+  return withCheck({ ...second, feedback: fallback }, record)
+}
+
+function withCheck(result: ClaudeCallResult, record: FeedbackCheckRecord): ClaudeCallResult {
+  return {
+    ...result,
+    log: { ...(result.log ?? {}), feedback_check: record } as PipelineLogData['claude_api'],
+    diagnostics: { ...result.diagnostics, response: result.feedback, feedback_check: record },
+  }
 }
