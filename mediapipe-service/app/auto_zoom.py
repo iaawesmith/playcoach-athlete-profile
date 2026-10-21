@@ -35,12 +35,7 @@ def _resolve_sample_count() -> int:
 
 
 SAMPLE_COUNT = _resolve_sample_count()
-FILL_THRESHOLD = 0.30
-TARGET_FILL = 0.45
 MAX_FACTOR = 1.75
-MIN_VIS = 0.5
-HIP_LEFT = 23
-HIP_RIGHT = 24
 # Below this zoom factor, the visual change is small enough that re-probing
 # for safety backoff isn't worth the detect cost.
 POST_PROBE_MIN_FACTOR = 1.15
@@ -69,22 +64,6 @@ def _sample_indices(n: int, k: int = SAMPLE_COUNT) -> list[int]:
     return [min(n - 1, int(round(i * step))) for i in range(k)]
 
 
-def _bbox_fill(pf: PoseFrame, w: int, h: int) -> float:
-    if not pf.detected or w <= 0 or h <= 0:
-        return 0.0
-    xs: list[float] = []
-    ys: list[float] = []
-    for (x, y), s in zip(pf.keypoints, pf.scores):
-        if s >= MIN_VIS:
-            xs.append(x)
-            ys.append(y)
-    if len(xs) < 4:
-        return 0.0
-    bw = max(0.0, max(xs) - min(xs))
-    bh = max(0.0, max(ys) - min(ys))
-    return (bw * bh) / float(w * h)
-
-
 def _mean_conf(frames: list[PoseFrame]) -> float:
     vals: list[float] = []
     for pf in frames:
@@ -93,22 +72,6 @@ def _mean_conf(frames: list[PoseFrame]) -> float:
     if not vals:
         return 0.0
     return float(sum(vals) / len(vals))
-
-
-def _median_hip(frames: list[PoseFrame]) -> tuple[float, float] | None:
-    xs: list[float] = []
-    ys: list[float] = []
-    for pf in frames:
-        if not pf.detected:
-            continue
-        if pf.scores[HIP_LEFT] >= MIN_VIS and pf.scores[HIP_RIGHT] >= MIN_VIS:
-            xs.append((pf.keypoints[HIP_LEFT][0] + pf.keypoints[HIP_RIGHT][0]) / 2.0)
-            ys.append((pf.keypoints[HIP_LEFT][1] + pf.keypoints[HIP_RIGHT][1]) / 2.0)
-    if not xs:
-        return None
-    xs.sort()
-    ys.sort()
-    return xs[len(xs) // 2], ys[len(ys) // 2]
 
 
 def decide_and_apply(

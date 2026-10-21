@@ -13,7 +13,14 @@ from fastapi.responses import StreamingResponse
 
 from . import auto_zoom as az
 from . import calibration, video
-from .pose import LANDMARK_COUNT, PoseEngine, recover_leading_frames, run_with_skip
+from .pose import (
+    LANDMARK_COUNT,
+    PoseEngine,
+    fallback_full_frame,
+    recover_leading_frames,
+    reject_partial_detections,
+    run_with_skip,
+)
 from .schema import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -27,6 +34,9 @@ SHORT_CLIP_FRAMES = 120
 log = logging.getLogger("mediapipe-service")
 
 MAX_WINDOW_SECONDS = 3.0
+# Build identifier: SERVICE_BUILD (set at deploy, e.g. git SHA) else Cloud Run revision.
+SERVICE_BUILD = os.getenv("SERVICE_BUILD") or None
+SERVICE_REVISION = os.getenv("K_REVISION") or None
 KEEPALIVE_INTERVAL_S = 10.0
 
 
@@ -159,6 +169,12 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
             # 3) Reverse-map landmarks back to original video coords.
             reverse_start = time.perf_counter()
             original_space = az.reverse_map_landmarks(pose_results, zoom, width, height)
+            fallback_indices: list[int] = []
+            if zoom.applied:
+                fallback_indices = await asyncio.to_thread(
+                    fallback_full_frame, frames, pose_results, original_space, width, height
+                )
+            rejected = reject_partial_detections(original_space, width, height)
             t_reverse_map = time.perf_counter() - reverse_start
 
             # 4) Body-based calibration.
@@ -216,6 +232,20 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         ),
         mean_keypoint_confidence_before_auto_zoom=zoom.mean_conf_before,
         mean_keypoint_confidence_after_auto_zoom=zoom.mean_conf_after,
+        zoom_fallback_frame_indices=fallback_indices,
+        rejected_frame_indices=sorted(rejected.keys()),
+        rejected_frame_reasons={str(k): v for k, v in rejected.items()},
+        timings_ms={
+            "download": round(t_download * 1000, 1),
+            "decode": round(t_decode * 1000, 1),
+            "auto_zoom": round(t_autozoom * 1000, 1),
+            "pose_loop": round(t_pose_loop * 1000, 1),
+            "reverse_map_and_validate": round(t_reverse_map * 1000, 1),
+            "calibration": round(t_calibration * 1000, 1),
+            "total": round((time.time() - t0) * 1000, 1),
+        },
+        service_build=SERVICE_BUILD,
+        service_revision=SERVICE_REVISION,
         progress_updates=progress,
     )
 

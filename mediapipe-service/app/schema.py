@@ -85,4 +85,14 @@ class AnalyzeResponse(BaseModel):
     mean_keypoint_confidence_before_auto_zoom: float = 0.0
     mean_keypoint_confidence_after_auto_zoom: float = 0.0
 
+    # Auto-zoom exit fallback + partial-detection rejection (additive)
+    zoom_fallback_frame_indices: list[int] = Field(default_factory=list)
+    rejected_frame_indices: list[int] = Field(default_factory=list)
+    rejected_frame_reasons: dict[str, str] = Field(default_factory=dict)
+
+    # Service timings (ms) and build identity (additive)
+    timings_ms: dict[str, float] = Field(default_factory=dict)
+    service_build: str | None = None
+    service_revision: str | None = None
+
     progress_updates: list[ProgressUpdate] = Field(default_factory=list)
