@@ -1,3 +1,10 @@
+import {
+  formatAthleteLevel,
+  formatMetricResults,
+  formatRunContext,
+  normalizePeopleInVideo,
+  renderTemplate,
+} from './prompt.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   computeReleaseAnchor,
@@ -1441,23 +1448,6 @@ function buildErrorDetectionLog(_errors: any[], _metricResults: any[], errorResu
 function clampDetFrequency(value: unknown, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
   return Math.max(1, Math.round(value))
-}
-
-function normalizePeopleInVideo(peopleInVideo: unknown): 'solo' | 'with_defender' | 'multiple' {
-  if (typeof peopleInVideo === 'string') {
-    const normalized = peopleInVideo.trim().toLowerCase()
-    if (normalized === 'with_defender') return 'with_defender'
-    if (normalized === 'multiple') return 'multiple'
-    if (normalized === 'solo' || normalized === 'unknown' || normalized.length === 0) return 'solo'
-  }
-
-  if (typeof peopleInVideo === 'number' && Number.isFinite(peopleInVideo)) {
-    if (peopleInVideo <= 1) return 'solo'
-    if (peopleInVideo === 2) return 'with_defender'
-    if (peopleInVideo > 2) return 'multiple'
-  }
-
-  return 'solo'
 }
 
 function getScenarioDetFrequency(nodeConfig: any, scenario: 'solo' | 'with_defender' | 'multiple'): number {
@@ -3759,7 +3749,7 @@ async function callClaude(
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500,
-        system: nodeConfig.llm_system_instructions || '',
+        system: systemText,
         messages: [{ role: 'user', content: prompt }]
       })
     })
@@ -3844,7 +3834,7 @@ async function callClaude(
     diagnostics: {
       model: 'claude-sonnet-4-5',
       status: 'COMPLETE',
-      system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
+      system_instructions: systemText || null,
       prompt,
       response: feedback,
       input_tokens: inputTokens ?? null,
