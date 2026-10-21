@@ -3669,28 +3669,30 @@ async function callClaude(
   upload: any,
   context: any
 ): Promise<ClaudeCallResult> {
-  const variables = {
+  const variables: Record<string, string> = {
     mastery_score: scoreResult.aggregate_score?.toString() || 'N/A',
     phase_scores: formatPhaseScores(scoreResult.phase_scores, nodeConfig.phase_breakdown),
-    metric_results: formatMetricResults(metricResults),
+    metric_results: formatMetricResults(
+      metricResults,
+      Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : [],
+      parsePhaseBreakdown(nodeConfig.phase_breakdown),
+    ),
+    run_context: formatRunContext(context ?? {}, upload ?? {}),
     confidence_flags: formatConfidenceFlags(metricResults),
     detected_errors: errorResults.detected.length > 0
       ? `Confirmed errors observed: ${errorResults.detected.map((e: { name: string }) => e.name).join(', ')}`
       : '',
     athlete_name: context.athlete_name || 'Athlete',
-    node_name: nodeConfig.name,
-    // A4: position now wired from nodeConfig (was previously omitted, so any
-    // {{position}} token in a prompt template silently rendered as the literal
-    // placeholder string instead of the node's configured position).
+    node_name: String(nodeConfig.name ?? '').trim(),
+    // A4: position now wired from nodeConfig.
     position: nodeConfig.position || '',
-    athlete_level: context.athlete_level || 'high_school',
+    athlete_level: formatAthleteLevel(context.athlete_level),
     focus_area: context.focus_area || '',
     skipped_metrics: formatSkippedMetrics(metricResults),
   }
 
   // Observability: surface which template variables were resolved with real
-  // values vs left empty. Lets admins confirm new vars (e.g. {{position}})
-  // are actually wired before they edit prompt templates that rely on them.
+  // values vs left empty.
   const template = nodeConfig.llm_prompt_template || ''
   logInfo('variables_injected', {
     nodeId: nodeConfig.id,
@@ -3706,11 +3708,16 @@ async function callClaude(
     }),
   })
 
-  // Inject variables into template
-  let prompt = template
-  for (const [key, value] of Object.entries(variables)) {
-    prompt = prompt.replaceAll(`{{${key}}}`, value as string)
-  }
+  const prompt = renderTemplate(template, variables)
+  // System instructions get the same placeholders filled; empty optional
+  // values read "none" so the model never sees a literal {{placeholder}}.
+  const systemVariables = Object.fromEntries(
+    Object.entries(variables).map(([k, v]) => [k, v.trim().length > 0 ? v : 'none']),
+  )
+  const systemText = renderTemplate(
+    typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : '',
+    systemVariables,
+  )
 
   const claudeLog: PipelineLogData['claude_api'] = {
     model: 'claude-sonnet-4-5',
@@ -4117,12 +4124,6 @@ function formatPhaseScores(phaseScores: Record<string, number>, phases: any[]): 
     .join(', ')
 }
 
-function formatMetricResults(metrics: any[]): string {
-  return metrics
-    .filter(m => m.status === 'scored')
-    .map(m => `${m.name}: ${m.value}${m.unit} (target ${m.elite_target}${m.unit}, score ${m.score}/100)`)
-    .join('\n')
-}
 
 const SKIP_REASON_TEXT: Record<string, string> = {
   no_catch: 'no catch recorded',
