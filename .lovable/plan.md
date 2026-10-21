@@ -1,53 +1,71 @@
-# Run 44c52897 — diagnosis and proposed fixes
+# Pose service: leading-frame loss, ghost detections, filter cascade
 
-Reference: Slant – Indoor Diagonal – 4K30 (3840x2160, 90 frames, route_direction "right").
+Reference runs 39702081 / 59d79766 (service 0dbf5ae, revision 00017-cdz). Pose service only (`mediapipe-service/`). No analyzer, node data, weights, status or 3-second window changes.
 
-## Diagnosis (from the stored row and code)
+## What the runs show (from stored diagnostics)
 
-**Fill ratio 0.** `_bbox_fill` divides the athlete box *area* by the full 4K frame area (8.3M px). A ~240 px tall, ~50 px wide athlete is ~12k px², about 0.0013 — formatted to 2 decimals that prints "0.00". The value is correct, but area against a 4K frame is the wrong gate: it zooms almost every wide sideline clip.
+```text
+frame  detected  hip (x, y)    height px
+0-17   no        -             -
+18     yes       790, 847      383    <- ghost
+19     yes       1178, 1274    110    <- partial (half body)
+20     yes       1165, 1278    115    <- partial
+21     yes       772, 852      398    <- ghost
+22-23  no (detector miss)
+24-28  rejected height_jump (vs frame 21)
+29     yes       902, 833      499    <- ghost
+30-45  yes       1365 -> 1833, ~1250   230 -> 185   <- true track
+```
 
-**Crop loses the athlete.** The crop is centered on the *median hip of 4 sampled frames*, sized to frame/1.75 (2194 px wide, x 735–2929). The athlete crosses from hip x ≈1008 to ≈2910 — the full path is ~1900 px plus body width, so it fits only if centred on the path, not the median. By frame 74 the hip sits 19 px from the crop edge; from 75 on the body leaves the crop. Frame 75 is a tracker hallucination at the edge (hip 1951,836, height 421 px); frames 76–89 return nothing. Nothing checks for the athlete leaving the crop.
+Zoom: skipped, "athlete height 184px >= 150px", fill 0.0853. Recovered frames: none.
 
-**Missed frames reported as detected.** In the export, frames 77–89 show `detected: true` with hip x = 0. The service zero-fills undetected frames to keep the shape the same, and the export's `detected` test only checks that the array is non-empty.
+## 1. Zoom rule: share of frame height
 
-**Plant leg (item 4) — inverted.** The `route_direction` branch picks the *same* side as the break: right → right leg (24, 26, 28). Coaching says plant on the outside foot, which is the leg *opposite* the break direction. So the mapping is inverted for plant-leg metrics. It's correct as written for metrics that follow the break side, so the fix has to be per metric, not global.
+- Replace the 150 px rule with: zoom when median athlete height < 20% of frame height (432 px on 2160). Configurable (`AUTOZOOM_MIN_HEIGHT_FRAC`, default 0.20). The existing path-covering crop and 1.75x cap are unchanged.
+- This run (8.5%) would zoom again, as in the previous revision that detected these frames.
+- Reason text reports the share, e.g. "athlete 8.5% of frame height < 20%".
 
-**Release window (item 5).** Proportional segmentation starts Release at frame 0. Hip x barely moves through frame 10 (1008→1015), then rises steadily, so the first ~11 frames are stance, not release.
+## 2. Why frames 0-2 recovery recovered nothing
 
-**Hands Extension (item 6).** It's measured at the middle of the Catch Window, not when the ball arrives. In this run the late frames (76–89) are missing, so any catch-anchored measurement would have nothing to use.
+- It re-ran the same full 4K frame through a fresh engine with a lower threshold (0.3). MediaPipe shrinks the whole frame to a small detector input, so a 184 px athlete in a 3840 px frame becomes a few pixels. The problem is size, not the threshold, so lowering it changes nothing.
+- With zoom off, "processed frames" are the originals, so no crop was ever tried.
+- It was also capped at frames 0-2; the loss ran 0-17.
 
-**keypoint_warning (item 7) — partly not reproduced.** The stored `confidence_flags` *does* contain a warning for Hands Extension on keypoint 19. Clip-level UNRELIABLE keypoints are 13, 15, 17, 19, 21, 22. The empty flags are in the export path. The export doesn't read the `confidence_flags` column, and the result-fetch function may not return it. This needs confirming first.
+Fix: recover the whole leading run of missed frames (from frame 0 until the first accepted detection), on a crop around the athlete's path (probe boxes + margin), with a separate IMAGE-mode engine, mapping landmarks back to original coordinates. Applies whether zoom was on or off. Recovered frames still go through the plausibility check (item 4).
 
-**Phase windows and keypoint confidence (item 9).** Both are stored under `log_data.rtmlib`, so the export is missing them because of a read-path gap, not a capture gap.
+## 3. "Coordinate scale bug": diagnosis does not support it
 
-## Stage 1 — pose service (deployed separately)
+The brief asks for a path that returns landmarks in resized space without mapping back. The code and data don't show one:
+- With zoom off there is no resize anywhere: frames are decoded at 3840x2160, MediaPipe returns 0-1 coordinates, and they are multiplied by that same width/height. Fallback and reverse-mapping only run when zoom is applied (it wasn't).
+- If 18/21/29 were scaled to two-thirds, the athlete would also be two-thirds the size (~150 px). Instead they are 1.7-2.2x larger (383-499 px vs ~230), with x and y off by different ratios. That is the tracker locking onto a wrong, larger shape (a ghost), not a coordinate bug.
+- Frames 19-20 are a second problem: same position as the true track but only ~110 px tall (half a body).
 
-1. **Zoom gate.** Skip zoom when the median athlete height across the probe frames is at least 150 px (setting `AUTOZOOM_MIN_HEIGHT_PX`). Keep fill ratio as a secondary signal, measured by height share rather than area. Log the reason with 4 decimals.
-2. **Path-covering crop.** Probe 8 frames spread across the clip. Build the union box of every confident detection plus 15% margin (at least one body height). Then size the crop to cover that box, keeping the aspect ratio and capping zoom at 1.75x. If the box can't fit at 1.1x or more, skip zoom.
-3. **Exit fallback.** Per frame, if the detected box touches the crop edge (within 2% of it) or detection is lost while zoomed, re-run that frame on the full frame and record it in `zoom_fallback_frame_indices`.
-4. **Partial detections.** Mark a frame not detected (zeroed, and listed in `missed_frame_indices`) when it fails any of these checks: under 60% of the 33 landmarks visible, box clipped by the crop or frame edge, or hip jump or height change beyond plausible limits from the last good frame (catches frame 75).
-5. **Timings and build.** Add `timings_ms` (decode, probe, pose, total) and `service_build` (`K_REVISION` plus a `SERVICE_BUILD` env var or git SHA) to the response. These are additive fields.
+Proposed fix instead: these are caught by the robust-reference check in item 4 (height and hip position vs the median of nearby good frames). No mapping code changes, because none is wrong. If you have evidence of a resized path I haven't found, I'll trace it before building.
 
-## Stage 2 — analyzer
+## 4. Plausibility filter: robust reference
 
-4. **Plant leg.** Add a per-metric rule: when an angle metric's name or phase marks it as a plant leg (Break or Sink phase, lower-body hip-knee-ankle triplet), the route-direction branch picks the *opposite* side. Other metrics keep the current rule. Record `plant_side_rule: "outside_foot"` in `bilateralDecision`. This changes the analyzer only — node mappings are untouched.
-5. **Movement-anchored Release.** Find the first frame where hip-centre speed stays above a threshold (about 0.15 yd per frame by scale, or 1% of frame width) for 3 or more frames in a row. Release starts there, and the rest of the window is split proportionally as today. The 3-second clip window is unchanged, and the anchor frame is recorded.
-6. **Catch-anchored Hands.** Estimate ball-arrival frames as where the wrists converge and peak in the last phase. Measure over ±2 frames around that point. If those frames are missing or below confidence, mark the metric skipped with reason `catch_frames_unavailable`. It won't fall back to mid-window.
-7. **keypoint_warning.** Confirm the export reads `confidence_flags`. Make the result fetch return it, and include it in the export's `errors` and `metrics` sections.
-8. **Unmeasured phases.** Phases whose metrics are all skipped or flagged report `"not measured"` instead of a score in `phase_scores`. They're left out of the LLM prompt's metric and phase blocks, and their names are listed as not measured.
-9. **Export.** `detected` uses the service's `missed_frame_indices` and the all-zero check. Read phase windows and keypoint confidence from `log_data.rtmlib`, and show timings and service build when they're present.
+Replace "compare to last accepted frame" with a two-pass check:
+1. Pass 1: basic checks per frame (clipped at edge, under 60% landmarks visible) as now.
+2. Pass 2: for each candidate, reference = median height and median hip of up to 5 nearest candidates on each side (excluding the frame itself). Reject if height differs by more than 40% of reference, or hip is more than half a reference height away.
+3. Iterate: rejected frames are removed from the pool and pass 2 reruns until nothing changes, so an invalid frame can never serve as a reference.
+4. Need at least 3 neighbours for a reference; otherwise keep the frame and record `insufficient_reference`.
 
-## Verification
+Expected on this run: 18, 21, 29 rejected (ghost); 19, 20 rejected (half body); 24-28 accepted.
 
-- Unit tests (pure helpers): zoom gate at 149 and 151 px, path crop contains all hips plus margin, edge-exit fallback, partial-detection rejection (frame 75 case), right break uses the left plant leg and left break uses the right, release anchor = frame 11 on this run's hip series, catch frames missing gives skipped, unmeasured phase left out of the prompt.
-- Deploy Stage 1 and rerun the clip twice: there should be no missed frames 76–89, timings and build should appear, and the two runs should match.
-- Then deploy Stage 2 and rerun. Compare each item against 44c52897 using the diagnostic export.
+## 5. Tests (no model needed)
 
-## Not changed
+`mediapipe-service/tests/test_framing.py`, using this run's stored series:
+- Frames 18, 21, 29 rejected; 30-45 accepted; 19, 20 rejected.
+- Frames 24-28 accepted.
+- Zoom gate: 184/2160 zooms; 450/2160 doesn't.
+- Leading-run detection: finds 0-17.
 
-Node data, weights, status, the 3-second window, scoring formula, calibration math.
+Limitation: frames 24-28 were zeroed after rejection before storage, so their real landmarks aren't in the run. The test uses values interpolated between frame 20 and 30 for those five frames, marked as such. To fix this going forward, the service will also return the pre-rejection height/hip per rejected frame (additive field), so next run's real values can replace the interpolated ones.
 
-## Technical notes
+## Technical details
 
-- Files: `mediapipe-service/app/auto_zoom.py`, `pose.py`, `main.py`, `schema.py`. Analyzer: `analyze-athlete-video/index.ts` (bilateral selection, phase segmentation, hands measurement, phase scores, prompt builder), and new pure helpers in `quality.ts` / `segmentation.ts`. Plus `admin-get-pipeline-result`, `diagnosticExport.ts`, and tests in `src/test`.
-- Stage 2 works with the old service response: when the new fields are absent, it uses the current behaviour.
+- `framing.py`: `MIN_ATHLETE_HEIGHT_FRAC`, `needs_zoom(med_h, frame_h)`, `leading_missed_run(results)`, `robust_validate(series)` (pure, iterative).
+- `auto_zoom.py`: gate uses the fraction; keep the probe path crop in `ZoomState` even when zoom is skipped, for recovery.
+- `pose.py`: `recover_leading_frames` takes the path crop, crops/maps back, no 3-frame cap; `reject_partial_detections` delegates to `robust_validate`.
+- `main.py` / `schema.py`: pass crop to recovery; add `rejected_frame_details` (height, hip before rejection).
+- After you deploy from Cloud Shell, I rerun the 4K30 Slant clip twice and compare to 39702081.
