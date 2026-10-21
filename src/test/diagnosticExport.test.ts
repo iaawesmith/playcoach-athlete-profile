@@ -86,7 +86,7 @@ const clip: CalibrationClip = {
   start_yard_line: 0,
   break_yard_line: 5,
   expected_route_depth_yards: 5,
-  expected_calibration_source: "height_based",
+  expected_calibration_source: "body_based",
   hand_timed_splits: "",
   camera_setup: "tripod",
   camera_distance_notes: "",
