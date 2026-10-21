@@ -1,6 +1,7 @@
 import { parseDetectedErrors, parseMetricResults } from "@/features/athlete-lab/utils/pipelineResults";
 import { supabase } from "@/integrations/supabase/client";
-import { isLibraryRun } from "@/services/calibrationLibrary";
+import { isLibraryRun, listCalibrationClips } from "@/services/calibrationLibrary";
+import type { CalibrationClip } from "@/services/calibrationLibrary";
 import type {
   TrainingNode,
   AnalysisLogData,
@@ -667,6 +668,45 @@ async function fetchPipelineResult(uploadId: string, node: TrainingNode): Promis
   }
 
   return normalizePipelineResult(record.result, uploadId, node);
+}
+
+export interface RunDiagnosticData {
+  upload: PipelineUploadSnapshot;
+  /** Raw result row as returned by admin-get-pipeline-result (includes result_data.diagnostics). */
+  result: Record<string, unknown> | null;
+  clip: CalibrationClip | null;
+}
+
+/**
+ * Fetches everything the diagnostic export needs for one run: the upload
+ * snapshot, the full result row (with result_data.diagnostics), and the
+ * library clip record when the run came from the Video Library.
+ */
+export async function fetchRunDiagnosticData(uploadId: string, nodeId: string): Promise<RunDiagnosticData> {
+  const upload = await fetchUploadStatus(uploadId);
+
+  const { data, error } = await supabase.functions.invoke("admin-get-pipeline-result", {
+    body: { uploadId, nodeId, athleteId: FIXED_TEST_ATHLETE_ID },
+  });
+  if (error) {
+    throw new Error(error.message || "Failed to load run result.");
+  }
+  const record = parseRecord(data);
+  if (typeof record.error === "string" && record.error) {
+    throw new Error(record.error);
+  }
+  const result = record.result && typeof record.result === "object" && !Array.isArray(record.result)
+    ? (record.result as Record<string, unknown>)
+    : null;
+
+  const clipId = upload.analysis_context.calibration_clip_id;
+  let clip: CalibrationClip | null = null;
+  if (typeof clipId === "string" && clipId) {
+    const clips = await listCalibrationClips(true);
+    clip = clips.find((c) => c.id === clipId) ?? null;
+  }
+
+  return { upload, result, clip };
 }
 
 export async function pollRunAnalysisResult(

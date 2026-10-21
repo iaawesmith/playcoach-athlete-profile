@@ -6,6 +6,7 @@ import {
   type AdminHistoryFilters,
 } from "@/services/athleteLab";
 import type { AdminHistoryRecord, PipelineMetricResult } from "@/features/athlete-lab/types";
+import { DiagnosticExportButton } from "./DiagnosticExportButton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
@@ -732,6 +733,9 @@ function RecentTestRunsSection() {
                                   <p><span className="text-on-surface-variant">Result ID:</span> <span className="font-mono text-xs">{record.resultId ?? "N/A"}</span></p>
                                   <p><span className="text-on-surface-variant">Upload Status:</span> {record.status}</p>
                                   <p><span className="text-on-surface-variant">Error:</span> {record.errorMessage ?? "None"}</p>
+                                  <div className="pt-2">
+                                    <DiagnosticExportButton uploadId={record.uploadId} nodeId={record.nodeId} />
+                                  </div>
                                 </div>
                               </HistoryDetailBlock>
 

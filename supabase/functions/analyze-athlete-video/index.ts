@@ -197,6 +197,10 @@ type BilateralDecision = {
 
 const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap()
 
+// Diagnostic-export build tag. Bump when the additive result_data.diagnostics
+// payload changes shape so exports can be traced back to the analyzer build.
+const ANALYZER_BUILD = '2026-10-21.diagnostic-export.1'
+
 type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
 
 type UploadLike = {
@@ -264,6 +268,13 @@ type CloudRunResponse = {
   meanKeypointConfidenceBeforeAutoZoom?: number | null
   mean_keypoint_confidence_after_auto_zoom?: number | null
   meanKeypointConfidenceAfterAutoZoom?: number | null
+  // F-POSE-1 frame diagnostics (additive; absent on older service revisions)
+  frames_detected?: number | null
+  missed_frame_indices?: number[] | null
+  recovered_frame_indices?: number[] | null
+  det_frequency_used?: number | null
+  frame_width?: number | null
+  frame_height?: number | null
 }
 
 type CloudRunMetadata = {
@@ -416,6 +427,189 @@ type PipelineLogData = {
 type ClaudeCallResult = {
   feedback: string
   log: PipelineLogData['claude_api']
+  // Full-fidelity record for the diagnostic export (exact prompt/response).
+  diagnostics: {
+    model: string
+    status: 'COMPLETE' | 'FAILED' | 'SKIPPED'
+    system_instructions: string | null
+    prompt: string | null
+    response: string | null
+    input_tokens: number | null
+    output_tokens: number | null
+    skipped_reason: string | null
+  }
+}
+
+type LlmDiagnostics = ClaudeCallResult['diagnostics']
+
+type RunDiagnostics = {
+  schema_version: 1
+  analyzer_build: string
+  deployment_id: string | null
+  cloud_run_revision: string | null
+  service: JsonRecord
+  per_frame: JsonRecord[]
+  metrics: JsonRecord[]
+  errors: JsonRecord
+  aggregate: JsonRecord
+  llm: LlmDiagnostics
+  fingerprints: {
+    keypoints_sha256: string
+    metric_results_sha256: string
+    calibration_audit_sha256: string
+  }
+  raw_keypoints: VideoKeypoints
+  raw_scores: VideoScores
+}
+
+async function sha256Hex(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
+/**
+ * Builds the additive result_data.diagnostics payload. Pure reporting: every
+ * field is derived from values already computed for this run; nothing here
+ * feeds back into scoring, calibration, or feedback.
+ */
+async function buildRunDiagnostics(input: {
+  rtmlibResult: CloudRunResponse
+  detFrequency: number
+  trackedKeypoints: VideoKeypoints
+  trackedScores: VideoScores
+  phaseWindows: Array<{ phase: string; start: number; end: number }>
+  resolvedCalibration: ResolvedCalibration
+  calibrationAudit: CalibrationAudit
+  metricResults: any[]
+  errorResults: any
+  errorDetectionLog: unknown
+  scoreResult: any
+  llm: LlmDiagnostics
+}): Promise<RunDiagnostics> {
+  const {
+    rtmlibResult,
+    detFrequency,
+    trackedKeypoints,
+    trackedScores,
+    phaseWindows,
+    resolvedCalibration,
+    calibrationAudit,
+    metricResults,
+    errorResults,
+    errorDetectionLog,
+    scoreResult,
+    llm,
+  } = input
+
+  const heightCandidate = Array.isArray(calibrationAudit.candidates)
+    ? calibrationAudit.candidates.find((c) => c?.source === 'height_based')
+    : null
+  const rawHeightSeries = heightCandidate && Array.isArray((heightCandidate as JsonRecord).raw_series)
+    ? ((heightCandidate as JsonRecord).raw_series as Array<number | null>)
+    : null
+  const scaleSeries = Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : null
+
+  const perFrame: JsonRecord[] = trackedKeypoints.map((frame, index) => {
+    const person = frame?.[0]
+    const personScores = trackedScores[index]?.[0]
+    const detected = Array.isArray(person) && person.length > 0
+    const meanConfidence = Array.isArray(personScores) && personScores.length > 0
+      ? round3(personScores.reduce((sum, s) => sum + (typeof s === 'number' ? s : 0), 0) / personScores.length)
+      : null
+    let hipCenterX: number | null = null
+    let hipCenterY: number | null = null
+    if (detected && person[23] && person[24]) {
+      hipCenterX = round3((person[23][0] + person[24][0]) / 2)
+      hipCenterY = round3((person[23][1] + person[24][1]) / 2)
+    }
+    const heightPx = rawHeightSeries && typeof rawHeightSeries[index] === 'number' ? round3(rawHeightSeries[index] as number) : null
+    const scalePpy = scaleSeries && typeof scaleSeries[index] === 'number'
+      ? round3(scaleSeries[index])
+      : resolvedCalibration.pixelsPerYard !== null
+        ? round3(resolvedCalibration.pixelsPerYard)
+        : null
+    return {
+      frame: index,
+      detected,
+      mean_confidence: meanConfidence,
+      hip_center_x: hipCenterX,
+      hip_center_y: hipCenterY,
+      athlete_height_px: heightPx,
+      scale_ppy: scalePpy,
+      phases: phaseWindows.filter((w) => index >= w.start && index <= w.end).map((w) => w.phase),
+    }
+  })
+
+  const service: JsonRecord = {
+    frames_detected: rtmlibResult.frames_detected ?? null,
+    missed_frame_indices: rtmlibResult.missed_frame_indices ?? null,
+    recovered_frame_indices: rtmlibResult.recovered_frame_indices ?? null,
+    det_frequency_used: rtmlibResult.det_frequency_used ?? detFrequency,
+    frame_width: rtmlibResult.frame_width ?? null,
+    frame_height: rtmlibResult.frame_height ?? null,
+    frame_count: rtmlibResult.frame_count ?? null,
+    fps: rtmlibResult.fps ?? null,
+    pixels_per_yard: getPixelsPerYardValue(rtmlibResult),
+    calibration_source: getCalibrationSourceLabel(rtmlibResult),
+    calibration_confidence: getCalibrationConfidenceLabel(rtmlibResult),
+    person_detection_confidence: rtmlibResult.person_detection_confidence ?? rtmlibResult.personDetectionConfidence ?? null,
+    auto_zoom: {
+      applied: rtmlibResult.auto_zoom_applied ?? rtmlibResult.autoZoomApplied ?? null,
+      reason: rtmlibResult.auto_zoom_reason ?? rtmlibResult.autoZoomReason ?? null,
+      factor: rtmlibResult.auto_zoom_factor ?? rtmlibResult.autoZoomFactor ?? null,
+      final_fill_ratio: rtmlibResult.auto_zoom_final_fill_ratio ?? rtmlibResult.autoZoomFinalFillRatio ?? null,
+      crop_rect: rtmlibResult.auto_zoom_crop_rect ?? rtmlibResult.autoZoomCropRect ?? null,
+      padding: rtmlibResult.auto_zoom_padding ?? rtmlibResult.autoZoomPadding ?? null,
+      safety_backoff_applied: rtmlibResult.safety_backoff_applied ?? rtmlibResult.safetyBackoffApplied ?? null,
+      mean_keypoint_confidence_before: rtmlibResult.mean_keypoint_confidence_before_auto_zoom ?? rtmlibResult.meanKeypointConfidenceBeforeAutoZoom ?? null,
+      mean_keypoint_confidence_after: rtmlibResult.mean_keypoint_confidence_after_auto_zoom ?? rtmlibResult.meanKeypointConfidenceAfterAutoZoom ?? null,
+    },
+    // The pose service logs per-stage timings but does not return them.
+    timings: null,
+  }
+
+  const [keypointsHash, metricsHash, calibrationHash] = await Promise.all([
+    sha256Hex(trackedKeypoints),
+    sha256Hex(metricResults),
+    sha256Hex(calibrationAudit),
+  ])
+
+  return {
+    schema_version: 1,
+    analyzer_build: ANALYZER_BUILD,
+    deployment_id: Deno.env.get('DENO_DEPLOYMENT_ID') ?? null,
+    cloud_run_revision: Deno.env.get('K_REVISION') ?? null,
+    service,
+    per_frame: perFrame,
+    metrics: metricResults.map((m) => ({ ...m })),
+    errors: {
+      evaluations: errorDetectionLog ?? [],
+      detected: errorResults?.detected ?? [],
+    },
+    aggregate: {
+      aggregate_score: scoreResult?.aggregate_score ?? null,
+      phase_scores: scoreResult?.phase_scores ?? {},
+      rejected: scoreResult?.rejected ?? false,
+      rejected_reason: scoreResult?.reason ?? null,
+      scoring_config_applied: scoreResult?.scoring_config_applied ?? null,
+      scored_count: metricResults.filter((m) => m.status === 'scored').length,
+      flagged_count: metricResults.filter((m) => m.status === 'flagged').length,
+      skipped_count: metricResults.filter((m) => m.status === 'skipped').length,
+    },
+    llm,
+    fingerprints: {
+      keypoints_sha256: keypointsHash,
+      metric_results_sha256: metricsHash,
+      calibration_audit_sha256: calibrationHash,
+    },
+    raw_keypoints: trackedKeypoints,
+    raw_scores: trackedScores,
+  }
 }
 
 type PoseQualityAudit = {
@@ -863,6 +1057,7 @@ Deno.serve(async (req) => {
     // STEP 11: Call Claude API
     await ensureNotCancelled(upload.id)
     let feedback = 'Pose confidence was too low to generate coaching feedback. Please try a clearer video — stand 10–15 yards away, film perpendicular to your route, and make sure your full body stays in frame.'
+    let llmDiagnostics: LlmDiagnostics
     if (scoreResult.rejected) {
       const phaseNames = new Map(parsePhaseBreakdown(nodeConfig.phase_breakdown).map((p) => [p.id, p.name]))
       const affected = metricResults
@@ -875,6 +1070,16 @@ Deno.serve(async (req) => {
         skipped_reason: 'low_quality_clip',
         target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
       }
+      llmDiagnostics = {
+        model: 'claude-sonnet-4-5',
+        status: 'SKIPPED',
+        system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
+        prompt: null,
+        response: null,
+        input_tokens: null,
+        output_tokens: null,
+        skipped_reason: 'low_quality_clip',
+      }
       logInfo('claude_skipped_low_quality_clip', { uploadId, reason: scoreResult.reason })
     } else if (!poseQualityAudit.usableData) {
       logData.claude_api = {
@@ -882,6 +1087,16 @@ Deno.serve(async (req) => {
         status: 'SKIPPED',
         skipped_reason: 'Pose confidence too low to generate reliable coaching feedback.',
         target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+      }
+      llmDiagnostics = {
+        model: 'claude-sonnet-4-5',
+        status: 'SKIPPED',
+        system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
+        prompt: null,
+        response: null,
+        input_tokens: null,
+        output_tokens: null,
+        skipped_reason: 'pose_confidence_too_low',
       }
       logInfo('claude_skipped_low_confidence', {
         uploadId,
@@ -896,6 +1111,7 @@ Deno.serve(async (req) => {
       const claudeResult = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
       feedback = claudeResult.feedback
       logData.claude_api = claudeResult.log
+      llmDiagnostics = claudeResult.diagnostics
       logInfo('claude_feedback_received', {
         uploadId,
         feedbackLength: feedback.length,
@@ -905,7 +1121,21 @@ Deno.serve(async (req) => {
     // STEP 12: Write results
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Writing analysis results...')
-    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata, calibrationAudit)
+    const diagnostics = await buildRunDiagnostics({
+      rtmlibResult,
+      detFrequency,
+      trackedKeypoints: trackedPersonFrames.keypoints,
+      trackedScores: trackedPersonFrames.scores,
+      phaseWindows: (logData.rtmlib?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
+      resolvedCalibration,
+      calibrationAudit,
+      metricResults,
+      errorResults,
+      errorDetectionLog: logData.error_detection ?? [],
+      scoreResult,
+      llm: llmDiagnostics,
+    })
+    await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata, calibrationAudit, diagnostics)
     logInfo('results_written', {
       uploadId,
       aggregateScore: scoreResult.aggregate_score,
@@ -3591,7 +3821,20 @@ async function callClaude(
     : false
   claudeLog.status = 'COMPLETE'
 
-  return { feedback, log: claudeLog }
+  return {
+    feedback,
+    log: claudeLog,
+    diagnostics: {
+      model: 'claude-sonnet-4-5',
+      status: 'COMPLETE',
+      system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
+      prompt,
+      response: feedback,
+      input_tokens: inputTokens ?? null,
+      output_tokens: outputTokens ?? null,
+      skipped_reason: null,
+    },
+  }
 }
 
 
@@ -3757,6 +4000,7 @@ async function writeResults(
   logData: PipelineLogData,
   cloudRunMetadata: CloudRunMetadata,
   calibrationAudit: CalibrationAudit,
+  diagnostics: RunDiagnostics,
 ) {
   const { error } = await supabase
     .from('athlete_lab_results')
@@ -3773,6 +4017,7 @@ async function writeResults(
         ...(Object.keys(cloudRunMetadata).length > 0 ? cloudRunMetadata : {}),
         log_data: logData,
         calibration_audit: calibrationAudit,
+        diagnostics,
       },
       confidence_flags: buildConfidenceFlags(metricResults, logData.rtmlib?.keypoint_confidence),
       detected_errors: errorResults.detected,
