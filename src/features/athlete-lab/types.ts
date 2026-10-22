@@ -343,6 +343,8 @@ export interface AnalysisLogData {
     processing_time_ms?: number;
     service_revision?: string | null;
     service_build?: string | null;
+    /** Joined at normalization from diagnostics.analyzer_build (display only). */
+    analyzer_build_line?: string;
     timings_ms?: Record<string, number>;
     /** Library runs only: ground-truth distance + implied speed lines (display only). */
     ground_truth_lines?: string[];

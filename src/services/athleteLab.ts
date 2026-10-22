@@ -1,6 +1,7 @@
 import { groundTruthLines, type GroundTruthDistance } from "../../supabase/functions/analyze-athlete-video/groundTruth";
 import { parseDetectedErrors, parseMetricResults } from "@/features/athlete-lab/utils/pipelineResults";
 import { buildPhaseStatuses } from "@/features/athlete-lab/utils/phaseStatus";
+import { analyzerBuildLine } from "@/features/athlete-lab/utils/analysisLogReporting";
 import { supabase } from "@/integrations/supabase/client";
 import { isLibraryRun, listCalibrationClips } from "@/services/calibrationLibrary";
 import type { CalibrationClip } from "@/services/calibrationLibrary";
@@ -517,6 +518,7 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
       ...parsedLog.rtmlib,
       service_revision: typeof service.service_revision === "string" ? service.service_revision : parsedLog.rtmlib?.service_revision,
       service_build: typeof service.service_build === "string" ? service.service_build : parsedLog.rtmlib?.service_build,
+      analyzer_build_line: analyzerBuildLine(typeof diagnostics.analyzer_build === "string" ? diagnostics.analyzer_build : null, typeof row.analyzed_at === "string" ? row.analyzed_at : typeof row.created_at === "string" ? row.created_at : null),
       timings_ms: Object.keys(timings).length ? timings : parsedLog.rtmlib?.timings_ms,
       ground_truth_lines: groundTruthLinesFrom(diagnostics.ground_truth_distance),
     },
