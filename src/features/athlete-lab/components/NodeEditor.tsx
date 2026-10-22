@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
@@ -1261,32 +1261,14 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   const [newLabel, setNewLabel] = useState("");
   const [newStartSec, setNewStartSec] = useState<string>("");
   const [newEndSec, setNewEndSec] = useState<string>("");
-  const [newCameraAngle, setNewCameraAngle] = useState<CameraAngle | "">("");
-  const [newVideoType, setNewVideoType] = useState<VideoType>("both");
   const [newIsReference, setNewIsReference] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editUrl, setEditUrl] = useState("");
   const [editLabel, setEditLabel] = useState("");
   const [editStartSec, setEditStartSec] = useState<string>("");
   const [editEndSec, setEditEndSec] = useState<string>("");
-  const [editCameraAngle, setEditCameraAngle] = useState<CameraAngle | "">("");
-  const [editVideoType, setEditVideoType] = useState<VideoType>("both");
   const [editIsReference, setEditIsReference] = useState(false);
 
-  const ANGLE_OPTIONS: { value: CameraAngle; label: string }[] = [
-    { value: "sideline", label: "Sideline" },
-    { value: "endzone", label: "Endzone" },
-    { value: "behind_qb", label: "Behind QB" },
-  ];
-
-  const TYPE_OPTIONS: { value: VideoType; label: string }[] = [
-    { value: "educational", label: "Educational" },
-    { value: "analysis", label: "Analysis" },
-    { value: "both", label: "Both" },
-  ];
-
-  const angleLabelMap: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
-  const typeLabelMap: Record<VideoType, string> = { educational: "Educational", analysis: "Analysis", both: "Both" };
 
   const clearReferenceExcept = (exceptIdx: number, vids: EliteVideo[]): EliteVideo[] => {
     return vids.map((v, i) => i === exceptIdx ? v : { ...v, is_reference: false });
@@ -1308,7 +1290,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
     }
     onChange(updated);
     setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec("");
-    setNewCameraAngle(""); setNewVideoType("both"); setNewIsReference(false);
+    setNewIsReference(false);
     setAdding(false);
   };
 
@@ -1340,8 +1322,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
     setEditLabel(videos[i].label);
     setEditStartSec(videos[i].start_seconds != null ? String(videos[i].start_seconds) : "");
     setEditEndSec(videos[i].end_seconds != null ? String(videos[i].end_seconds) : "");
-    setEditCameraAngle(videos[i].camera_angle || "");
-    setEditVideoType(videos[i].video_type || "both");
     setEditIsReference(videos[i].is_reference || false);
   };
 
@@ -1356,10 +1336,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   const renderFormFields = (
     startSec: string, setStartSec: (v: string) => void,
     endSec: string, setEndSec: (v: string) => void,
-    cameraAngle: CameraAngle | "", setCameraAngle: (v: CameraAngle | "") => void,
-    videoType: VideoType, setVideoType: (v: VideoType) => void,
     isReference: boolean, setIsReference: (v: boolean) => void,
-    showAngleError: boolean,
   ) => {
     const clip = clipDuration(startSec, endSec);
     return (
@@ -1429,26 +1406,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
     );
   };
 
-  const [addAngleError, setAddAngleError] = useState(false);
-  const [editAngleError, setEditAngleError] = useState(false);
-
-  const handleAddWithValidation = () => {
-    if (!newCameraAngle) {
-      setAddAngleError(true);
-      return;
-    }
-    setAddAngleError(false);
-    handleAdd();
-  };
-
-  const handleEditSaveWithValidation = (i: number) => {
-    if (!editCameraAngle) {
-      setEditAngleError(true);
-      return;
-    }
-    setEditAngleError(false);
-    handleEditSave(i);
-  };
 
   const idealCriteria = [
     "Solo athlete (no defenders, no teammates)",
@@ -1664,10 +1621,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                   </div>
                   <input className={INPUT_CLASS} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
                 </div>
-                {renderFormFields(editStartSec, setEditStartSec, editEndSec, setEditEndSec, editCameraAngle, setEditCameraAngle, editVideoType, setEditVideoType, editIsReference, setEditIsReference, editAngleError)}
+                {renderFormFields(editStartSec, setEditStartSec, editEndSec, setEditEndSec, editIsReference, setEditIsReference)}
                 <div className="flex gap-2">
-                  <button onClick={() => handleEditSaveWithValidation(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
-                  <button onClick={() => { setEditIdx(null); setEditAngleError(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+                  <button onClick={() => handleEditSave(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
+                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
                 </div>
               </div>
             ) : (
@@ -1719,10 +1676,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
             </div>
             <input className={INPUT_CLASS} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
           </div>
-          {renderFormFields(newStartSec, setNewStartSec, newEndSec, setNewEndSec, newCameraAngle, setNewCameraAngle, newVideoType, setNewVideoType, newIsReference, setNewIsReference, addAngleError)}
+          {renderFormFields(newStartSec, setNewStartSec, newEndSec, setNewEndSec, newIsReference, setNewIsReference)}
           <div className="flex gap-2">
-            <button onClick={handleAddWithValidation} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec(""); setNewCameraAngle(""); setNewVideoType("both"); setNewIsReference(false); setAddAngleError(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
+            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec(""); setNewIsReference(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
           </div>
         </div>
       ) : (
