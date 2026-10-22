@@ -43,7 +43,7 @@ import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeCo
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 import { computeSpeedRetention } from './speedRetention.ts'
 import { ANALYZER_BUILD } from './build.ts'
-import { computeGroundTruthDistance, findBreakAnchor } from './groundTruth.ts'
+import { groundTruthFromRun, type GroundTruthDistance } from './groundTruth.ts'
 import { noScaleSkip } from './scaleGate.ts'
 
 const supabase = createClient(
@@ -610,6 +610,7 @@ type RunDiagnostics = {
   }
   raw_keypoints: VideoKeypoints
   raw_scores: VideoScores
+  ground_truth_distance?: GroundTruthDistance | null
 }
 
 async function sha256Hex(value: unknown): Promise<string> {
@@ -1325,6 +1326,14 @@ Deno.serve(async (req) => {
       errorDetectionLog: logData.error_detection ?? [],
       scoreResult,
       llm: llmDiagnostics,
+    })
+    // Library runs only: display-only distance check against the clip's yard lines.
+    diagnostics.ground_truth_distance = groundTruthFromRun({
+      context,
+      perFrame: diagnostics.per_frame as any[],
+      phaseWindows: (logData.rtmlib?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
+      releaseFrame: (logData.rtmlib as any)?.release_anchor?.applied ? (logData.rtmlib as any).release_anchor.frame : null,
+      fps: Number(rtmlibResult.fps) || 30,
     })
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata, calibrationAudit, diagnostics)
     logInfo('results_written', {

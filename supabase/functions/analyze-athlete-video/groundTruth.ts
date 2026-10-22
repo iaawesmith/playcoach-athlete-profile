@@ -90,3 +90,40 @@ export function groundTruthLines(g: GroundTruthDistance): [string, string] {
     `Implied speed: expected ${g.expected_yps.toFixed(2)} yd/s, measured ${g.measured_yps.toFixed(2)} yd/s (frames ${g.release_frame}–${g.break_anchor.frame}, ${g.seconds.toFixed(2)} s)`,
   ]
 }
+
+type PerFrameRow = { frame?: number; detected?: boolean; hip_center_x?: number | null; hip_center_y?: number | null; scale_ppy?: number | null }
+
+/**
+ * Runs the check from stored per-frame rows (the same hip centers and scales
+ * the export carries). Returns null unless this is a library run with both
+ * yard lines set, a release anchor and a Break window.
+ */
+export function groundTruthFromRun(input: {
+  context: Record<string, unknown> | null | undefined
+  perFrame: PerFrameRow[]
+  phaseWindows: Array<{ phase: string; start: number; end: number }>
+  releaseFrame: number | null | undefined
+  fps: number
+}): GroundTruthDistance | null {
+  const ctx = input.context ?? {}
+  if (ctx.source !== 'calibration_library') return null
+  const gt = (ctx.ground_truth ?? {}) as Record<string, unknown>
+  const start = typeof gt.start_yard_line === 'number' ? gt.start_yard_line : null
+  const brk = typeof gt.break_yard_line === 'number' ? gt.break_yard_line : null
+  if (start === null || brk === null || typeof input.releaseFrame !== 'number') return null
+  const breakWindow = input.phaseWindows.find((w) => /^break$/i.test(w.phase.trim()))
+  if (!breakWindow) return null
+  const n = Math.max(input.perFrame.length, breakWindow.end + 1)
+  const hip: HipPoint[] = Array.from({ length: n }, () => null)
+  const scale: Array<number | null> = Array.from({ length: n }, () => null)
+  input.perFrame.forEach((row, i) => {
+    const f = typeof row.frame === 'number' ? row.frame : i
+    const x = row.hip_center_x, y = row.hip_center_y
+    const ok = row.detected !== false && typeof x === 'number' && typeof y === 'number' && !(x === 0 && y === 0)
+    hip[f] = ok ? [x as number, y as number] : null
+    scale[f] = typeof row.scale_ppy === 'number' ? row.scale_ppy : null
+  })
+  const anchor = findBreakAnchor(hip, breakWindow)
+  if (!anchor) return null
+  return computeGroundTruthDistance({ hip, scale, fps: input.fps, releaseFrame: input.releaseFrame, breakAnchor: anchor, startYardLine: start, breakYardLine: brk })
+}
