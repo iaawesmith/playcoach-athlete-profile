@@ -4188,11 +4188,15 @@ async function handleFeedbackReplay(req: Request, payload: Record<string, unknow
   if (uErr || !upload) return json({ error: 'upload not found' }, 404)
   const nodeConfig = await fetchNodeConfig(upload.node_id)
   const context = (upload.analysis_context ?? {}) as Record<string, unknown>
-  const metricResults = Array.isArray(result.metric_results) ? result.metric_results : []
+  const metricResults = applyNodeScoring(
+    Array.isArray(result.metric_results) ? result.metric_results : [],
+    Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : [],
+  )
+  const rescored = calculateAggregateScore(metricResults, nodeConfig, context.catch_included !== false) as any
   const detected = (Array.isArray(result.detected_errors) ? result.detected_errors : [])
     .map((e: unknown) => (typeof e === 'string' ? { name: e } : e))
     .filter((e: any) => e && typeof e.name === 'string' && e.triggered !== false)
-  const scoreResult = { aggregate_score: result.aggregate_score, phase_scores: result.phase_scores ?? {} }
+  const scoreResult = { aggregate_score: rescored.aggregate_score, phase_scores: rescored.phase_scores ?? result.phase_scores ?? {} }
 
   const runs = []
   for (let i = 0; i < count; i++) {
@@ -4205,6 +4209,16 @@ async function handleFeedbackReplay(req: Request, payload: Record<string, unknow
   return json({ result_id: resultId, node_version: nodeConfig.node_version, runs })
 }
 
+
+function applyNodeScoring(metrics: any[], nodeMetrics: any[]): any[] {
+  return metrics.map((m: any) => {
+    if (m?.status !== 'scored' || typeof m.value !== 'number') return m
+    const def = nodeMetrics.find((n) => n?.name === m.name)
+    const dir = normalizeTargetDirection(def?.target_direction ?? m.target_direction)
+    const target = Number(m.elite_target)
+    return { ...m, target_direction: dir, deviation: scoredDeviation(m.value, target, dir), score: scoreMetric(m.value, target, m.tolerance, dir) }
+  })
+}
 
 // Rescores a stored result's metric values with the node's current scoring
 // config (target_direction, tolerance). No pose run; writes nothing.
@@ -4225,13 +4239,7 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   const nodeConfig = await fetchNodeConfig(upload.node_id)
   const nodeMetrics: any[] = Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : []
   const before: any[] = Array.isArray(result.metric_results) ? result.metric_results : []
-  const after = before.map((m: any) => {
-    if (m?.status !== 'scored' || typeof m.value !== 'number') return m
-    const def = nodeMetrics.find((n) => n?.name === m.name)
-    const dir = normalizeTargetDirection(def?.target_direction)
-    const target = Number(m.elite_target)
-    return { ...m, target_direction: dir, deviation: scoredDeviation(m.value, target, dir), score: scoreMetric(m.value, target, m.tolerance, dir) }
-  })
+  const after = applyNodeScoring(before, nodeMetrics)
   const ctx = (upload.analysis_context ?? {}) as Record<string, unknown>
   const catchIncluded = ctx.catch_included !== false
   const agg = calculateAggregateScore(after, nodeConfig, catchIncluded) as any
