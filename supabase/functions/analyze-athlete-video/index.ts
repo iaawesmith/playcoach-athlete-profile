@@ -39,7 +39,7 @@ import {
   passesWindowGate,
 } from './quality.ts'
 import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
-import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from './llm.ts'
+import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from '../_shared/coachModel.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 
 const supabase = createClient(

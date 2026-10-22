@@ -2,7 +2,7 @@
 // and check what an Anthropic alias resolves to. Same trust level as the
 // other admin-* functions (F-SEC-1). Model ids are validated server-side.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { validateCoachModel } from "../analyze-athlete-video/llm.ts";
+import { validateCoachModel } from "../_shared/coachModel.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

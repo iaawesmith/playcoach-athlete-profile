@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { CoachProvider } from "../../supabase/functions/analyze-athlete-video/llm";
+import type { CoachProvider } from "../../supabase/functions/_shared/coachModel";
 
 export interface CoachingModelDefault {
   provider: CoachProvider;

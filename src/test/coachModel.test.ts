@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   estimateComparison, personalizeFeedback, resolveCoachModel, summarizeComparison, validateCoachModel,
-} from '../../supabase/functions/analyze-athlete-video/llm'
+} from '../../supabase/functions/_shared/coachModel'
 
 describe('coaching model setting', () => {
   it('pins Anthropic only with a dated snapshot', () => {

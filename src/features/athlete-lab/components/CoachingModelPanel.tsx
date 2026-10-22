@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCoachingModelSettings, type BuiltinModelOption, type CoachingModelDefault } from "@/services/coachingModel";
-import { validateCoachModel, type CoachProvider } from "../../../../supabase/functions/analyze-athlete-video/llm";
+import { validateCoachModel, type CoachProvider } from "../../../../supabase/functions/_shared/coachModel";
 
 const INPUT_CLASS = "w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface focus:outline-none";
 const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
