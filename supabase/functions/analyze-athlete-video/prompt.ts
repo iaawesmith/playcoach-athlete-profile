@@ -210,8 +210,6 @@ export function buildFallbackFeedback(
   const lines: string[] = []
   for (const m of metrics.filter((x) => x.status === 'scored')) {
     const u = unitText(m.unit)
-    const v = typeof m.value === 'number' ? m.value : Number(m.value)
-    const t = typeof m.elite_target === 'number' ? m.elite_target : Number(m.elite_target)
     const dir = normalizeTargetDirection(m.target_direction)
     const rel = relation(m, dir) || 'not compared'
     lines.push(dir === 'at_most'

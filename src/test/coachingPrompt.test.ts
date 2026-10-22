@@ -16,7 +16,7 @@ describe('coaching prompt grounding', () => {
       phases,
     )
     expect(text).toBe(
-      '- Release Speed (Release phase): 3.76 mph, target 7 mph, score 69/100. Measures: Hip speed over the first 10 frames off the line.',
+      '- Release Speed (Release phase): 3.76 mph, target 7 mph, off the target by 3.24 mph, score 69/100. Measures: Hip speed over the first 10 frames off the line.',
     )
   })
 
@@ -61,11 +61,11 @@ describe('coaching feedback post-check', () => {
 
   it('fallback addresses the athlete without using node correction text', () => {
     const text = buildFallbackFeedback(
-      [{ name: 'Release Speed', status: 'scored', value: 3.76, unit: 'mph', elite_target: 7 }],
+      [{ name: 'Release Speed', status: 'scored', value: 3.76, unit: 'mph', elite_target: 7, target_direction: 'at_least' }],
       [{ name: 'Slow release off the line', correction: 'You start slowly. A slow start lets the defender stay square.', metric: 'Release Speed' }],
       true,
     )
-    expect(text).toContain('Your Release Speed: 3.76 mph against a 7 mph target (3.24 mph below target).')
+    expect(text).toContain('Your Release Speed: 3.76 mph against a 7 mph target (short of the target by 3.24 mph).')
     expect(text).not.toContain('You start slowly.')
     expect(text).not.toContain('defender')
     expect(checkFeedback(text, true).passed).toBe(true)
@@ -84,10 +84,10 @@ describe('coaching feedback post-check', () => {
     expect(text).toContain('five 5-yard starts from your stance at full effort, pushing the ground back hard on the first two steps.')
   })
 
-  it('describes Hip Stability 0.01 against 0.05 as inside the target', () => {
+  it('describes an at_most 0.01 against 0.05 as within the limit', () => {
     expect(buildFallbackFeedback(
-      [{ name: 'Hip Stability', status: 'scored', value: 0.01, unit: 'yd', elite_target: 0.05 }], [], true,
-    )).toContain('Your Hip Stability: 0.01 yd against a 0.05 yd target (inside the target).')
+      [{ name: 'Hip Stability', status: 'scored', value: 0.01, unit: 'yd', elite_target: 0.05, target_direction: 'at_most' }], [], true,
+    )).toContain('Your Hip Stability: 0.01 yd against a 0.05 yd limit (within the limit).')
   })
 
   it('retains the generic drill for other errors', () => {
@@ -100,5 +100,11 @@ describe('coaching feedback post-check', () => {
       [{ name: 'Coverage window', status: 'scored', value: 1, elite_target: 2 }],
       [{ name: 'Elite defense', correction: 'The athlete was elite.' }], true,
     ), true).passed).toBe(true)
+  })
+})
+
+describe('level-of-play bans', () => {
+  it.each(['high-level', 'high level', 'top-level', 'next-level'])('always bans %s', (w) => {
+    expect(checkFeedback(`That's ${w} stuff.`, false).passed).toBe(false)
   })
 })
