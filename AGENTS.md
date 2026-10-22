@@ -11,3 +11,4 @@
 - Feedback replay for prompt tuning goes through `admin-replay-feedback`, which calls the analyzer's service-role-only replay mode; replays never write results.
 - Coaching feedback checks and data-only fallback construction stay in the pure prompt helpers; fallback excludes node correction prose and checks every complete line so rejected wording cannot escape through fallback.
 - Metric scoring and direction-aware target wording (`target_direction`) live in `supabase/functions/analyze-athlete-video/scoring.ts` as pure code shared by the analyzer, prompt helpers and frontend, so every surface describes a value the same way it was scored.
+- The coaching model is resolved in one place (`supabase/functions/_shared/coachModel.ts`: replay override, then node override, then workspace `coaching_model_settings`); replays and comparisons may override it but never persist it, and prompts never carry athlete names (inserted after the feedback check).

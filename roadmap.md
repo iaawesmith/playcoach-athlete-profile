@@ -44,9 +44,9 @@
 - [x] Slant v10 directions; high-level/top-level/next-level banned; 1f7c3450 rescored 91→93 and replayed
 
 ## Configurable coaching model (approved Oct 22)
-- [ ] Workspace default (seeded with pinned dated snapshot of current model) + per-node override; Anthropic direct + built-in AI providers
-- [ ] Record provider/requested/reported model, tokens, ms on every run (log + export)
-- [ ] Prompts always use "Athlete"; real first name inserted after generation and check (production + replays)
-- [ ] Comparison replay (N per model × result IDs) with cost estimate + confirm; disabled without a secret until admin login (F-SEC-1)
-- [ ] Data-handling/retention report per provider
+- [x] Workspace default (seeded with pinned dated snapshot of current model) + per-node override; Anthropic direct + built-in AI providers
+- [x] Record provider/requested/reported model, tokens, ms on every run (log + export)
+- [x] Prompts always use "Athlete"; real first name inserted after generation and check (production + replays)
+- [x] Comparison replay (N per model × result IDs) with cost estimate + confirm; disabled without a secret until admin login (F-SEC-1)
+- [x] Data-handling/retention report per provider
 - [ ] Run comparison — blocked: waiting for second route to be filmed and user go-ahead
