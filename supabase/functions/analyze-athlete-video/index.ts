@@ -41,6 +41,7 @@ import {
 import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
 import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from '../_shared/coachModel.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
+import { computeSpeedRetention } from './speedRetention.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -1446,6 +1447,16 @@ function summarizeValue(value: unknown): string {
   return 'N/A'
 }
 
+/** First frame of the phase that follows a metric's phase (explicit end_before_phase_id, else next in order). */
+export function nextPhaseStart(mapping: any, phaseBreakdown: any[], phaseWindows: Record<string, { start: number; end: number }>): number | null {
+  const order = parsePhaseBreakdown(phaseBreakdown)
+  const explicit = typeof mapping?.end_before_phase_id === 'string' ? mapping.end_before_phase_id : null
+  const idx = order.findIndex((p) => p.id === mapping?.phase_id)
+  const nextId = explicit ?? (idx >= 0 ? order[idx + 1]?.id : undefined)
+  const w = nextId ? phaseWindows[nextId] : undefined
+  return w ? w.start : null
+}
+
 function parsePhaseBreakdown(phases: any[]): Array<{ id: string; name: string }> {
   if (!Array.isArray(phases)) return []
   return phases.map((phase, index) => ({
@@ -2827,6 +2838,23 @@ async function calculateAllMetrics(
           mapping.temporal_window || 10
         )
         break
+      case 'speed_retention': {
+        const threshold = mapping.confidence_threshold || 0.70
+        const nextStart = nextPhaseStart(mapping, phaseBreakdown, phaseWindows)
+        if (nextStart === null) {
+          metricValue = { value: null, status: 'skipped', reason: 'no_next_phase_window' }
+          break
+        }
+        const hip = keypoints.map((frame, f) => {
+          const person = frame?.[personIndex]
+          return person ? getMidpoint(person, bilateralDecision.effectiveIndices, scores[f]?.[personIndex], threshold) : null
+        })
+        const scale = keypoints.map((_, f) => Array.isArray(calibration.perFrame) && typeof calibration.perFrame[f] === 'number'
+          ? calibration.perFrame[f]
+          : calibration.pixelsPerYard)
+        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, windowFrames: 5 }) as MetricValueResult
+        break
+      }
       case 'distance_variance':
         metricValue = calculateDistanceVariance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
