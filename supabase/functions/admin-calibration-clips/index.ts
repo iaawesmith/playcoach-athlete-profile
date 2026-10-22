@@ -137,6 +137,17 @@ Deno.serve(async (req) => {
         return json({ signedUrl: signed.signedUrl }, 200);
       }
 
+      case "sign_upload": {
+        // Fresh read-only link for an existing upload's video (overlay player link refresh).
+        const { data: upload, error } = await db.from("athlete_uploads").select("video_url").eq("id", body.upload_id).single();
+        if (error || !upload?.video_url) return json({ error: "Upload not found" }, 404);
+        const match = /\/object\/(?:sign|public|authenticated)\/athlete-videos\/([^?]+)/.exec(upload.video_url);
+        if (!match) return json({ error: "Upload video is not in storage" }, 400);
+        const { data: signed, error: signError } = await db.storage.from(BUCKET).createSignedUrl(decodeURIComponent(match[1]), SIGNED_URL_TTL_SECONDS);
+        if (signError || !signed) return json({ error: `Signed link failed: ${signError?.message ?? "unknown"}` }, 500);
+        return json({ signedUrl: signed.signedUrl }, 200);
+      }
+
       case "set_archived": {
         const { error } = await db.from("calibration_clips").update({ archived: body.archived }).eq("id", body.id);
         if (error) return json({ error: error.message }, 500);
