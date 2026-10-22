@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchRunDiagnosticData } from "@/services/athleteLab";
+import { fetchNode, fetchRunDiagnosticData } from "@/services/athleteLab";
 import { signCalibrationClip, signUploadVideo } from "@/services/calibrationLibrary";
 import type { KeyMetric, TrainingNode } from "../types";
 import {
@@ -36,9 +36,17 @@ type VideoFrameCb = (now: number, meta: { mediaTime: number }) => void;
 type RvfcVideo = HTMLVideoElement & { requestVideoFrameCallback?: (cb: VideoFrameCb) => number; cancelVideoFrameCallback?: (id: number) => void };
 
 interface Props { uploadId: string; node: TrainingNode }
+interface SectionProps { uploadId: string; nodeId: string | null; node?: TrainingNode }
 
-export function PoseOverlaySection({ uploadId, node }: Props) {
+export function PoseOverlaySection({ uploadId, nodeId, node }: SectionProps) {
   const [open, setOpen] = useState(false);
+  const [loadedNode, setLoadedNode] = useState<TrainingNode | null>(node ?? null);
+  useEffect(() => {
+    if (!open || loadedNode || !nodeId) return;
+    let cancelled = false;
+    fetchNode(nodeId).then((n) => { if (!cancelled) setLoadedNode(n); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [open, loadedNode, nodeId]);
   return (
     <div className="rounded-xl border border-white/5 bg-surface-container p-5">
       <div className="flex items-center justify-between gap-4">
@@ -55,7 +63,9 @@ export function PoseOverlaySection({ uploadId, node }: Props) {
           {open ? "Hide" : "Open player"}
         </button>
       </div>
-      {open && <PoseOverlayPlayer uploadId={uploadId} node={node} />}
+      {open && (loadedNode
+        ? <PoseOverlayPlayer uploadId={uploadId} node={loadedNode} />
+        : <div className="mt-4 aspect-video w-full animate-pulse rounded-xl bg-surface-container-high" />)}
     </div>
   );
 }

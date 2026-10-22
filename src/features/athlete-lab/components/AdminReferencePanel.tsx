@@ -7,6 +7,7 @@ import {
 } from "@/services/athleteLab";
 import type { AdminHistoryRecord, PipelineMetricResult } from "@/features/athlete-lab/types";
 import { DiagnosticExportButton } from "./DiagnosticExportButton";
+import { PoseOverlaySection } from "./PoseOverlayPlayer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataDictionaryTab } from "./DataDictionaryTab";
 import { EnhancementsTab } from "./EnhancementsTab";
@@ -726,6 +727,7 @@ function RecentTestRunsSection() {
                         <TableCell colSpan={12} className="bg-surface px-4 py-5">
                           <div className="space-y-4">
                             <LibraryRunContextPanel context={record.analysisContext.raw} />
+                            <PoseOverlaySection uploadId={record.uploadId} nodeId={record.nodeId} />
                             <div className="grid gap-4 lg:grid-cols-3">
                               <HistoryDetailBlock label="Run Summary">
                                 <div className="space-y-2 text-sm text-on-surface">
