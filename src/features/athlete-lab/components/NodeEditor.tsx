@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, VideoType, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
@@ -67,7 +67,7 @@ type TabKey = "basics" | "videos" | "phases" | "metrics" | "reference" | "prompt
 
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, upload constraints, and pipeline detection-frequency configuration for this node." },
-  { key: "videos", label: "Videos", icon: "video_library", subtitle: "Add elite reference videos with clip timestamps, camera angle, and type. One video must be flagged as the Reference shown to athletes alongside their results." },
+  { key: "videos", label: "Videos", icon: "video_library", subtitle: "The teach tape athletes see next to their results. Add a clip of the route done well and flag one as the Reference. These videos are not analyzed and don't affect scoring." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. When Segmentation Method is set to Checkpoint-triggered, configure the per-frame Checkpoints in the sub-section below." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures, how scores are calculated, and the common errors the pipeline auto-detects from metric output. Includes Scoring and Errors sections." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Configure pixel-to-yard calibrations for each camera angle and the athlete-facing Filming Guidance (FPS, resolution, distance, instructions)." },
@@ -114,13 +114,7 @@ interface BlockingItem { label: string; detail: string }
 function checkCompleteness(node: TrainingNode): BlockingItem[] {
   const issues: BlockingItem[] = [];
 
-  // At least 1 video with start/end timestamps
-  const videosWithTimestamps = node.elite_videos.filter(
-    (v) => v.url && v.url.trim().length > 0
-  );
-  if (videosWithTimestamps.length === 0) {
-    issues.push({ label: "Videos", detail: "At least 1 reference video is required" });
-  }
+  // Videos are athlete-facing teach tape only — never required to go live.
 
   // Active-only metric checks (inactive metrics are preserved but excluded from scoring)
   const activeMetrics = (node.key_metrics ?? []).filter((m) => m.active !== false);
@@ -1267,32 +1261,14 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   const [newLabel, setNewLabel] = useState("");
   const [newStartSec, setNewStartSec] = useState<string>("");
   const [newEndSec, setNewEndSec] = useState<string>("");
-  const [newCameraAngle, setNewCameraAngle] = useState<CameraAngle | "">("");
-  const [newVideoType, setNewVideoType] = useState<VideoType>("both");
   const [newIsReference, setNewIsReference] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editUrl, setEditUrl] = useState("");
   const [editLabel, setEditLabel] = useState("");
   const [editStartSec, setEditStartSec] = useState<string>("");
   const [editEndSec, setEditEndSec] = useState<string>("");
-  const [editCameraAngle, setEditCameraAngle] = useState<CameraAngle | "">("");
-  const [editVideoType, setEditVideoType] = useState<VideoType>("both");
   const [editIsReference, setEditIsReference] = useState(false);
 
-  const ANGLE_OPTIONS: { value: CameraAngle; label: string }[] = [
-    { value: "sideline", label: "Sideline" },
-    { value: "endzone", label: "Endzone" },
-    { value: "behind_qb", label: "Behind QB" },
-  ];
-
-  const TYPE_OPTIONS: { value: VideoType; label: string }[] = [
-    { value: "educational", label: "Educational" },
-    { value: "analysis", label: "Analysis" },
-    { value: "both", label: "Both" },
-  ];
-
-  const angleLabelMap: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
-  const typeLabelMap: Record<VideoType, string> = { educational: "Educational", analysis: "Analysis", both: "Both" };
 
   const clearReferenceExcept = (exceptIdx: number, vids: EliteVideo[]): EliteVideo[] => {
     return vids.map((v, i) => i === exceptIdx ? v : { ...v, is_reference: false });
@@ -1300,14 +1276,11 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
 
   const handleAdd = () => {
     if (!newUrl.trim()) return;
-    if (!newCameraAngle) return;
     let updated: EliteVideo[] = [...videos, {
       url: newUrl.trim(),
       label: newLabel.trim() || newUrl.trim(),
       start_seconds: newStartSec ? parseInt(newStartSec) : null,
       end_seconds: newEndSec ? parseInt(newEndSec) : null,
-      camera_angle: newCameraAngle || null,
-      video_type: newVideoType,
       is_reference: newIsReference,
     }];
     if (newIsReference) {
@@ -1317,21 +1290,20 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
     }
     onChange(updated);
     setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec("");
-    setNewCameraAngle(""); setNewVideoType("both"); setNewIsReference(false);
+    setNewIsReference(false);
     setAdding(false);
   };
 
   const handleEditSave = (i: number) => {
     if (!editUrl.trim()) return;
-    if (!editCameraAngle) return;
     const n = [...videos];
     n[i] = {
+      // camera_angle / video_type are no longer edited; keep any saved values.
+      ...videos[i],
       url: editUrl.trim(),
       label: editLabel.trim() || editUrl.trim(),
       start_seconds: editStartSec ? parseInt(editStartSec) : null,
       end_seconds: editEndSec ? parseInt(editEndSec) : null,
-      camera_angle: editCameraAngle || null,
-      video_type: editVideoType,
       is_reference: editIsReference,
     };
     let updated = n;
@@ -1350,8 +1322,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
     setEditLabel(videos[i].label);
     setEditStartSec(videos[i].start_seconds != null ? String(videos[i].start_seconds) : "");
     setEditEndSec(videos[i].end_seconds != null ? String(videos[i].end_seconds) : "");
-    setEditCameraAngle(videos[i].camera_angle || "");
-    setEditVideoType(videos[i].video_type || "both");
     setEditIsReference(videos[i].is_reference || false);
   };
 
@@ -1366,10 +1336,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
   const renderFormFields = (
     startSec: string, setStartSec: (v: string) => void,
     endSec: string, setEndSec: (v: string) => void,
-    cameraAngle: CameraAngle | "", setCameraAngle: (v: CameraAngle | "") => void,
-    videoType: VideoType, setVideoType: (v: VideoType) => void,
     isReference: boolean, setIsReference: (v: boolean) => void,
-    showAngleError: boolean,
   ) => {
     const clip = clipDuration(startSec, endSec);
     return (
@@ -1377,8 +1344,8 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         {/* Clip Window */}
         <div>
           <div className="flex items-center gap-1.5 mb-2">
-            <label className={LABEL_CLASS}>Clip Window</label>
-            <SectionTooltip tip="The exact start and end timestamps of the relevant movement within the video. The analysis pipeline extracts only this window — set it tight around the specific route or skill being demonstrated to avoid processing dead time." />
+            <label className={LABEL_CLASS}>Play Window (optional)</label>
+            <SectionTooltip tip="Where the athlete's view starts and stops playing. Display only — the analysis never reads this video." />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1418,62 +1385,12 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
           )}
         </div>
 
-        {/* Camera Angle */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-1">
-            <label className={LABEL_CLASS}>Camera Angle</label>
-            <SectionTooltip tip="The angle this video was filmed from. Must match the Reference tab calibration for this angle — used by the pipeline to convert pixel measurements to real-world distances. Choose the closest match if the angle is not exact." />
-          </div>
-          <div className="relative">
-            <select
-              className={INPUT_CLASS + " appearance-none cursor-pointer"}
-              value={cameraAngle}
-              onChange={(e) => setCameraAngle(e.target.value as CameraAngle | "")}
-            >
-              <option value="">Select angle</option>
-              {ANGLE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>expand_more</span>
-            </span>
-          </div>
-          {showAngleError && !cameraAngle && (
-            <p className="text-red-400 text-xs font-medium mt-1">Camera angle is required</p>
-          )}
-        </div>
-
-        {/* Video Type */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <label className={LABEL_CLASS}>Video Type</label>
-            <SectionTooltip tip="Educational — shown to athletes in the training feed before they film. Teaches the skill and what to look for. Analysis — shown to athletes alongside their results as context. Not processed by the pose engine — for visual reference only. Both — shown in both the training feed and results screen." />
-          </div>
-          <div className="flex gap-1">
-            {TYPE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => setVideoType(o.value)}
-                className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${
-                  videoType === o.value
-                    ? "bg-primary-container/15 text-primary-container border border-primary-container/30"
-                    : "text-on-surface-variant border border-outline-variant/20 hover:bg-surface-container-highest"
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Reference Toggle */}
         <div className="flex items-center justify-between py-2">
           <div>
             <div className="flex items-center gap-1.5">
               <label className={LABEL_CLASS}>Reference Video</label>
-              <SectionTooltip tip="Marks this as the elite benchmark video shown to athletes next to their results. One per node. Not processed by rtmlib — for athlete motivation and comparison only." />
+              <SectionTooltip tip="Marks this as the model rep shown to athletes next to their results. One per node. Never analyzed." />
             </div>
             <p className="text-on-surface-variant/50 text-[10px] mt-0.5">Shown to athletes as the elite example alongside their results. One per node.</p>
           </div>
@@ -1489,26 +1406,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
     );
   };
 
-  const [addAngleError, setAddAngleError] = useState(false);
-  const [editAngleError, setEditAngleError] = useState(false);
-
-  const handleAddWithValidation = () => {
-    if (!newCameraAngle) {
-      setAddAngleError(true);
-      return;
-    }
-    setAddAngleError(false);
-    handleAdd();
-  };
-
-  const handleEditSaveWithValidation = (i: number) => {
-    if (!editCameraAngle) {
-      setEditAngleError(true);
-      return;
-    }
-    setEditAngleError(false);
-    handleEditSave(i);
-  };
 
   const idealCriteria = [
     "Solo athlete (no defenders, no teammates)",
@@ -1690,10 +1587,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <label className={LABEL_CLASS}>Reference Videos</label>
-          <SectionTooltip tip="Add YouTube clips used for athlete education and pipeline calibration. Set start and end timestamps on any video used for analysis. Only one video can serve as the Reference — the elite example shown alongside athlete results." />
+          <SectionTooltip tip="Add YouTube clips that show the route done well. Athletes see the Reference next to their results. These videos are never analyzed and don't affect scoring." />
         </div>
-        <span className={`text-[10px] font-semibold uppercase tracking-widest ${videos.length >= 3 ? "text-emerald-400" : videos.length === 2 ? "text-amber-400" : "text-red-400"}`}>
-          {videos.length} of 3+ recommended
+        <span className={`text-[10px] font-semibold uppercase tracking-widest ${videos.some((v) => v.is_reference) ? "text-emerald-400" : "text-amber-400"}`}>
+          {videos.some((v) => v.is_reference) ? "Reference set" : "No Reference yet"}
         </span>
       </div>
 
@@ -1701,7 +1598,7 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         <div className={CARD_CLASS + " text-center"}>
           <span className="material-symbols-outlined text-on-surface-variant/30" style={{ fontSize: 40 }}>video_library</span>
           <p className="text-on-surface-variant text-sm">No reference videos added yet</p>
-          <p className="text-on-surface-variant/60 text-xs">Add elite examples for the AI to compare athlete footage against</p>
+          <p className="text-on-surface-variant/60 text-xs">Add a teach-tape clip so athletes can see the route done well. Optional for going live.</p>
         </div>
       )}
 
@@ -1724,10 +1621,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                   </div>
                   <input className={INPUT_CLASS} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
                 </div>
-                {renderFormFields(editStartSec, setEditStartSec, editEndSec, setEditEndSec, editCameraAngle, setEditCameraAngle, editVideoType, setEditVideoType, editIsReference, setEditIsReference, editAngleError)}
+                {renderFormFields(editStartSec, setEditStartSec, editEndSec, setEditEndSec, editIsReference, setEditIsReference)}
                 <div className="flex gap-2">
-                  <button onClick={() => handleEditSaveWithValidation(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
-                  <button onClick={() => { setEditIdx(null); setEditAngleError(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+                  <button onClick={() => handleEditSave(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
+                  <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
                 </div>
               </div>
             ) : (
@@ -1738,17 +1635,9 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
                     <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{v.label || "Untitled Video"}</p>
                   </div>
                   <p className="text-on-surface-variant/60 text-xs truncate mt-0.5">{v.url}</p>
-                  <div className="flex items-center gap-2 mt-2.5">
-                    {v.camera_angle && (
-                      <span className="text-on-surface-variant/40 text-[10px] font-medium">{angleLabelMap[v.camera_angle]}</span>
-                    )}
-                    {v.camera_angle && v.video_type && (
-                      <span className="text-on-surface-variant/20">·</span>
-                    )}
-                    {v.video_type && (
-                      <span className="text-on-surface-variant/40 text-[10px] font-medium">{typeLabelMap[v.video_type]}</span>
-                    )}
-                  </div>
+                  {v.start_seconds != null && v.end_seconds != null && (
+                    <p className="text-on-surface-variant/40 text-[10px] font-medium mt-2.5">Plays {v.start_seconds}s–{v.end_seconds}s</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {v.is_reference && (
@@ -1769,33 +1658,6 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
         ))}
       </div>
 
-      {/* Camera Angle Coverage */}
-      {(() => {
-        const configuredAngles = new Set(videos.map(v => v.camera_angle).filter(Boolean));
-        const angles = [
-          { key: "sideline", label: "Sideline" },
-          { key: "endzone", label: "Endzone" },
-          { key: "behind_qb", label: "Behind QB" },
-        ] as const;
-        return (
-          <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: '#131920' }}>
-            <span className={LABEL_CLASS}>Camera Coverage</span>
-            <div className="space-y-1">
-              {angles.map(a => (
-                <div key={a.key} className="flex items-center gap-2 text-xs">
-                  <span className={configuredAngles.has(a.key) ? "text-emerald-400" : "text-red-400"}>
-                    {configuredAngles.has(a.key) ? "✅" : "❌"}
-                  </span>
-                  <span className="text-on-surface-variant">{a.label}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-on-surface-variant/50 text-[10px]">
-              Each camera angle needs its own Reference calibration for Distance and Velocity metrics.
-            </p>
-          </div>
-        );
-      })()}
 
       {adding ? (
         <div className={CARD_CLASS + " border-primary-container/20"}>
@@ -1814,10 +1676,10 @@ function EliteVideosEditor({ videos, onChange }: { videos: EliteVideo[]; onChang
             </div>
             <input className={INPUT_CLASS} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
           </div>
-          {renderFormFields(newStartSec, setNewStartSec, newEndSec, setNewEndSec, newCameraAngle, setNewCameraAngle, newVideoType, setNewVideoType, newIsReference, setNewIsReference, addAngleError)}
+          {renderFormFields(newStartSec, setNewStartSec, newEndSec, setNewEndSec, newIsReference, setNewIsReference)}
           <div className="flex gap-2">
-            <button onClick={handleAddWithValidation} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
-            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec(""); setNewCameraAngle(""); setNewVideoType("both"); setNewIsReference(false); setAddAngleError(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
+            <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
+            <button onClick={() => { setAdding(false); setNewUrl(""); setNewLabel(""); setNewStartSec(""); setNewEndSec(""); setNewIsReference(false); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
           </div>
         </div>
       ) : (
@@ -2286,7 +2148,7 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
   const dfMultiple = node.det_frequency_multiple ?? 1;
 
   /* ── Readiness checks ── */
-  const readiness: { label: string; ok: boolean; detail: string; tab: TabKey }[] = [];
+  const readiness: { label: string; ok: boolean; detail: string; tab: TabKey; warning?: boolean }[] = [];
 
   // Active-only — keeps Training Status readiness consistent with top NodeReadinessBar
   const activeMetricsForReadiness = (node.key_metrics ?? []).filter((m) => m.active !== false);
@@ -2302,12 +2164,8 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
   const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   readiness.push({ label: "Phase weights sum to 100%", ok: segMethod !== "proportional" || phaseWeightSum === 100, detail: segMethod === "proportional" ? `${phaseWeightSum}%` : "N/A (checkpoint)", tab: "phases" });
 
-  const hasVideos = node.elite_videos.some(v => v.url?.trim());
-  readiness.push({ label: "At least 1 video configured", ok: hasVideos, detail: hasVideos ? `${node.elite_videos.filter(v => v.url?.trim()).length} videos` : "No videos", tab: "videos" });
-  const hasRef = node.elite_videos.some(v => v.is_reference);
-  readiness.push({ label: "Reference video flagged", ok: hasRef, detail: hasRef ? "Set" : "Not set", tab: "videos" });
-  const allTimestamped = node.elite_videos.filter(v => v.url?.trim()).every(v => v.start_seconds != null && v.end_seconds != null);
-  readiness.push({ label: "All videos have timestamps", ok: !hasVideos || allTimestamped, detail: allTimestamped ? "All set" : "Some missing", tab: "videos" });
+  const hasRef = node.elite_videos.some(v => v.url?.trim() && v.is_reference);
+  readiness.push({ label: "Reference video for athletes (optional)", ok: hasRef, detail: hasRef ? "Set" : "Not set — warning only", tab: "videos", warning: true });
 
   const cals = node.reference_calibrations ?? [];
   const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
@@ -2315,8 +2173,9 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
 
   readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
 
-  const passCount = readiness.filter(r => r.ok).length;
-  const failCount = readiness.length - passCount;
+  const counted = readiness.filter(r => !r.warning);
+  const passCount = counted.filter(r => r.ok).length;
+  const failCount = counted.length - passCount;
   const allPass = failCount === 0;
 
   return (
@@ -2375,7 +2234,7 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
           <div className="space-y-1">
             {readiness.map((item, i) => (
               <button key={i} type="button" onClick={() => onNavigateTab(item.tab)} className="w-full flex items-start gap-2.5 p-3 rounded-xl text-left transition-all hover:bg-surface-container-high/50">
-                <span className={`text-sm mt-0.5 ${item.ok ? 'text-primary-container' : 'text-red-400'}`}>{item.ok ? '✓' : '✗'}</span>
+                <span className={`text-sm mt-0.5 ${item.ok ? 'text-primary-container' : item.warning ? 'text-amber-400' : 'text-red-400'}`}>{item.ok ? '✓' : item.warning ? '!' : '✗'}</span>
                 <div className="flex-1">
                   <span className="text-on-surface text-sm">{item.label}</span>
                   <span className="text-on-surface-variant text-xs ml-2">— {item.detail}</span>

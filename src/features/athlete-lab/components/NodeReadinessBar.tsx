@@ -126,25 +126,15 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     tooltip: "Incorrect phase weights cause metrics to be evaluated on the wrong frames."
   });
 
-  // 4. VIDEOS & REFERENCE — 15%
+  // 4. REFERENCE VIDEO — athlete-facing teach tape only; never analyzed.
+  // Missing Reference is a warning: it neither lowers the score nor blocks Set Live.
   const videoChecks: ReadinessCheck[] = [];
-  const vids = node.elite_videos ?? [];
-  const configuredVids = vids.filter(v => v.url && v.url.trim().length > 0);
-  videoChecks.push({ label: `${configuredVids.length} video(s) configured`, pass: configuredVids.length >= 1 });
-  const allTimestamps = configuredVids.every(v => v.start_seconds != null && v.end_seconds != null);
-  videoChecks.push({ label: "All videos have timestamps", pass: allTimestamps || configuredVids.length === 0 });
-  const hasRef = configuredVids.some(v => v.is_reference);
-  videoChecks.push({ label: "Reference video flagged", pass: hasRef || configuredVids.length === 0 });
-  // Calibration check (Phase 1c.3-C: solution_class column dropped)
-  {
-    const cals = node.reference_calibrations ?? [];
-    const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-    videoChecks.push({ label: "At least 1 camera angle calibrated", pass: hasAtLeastOne });
-  }
+  const configuredVids = (node.elite_videos ?? []).filter(v => v.url && v.url.trim().length > 0);
+  videoChecks.push({ label: "Reference video for athletes", pass: configuredVids.some(v => v.is_reference), warning: true });
 
   categories.push({
-    name: "Videos & Reference", icon: "video_library", weight: 15, checks: videoChecks, tab: "videos",
-    tooltip: "Missing timestamps causes the pose engine to process the entire video including non-skill footage."
+    name: "Reference video", icon: "video_library", weight: 15, checks: videoChecks, tab: "videos",
+    tooltip: "Shown to athletes as the model rep. Optional; doesn't affect analysis."
   });
 
   // 5. LLM PROMPT — 10%
@@ -183,25 +173,14 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   // short-circuit and always run the per-angle calibration check.
   const refChecks: ReadinessCheck[] = [];
   {
-    const usedAngles = new Set(configuredVids.map(v => v.camera_angle).filter(Boolean) as string[]);
+    // Scale is measured per run; saved calibration is the fallback when height and field lines are unavailable.
     const cals = node.reference_calibrations ?? [];
-    if (usedAngles.size === 0) {
-      refChecks.push({ label: "No camera angles configured in videos", pass: true });
-    } else {
-      for (const angle of usedAngles) {
-        const cal = cals.find(c => c.camera_angle === angle);
-        const hasPixels = cal && cal.pixels_per_yard && cal.pixels_per_yard > 0;
-        const angleLabel = angle === "behind_qb" ? "Behind QB" : angle.charAt(0).toUpperCase() + angle.slice(1);
-        refChecks.push({
-          label: hasPixels ? `${angleLabel}: ${cal!.pixels_per_yard} px/yard` : `No calibration for ${angleLabel}`,
-          pass: !!hasPixels,
-        });
-      }
-    }
+    const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
+    refChecks.push({ label: "At least 1 saved calibration (fallback scale)", pass: hasAtLeastOne });
   }
   categories.push({
     name: "Reference Calibration", icon: "straighten", weight: 5, checks: refChecks, tab: "reference",
-    tooltip: "Without calibration, Distance and Velocity metrics return pixel values not yards."
+    tooltip: "Fallback scale when a run has no athlete height and field lines can't be read. Without it, Distance and Velocity metrics return pixels, not yards."
   });
 
   return categories;

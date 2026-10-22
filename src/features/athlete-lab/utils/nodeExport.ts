@@ -77,10 +77,10 @@ function generateBasics(node: TrainingNode): string {
 
 function generateVideos(node: TrainingNode): string {
   const vids = node.elite_videos ?? [];
-  let out = `## Videos (${vids.length} videos configured)\n`;
+  let out = `## Videos — athlete teach tape, not analyzed (${vids.length} configured)\n`;
   if (vids.length === 0) return out + "\nNo videos configured.";
   vids.forEach((v, i) => {
-    out += `\n### Video ${i + 1}: ${v.label || "Untitled"}\nURL: ${v.url}\nClip Window: ${v.start_seconds ?? "not set"}s to ${v.end_seconds ?? "not set"}s\nCamera Angle: ${v.camera_angle || "not set"}\nType: ${v.video_type === "educational" ? "Educational" : v.video_type === "analysis" ? "Analysis" : "Both"}\nReference: ${v.is_reference ? "Yes" : "No"}\n`;
+    out += `\n### Video ${i + 1}: ${v.label || "Untitled"}\nURL: ${v.url}\nPlay Window: ${v.start_seconds ?? "not set"}s to ${v.end_seconds ?? "not set"}s\nReference: ${v.is_reference ? "Yes" : "No"}\n`;
   });
   return out;
 }
