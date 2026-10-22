@@ -30,7 +30,7 @@ describe("speed into the break", () => {
     const steps = Array.from({ length: 10 }, () => 10);
     const r = computeSpeedRetention({ hip: track(steps), scale: steps.map(() => 30), fps: 30, phase: { start: 0, end: 9 }, nextPhaseStart: 4 });
     expect(r.value).toBeNull();
-    expect(r.value === null && r.reason).toBe("stem_end_overlaps_break");
+    expect("reason" in r ? r.reason : null).toBe("stem_end_overlaps_break");
   });
 
   it("skips when a frame in the end window is missing", () => {
@@ -38,7 +38,7 @@ describe("speed into the break", () => {
     const hip = track(steps);
     hip[12] = null;
     const r = computeSpeedRetention({ hip, scale: steps.map(() => 30), fps: 30, phase: { start: 0, end: 19 }, nextPhaseStart: 15 });
-    expect(r.value === null && r.reason).toBe("stem_end_overlaps_break");
+    expect("reason" in r ? r.reason : null).toBe("stem_end_overlaps_break");
   });
 
   it("scores at_least 0.9 with tolerance 0.2", () => {
