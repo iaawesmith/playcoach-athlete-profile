@@ -156,6 +156,10 @@ const ALWAYS_BANNED: Array<[string, RegExp]> = [
   ['high-level', /\bhigh[- ]level\b/i],
   ['top-level', /\btop[- ]level\b/i],
   ['next-level', /\bnext[- ]level\b/i],
+  ['flawless', /\bflawless(ly)?\b/i],
+  ['perfect', /\bperfect(ly|ion)?\b/i],
+  ['unstoppable', /\bunstoppable\b/i],
+  ['dominant', /\bdominan(t|tly|ce)\b/i],
 ]
 
 const SOLO_BANNED: Array<[string, RegExp]> = [
@@ -182,7 +186,10 @@ export function countWords(text: string): number {
 
 export function checkFeedback(text: string, solo: boolean): FeedbackCheck {
   const violations: string[] = []
-  for (const [label, re] of ALWAYS_BANNED) if (re.test(text)) violations.push(`level-of-play word "${label}"`)
+  // The prompt's own direction wording ("at or under is perfect") describes the
+  // target, not the athlete, so it never counts as praise.
+  const praiseText = text.replace(/\bat or (under|over) is perfect\b/gi, '')
+  for (const [label, re] of ALWAYS_BANNED) if (re.test(praiseText)) violations.push(`level-of-play word "${label}"`)
   if (solo) for (const [label, re] of SOLO_BANNED) if (re.test(text)) violations.push(`"${label}" on a solo rep`)
   const word_count = countWords(text)
   if (word_count > MAX_FEEDBACK_WORDS) violations.push(`${word_count} words (limit ${MAX_FEEDBACK_WORDS})`)

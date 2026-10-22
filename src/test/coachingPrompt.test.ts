@@ -108,3 +108,12 @@ describe('level-of-play bans', () => {
     expect(checkFeedback(`That's ${w} stuff.`, false).passed).toBe(false)
   })
 })
+
+describe('praise bans', () => {
+  it.each(['flawless', 'perfect', 'unstoppable', 'dominant'])('always bans %s describing the rep', (w) => {
+    expect(checkFeedback(`Your break was ${w}.`, false).passed).toBe(false)
+  })
+  it('allows the direction wording "at or under is perfect"', () => {
+    expect(checkFeedback('Hip Stability has a 0.05 yd limit; at or under is perfect.', true).passed).toBe(true)
+  })
+})
