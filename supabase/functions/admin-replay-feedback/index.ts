@@ -22,6 +22,20 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: "Expected JSON body" }, 400);
   }
+  const mode = (body as { mode?: unknown })?.mode;
+  if (mode === "estimate" || mode === "compare") {
+    // Model comparison: the analyzer refuses unless COACH_COMPARE_SECRET is set and matches.
+    const b = body as Record<string, unknown>;
+    const res = await fetch(`${supabaseUrl}/functions/v1/analyze-athlete-video`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceRoleKey}` },
+      body: JSON.stringify({
+        mode, result_ids: b.resultIds, models: b.models, n: b.n,
+        compare_secret: b.compareSecret, confirm_token: b.confirmToken,
+      }),
+    });
+    return json(await res.json(), res.status);
+  }
   const resultId = (body as { resultId?: unknown })?.resultId;
   const count = (body as { count?: unknown })?.count;
   if (typeof resultId !== "string" || !/^[0-9a-f-]{36}$/i.test(resultId)) {
