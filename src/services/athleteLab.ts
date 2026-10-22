@@ -1,6 +1,7 @@
 import { groundTruthLines, type GroundTruthDistance } from "../../supabase/functions/analyze-athlete-video/groundTruth";
 import { parseDetectedErrors, parseMetricResults } from "@/features/athlete-lab/utils/pipelineResults";
 import { buildPhaseStatuses } from "@/features/athlete-lab/utils/phaseStatus";
+import { analyzerBuildLine } from "@/features/athlete-lab/utils/analysisLogReporting";
 import { supabase } from "@/integrations/supabase/client";
 import { isLibraryRun, listCalibrationClips } from "@/services/calibrationLibrary";
 import type { CalibrationClip } from "@/services/calibrationLibrary";
