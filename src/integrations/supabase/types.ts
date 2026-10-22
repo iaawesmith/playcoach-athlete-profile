@@ -168,6 +168,8 @@ export type Database = {
           clip_duration_max: number
           clip_duration_min: number
           coaching_cues_migration_status: string
+          coaching_model: string | null
+          coaching_provider: string | null
           common_errors: Json
           confidence_handling: string
           created_at: string
@@ -205,6 +207,8 @@ export type Database = {
           clip_duration_max?: number
           clip_duration_min?: number
           coaching_cues_migration_status?: string
+          coaching_model?: string | null
+          coaching_provider?: string | null
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
@@ -242,6 +246,8 @@ export type Database = {
           clip_duration_max?: number
           clip_duration_min?: number
           coaching_cues_migration_status?: string
+          coaching_model?: string | null
+          coaching_provider?: string | null
           common_errors?: Json
           confidence_handling?: string
           created_at?: string
@@ -557,6 +563,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coaching_model_settings: {
+        Row: {
+          id: boolean
+          model: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          model: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          model?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       pipeline_setup_checklist: {
         Row: {
