@@ -86,6 +86,36 @@ export function frameSource(frame: number, d: Pick<OverlayData, "missed" | "reje
   return "main";
 }
 
+export type FrameSourceSeam = { frame: number; from: FrameSourceKind; to: FrameSourceKind };
+
+/**
+ * Frames where the detection source changes (leading recovery → main,
+ * main → following crop, …). Missed and rejected frames carry no source, so
+ * they're skipped and the seam lands on the next frame with a real source.
+ */
+export function frameSourceSeams(
+  frameCount: number,
+  d: Pick<OverlayData, "missed" | "rejected" | "leadingRecovery" | "followingCrop">,
+): FrameSourceSeam[] {
+  const seams: FrameSourceSeam[] = [];
+  let prev: FrameSourceKind | null = null;
+  for (let f = 0; f < frameCount; f++) {
+    const kind = frameSource(f, d);
+    if (kind === "missed" || kind === "rejected") continue;
+    if (prev !== null && kind !== prev) seams.push({ frame: f, from: prev, to: kind });
+    prev = kind;
+  }
+  return seams;
+}
+
+export const SOURCE_SHORT: Record<FrameSourceKind, string> = {
+  main: "main",
+  leading_recovery: "leading recovery",
+  following_crop: "following crop",
+  missed: "missed",
+  rejected: "rejected",
+};
+
 export function frameSourceLabel(frame: number, d: OverlayData): string {
   const kind = frameSource(frame, d);
   if (kind === "main") return d.zoomFactor && d.zoomFactor > 1 ? `main pass (${d.zoomFactor}x zoom)` : "main pass";
