@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { athleteHeightError, HEIGHT_HELP } from "../../../../supabase/functions/_shared/athleteHeight";
 import ReactMarkdown from "react-markdown";
 import type {
   PipelineAnalysisResult,
@@ -453,6 +454,11 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
   const handleRun = async () => {
     if (!hasInput || isRunning) return;
+    const heightError = athleteHeightError(athleteHeight.trim(), athleteHeightUnit);
+    if (heightError) {
+      setError(contextEnabled ? heightError : `${heightError} Turn on Analysis Context to enter it.`);
+      return;
+    }
 
     setError(null);
     setResult(null);
@@ -476,6 +482,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
         camera_angle: cameraAngle, people_in_video: peopleInVideo,
         ...buildRouteDirectionPayload(breakDirection), catch_included: catchStatus !== "no",
         catch_status: catchStatus, athlete_level: athleteLevel, focus_area: "", performance_description: videoDesc.trim(),
+        athlete_height: { value: Number(athleteHeight), unit: athleteHeightUnit },
       };
       if (libraryClip) {
         const freshClip = (await listCalibrationClips(true)).find((clip) => clip.id === libraryClip.id);
@@ -770,7 +777,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
               </div>
 
               <div>
-                <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Athlete Height</label>
+                <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Athlete Height <span className="text-primary-container">*</span></label>
                 <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
                   <input
                     type="number"
@@ -791,14 +798,11 @@ export function TestingPanel({ node }: TestingPanelProps) {
                     <option value="cm">CM</option>
                   </select>
                 </div>
-                {!athleteHeight.trim() && (
-                  <div className="mt-2 flex gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-highest/80 px-3 py-2">
-                    <span className="material-symbols-outlined shrink-0 text-on-surface-variant" style={{ fontSize: 16 }}>warning</span>
-                    <p className="text-[10px] leading-relaxed text-on-surface-variant">
-                      No athlete height provided. Body-based calibration will fall through to static. Aggregate scores will not match prior body-based runs.
-                    </p>
-                  </div>
-                )}
+                <p className="mt-1.5 text-[10px] text-on-surface-variant/60">{HEIGHT_HELP}</p>
+                {(() => {
+                  const msg = athleteHeight.trim() ? athleteHeightError(athleteHeight.trim(), athleteHeightUnit) : null;
+                  return msg ? <p className="mt-1 text-[10px] font-medium text-red-400">{msg}</p> : null;
+                })()}
               </div>
 
               <div>

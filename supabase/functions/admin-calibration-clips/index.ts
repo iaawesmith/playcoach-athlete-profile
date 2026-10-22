@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
+import { athleteHeightError } from "../_shared/athleteHeight.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -109,6 +110,10 @@ Deno.serve(async (req) => {
       }
 
       case "create": {
+        {
+          const heightError = athleteHeightError(body.metadata.athlete_height, body.metadata.athlete_height_unit);
+          if (heightError) return json({ error: heightError }, 400);
+        }
         if (!body.storage_path.startsWith(PREFIX) || body.storage_path.includes("..")) {
           return json({ error: "Invalid storage path" }, 400);
         }
@@ -122,6 +127,10 @@ Deno.serve(async (req) => {
       }
 
       case "update": {
+        {
+          const heightError = athleteHeightError(body.metadata.athlete_height, body.metadata.athlete_height_unit);
+          if (heightError) return json({ error: heightError }, 400);
+        }
         const { error } = await db.from("calibration_clips").update(body.metadata).eq("id", body.id);
         if (error) return json({ error: error.message }, 500);
         return json({ ok: true }, 200);
