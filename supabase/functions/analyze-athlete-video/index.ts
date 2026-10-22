@@ -42,6 +42,8 @@ import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDir
 import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from '../_shared/coachModel.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 import { computeSpeedRetention } from './speedRetention.ts'
+import { ANALYZER_BUILD } from './build.ts'
+import { computeGroundTruthDistance, findBreakAnchor } from './groundTruth.ts'
 import { noScaleSkip } from './scaleGate.ts'
 
 const supabase = createClient(
@@ -229,9 +231,7 @@ type BilateralDecision = {
 
 const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap()
 
-// Diagnostic-export build tag. Bump when the additive result_data.diagnostics
-// payload changes shape so exports can be traced back to the analyzer build.
-const ANALYZER_BUILD = '2026-10-21.diagnostic-export.1'
+// Analyzer build stamp (commit-date), written by scripts/stamp-analyzer-build.ts at deploy.
 
 type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
 
@@ -740,7 +740,7 @@ async function buildRunDiagnostics(input: {
     schema_version: 1,
     analyzer_build: ANALYZER_BUILD,
     deployment_id: Deno.env.get('DENO_DEPLOYMENT_ID') ?? null,
-    cloud_run_revision: Deno.env.get('K_REVISION') ?? null,
+    cloud_run_revision: rtmlibResult.service_revision ?? null,
     service,
     per_frame: perFrame,
     metrics: metricResults.map((m) => ({ ...m })),
@@ -2860,7 +2860,7 @@ async function calculateAllMetrics(
         const scale = keypoints.map((_, f) => Array.isArray(calibration.perFrame) && typeof calibration.perFrame[f] === 'number'
           ? calibration.perFrame[f]
           : calibration.pixelsPerYard)
-        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, windowFrames: 5 }) as MetricValueResult
+        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 }) as MetricValueResult
         break
       }
       case 'distance_variance':
@@ -4314,7 +4314,7 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   // Metrics added to the node after this run are computed from the run's
   // stored keypoints, scores, per-frame scale and phase windows.
   const added = await computeAddedMetricsFromStored(String(result.id), nodeConfig, nodeMetrics, before)
-  const after = applyNodeScoring([...before, ...added], nodeMetrics)
+  const after = applyNodeScoring([...before.filter((b) => !added.some((a) => a.name === b.name)), ...added], nodeMetrics)
     .filter((m: any) => nodeMetrics.some((n) => n?.name === m.name && n?.active !== false))
     .map((m: any) => {
       const def = nodeMetrics.find((n) => n?.name === m.name)
@@ -4340,7 +4340,10 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
 }
 
 async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, nodeMetrics: any[], stored: any[]): Promise<any[]> {
-  const missing = nodeMetrics.filter((n) => n?.active !== false && n?.keypoint_mapping?.calculation_type === 'speed_retention' && !stored.some((m) => m?.name === n.name))
+  // Speed-retention metrics are always recomputed from stored data so window
+  // rule changes apply on rescore (stored copies are replaced by the caller).
+  const missing = nodeMetrics.filter((n) => n?.active !== false && n?.keypoint_mapping?.calculation_type === 'speed_retention')
+  void stored
   if (!missing.length) return []
   const { data } = await supabase.from('athlete_lab_results').select('result_data').eq('id', resultId).single()
   const rd = (data?.result_data ?? {}) as any
@@ -4370,7 +4373,7 @@ async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, 
     if (!conf.passed) return { ...metric, status: 'flagged', reason: 'low_confidence', detail: { confidenceDiagnostics: conf.diagnostics } }
     const hip = kps.map((frame, f) => (frame?.[0] ? getMidpoint(frame[0], indices, scs[f]?.[0], threshold) : null))
     const scale = kps.map((_, f) => (typeof perFrame[f]?.scale_ppy === 'number' ? perFrame[f].scale_ppy : null))
-    const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, windowFrames: 5 })
+    const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 })
     if (r.value === null) return { ...base, reason: r.reason, detail: r.detail }
     const dir = normalizeTargetDirection(metric.target_direction)
     return {
