@@ -31,7 +31,7 @@ export function validateCoachModel(provider: unknown, model: unknown): ModelVali
     const pinned = /-\d{8}$/.test(m)
     return { ok: true, pinned, reason: pinned ? null : 'floating alias — may change under you; pin a dated snapshot' }
   }
-  if (!/^[a-z0-9-]+\/[a-z0-9.:-]+$/i.test(m)) return { ok: false, pinned: false, reason: 'built-in AI ids look like vendor/model' }
+  if (!/^(openai|google)\/[a-z0-9.:-]+$/i.test(m)) return { ok: false, pinned: false, reason: 'built-in AI coaching supports openai/* or google/* chat models' }
   return { ok: true, pinned: false, reason: 'built-in AI id; the exact served model is recorded on every call' }
 }
 
@@ -66,27 +66,30 @@ export function personalizeFeedback(text: string, firstName: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
-// Cost: USD per million tokens, provider list prices. Unknown models report
-// cost as null rather than a guess.
+// Cost: USD per token. Anthropic direct uses its published list price; the
+// built-in route uses the live per-token prices from its model catalog, passed
+// in by the caller. Unknown models report cost as null rather than a guess.
 
-export const LIST_PRICES_USD_PER_MTOK: Record<string, { input: number; output: number }> = {
-  'anthropic:claude-sonnet-4-5': { input: 3, output: 15 },
-  'lovable_ai:anthropic/claude-sonnet-4-5': { input: 3, output: 15 },
-  'lovable_ai:openai/gpt-5': { input: 1.25, output: 10 },
-  'lovable_ai:openai/gpt-5-mini': { input: 0.25, output: 2 },
-  'lovable_ai:google/gemini-2.5-pro': { input: 1.25, output: 10 },
-  'lovable_ai:google/gemini-2.5-flash': { input: 0.3, output: 2.5 },
+export type TokenPrice = { input: number; output: number }
+
+export const ANTHROPIC_LIST_PRICES_USD_PER_TOKEN: Record<string, TokenPrice> = {
+  'claude-sonnet-4-5': { input: 3 / 1_000_000, output: 15 / 1_000_000 },
 }
 
-export function priceFor(m: CoachModel): { input: number; output: number } | null {
-  const base = m.model.replace(/-\d{8}$/, '')
-  return LIST_PRICES_USD_PER_MTOK[`${m.provider}:${m.model}`] ?? LIST_PRICES_USD_PER_MTOK[`${m.provider}:${base}`] ?? null
+export function priceFor(m: CoachModel, catalog: Record<string, TokenPrice> = {}): TokenPrice | null {
+  if (m.provider === 'lovable_ai') return catalog[m.model] ?? null
+  return ANTHROPIC_LIST_PRICES_USD_PER_TOKEN[m.model.replace(/-\d{8}$/, '')] ?? null
 }
 
-export function costUsd(m: CoachModel, inputTokens: number | null | undefined, outputTokens: number | null | undefined): number | null {
-  const p = priceFor(m)
+export function costUsd(
+  m: CoachModel,
+  inputTokens: number | null | undefined,
+  outputTokens: number | null | undefined,
+  catalog: Record<string, TokenPrice> = {},
+): number | null {
+  const p = priceFor(m, catalog)
   if (!p || typeof inputTokens !== 'number' || typeof outputTokens !== 'number') return null
-  return (inputTokens * p.input + outputTokens * p.output) / 1_000_000
+  return inputTokens * p.input + outputTokens * p.output
 }
 
 export type ComparisonEstimate = {
@@ -105,13 +108,14 @@ export function estimateComparison(
   n: number,
   perCall: { input_tokens: number; output_tokens: number },
   retryRate: number,
+  catalog: Record<string, TokenPrice> = {},
 ): ComparisonEstimate[] {
   const prompts = resultCount * n
   const calls = Math.ceil(prompts * (1 + Math.min(1, Math.max(0, retryRate))))
   return models.map((model) => {
     const input_tokens = calls * perCall.input_tokens
     const output_tokens = calls * perCall.output_tokens
-    return { model, prompts, expected_calls: calls, input_tokens, output_tokens, cost_usd: costUsd(model, input_tokens, output_tokens) }
+    return { model, prompts, expected_calls: calls, input_tokens, output_tokens, cost_usd: costUsd(model, input_tokens, output_tokens, catalog) }
   })
 }
 
