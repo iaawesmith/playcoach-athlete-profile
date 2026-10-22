@@ -176,7 +176,8 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     // Scale is measured per run; saved calibration is the fallback when height and field lines are unavailable.
     const cals = node.reference_calibrations ?? [];
     const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-    refChecks.push({ label: "At least 1 saved calibration (fallback scale)", pass: hasAtLeastOne });
+    // Athlete height is required on every upload, so saved calibration is only a fallback: warning, not counted.
+    refChecks.push({ label: "At least 1 saved calibration (fallback scale)", pass: hasAtLeastOne, warning: true });
   }
   categories.push({
     name: "Reference Calibration", icon: "straighten", weight: 5, checks: refChecks, tab: "reference",

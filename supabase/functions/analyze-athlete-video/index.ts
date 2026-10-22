@@ -42,6 +42,7 @@ import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDir
 import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from '../_shared/coachModel.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 import { computeSpeedRetention } from './speedRetention.ts'
+import { noScaleSkip } from './scaleGate.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -2696,6 +2697,13 @@ async function calculateAllMetrics(
     if (metric.requires_catch && context.catch_included === false) {
       logInfo('metric_skipped', { ...metricContext, reason: 'no_catch' })
       results.push({ ...metric, status: 'skipped', reason: 'no_catch' })
+      continue
+    }
+
+    // Safety rule: never score a distance/speed metric from pixel values.
+    if (noScaleSkip(metric.unit, calibration)) {
+      logWarn('metric_skipped', { ...metricContext, reason: 'no_scale' })
+      results.push({ ...metric, status: 'skipped', reason: 'no_scale' })
       continue
     }
 

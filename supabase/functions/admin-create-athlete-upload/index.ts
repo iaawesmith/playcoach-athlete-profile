@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
+import { athleteHeightError } from "../_shared/athleteHeight.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +52,12 @@ Deno.serve(async (req) => {
 
   if (athleteId !== FIXED_TEST_ATHLETE_ID) {
     return jsonResponse({ error: "Invalid athlete for admin test submission" }, 403);
+  }
+
+  {
+    const h = analysisContext.athlete_height as { value?: unknown; unit?: unknown } | undefined;
+    const heightError = athleteHeightError(h?.value, h?.unit === "cm" ? "cm" : "inches");
+    if (heightError) return jsonResponse({ error: heightError }, 400);
   }
 
   if (endSeconds !== null && endSeconds <= startSeconds) {

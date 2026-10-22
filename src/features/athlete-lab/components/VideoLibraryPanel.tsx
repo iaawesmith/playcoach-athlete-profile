@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { athleteHeightError, HEIGHT_HELP } from "../../../../supabase/functions/_shared/athleteHeight";
 import type { TrainingNode } from "../types";
 import {
   EMPTY_CLIP_METADATA,
@@ -304,6 +305,8 @@ function ClipForm({ state, nodes, onCancel, onSaved }: ClipFormProps) {
     if (!meta.title.trim()) return setError("Title is required.");
     if (!meta.node_id) return setError("Choose a node.");
     if (state.mode === "create" && !file) return setError("Choose a video file.");
+    const heightError = athleteHeightError(meta.athlete_height, meta.athlete_height_unit);
+    if (heightError) return setError(heightError);
     const payload = { ...meta, depth_metric_key: meta.depth_metric_key && yardMetrics.includes(meta.depth_metric_key) ? meta.depth_metric_key : null };
     setSaving(true);
     try {
@@ -380,7 +383,10 @@ function ClipForm({ state, nodes, onCancel, onSaved }: ClipFormProps) {
           {select("catch_status", "Catch", [["yes", "Yes"], ["no", "No"], ["partial", "Partial"]])}
           {select("athlete_level", "Athlete level", [["youth", "Youth"], ["high_school", "High school"], ["college", "College"], ["professional", "Professional"]])}
           <div />
-          {numberField("athlete_height", "Athlete height")}
+          <div className="space-y-1">
+            {numberField("athlete_height", "Athlete height *")}
+            <p className="text-[10px] text-on-surface-variant/60">{HEIGHT_HELP}</p>
+          </div>
           {select("athlete_height_unit", "Height unit", [["inches", "Inches"], ["cm", "cm"]])}
           {numberField("athlete_wingspan", "Athlete wingspan")}
           {select("athlete_wingspan_unit", "Wingspan unit", [["inches", "Inches"], ["cm", "cm"]])}
