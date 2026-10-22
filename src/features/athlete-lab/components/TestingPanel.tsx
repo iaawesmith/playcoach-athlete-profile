@@ -456,7 +456,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     if (!hasInput || isRunning) return;
     const heightError = athleteHeightError(athleteHeight.trim(), athleteHeightUnit);
     if (heightError) {
-      setError(contextEnabled ? heightError : `${heightError} Turn on Analysis Context to enter it.`);
+      setError(heightError);
       return;
     }
 
@@ -668,6 +668,38 @@ export function TestingPanel({ node }: TestingPanelProps) {
           <button type="button" disabled={isRunning} onClick={handleRerun} className="uppercase text-on-surface-variant">Clear</button>
         </div>
       )}
+
+      <div className="rounded-xl border border-white/5 bg-surface-container p-5">
+        <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Athlete Height <span className="text-primary-container">*</span></label>
+        <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.1"
+            value={athleteHeight}
+            onChange={(e) => setAthleteHeight(e.target.value)}
+            placeholder="70"
+            disabled={Boolean(libraryClip) && (!overrideLibrary || isRunning)}
+            className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none disabled:opacity-60"
+          />
+          <select
+            value={athleteHeightUnit}
+            onChange={(e) => setAthleteHeightUnit(e.target.value as MeasurementUnit)}
+            disabled={Boolean(libraryClip) && (!overrideLibrary || isRunning)}
+            className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface transition-colors focus:border-primary-container/50 focus:outline-none disabled:opacity-60"
+          >
+            <option value="inches">Inches</option>
+            <option value="cm">CM</option>
+          </select>
+        </div>
+        <p className="mt-1.5 text-[10px] text-on-surface-variant/60">{HEIGHT_HELP}</p>
+        {(() => {
+          const msg = athleteHeight.trim() ? athleteHeightError(athleteHeight.trim(), athleteHeightUnit) : null;
+          return msg ? <p className="mt-1 text-[10px] font-medium text-red-400">{msg}</p> : null;
+        })()}
+      </div>
+
       <div className="rounded-xl border border-white/5 bg-surface-container">
         <div className="flex items-center justify-between p-5 pb-0">
           <div className="flex items-center gap-2">
@@ -773,36 +805,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
             <div className="space-y-3 rounded-xl bg-surface-container-high/60 p-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">Body Calibration</p>
-                <p className="mt-1 text-[10px] text-on-surface-variant/50">Height and wingspan feed the body-based calibration fallback when dynamic calibration is unavailable.</p>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Athlete Height <span className="text-primary-container">*</span></label>
-                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.1"
-                    value={athleteHeight}
-                    onChange={(e) => setAthleteHeight(e.target.value)}
-                    placeholder="70"
-                    className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
-                  />
-                  <select
-                    value={athleteHeightUnit}
-                    onChange={(e) => setAthleteHeightUnit(e.target.value as MeasurementUnit)}
-                    className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface transition-colors focus:border-primary-container/50 focus:outline-none"
-                  >
-                    <option value="inches">Inches</option>
-                    <option value="cm">CM</option>
-                  </select>
-                </div>
-                <p className="mt-1.5 text-[10px] text-on-surface-variant/60">{HEIGHT_HELP}</p>
-                {(() => {
-                  const msg = athleteHeight.trim() ? athleteHeightError(athleteHeight.trim(), athleteHeightUnit) : null;
-                  return msg ? <p className="mt-1 text-[10px] font-medium text-red-400">{msg}</p> : null;
-                })()}
+                <p className="mt-1 text-[10px] text-on-surface-variant/50">Wingspan feeds the body-based calibration fallback when dynamic calibration is unavailable.</p>
               </div>
 
               <div>
