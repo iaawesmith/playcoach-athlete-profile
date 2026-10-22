@@ -1,37 +1,64 @@
-# Target direction on metrics + wider level-of-play ban
+# Configurable, comparable coaching model
 
-## 1. Target direction
+Production stays on today's model (Anthropic `claude-sonnet-4-5`, called with the project's Anthropic key) until you pick one. Everything below is either additive or runs only in the admin replay.
 
-New optional metric field `target_direction`: `target` (default when missing, today's behavior), `at_most`, `at_least`.
+## 1. One setting, overridable per node
 
-**Scoring** (one pure helper, unit-tested):
-- `target`: unchanged — distance from target, existing tolerance and curve.
-- `at_most`: value at or below target scores 100; above it, the existing tolerance and curve apply to the amount over.
-- `at_least`: value at or above target scores 100; below it, the same curve on the amount under.
+- **Workspace default:** provider + exact model, stored as one admin setting row. It is seeded with today's value, so nothing changes.
+- **Per-node override:** an optional provider + model on the node. When it's empty, the node uses the default. Every node starts empty, Slant included.
+- **Providers offered:**
+  - **Anthropic, direct.** Today's path, using your Anthropic key.
+  - **Built-in AI (OpenAI / ChatGPT models, also Google and Anthropic).** Runs through Lovable's built-in AI with no extra key, billed to workspace credits.
+- **Exact versions:** the model field takes a full id, and the save is refused when it isn't one.
+  - Anthropic and OpenAI let you pin a dated snapshot (for example `claude-sonnet-4-5-20250929`). A floating name like `claude-sonnet-4-5` is flagged as "may change under you."
+  - Built-in AI ids are shown as offered. The comparison records the exact model the provider reports back, so you can see whether it drifts.
+- **Editor:** a "Coaching model" control in admin settings and on the node's coaching tab. It shows the current effective model and where it comes from (default or node).
 
-**Wording** — one shared describer used by the coaching prompt, fallback summary, Analysis Log and results panel:
-- On the good side, or within tolerance for `target`: "inside the target" / "on target".
-- On the bad side: "short of the target by 3.24 mph" (`at_least`), "over the target by 0.02 yd" (`at_most`), "off the target by X" (`target`).
-- The bare word "below" is never used.
+## 2. Recorded on every run
 
-**Slant (WR) to version 10, stays LIVE:** Hip Stability `at_most`, Release Speed `at_least`, Plant Leg Extension `target`. Nothing else on the node changes. No other node is touched, so the rest keep today's behavior.
+Each run stores, in the log and the diagnostic export:
+- the provider
+- the requested model id
+- the exact model the provider reports back
+- where the setting came from (default, node or replay)
+- tokens, cost if reported, and response time
 
-**Editor:** a "Target direction" dropdown on the metric form (Aim for target / At most / At least), defaulting to Aim for target, with a one-line explanation under it.
+Older runs show "not recorded."
 
-## 2. Feedback check
+## 3. Comparison replay (admin only, writes nothing)
 
-Add "high-level", "top-level" and "next-level" to the always-banned level-of-play list, with tests. These include the hyphenated and spaced forms, so "that's high-level stuff" from result 1f7c3450's rejected draft is caught.
+- **Input:** a list of stored result IDs, a list of provider + model pairs, and N replays per result per model (capped so a run stays within time limits). If it's too large, it runs in batches.
+- **Each replay:** uses the stored metrics, rescored with the node's current scoring, then the same prompt, check, retry and fallback as production.
+- **Per-model report:**
+  - first-draft pass rate
+  - violations by type (level-of-play, solo-rep words, length)
+  - retries
+  - fallbacks
+  - average words
+  - cost (provider-reported tokens times list price; built-in AI credit cost from its request log)
+  - average and slowest response time
+- **Side by side:** every final response, grouped by result, one column per model, each tagged with pass / retried / fallback.
+- **Where to see it:** an admin "Model comparison" panel in Athlete Lab. It shows the report and lets you copy it out. Nothing is saved to results.
 
-## Verification
+## 4. Data handling and retention report
 
-- Rescore 1f7c3450 from its stored metric values (no new pose run, nothing written back). Expected: Hip Stability 88 to 100, Release Speed and Plant Leg Extension unchanged. Report the aggregate score before and after.
-- Replay 1f7c3450 once through the admin replay and show the final response and its check result.
-- Run all tests.
+Before building, I'll research the current published terms for each option and report them with links:
+- **Anthropic API, direct:** training use, retention period, zero-retention availability, age requirements.
+- **OpenAI models through built-in AI:** the same points, plus what the built-in route itself logs and how long it keeps it.
+- **Google and Anthropic models through built-in AI:** the same points.
+
+The report notes what athlete data each prompt actually contains today: the first name, athlete level, metrics and clip context. No video or images are sent. It also covers what that means for minors, and anything I can't verify from published terms. Only measured data is sent; first names could be replaced with "Athlete" if you want that.
+
+## 5. Going live
+
+You pick a model from the comparison, and only then do I change the workspace default (or one node's override). Nothing changes in production before that.
 
 ## Technical details
 
-- `KeyMetric.target_direction?: "target" | "at_most" | "at_least"` lives in the `key_metrics` JSON, so no database change is needed.
-- `scoreMetric` in analyze-athlete-video moves to a pure `scoring.ts` that takes the direction. Missing direction gives the same result as today, and a test proves it.
-- The describer lives in `prompt.ts` and gets reused by the frontend through the existing pure-import pattern. The Analysis Log and results panel read the direction from the node's metric.
-- The replay path carries the direction into the formatted metric lines. A small service-role-only rescore mode returns before and after scores from the stored `metric_results` and writes nothing.
-- Redeploy analyze-athlete-video, then record the rule in AGENTS.md.
+- A new `coaching_model_settings` table (single row) holds `provider`, `model`, `updated_at`. It is service-role only, with GRANTs and RLS, and read and written through an admin function, the same as the calibration clips (F-SEC-1 still applies until admin login exists).
+- The nullable `coaching_provider` and `coaching_model` columns on `athlete_lab_nodes` are additive.
+- A pure `supabase/functions/analyze-athlete-video/llm.ts` holds the provider adapter interface, Anthropic and built-in AI adapters, model-id validation and resolution (node, then default, then hard-coded current). Resolution and validation are unit-tested from `src/test`.
+- `callClaude` becomes `callCoachModel(resolved)` and returns `{ text, provider, requested_model, reported_model, tokens, ms }`. The check, retry and fallback stay unchanged.
+- `admin-replay-feedback` gets a `compare` mode `{ resultIds[], models[], n }`. It forces the model for the replay only, never reads or writes the setting, and aggregates in a pure, tested helper.
+- The diagnostic export and Analysis Log read the new `llm` block, and older runs show `not_recorded`.
+- AGENTS.md gets one rule: the coaching model is resolved in one place, and replays may override it without persisting anything.
