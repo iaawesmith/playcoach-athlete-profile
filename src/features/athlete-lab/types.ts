@@ -1,3 +1,5 @@
+export type TargetDirection = "target" | "at_most" | "at_least";
+
 export type CalculationType = "angle" | "distance" | "velocity" | "acceleration" | "frame_delta" | "distance_variance";
 // 'none' = the metric's keypoint indices already span both sides (e.g. hips
 // [23,24]) or reference a center keypoint (nose, hip-center). The analyzer
@@ -34,6 +36,8 @@ export interface KeyMetric {
   depends_on_metric_id?: string | null;
   keypoint_mapping?: KeypointMapping | null;
   requires_catch?: boolean;
+  /** target (default, two-sided) | at_most (at or under is perfect) | at_least (at or over is perfect). */
+  target_direction?: TargetDirection;
   /** When false, this metric is preserved in storage but excluded from UI editing and scoring. Defaults to true. */
   active?: boolean;
 }
@@ -300,6 +304,7 @@ export interface MetricLogEntry {
   unit: string;
   elite_target: string;
   deviation: string;
+  against_target?: string;
   raw_score: number;
   weighted_contribution: string;
   status: "SCORED" | "SKIPPED" | "FLAGGED";
@@ -451,6 +456,9 @@ export interface PipelineMetricResult {
   phase_id?: string | null;
   phase_name?: string | null;
   calculation_type?: string | null;
+  target_direction?: TargetDirection;
+  /** Direction-aware wording, e.g. "within the limit". */
+  against_target?: string | null;
 }
 
 export interface PipelineUploadSnapshot {

@@ -467,6 +467,28 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
         </div>
       </div>
 
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className={LABEL_CLASS}>Target Direction</span>
+        </div>
+        <select
+          className={INPUT_CLASS}
+          value={m.target_direction ?? "target"}
+          onChange={(e) => setM({ ...m, target_direction: e.target.value as TargetDirection })}
+        >
+          <option value="target">Aim for target</option>
+          <option value="at_most">At most</option>
+          <option value="at_least">At least</option>
+        </select>
+        <p className="mt-1.5 text-[11px] text-on-surface-variant">
+          {(m.target_direction ?? "target") === "at_most"
+            ? "At or under the target scores 100; only the amount over is penalized."
+            : (m.target_direction ?? "target") === "at_least"
+            ? "At or over the target scores 100; only the amount under is penalized."
+            : "Scored on distance from the target in either direction."}
+        </p>
+      </div>
+
       {/* Temporal Window */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">

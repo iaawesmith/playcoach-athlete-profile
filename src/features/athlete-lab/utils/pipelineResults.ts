@@ -1,4 +1,5 @@
-import type { PipelineDetectedError, PipelineMetricResult } from "../types";
+import type { KeyMetric, PipelineDetectedError, PipelineMetricResult } from "../types";
+import { describeAgainstTarget, normalizeTargetDirection } from "../../../../supabase/functions/analyze-athlete-video/scoring";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -14,7 +15,7 @@ function asString(value: unknown): string | null {
 
 export type PhaseLookup = Array<{ id?: string | null; name: string }>;
 
-export function parseMetricResults(value: unknown, phases: PhaseLookup = []): PipelineMetricResult[] {
+export function parseMetricResults(value: unknown, phases: PhaseLookup = [], nodeMetrics: Pick<KeyMetric, "name" | "target_direction">[] = []): PipelineMetricResult[] {
   if (!Array.isArray(value)) return [];
   const phaseNames = new Map(phases.filter((p) => p.id).map((p) => [p.id as string, p.name]));
 
@@ -27,7 +28,16 @@ export function parseMetricResults(value: unknown, phases: PhaseLookup = []): Pi
       ? String(eliteRaw)
       : typeof eliteRaw === "string" ? eliteRaw : "";
     const detail = asRecord(record.detail);
+    const name = asString(record.name) ?? `Metric ${index + 1}`;
+    const direction = normalizeTargetDirection(record.target_direction ?? nodeMetrics.find((m) => m.name === name)?.target_direction);
+    const v = asNumber(record.value);
+    const t = Number(elite);
+    const unit = typeof record.unit === "string" ? record.unit : "";
     return {
+      target_direction: direction,
+      against_target: v !== null && elite !== "" && Number.isFinite(t)
+        ? describeAgainstTarget(v, t, asNumber(record.tolerance), direction, unit)
+        : null,
       name: asString(record.name) ?? `Metric ${index + 1}`,
       unit: typeof record.unit === "string" ? record.unit : "",
       value: asNumber(record.value),
