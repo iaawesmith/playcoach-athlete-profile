@@ -37,4 +37,8 @@
 - [x] Admin-only replay (admin-replay-feedback → analyzer replay mode, nothing saved)
 - [x] Replays of 3e01efe2 checked automatically (see feedback_check)
 - [x] Post-check (level-of-play words always; other players on solo reps; 150 words), one named retry, data-only fallback; recorded as feedback_check in diagnostics
-- [ ] Add approved Slant example, extend solo bans, revise second-person fallback and Hip Stability wording; replay 3e01efe2 five times and report counts.
+- [x] Add approved Slant example, extend solo bans, revise second-person fallback and Hip Stability wording; replay 3e01efe2 five times and report counts.
+
+## Target direction (approved Oct 22)
+- [x] target_direction (target/at_most/at_least) scoring + direction wording (within the limit / met the target / on target within 25% tolerance) in prompt, fallback, Analysis Log, results; editor dropdown
+- [x] Slant v10 directions; high-level/top-level/next-level banned; 1f7c3450 rescored 91→93 and replayed

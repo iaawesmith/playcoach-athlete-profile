@@ -522,7 +522,7 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
     aggregateScore: parseNumber(row.aggregate_score),
     phaseScores,
     phaseBreakdown: mapPhaseBreakdown(phaseScores, node),
-    metricResults: parseMetricResults(row.metric_results, node.phase_breakdown),
+    metricResults: parseMetricResults(row.metric_results, node.phase_breakdown, node.key_metrics),
     confidenceFlags: Array.isArray(row.confidence_flags) ? row.confidence_flags as PipelineConfidenceFlag[] : [],
     detectedErrors: parseDetectedErrors(row.detected_errors),
     feedback: typeof row.feedback === "string" ? row.feedback : "",

@@ -1,6 +1,8 @@
 // Pure prompt-building helpers for coaching feedback. No Deno/Supabase imports
 // so they can be unit-tested from src/test.
 
+import { describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
+
 export type PeopleScenario = 'solo' | 'with_defender' | 'multiple'
 
 export function normalizePeopleInVideo(peopleInVideo: unknown): PeopleScenario {
@@ -18,7 +20,7 @@ export function normalizePeopleInVideo(peopleInVideo: unknown): PeopleScenario {
   return 'solo'
 }
 
-type NodeMetricDef = { name?: unknown; description?: unknown }
+type NodeMetricDef = { name?: unknown; description?: unknown; target_direction?: unknown }
 type PhaseDef = { id?: unknown; name?: unknown }
 
 type MetricResultLike = {
@@ -27,6 +29,8 @@ type MetricResultLike = {
   value?: unknown
   unit?: string | null
   elite_target?: unknown
+  tolerance?: unknown
+  target_direction?: unknown
   score?: unknown
   keypoint_mapping?: { phase_id?: string } | null
 }
@@ -49,7 +53,9 @@ export function formatMetricResults(
   phases: PhaseDef[] = [],
 ): string {
   const descriptions = new Map<string, string>()
+  const directions = new Map<string, unknown>()
   for (const m of nodeMetrics) {
+    if (typeof m?.name === 'string' && m.target_direction) directions.set(m.name.trim().toLowerCase(), m.target_direction)
     if (typeof m?.name === 'string' && typeof m.description === 'string' && m.description.trim()) {
       descriptions.set(m.name.trim().toLowerCase(), m.description.trim())
     }
@@ -65,12 +71,25 @@ export function formatMetricResults(
       const phase = m.keypoint_mapping?.phase_id ? phaseNames.get(m.keypoint_mapping.phase_id) : undefined
       const head = phase ? `${m.name} (${phase} phase)` : m.name
       const score = typeof m.score === 'number' ? Math.round(m.score) : m.score
-      let line = `- ${head}: ${round(m.value)}${u}, target ${round(m.elite_target)}${u}, score ${score}/100.`
+      const dir = normalizeTargetDirection(m.target_direction ?? directions.get(m.name.trim().toLowerCase()))
+      const rel = relation(m, dir)
+      const targetText = dir === 'at_most' ? `limit ${round(m.elite_target)}${u} (at or under is perfect)`
+        : dir === 'at_least' ? `target ${round(m.elite_target)}${u} (at or over is perfect)`
+        : `target ${round(m.elite_target)}${u}`
+      let line = `- ${head}: ${round(m.value)}${u}, ${targetText}${rel ? `, ${rel}` : ''}, score ${score}/100.`
       const desc = firstSentence(descriptions.get(m.name.trim().toLowerCase()))
       if (desc) line += ` Measures: ${desc}`
       return line
     })
     .join('\n')
+}
+
+function relation(m: MetricResultLike, dir: unknown): string {
+  const v = typeof m.value === 'number' ? m.value : Number(m.value)
+  const t = typeof m.elite_target === 'number' ? m.elite_target : Number(m.elite_target)
+  if (!Number.isFinite(v) || !Number.isFinite(t)) return ''
+  const tol = typeof m.tolerance === 'number' ? m.tolerance : null
+  return describeAgainstTarget(v, t, tol, dir, m.unit)
 }
 
 /** Only the first sentence: what the metric measures. Later sentences carry
@@ -134,6 +153,9 @@ const ALWAYS_BANNED: Array<[string, RegExp]> = [
   ['pro-level', /\bpro[- ]level\b/i],
   ['textbook', /\btextbook\b/i],
   ['college-level', /\bcollege[- ]level\b/i],
+  ['high-level', /\bhigh[- ]level\b/i],
+  ['top-level', /\btop[- ]level\b/i],
+  ['next-level', /\bnext[- ]level\b/i],
 ]
 
 const SOLO_BANNED: Array<[string, RegExp]> = [
@@ -188,15 +210,11 @@ export function buildFallbackFeedback(
   const lines: string[] = []
   for (const m of metrics.filter((x) => x.status === 'scored')) {
     const u = unitText(m.unit)
-    const v = typeof m.value === 'number' ? m.value : Number(m.value)
-    const t = typeof m.elite_target === 'number' ? m.elite_target : Number(m.elite_target)
-    let rel = 'on target'
-    if (m.name.trim().toLowerCase() === 'hip stability' && Number.isFinite(v) && Number.isFinite(t) && v <= t) {
-      rel = 'inside the target'
-    } else if (Number.isFinite(v) && Number.isFinite(t) && Math.abs(v - t) > Math.max(Math.abs(t) * 0.02, 0.005)) {
-      rel = `${round(Math.abs(v - t))}${u} ${v > t ? 'above' : 'below'} target`
-    }
-    lines.push(`Your ${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} target (${rel}).`)
+    const dir = normalizeTargetDirection(m.target_direction)
+    const rel = relation(m, dir) || 'not compared'
+    lines.push(dir === 'at_most'
+      ? `Your ${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} limit (${rel}).`
+      : `Your ${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} target (${rel}).`)
   }
   const err = errors[0]
   if (err) {

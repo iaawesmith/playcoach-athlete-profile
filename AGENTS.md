@@ -10,3 +10,4 @@
 - Coaching prompt formatting (metric lines with "Measures:" first sentence, run context, placeholder rendering for template and system instructions) lives in `supabase/functions/analyze-athlete-video/prompt.ts` as pure code, unit-tested from `src/test`, so the model only sees what was measured.
 - Feedback replay for prompt tuning goes through `admin-replay-feedback`, which calls the analyzer's service-role-only replay mode; replays never write results.
 - Coaching feedback checks and data-only fallback construction stay in the pure prompt helpers; fallback excludes node correction prose and checks every complete line so rejected wording cannot escape through fallback.
+- Metric scoring and direction-aware target wording (`target_direction`) live in `supabase/functions/analyze-athlete-video/scoring.ts` as pure code shared by the analyzer, prompt helpers and frontend, so every surface describes a value the same way it was scored.

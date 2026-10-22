@@ -1136,8 +1136,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
                         <p className="mt-1 text-sm font-semibold text-on-surface">{metric.elite_target || "—"}</p>
                       </div>
                       <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Deviation</p>
-                        <p className="mt-1 text-sm font-semibold text-on-surface">{formatNumber(metric.deviation)}</p>
+                        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Against Target</p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">{metric.against_target ?? "—"}</p>
                       </div>
                       <div className="rounded-lg bg-surface-container-lowest px-3 py-3">
                         <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/60">Reason</p>

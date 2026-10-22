@@ -31,7 +31,9 @@ Deno.serve(async (req) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/analyze-athlete-video`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceRoleKey}` },
-    body: JSON.stringify({ replay_feedback_for_result_id: resultId, replay_count: typeof count === "number" ? count : 1 }),
+    body: JSON.stringify((body as { mode?: unknown })?.mode === "rescore"
+      ? { rescore_result_id: resultId }
+      : { replay_feedback_for_result_id: resultId, replay_count: typeof count === "number" ? count : 1 }),
   });
   return json(await res.json(), res.status);
 });
