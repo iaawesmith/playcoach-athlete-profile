@@ -344,6 +344,8 @@ export interface AnalysisLogData {
     service_revision?: string | null;
     service_build?: string | null;
     timings_ms?: Record<string, number>;
+    /** Library runs only: ground-truth distance + implied speed lines (display only). */
+    ground_truth_lines?: string[];
     temporal_smoothing?: { smoothing_window_frames?: number; keypoint_windows?: Record<string, number> };
     person_detected?: boolean;
     average_keypoint_confidence?: number;
