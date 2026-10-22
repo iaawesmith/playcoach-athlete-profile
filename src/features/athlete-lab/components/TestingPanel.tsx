@@ -16,6 +16,7 @@ import {
 import { SectionTooltip } from "./SectionTooltip";
 import { AnalysisLog } from "./AnalysisLog";
 import { DiagnosticExportButton } from "./DiagnosticExportButton";
+import { PoseOverlaySection } from "./PoseOverlayPlayer";
 import { GroundTruthComparison } from "./GroundTruthComparison";
 import { CalibrationAuditPanel } from "./CalibrationAuditPanel";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
@@ -1058,6 +1059,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
               </div>
             </div>
           </div>
+
+          <PoseOverlaySection uploadId={result.uploadId} nodeId={node.id} node={node} />
 
           <div className="rounded-xl border border-white/5 bg-surface-container p-5">
             <h4 className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-on-surface-variant">

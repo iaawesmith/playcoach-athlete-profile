@@ -55,6 +55,7 @@ const BodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("create"), storage_path: z.string().min(1).max(400), metadata: MetadataSchema }),
   z.object({ action: z.literal("update"), id: z.string().uuid(), metadata: MetadataSchema }),
   z.object({ action: z.literal("sign"), id: z.string().uuid(), purpose: z.enum(["preview", "test"]) }),
+  z.object({ action: z.literal("sign_upload"), upload_id: z.string().uuid() }),
   z.object({ action: z.literal("set_archived"), id: z.string().uuid(), archived: z.boolean() }),
   z.object({ action: z.literal("delete"), id: z.string().uuid() }),
 ]);
@@ -133,6 +134,17 @@ Deno.serve(async (req) => {
           return json({ error: "Archived clips can't be used in new tests." }, 409);
         }
         const { data: signed, error: signError } = await db.storage.from(BUCKET).createSignedUrl(clip.storage_path, SIGNED_URL_TTL_SECONDS);
+        if (signError || !signed) return json({ error: `Signed link failed: ${signError?.message ?? "unknown"}` }, 500);
+        return json({ signedUrl: signed.signedUrl }, 200);
+      }
+
+      case "sign_upload": {
+        // Fresh read-only link for an existing upload's video (overlay player link refresh).
+        const { data: upload, error } = await db.from("athlete_uploads").select("video_url").eq("id", body.upload_id).single();
+        if (error || !upload?.video_url) return json({ error: "Upload not found" }, 404);
+        const match = /\/object\/(?:sign|public|authenticated)\/athlete-videos\/([^?]+)/.exec(upload.video_url);
+        if (!match) return json({ error: "Upload video is not in storage" }, 400);
+        const { data: signed, error: signError } = await db.storage.from(BUCKET).createSignedUrl(decodeURIComponent(match[1]), SIGNED_URL_TTL_SECONDS);
         if (signError || !signed) return json({ error: `Signed link failed: ${signError?.message ?? "unknown"}` }, 500);
         return json({ signedUrl: signed.signedUrl }, 200);
       }
