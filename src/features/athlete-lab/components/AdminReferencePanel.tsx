@@ -727,7 +727,9 @@ function RecentTestRunsSection() {
                         <TableCell colSpan={12} className="bg-surface px-4 py-5">
                           <div className="space-y-4">
                             <LibraryRunContextPanel context={record.analysisContext.raw} />
-                            <PoseOverlaySection uploadId={record.uploadId} nodeId={record.nodeId} />
+                            <div className="sticky left-0 w-full max-w-3xl">
+                              <PoseOverlaySection uploadId={record.uploadId} nodeId={record.nodeId} />
+                            </div>
                             <div className="grid gap-4 lg:grid-cols-3">
                               <HistoryDetailBlock label="Run Summary">
                                 <div className="space-y-2 text-sm text-on-surface">
