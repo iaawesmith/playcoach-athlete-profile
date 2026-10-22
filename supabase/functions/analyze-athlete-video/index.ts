@@ -39,6 +39,7 @@ import {
   passesWindowGate,
 } from './quality.ts'
 import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
+import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel } from './llm.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 
 const supabase = createClient(
@@ -453,6 +454,12 @@ type PipelineLogData = {
     variable_tokens?: number
     response_tokens?: number
     total_tokens?: number
+    provider?: string
+    requested_model?: string
+    reported_model?: string | null
+    model_source?: string
+    latency_ms?: number
+    cost_usd?: number | null
     word_count?: number
     target_words?: number
     truncated?: boolean
@@ -461,12 +468,85 @@ type PipelineLogData = {
   }
 }
 
+type CoachCall = { text: string; raw: string; inputTokens?: number; outputTokens?: number; reportedModel: string | null }
+
+/** One adapter per provider. Neither receives athlete names (prompts are anonymized upstream). */
+async function callCoachModel(
+  m: ResolvedCoachModel,
+  system: string,
+  prompt: string,
+  maxTokens: number,
+  logCtx: Record<string, unknown>,
+): Promise<CoachCall> {
+  let response: Response
+  try {
+    if (m.provider === 'anthropic') {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: m.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: prompt }] }),
+      })
+    } else {
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}` },
+        body: JSON.stringify({ model: m.model, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }),
+      })
+    }
+  } catch (error) {
+    logWarn('claude_request_failed', { ...logCtx, provider: m.provider, model: m.model, error: (error as Error).message })
+    throw error
+  }
+  const raw = await response.text()
+  logInfo('claude_response_received', { ...logCtx, provider: m.provider, model: m.model, status: response.status, ok: response.ok, rawResponse: raw.slice(0, 4000) })
+  let data: Record<string, any>
+  try {
+    data = JSON.parse(raw)
+  } catch (error) {
+    throw new Error(`Coaching model response parse failed: ${(error as Error).message}`)
+  }
+  if (!response.ok) {
+    logWarn('claude_request_failed', { ...logCtx, provider: m.provider, status: response.status, rawResponse: raw.slice(0, 4000) })
+    throw new Error(`Coaching model request failed (${m.provider}): ${response.status} ${raw.slice(0, 300)}`)
+  }
+  const reportedModel = typeof data.model === 'string' ? data.model : null
+  if (m.provider === 'anthropic') {
+    const block = Array.isArray(data.content) ? data.content[0] : null
+    return {
+      text: typeof block?.text === 'string' ? block.text : '',
+      raw,
+      inputTokens: typeof data.usage?.input_tokens === 'number' ? data.usage.input_tokens : undefined,
+      outputTokens: typeof data.usage?.output_tokens === 'number' ? data.usage.output_tokens : undefined,
+      reportedModel,
+    }
+  }
+  const text = data.choices?.[0]?.message?.content
+  return {
+    text: typeof text === 'string' ? text : '',
+    raw,
+    inputTokens: typeof data.usage?.prompt_tokens === 'number' ? data.usage.prompt_tokens : undefined,
+    outputTokens: typeof data.usage?.completion_tokens === 'number' ? data.usage.completion_tokens : undefined,
+    reportedModel,
+  }
+}
+
+async function loadWorkspaceCoachModel(): Promise<{ provider: unknown; model: unknown } | null> {
+  const { data } = await supabase.from('coaching_model_settings').select('provider, model').eq('id', true).maybeSingle()
+  return data ?? null
+}
+
 type ClaudeCallResult = {
   feedback: string
   log: PipelineLogData['claude_api']
   // Full-fidelity record for the diagnostic export (exact prompt/response).
   diagnostics: {
     model: string
+    provider?: string
+    requested_model?: string
+    reported_model?: string | null
+    model_source?: string
+    latency_ms?: number
+    cost_usd?: number | null
     status: 'COMPLETE' | 'FAILED' | 'SKIPPED'
     system_instructions: string | null
     prompt: string | null
@@ -1151,13 +1231,13 @@ Deno.serve(async (req) => {
         .map((m: any) => phaseNames.get(m.keypoint_mapping?.phase_id) ?? '')
       feedback = buildLowQualityFeedback(affected)
       logData.claude_api = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         skipped_reason: 'low_quality_clip',
         target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
       }
       llmDiagnostics = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
         prompt: null,
@@ -1169,13 +1249,13 @@ Deno.serve(async (req) => {
       logInfo('claude_skipped_low_quality_clip', { uploadId, reason: scoreResult.reason })
     } else if (!poseQualityAudit.usableData) {
       logData.claude_api = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         skipped_reason: 'Pose confidence too low to generate reliable coaching feedback.',
         target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
       }
       llmDiagnostics = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
         prompt: null,
@@ -1285,7 +1365,8 @@ async function fetchNodeConfig(nodeId: string) {
       reference_calibrations,
       reference_fallback_behavior,
       common_errors,
-      form_checkpoints
+      form_checkpoints,
+      coaching_provider, coaching_model
     `)
     .eq('id', nodeId)
     .eq('status', 'live')
@@ -3681,6 +3762,7 @@ async function callClaude(
   upload: any,
   context: any,
   retryNote = '',
+  coachModel: ResolvedCoachModel = resolveCoachModel(null, null),
 ): Promise<ClaudeCallResult> {
   const variables: Record<string, string> = {
     mastery_score: scoreResult.aggregate_score?.toString() || 'N/A',
@@ -3695,7 +3777,8 @@ async function callClaude(
     detected_errors: errorResults.detected.length > 0
       ? `Confirmed errors observed: ${errorResults.detected.map((e: { name: string }) => e.name).join(', ')}`
       : '',
-    athlete_name: context.athlete_name || 'Athlete',
+    // Names never reach a provider; the real first name is inserted after the check.
+    athlete_name: ANON_NAME,
     node_name: String(nodeConfig.name ?? '').trim(),
     // A4: position now wired from nodeConfig.
     position: nodeConfig.position || '',
@@ -3733,7 +3816,10 @@ async function callClaude(
   )
 
   const claudeLog: PipelineLogData['claude_api'] = {
-    model: 'claude-sonnet-4-5',
+    model: coachModel.model,
+    provider: coachModel.provider,
+    requested_model: coachModel.model,
+    model_source: coachModel.source,
     system_instructions_present: Boolean(nodeConfig.llm_system_instructions),
     system_instructions_chars: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions.length : 0,
     variables_injected: Object.entries(variables).map(([name, value]) => ({
@@ -3760,81 +3846,21 @@ async function callClaude(
     promptPreview: prompt.slice(0, 500),
   })
 
-  let response: Response
-  try {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500,
-        system: systemText,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-  } catch (error) {
-    logWarn('claude_request_failed', {
-      uploadId: upload.id,
-      nodeId: nodeConfig.id,
-      nodeName: nodeConfig.name,
-      error: (error as Error).message,
-    })
-    throw error
-  }
-
-  const rawResponseText = await response.text()
-  logInfo('claude_response_received', {
-    uploadId: upload.id,
-    nodeId: nodeConfig.id,
-    nodeName: nodeConfig.name,
-    status: response.status,
-    ok: response.ok,
-    rawResponse: rawResponseText.slice(0, 4000),
-    rawResponseLength: rawResponseText.length,
+  const started = Date.now()
+  const call = await callCoachModel(coachModel, systemText, prompt, nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500, {
+    uploadId: upload?.id, nodeId: nodeConfig.id, nodeName: nodeConfig.name,
   })
-
-  let data: Record<string, unknown>
-  try {
-    data = JSON.parse(rawResponseText) as Record<string, unknown>
-  } catch (error) {
-    logWarn('claude_response_parse_failed', {
-      uploadId: upload.id,
-      nodeId: nodeConfig.id,
-      nodeName: nodeConfig.name,
-      error: (error as Error).message,
-      rawResponse: rawResponseText.slice(0, 4000),
-    })
-    throw new Error(`Claude response parse failed: ${(error as Error).message}`)
-  }
-
-  if (!response.ok) {
-    logWarn('claude_request_failed', {
-      uploadId: upload.id,
-      nodeId: nodeConfig.id,
-      nodeName: nodeConfig.name,
-      status: response.status,
-      rawResponse: rawResponseText.slice(0, 4000),
-    })
-    throw new Error(`Claude request failed: ${response.status}`)
-  }
-
-  const usage = data.usage && typeof data.usage === 'object' ? data.usage as Record<string, unknown> : {}
-  const inputTokens = typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined
-  const outputTokens = typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined
+  const latencyMs = Date.now() - started
+  const inputTokens = call.inputTokens
+  const outputTokens = call.outputTokens
+  const feedback = call.text
+  const rawResponseText = call.raw
   claudeLog.response_tokens = outputTokens
   claudeLog.total_tokens = (inputTokens ?? 0) + (outputTokens ?? 0) || undefined
   if (inputTokens !== undefined) claudeLog.prompt_tokens = inputTokens
-
-  const content = Array.isArray(data.content) ? data.content : []
-  const firstBlock = content[0]
-  const feedback =
-    firstBlock && typeof firstBlock === 'object' && typeof (firstBlock as { text?: unknown }).text === 'string'
-      ? (firstBlock as { text: string }).text
-      : ''
+  claudeLog.reported_model = call.reportedModel
+  claudeLog.latency_ms = latencyMs
+  claudeLog.cost_usd = costUsd(coachModel, inputTokens, outputTokens)
 
   if (!feedback) {
     logWarn('claude_response_empty', {
@@ -3855,7 +3881,13 @@ async function callClaude(
     feedback,
     log: claudeLog,
     diagnostics: {
-      model: 'claude-sonnet-4-5',
+      model: coachModel.model,
+      provider: coachModel.provider,
+      requested_model: coachModel.model,
+      reported_model: call.reportedModel,
+      model_source: coachModel.source,
+      latency_ms: latencyMs,
+      cost_usd: costUsd(coachModel, inputTokens, outputTokens),
       status: 'COMPLETE',
       system_instructions: systemText || null,
       prompt,
@@ -4266,25 +4298,28 @@ async function generateCheckedFeedback(
   errorResults: any,
   upload: any,
   context: any,
+  modelOverride: CoachModel | null = null,
 ): Promise<ClaudeCallResult> {
   const solo = normalizePeopleInVideo(context?.people_in_video) === 'solo'
-  const first = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+  const coachModel = resolveCoachModel(nodeConfig, await loadWorkspaceCoachModel(), modelOverride)
+  const firstName = context?.athlete_name
+  const first = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, '', coachModel)
   const firstCheck = checkFeedback(first.feedback, solo)
   const record: FeedbackCheckRecord = {
     passed: firstCheck.passed, violations: firstCheck.violations, retried: false, retry_violations: [], fallback_used: false,
   }
-  if (firstCheck.passed) return withCheck(first, record)
+  if (firstCheck.passed) return withCheck(first, record, firstName)
 
   record.first_response = first.feedback
   record.retried = true
   const note = `\n\nYOUR PREVIOUS DRAFT WAS REJECTED for: ${firstCheck.violations.join('; ')}. ` +
     `Rewrite it from scratch under ${150} words, following every evidence rule, with none of those problems.`
-  const second = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, note)
+  const second = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, note, coachModel)
   const secondCheck = checkFeedback(second.feedback, solo)
   record.retry_violations = secondCheck.violations
   if (secondCheck.passed) {
     record.passed = true
-    return withCheck(second, record)
+    return withCheck(second, record, firstName)
   }
 
   record.retry_response = second.feedback
@@ -4297,10 +4332,13 @@ async function generateCheckedFeedback(
   })
   const fallback = buildFallbackFeedback(metricResults, errors, solo)
   record.passed = checkFeedback(fallback, solo).passed
-  return withCheck({ ...second, feedback: fallback }, record)
+  return withCheck({ ...second, feedback: fallback }, record, firstName)
 }
 
-function withCheck(result: ClaudeCallResult, record: FeedbackCheckRecord): ClaudeCallResult {
+// The real first name goes in only after generation and after the check.
+function withCheck(result: ClaudeCallResult, record: FeedbackCheckRecord, firstName?: unknown): ClaudeCallResult {
+  const feedback = personalizeFeedback(result.feedback, firstName)
+  result = { ...result, feedback }
   return {
     ...result,
     log: { ...(result.log ?? {}), feedback_check: record } as PipelineLogData['claude_api'],
