@@ -12,11 +12,11 @@ describe("ground truth distance", () => {
     // 10 px per frame; scale 100 then 50 px/yd -> 0.1 + 0.2 yd per frame.
     const hip: HipPoint[] = [[0, 0], [10, 0], [20, 0], [30, 0], [40, 0]];
     const scale = [100, 100, 100, 50, 50];
-    const g = computeGroundTruthDistance({ hip, scale, fps: 2, releaseFrame: 0, breakAnchor: { frame: 4, reason: "lowest_hip_in_break_window", hip_y: 0 }, startYardLine: 5, breakYardLine: 5.6 });
-    expect(g?.measured_yd).toBe(0.7);
-    expect(g?.expected_yd).toBe(0.6);
+    const g = computeGroundTruthDistance({ hip, scale, fps: 2, releaseFrame: 0, breakAnchor: { frame: 4, reason: "lowest_hip_in_break_window", hip_y: 0 }, startYardLine: 5, breakYardLine: 5.5 });
+    expect(g?.measured_yd).toBe(0.6);
+    expect(g?.expected_yd).toBe(0.5);
     expect(g?.status).toBe("WARN");
-    expect(g?.expected_yps).toBe(0.3);
+    expect(g?.expected_yps).toBe(0.25);
   });
 
   it("formats both log lines", () => {

@@ -71,3 +71,16 @@
 - [x] Analyzer: no real scale -> skip distance-unit metrics with no_scale
 - [x] Readiness: Reference Calibration becomes a warning
 - [x] Testing Panel: athlete height always visible, outside Analysis Context
+
+## c6fa0895 follow-ups (approved Oct 22)
+- [x] Speed into the break: peak only before Break (end_before_phase_id), tolerance 0.05 (Slant v12)
+- [x] "Perfect" allowed about the score; test with c6fa0895 rejected retry
+- [x] Word budget: instruct 120–140, reject above 160
+- [x] analyzer_build from deploy stamp; cloud_run_revision from service response
+- [x] Library ground-truth distance check (lowest-hip break anchor) in Analysis Log + export
+- [x] Frame-source seam flags in export + overlay
+- [x] Clip 932b91df expected source → height_based
+- [ ] Deploy analyzer + clips function; rescore c6fa0895 and report
+
+## Behind WR camera angle
+- [ ] Add "Behind WR" to library clip form + Run Analysis context; check DB constraint; report readiness impact before applying any Reference-tab change; list "Other" records (no remap)
