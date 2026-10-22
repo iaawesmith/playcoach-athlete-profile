@@ -180,7 +180,7 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   }
   categories.push({
     name: "Reference Calibration", icon: "straighten", weight: 5, checks: refChecks, tab: "reference",
-    tooltip: "Without calibration, Distance and Velocity metrics return pixel values not yards."
+    tooltip: "Fallback scale when a run has no athlete height and field lines can't be read. Without it, Distance and Velocity metrics return pixels, not yards."
   });
 
   return categories;
