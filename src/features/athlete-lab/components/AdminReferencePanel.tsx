@@ -760,7 +760,7 @@ function RecentTestRunsSection() {
                                   <div className="space-y-2">
                                     {record.phaseBreakdown.map((phase) => (
                                       <div key={`${record.uploadId}-${phase.id}`} className="flex items-center justify-between rounded-lg bg-surface-container-lowest px-3 py-2 text-sm text-on-surface">
-                                        <span>{phase.name}</span>
+                                        <span>{phase.name}{phase.score === null && phase.reason ? <span className="ml-2 text-xs text-on-surface-variant">{phase.reason}</span> : null}</span>
                                         <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${phase.score === null ? "bg-surface-container-high text-on-surface-variant" : scoreTone(phase.score)}`}>{phase.score === null ? "Not measured" : phase.score}</span>
                                       </div>
                                     ))}
