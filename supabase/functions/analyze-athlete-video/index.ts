@@ -42,6 +42,8 @@ import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDir
 import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from '../_shared/coachModel.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 import { computeSpeedRetention } from './speedRetention.ts'
+import { ANALYZER_BUILD } from './build.ts'
+import { groundTruthFromRun, type GroundTruthDistance } from './groundTruth.ts'
 import { noScaleSkip } from './scaleGate.ts'
 
 const supabase = createClient(
@@ -229,9 +231,7 @@ type BilateralDecision = {
 
 const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap()
 
-// Diagnostic-export build tag. Bump when the additive result_data.diagnostics
-// payload changes shape so exports can be traced back to the analyzer build.
-const ANALYZER_BUILD = '2026-10-21.diagnostic-export.1'
+// Analyzer build stamp (commit-date), written by scripts/stamp-analyzer-build.ts at deploy.
 
 type PipelineCancellationError = Error & { code: 'UPLOAD_CANCELLED' }
 
@@ -610,6 +610,7 @@ type RunDiagnostics = {
   }
   raw_keypoints: VideoKeypoints
   raw_scores: VideoScores
+  ground_truth_distance?: GroundTruthDistance | null
 }
 
 async function sha256Hex(value: unknown): Promise<string> {
@@ -740,7 +741,7 @@ async function buildRunDiagnostics(input: {
     schema_version: 1,
     analyzer_build: ANALYZER_BUILD,
     deployment_id: Deno.env.get('DENO_DEPLOYMENT_ID') ?? null,
-    cloud_run_revision: Deno.env.get('K_REVISION') ?? null,
+    cloud_run_revision: rtmlibResult.service_revision ?? null,
     service,
     per_frame: perFrame,
     metrics: metricResults.map((m) => ({ ...m })),
@@ -1325,6 +1326,14 @@ Deno.serve(async (req) => {
       errorDetectionLog: logData.error_detection ?? [],
       scoreResult,
       llm: llmDiagnostics,
+    })
+    // Library runs only: display-only distance check against the clip's yard lines.
+    diagnostics.ground_truth_distance = groundTruthFromRun({
+      context,
+      perFrame: diagnostics.per_frame as any[],
+      phaseWindows: (logData.rtmlib?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
+      releaseFrame: (logData.rtmlib as any)?.release_anchor?.applied ? (logData.rtmlib as any).release_anchor.frame : null,
+      fps: Number(rtmlibResult.fps) || 30,
     })
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata, calibrationAudit, diagnostics)
     logInfo('results_written', {
@@ -2860,7 +2869,7 @@ async function calculateAllMetrics(
         const scale = keypoints.map((_, f) => Array.isArray(calibration.perFrame) && typeof calibration.perFrame[f] === 'number'
           ? calibration.perFrame[f]
           : calibration.pixelsPerYard)
-        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, windowFrames: 5 }) as MetricValueResult
+        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 }) as MetricValueResult
         break
       }
       case 'distance_variance':
@@ -4302,7 +4311,7 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   if (!serviceKey || bearer !== serviceKey) return json({ error: 'admin only' }, 403)
   const { data: result, error } = await supabase
     .from('athlete_lab_results')
-    .select('id, upload_id, aggregate_score, metric_results')
+    .select('id, upload_id, aggregate_score, metric_results, result_data')
     .eq('id', String(payload.rescore_result_id))
     .single()
   if (error || !result) return json({ error: 'result not found' }, 404)
@@ -4314,7 +4323,7 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   // Metrics added to the node after this run are computed from the run's
   // stored keypoints, scores, per-frame scale and phase windows.
   const added = await computeAddedMetricsFromStored(String(result.id), nodeConfig, nodeMetrics, before)
-  const after = applyNodeScoring([...before, ...added], nodeMetrics)
+  const after = applyNodeScoring([...before.filter((b) => !added.some((a) => a.name === b.name)), ...added], nodeMetrics)
     .filter((m: any) => nodeMetrics.some((n) => n?.name === m.name && n?.active !== false))
     .map((m: any) => {
       const def = nodeMetrics.find((n) => n?.name === m.name)
@@ -4323,7 +4332,16 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   const ctx = (upload.analysis_context ?? {}) as Record<string, unknown>
   const catchIncluded = ctx.catch_included !== false
   const agg = calculateAggregateScore(after, nodeConfig, catchIncluded) as any
+  const rd = (result.result_data ?? {}) as any
+  const groundTruth = groundTruthFromRun({
+    context: ctx,
+    perFrame: Array.isArray(rd.diagnostics?.per_frame) ? rd.diagnostics.per_frame : [],
+    phaseWindows: Array.isArray(rd.log_data?.rtmlib?.phase_windows) ? rd.log_data.rtmlib.phase_windows : [],
+    releaseFrame: rd.log_data?.rtmlib?.release_anchor?.applied ? rd.log_data.rtmlib.release_anchor.frame : null,
+    fps: Number(rd.diagnostics?.service?.fps) || 30,
+  })
   return json({
+    ground_truth_distance: groundTruth,
     result_id: result.id,
     node_version: nodeConfig.node_version,
     aggregate_before: result.aggregate_score,
@@ -4340,7 +4358,10 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
 }
 
 async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, nodeMetrics: any[], stored: any[]): Promise<any[]> {
-  const missing = nodeMetrics.filter((n) => n?.active !== false && n?.keypoint_mapping?.calculation_type === 'speed_retention' && !stored.some((m) => m?.name === n.name))
+  // Speed-retention metrics are always recomputed from stored data so window
+  // rule changes apply on rescore (stored copies are replaced by the caller).
+  const missing = nodeMetrics.filter((n) => n?.active !== false && n?.keypoint_mapping?.calculation_type === 'speed_retention')
+  void stored
   if (!missing.length) return []
   const { data } = await supabase.from('athlete_lab_results').select('result_data').eq('id', resultId).single()
   const rd = (data?.result_data ?? {}) as any
@@ -4360,7 +4381,24 @@ async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, 
     const base = { ...metric, status: 'skipped' as const }
     const window = windows[mapping.phase_id]
     const nextStart = nextPhaseStart(mapping, nodeConfig.phase_breakdown, windows)
-    if (!kps.length || !window || nextStart === null) return { ...base, reason: 'stored_data_unavailable' }
+    if (!window || nextStart === null) return { ...base, reason: 'stored_data_unavailable' }
+    const scale = (kps.length ? kps : perFrame).map((_, f) => (typeof perFrame[f]?.scale_ppy === 'number' ? perFrame[f].scale_ppy : null))
+    if (!kps.length) {
+      // Older runs without raw keypoints: use the stored per-frame hip centers
+      // (same hip midpoint the run measured), detected frames only.
+      if (!perFrame.length) return { ...base, reason: 'stored_data_unavailable' }
+      const hipPf = perFrame.map((row: any) => (row?.detected !== false && typeof row?.hip_center_x === 'number' && typeof row?.hip_center_y === 'number' && !(row.hip_center_x === 0 && row.hip_center_y === 0) ? [row.hip_center_x, row.hip_center_y] as const : null))
+      const rp = computeSpeedRetention({ hip: hipPf, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 })
+      if (rp.value === null) return { ...base, reason: rp.reason, detail: rp.detail }
+      const dirPf = normalizeTargetDirection(metric.target_direction)
+      return {
+        id: metric.id, name: metric.name, unit: metric.unit, value: Math.round(rp.value * 100) / 100,
+        elite_target: metric.eliteTarget, tolerance: metric.tolerance, target_direction: dirPf,
+        deviation: scoredDeviation(rp.value, metric.eliteTarget, dirPf), score: scoreMetric(rp.value, metric.eliteTarget, metric.tolerance, dirPf),
+        weight: metric.weight, status: 'scored', keypoint_mapping: mapping,
+        detail: { ...rp.detail, unrounded_value: rp.value, hip_source: 'stored_per_frame_hip_center' },
+      }
+    }
     const threshold = mapping.confidence_threshold || 0.70
     const indices: number[] = mapping.keypoint_indices
     const phaseFrames = kps.slice(window.start, window.end + 1)
@@ -4369,8 +4407,7 @@ async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, 
       typeof mapping.min_pass_ratio === 'number' ? mapping.min_pass_ratio : DEFAULT_MIN_PASS_RATIO)
     if (!conf.passed) return { ...metric, status: 'flagged', reason: 'low_confidence', detail: { confidenceDiagnostics: conf.diagnostics } }
     const hip = kps.map((frame, f) => (frame?.[0] ? getMidpoint(frame[0], indices, scs[f]?.[0], threshold) : null))
-    const scale = kps.map((_, f) => (typeof perFrame[f]?.scale_ppy === 'number' ? perFrame[f].scale_ppy : null))
-    const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, windowFrames: 5 })
+    const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 })
     if (r.value === null) return { ...base, reason: r.reason, detail: r.detail }
     const dir = normalizeTargetDirection(metric.target_direction)
     return {

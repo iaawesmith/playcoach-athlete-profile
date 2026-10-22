@@ -15,6 +15,10 @@ export type SpeedRetentionInput = {
   /** First frame of the following phase; the end window stops before it. */
   nextPhaseStart: number
   windowFrames?: number
+  /** Last frame the peak search may use (inclusive). The analyzer passes the
+   *  frame before the metric's end_before_phase_id starts (Break), so the peak
+   *  comes only from Stem frames that precede Break. Defaults to phase.end. */
+  peakEnd?: number
 }
 
 export type SpeedRetentionResult =
@@ -26,6 +30,7 @@ export type SpeedRetentionDetail = {
   window_frames: number
   end_window: { start: number; end: number }
   peak_window: { start: number; end: number }
+  peak_search: { start: number; end: number }
   end_speed_yps: number
   peak_speed_yps: number
   per_frame_speed_yps: Record<number, number | null>
@@ -68,8 +73,9 @@ export function computeSpeedRetention(input: SpeedRetentionInput): SpeedRetentio
     return { value: null, status: 'skipped', reason: 'stem_end_overlaps_break', detail: { method: 'speed_retention', end_window: endWindow, phase: input.phase, per_frame_speed_yps: perFrame } }
   }
 
+  const peakEnd = Math.min(end, input.peakEnd ?? end)
   let peak: { start: number; speed: number } | null = null
-  for (let s = firstSpeedFrame; s + n - 1 <= end; s++) {
+  for (let s = firstSpeedFrame; s + n - 1 <= peakEnd; s++) {
     const m = windowMean(speeds, s, n)
     if (m !== null && (peak === null || m > peak.speed)) peak = { start: s, speed: m }
   }
@@ -84,6 +90,7 @@ export function computeSpeedRetention(input: SpeedRetentionInput): SpeedRetentio
       window_frames: n,
       end_window: endWindow,
       peak_window: { start: peak.start, end: peak.start + n - 1 },
+      peak_search: { start: firstSpeedFrame, end: peakEnd },
       end_speed_yps: round3(endSpeed),
       peak_speed_yps: round3(peak.speed),
       per_frame_speed_yps: perFrame,

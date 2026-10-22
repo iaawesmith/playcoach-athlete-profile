@@ -5,7 +5,7 @@ export const LIBRARY_MAX_BYTES = 500 * 1024 * 1024;
 export const LIBRARY_RUN_SOURCE = "calibration_library";
 const FUNCTION_NAME = "admin-calibration-clips";
 
-export type ExpectedCalibrationSource = "dynamic" | "body_based" | "static" | "unknown";
+export type ExpectedCalibrationSource = "dynamic" | "height_based" | "body_based" | "static" | "unknown";
 
 export interface CalibrationClipMetadata {
   title: string;
@@ -15,7 +15,7 @@ export interface CalibrationClipMetadata {
   fps: number | null;
   file_size_bytes: number | null;
   created_by: string | null;
-  camera_angle: "sideline" | "behind_qb" | "endzone" | "other";
+  camera_angle: "sideline" | "behind_wr" | "behind_qb" | "endzone" | "other";
   people_in_video: "solo" | "with_defender" | "multiple";
   route_direction: "left" | "right" | "both" | "straight";
   catch_status: "yes" | "no" | "partial";

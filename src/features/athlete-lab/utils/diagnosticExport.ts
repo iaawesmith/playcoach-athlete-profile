@@ -1,4 +1,5 @@
 import type { CalibrationClip } from "@/services/calibrationLibrary";
+import { frameSourceSeams, type FrameSourceSeam } from "./poseOverlay";
 
 /**
  * Diagnostic export builder — read-only reporting.
@@ -74,6 +75,32 @@ function normalizePerFrame(rows: unknown[] | null, service: JsonRecord | null): 
   });
 }
 
+const numSet = (v: unknown): Set<number> =>
+  new Set((asArray(v) ?? []).filter((n): n is number => typeof n === "number"));
+
+/** Frame-source seams from the service's recovered / following-crop / missed / rejected lists. */
+export function exportSeams(service: JsonRecord | null, frameCount: number): FrameSourceSeam[] | null {
+  if (!service || !(frameCount > 0)) return null;
+  const rejected = new Map<number, string>([...numSet(service.rejected_frame_indices)].map((f) => [f, ""]));
+  return frameSourceSeams(frameCount, {
+    missed: numSet(service.missed_frame_indices),
+    rejected,
+    leadingRecovery: numSet(service.recovered_frame_indices),
+    followingCrop: numSet(service.zoom_fallback_frame_indices),
+  });
+}
+
+function markSeams(rows: unknown[] | null, seams: FrameSourceSeam[] | null): unknown[] | null {
+  if (!rows || !seams) return rows;
+  const at = new Set(seams.map((s) => s.frame));
+  return rows.map((row, i) => {
+    const r = asRecord(row);
+    if (!r) return row;
+    const frame = typeof r.frame === "number" ? r.frame : i;
+    return { ...r, seam: at.has(frame) };
+  });
+}
+
 export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord {
   const { upload, result, clip, includeRawKeypoints } = input;
   const resultData = result ? asRecord(result.result_data) ?? {} : {};
@@ -97,6 +124,9 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
     : null;
 
   const service = diagnostics ? asRecord(diagnostics.service) : null;
+  const perFrameRows = diagnostics ? asArray(diagnostics.per_frame) : null;
+  const seamFrameCount = typeof service?.frame_count === "number" ? service.frame_count : perFrameRows?.length ?? 0;
+  const seams = exportSeams(service, seamFrameCount);
   const frameWidth = service?.frame_width ?? null;
   const frameHeight = service?.frame_height ?? null;
 
@@ -157,7 +187,9 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
       end_seconds: present(upload.end_seconds),
     },
     service_diagnostics: service ?? NOT_RECORDED,
-    per_frame: normalizePerFrame(diagnostics ? asArray(diagnostics.per_frame) : null, service) ?? NOT_RECORDED,
+    per_frame: markSeams(normalizePerFrame(diagnostics ? asArray(diagnostics.per_frame) : null, service), seams) ?? NOT_RECORDED,
+    frame_source_seams: seams ?? NOT_RECORDED,
+    ground_truth_distance: diagnostics ? present(asRecord(diagnostics.ground_truth_distance)) : NOT_RECORDED,
     release_anchor: (rtmlibLog ? asRecord(rtmlibLog.release_anchor) : null) ?? NOT_RECORDED,
     // Keypoint smoothing window — separate from each metric's measurement window (metrics[].temporal_window).
     temporal_smoothing: (rtmlibLog ? asRecord(rtmlibLog.temporal_smoothing) : null) ?? NOT_RECORDED,

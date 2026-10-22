@@ -1,3 +1,4 @@
+import { groundTruthLines, type GroundTruthDistance } from "../../supabase/functions/analyze-athlete-video/groundTruth";
 import { parseDetectedErrors, parseMetricResults } from "@/features/athlete-lab/utils/pipelineResults";
 import { buildPhaseStatuses } from "@/features/athlete-lab/utils/phaseStatus";
 import { supabase } from "@/integrations/supabase/client";
@@ -490,6 +491,14 @@ function parseCalibrationAudit(value: unknown): PipelineAnalysisResult["calibrat
   };
 }
 
+function groundTruthLinesFrom(value: unknown): string[] | undefined {
+  const g = parseRecord(value);
+  const anchor = parseRecord(g.break_anchor);
+  const ok = ["expected_yd", "measured_yd", "percent_off", "expected_yps", "measured_yps", "seconds", "release_frame"].every((k) => typeof g[k] === "number")
+    && typeof anchor.frame === "number" && (g.status === "PASS" || g.status === "WARN");
+  return ok ? groundTruthLines(g as unknown as GroundTruthDistance) : undefined;
+}
+
 function normalizePipelineResult(value: unknown, uploadId: string, node: TrainingNode): PipelineAnalysisResult | null {
   const row = parseRecord(value);
   const resultId = typeof row.id === "string" ? row.id : "";
@@ -509,6 +518,7 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
       service_revision: typeof service.service_revision === "string" ? service.service_revision : parsedLog.rtmlib?.service_revision,
       service_build: typeof service.service_build === "string" ? service.service_build : parsedLog.rtmlib?.service_build,
       timings_ms: Object.keys(timings).length ? timings : parsedLog.rtmlib?.timings_ms,
+      ground_truth_lines: groundTruthLinesFrom(diagnostics.ground_truth_distance),
     },
   } : undefined;
 

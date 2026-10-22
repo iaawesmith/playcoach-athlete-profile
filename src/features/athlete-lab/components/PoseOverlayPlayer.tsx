@@ -10,6 +10,8 @@ import {
   frameFromMediaTime,
   frameSource,
   frameSourceLabel,
+  frameSourceSeams,
+  SOURCE_SHORT,
   jointAngle,
   median,
   mediaTimeForFrame,
@@ -120,6 +122,7 @@ export function PoseOverlayPlayer({ uploadId, node }: Props) {
   const smoothedKps = useMemo(() => (data ? smoothOverlayKeypoints(data, nodeMetrics) : []), [data, nodeMetrics]);
   const hipPath = useMemo(() => (data ? smoothedHipPath(data.perFrame) : []), [data]);
   const lastFrame = data ? data.frameCount - 1 : 0;
+  const seams = useMemo(() => (data ? frameSourceSeams(data.frameCount, data) : []), [data]);
 
   // Frame-accurate sync from the decoded frame's media time, relative to the clip's first-frame timestamp.
   useEffect(() => {
@@ -378,6 +381,9 @@ export function PoseOverlayPlayer({ uploadId, node }: Props) {
           <div className="font-bold">Frame {frame}/{lastFrame} · {(frame / data.fps).toFixed(2)}s</div>
           <div>Phase: {phaseLabel(frame, data.phaseWindows)}</div>
           <div className="text-on-surface-variant">Source: {frameSourceLabel(frame, data)}</div>
+          {seams.filter((sm) => sm.frame === frame).map((sm) => (
+            <div key={`seam${sm.frame}`} className="font-bold text-on-surface" data-testid="pose-overlay-seam">Seam: {SOURCE_SHORT[sm.from]} → {SOURCE_SHORT[sm.to]}</div>
+          ))}
           <div className="text-on-surface-variant">
             Scale: {pf?.scalePpy != null ? `${pf.scalePpy.toFixed(1)} px/yd` : "not recorded"} · Athlete height: {pf?.athleteHeightPx != null ? `${pf.athleteHeightPx.toFixed(0)} px` : "not recorded"}
           </div>
@@ -419,6 +425,9 @@ export function PoseOverlayPlayer({ uploadId, node }: Props) {
         ))}
         {metricFrames.map((f) => (
           <div key={`m${f}`} className="absolute bottom-1 h-1 w-1 rounded-full" style={{ left: `${pct(f)}%`, background: METRIC_COLOR }} />
+        ))}
+        {seams.map((sm) => (
+          <div key={`s${sm.frame}`} title={`Seam at ${sm.frame}: ${SOURCE_SHORT[sm.from]} → ${SOURCE_SHORT[sm.to]}`} className="absolute top-0 h-2 w-0.5 bg-error-dim" style={{ left: `${pct(sm.frame)}%` }} />
         ))}
         {data.releaseAnchorFrame !== null && <div title="Release anchor" className="absolute bottom-0 top-0 w-0.5 bg-on-surface/70" style={{ left: `${pct(data.releaseAnchorFrame)}%` }} />}
         {data.catchAnchorFrame !== null && <div title="Catch anchor" className="absolute bottom-0 top-0 w-0.5 bg-primary" style={{ left: `${pct(data.catchAnchorFrame)}%` }} />}

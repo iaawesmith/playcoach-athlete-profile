@@ -54,9 +54,23 @@ describe('coaching feedback post-check', () => {
     expect(checkFeedback('Check your film for stuttering.', true).passed).toBe(true)
   })
 
-  it('fails over 150 words', () => {
-    expect(checkFeedback(Array(151).fill('go').join(' '), true).passed).toBe(false)
-    expect(checkFeedback(Array(150).fill('go').join(' '), true).passed).toBe(true)
+  it('rejects only above 160 words', () => {
+    expect(checkFeedback(Array(161).fill('go').join(' '), true).passed).toBe(false)
+    expect(checkFeedback(Array(160).fill('go').join(' '), true).passed).toBe(true)
+    expect(checkFeedback(Array(156).fill('go').join(' '), true).passed).toBe(true)
+  })
+
+  // Rejected retry from result c6fa0895 (stored diagnostics.llm.feedback_check.retry_response).
+  const c6fa0895Retry = "Release Speed came in at 3.76 mph against a 7 mph target — 3.24 mph short. It measures how fast your hips move off the line during the release, and it's the only thing holding this rep back from a perfect score.\n\nYour break mechanics are locked in: Plant Leg Extension at 139.61° hits the 140° target, and Hip Stability at 0.01 yards is well inside the 0.05-yard limit.\n\nA slow release often comes from sitting back in your stance or a false step on your first move. Check your film for both.\n\nNext rep: five 5-yard starts from your stance at full speed. Focus on exploding forward — drive the ground back hard with your first two steps. Then run the full slant route."
+
+  it('allows "perfect" about the score (c6fa0895 retry now passes)', () => {
+    expect(checkFeedback(c6fa0895Retry, true)).toMatchObject({ passed: true, violations: [] })
+    expect(checkFeedback('You scored a perfect 100 on Plant Leg.', true).passed).toBe(true)
+  })
+
+  it('still flags "perfect" about the athlete or the rep', () => {
+    expect(checkFeedback('That was a perfect release.', true).violations).toContain('level-of-play word "perfect"')
+    expect(checkFeedback(c6fa0895Retry.replace('a perfect score', 'a perfect rep'), true).passed).toBe(false)
   })
 
   it('fallback addresses the athlete without using node correction text', () => {
