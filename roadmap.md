@@ -70,3 +70,4 @@
 - [x] Required height (48–90 in) in Testing Panel + library clips + edge validation
 - [x] Analyzer: no real scale -> skip distance-unit metrics with no_scale
 - [x] Readiness: Reference Calibration becomes a warning
+- [x] Testing Panel: athlete height always visible, outside Analysis Context
