@@ -1,48 +1,33 @@
-# Phase display + "Speed into the break" (Slant v11)
+# Pose overlay player (admin only, Testing Panel result view)
 
-## Current state (checked)
-- Slant WR is LIVE at version 10. Phases: Release, Stem, Break, Catch Window, YAC (After Catch).
-- Active metrics: Plant Leg Extension (Break, weight 59), Hip Stability (Break, 18), Release Speed (Release, 23) = 100.
-- Inactive: Head Snap Timing, Hands Extension at Catch, Post-Catch YAC Burst.
-- So today Stem, Catch Window and YAC have no active metric. Result bcf95d35 has aggregate 93.
+## What's stored (checked on bcf95d35)
+- Keypoints: `diagnostics.raw_keypoints`, 90 frames x 33 landmarks, original 3840x2160 pixel coordinates.
+- Confidence: **per-frame, per-landmark confidence is stored** (`diagnostics.raw_scores`, 90 x 33). The player uses it; run-level RELIABLE/MARGINAL/UNRELIABLE status is the fallback only for runs without it.
+- Per-frame: hip center, scale, athlete height, mean confidence, phases.
+- Service: fps 30, frame size, missed / rejected (+ reasons) / recovered (leading recovery, frames 0-22) / zoom-fallback (following crop, frames 77-89) frame lists, auto-zoom factor 1.75 and crop rectangle.
+- Phase windows, metric details with frames used and keypoint indices, release anchor (log), catch anchor (catch metric detail).
+- Smoothed keypoints are not stored separately. "Smoothed" view recomputes them from raw keypoints with the analyzer's own smoothing code (same 3-frame window, same missing-frame rules), so it is exactly what metrics used. Nothing is written.
+- The upload's stored clip link is a short-lived signed link; the player requests a fresh one through the existing admin function.
 
-## 1. Results display
-- Athlete-facing results: list only phases with at least one scored metric. The phase order and percentages stay as they are; phases are hidden, never removed from the node.
-- Admin views (Testing Panel, run history, Analysis Log, Admin reference): keep every phase. Unscored phases show "Not measured" plus a reason:
-  - "no active metric" — the phase has no active metric on the node.
-  - "metric not measurable this run" — it has active metrics, but all of them were skipped (low confidence, missing frames, catch not found).
-- One shared helper decides each phase's status, so every view agrees.
+## Player
+1. **Video + canvas**: source clip with overlay, frame-synced via requestVideoFrameCallback (fallback currentTime x fps). Play/pause, 0.25x/0.5x/1x, step +/-1 frame (buttons and arrow keys), scrubber.
+2. **Skeleton**: 33 landmarks + standard MediaPipe connections. Green reliable, yellow marginal, red unreliable (same thresholds as the Analysis Log); a line takes its weaker endpoint's color; confidence-0 points hidden. Missed/rejected frames draw nothing and show "No detection". Raw / Smoothed toggle.
+3. **Top-left panel**: "Frame 46/89 · 1.53s"; active phase(s), both when overlapping, "pre-release (stance)" before the first; frame source (main pass with zoom 1.75x, leading recovery, following crop, missed, rejected + reason); "Release anchor" / "Catch anchor" tags on their frames; legend (confidence colors, hip trail, metric highlight).
+4. **Metric highlights**: built from the run's own metrics (any node). Dropdown: All or one metric. Highlights that metric's keypoints on its frames used, with name and value in the panel; angle metrics show the live angle at the middle joint (e.g. plant knee).
+5. **Hip trail** toggle: hip-center path from frame 0 to the current frame (from stored per-frame hip centers).
+6. **Follow athlete**: default on when athlete is under 20% of frame height. Crop ~1/3 of frame width centered on 9-frame moving-average hip, scaled to fill. Minimap corner: full frame, auto-zoom crop (white), follow window (orange), hip trail.
+7. **Phase timeline** under the player: one thin bar per phase (overlaps visible), playhead, markers for release anchor, catch anchor and metric frames; click to seek.
+8. Empty state "No stored keypoints for this run." when keypoints are absent.
 
-## 2. New Stem metric: Speed into the break
-- Value: average hip-center speed (midpoint of keypoints 23 and 24) over the last 5 frames of the Stem window, divided by the peak 5-frame average hip speed anywhere in Stem. Unitless ratio, 0 to 1+.
-- target_direction at_least, target 0.9, tolerance 0.2. Wording: "met the target" at 0.9 or above; "short of the target by 0.12" below.
-- Description: "How much of your top stem speed you carry into the break."
-- Same confidence rules as Release Speed (threshold 0.4, missing/rejected frames are never used). Skipped with a reason if Stem has fewer than 5 usable frames, or the peak speed is zero.
-- Pixels-per-yard cancels in a ratio, so calibration can't change the value.
+Opened from a "Pose overlay" button in the Testing Panel result view, admin only (same guard as today).
 
-### Proposed weights (total 100)
-
-```text
-Metric                 Before  After
-Plant Leg Extension      59     50
-Release Speed            23     20
-Hip Stability            18     15
-Speed into the break      -     15
-Total                   100    100
-```
-Reasoning: proportional trim of the three existing metrics, with the new metric equal to Hip Stability. Tell me if you want different numbers.
-
-- Slant becomes version 11, still LIVE. Nothing else on the node changes: phases, percentages, other metrics, error rules, badges, prompts.
-- Stem then shows as scored in athlete results; Catch Window and YAC stay hidden there.
-
-## 3. Verification
-- Rescore bcf95d35 from its stored keypoints and phase windows (no new pose run, nothing saved).
-- Report: the Stem window frames used, the end speed, the peak speed, the ratio, its score, every metric's score under the new weights, and the aggregate before (93) and after.
-- Show screenshots of an athlete-facing result and the Testing Panel with the "Not measured" reasons.
+## Verification
+- Open bcf95d35, screenshot frames 10, 46, 82 with follow on, and show them next to your references.
+- Check the hip trail points equal the stored per-frame hip centers for every frame.
+- Tests: coordinate scaling (native to display and to follow crop), frame-source lookup, phase overlap labels, metric-highlight frames from stored detail.
 
 ## Technical details
-- New `calculation_type: "speed_retention"` in the analyzer, with the math as pure code in a separate module (unit-tested from `src/test`), reusing the smoothing and confidence helpers; record frames used, end and peak speeds in the metric detail and diagnostic export.
-- Phase-status helper in `src/features/athlete-lab/utils/` returning `scored | no_active_metric | not_measurable`; athlete views filter, admin views render the reason.
-- Node update via data change to Slant key_metrics + node_version 11.
-- Tests: ratio math (end/peak, under-5-frames skip, zero-peak skip), at_least scoring at 0.9/0.7, weights total 100, phase-status reasons.
-- Redeploy analyze-athlete-video; record the new module rule in AGENTS.md.
+- Pure helpers in `src/features/athlete-lab/utils/poseOverlay.ts` (scaling, frame source, phase labels, highlight resolution, follow window, confidence color); tests in `src/test/poseOverlay.test.ts`.
+- Component `src/features/athlete-lab/components/PoseOverlayPlayer.tsx`, local state only; data fetched through `src/services/athleteLab.ts` (existing admin result fetch + signed clip link).
+- Smoothed view imports `supabase/functions/analyze-athlete-video/smoothing.ts` (pure).
+- No analyzer, scoring, node, or pose-service changes; AGENTS.md gets one rule for the overlay helper module.
