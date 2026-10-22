@@ -61,3 +61,8 @@
 - [x] First-frame-timestamp sync; verify left knee (25) on frame 46 of bcf95d35
 - [x] One-time signed link refresh on playback error, resume at current frame
 - [x] Per-frame px/yd and athlete height readout
+
+## Videos tab narrowing
+- [ ] Videos tab: teach-tape only, hide angle/type, copy fixes
+- [ ] Readiness: Reference video is a warning; Set Live needs no video
+- [ ] Answer: is athlete height required on every upload path; scale when missing
