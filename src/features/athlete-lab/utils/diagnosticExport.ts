@@ -124,6 +124,9 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
     : null;
 
   const service = diagnostics ? asRecord(diagnostics.service) : null;
+  const perFrameRows = diagnostics ? asArray(diagnostics.per_frame) : null;
+  const seamFrameCount = typeof service?.frame_count === "number" ? service.frame_count : perFrameRows?.length ?? 0;
+  const seams = exportSeams(service, seamFrameCount);
   const frameWidth = service?.frame_width ?? null;
   const frameHeight = service?.frame_height ?? null;
 
