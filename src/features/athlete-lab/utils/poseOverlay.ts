@@ -143,7 +143,7 @@ export function resolveMetricFrames(detail: Record<string, unknown>, window: Pha
 
 /** Clip frame shown at a decoded media time, measured from the clip's first-frame timestamp. */
 export function frameFromMediaTime(mediaTime: number, firstFrameTime: number, fps: number, startSeconds: number, frameCount: number): number {
-  const f = Math.round((mediaTime - firstFrameTime - startSeconds) * fps);
+  const f = Math.floor((mediaTime - firstFrameTime - startSeconds) * fps + 1e-3);
   return Math.max(0, Math.min(frameCount - 1, f));
 }
 
