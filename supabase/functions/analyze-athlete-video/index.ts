@@ -39,7 +39,7 @@ import {
   passesWindowGate,
 } from './quality.ts'
 import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
-import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel } from './llm.ts'
+import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from './llm.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 
 const supabase = createClient(
@@ -530,6 +530,26 @@ async function callCoachModel(
   }
 }
 
+let gatewayPriceCache: Record<string, TokenPrice> | null = null
+/** Per-token prices from the built-in AI model catalog (cached per instance). */
+async function loadGatewayPrices(): Promise<Record<string, TokenPrice>> {
+  if (gatewayPriceCache) return gatewayPriceCache
+  const out: Record<string, TokenPrice> = {}
+  try {
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/models', { headers: { Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}` } })
+    if (res.ok) {
+      const body = await res.json() as { data?: any[] }
+      for (const m of body.data ?? []) {
+        const i = Number(m?.pricing?.input?.text?.tiers?.[0]?.cost)
+        const o = Number(m?.pricing?.output?.text?.tiers?.[0]?.cost)
+        if (typeof m?.id === 'string' && Number.isFinite(i) && Number.isFinite(o)) out[m.id] = { input: i, output: o }
+      }
+    }
+  } catch { /* cost stays null when prices are unavailable */ }
+  gatewayPriceCache = out
+  return out
+}
+
 async function loadWorkspaceCoachModel(): Promise<{ provider: unknown; model: unknown } | null> {
   const { data } = await supabase.from('coaching_model_settings').select('provider, model').eq('id', true).maybeSingle()
   return data ?? null
@@ -967,6 +987,9 @@ Deno.serve(async (req) => {
     const payload = await req.json()
     if (payload && typeof payload.replay_feedback_for_result_id === 'string') {
       return await handleFeedbackReplay(req, payload)
+    }
+    if (payload && (payload.mode === 'estimate' || payload.mode === 'compare') && Array.isArray(payload.result_ids)) {
+      return await handleModelComparison(req, payload)
     }
     if (payload && typeof payload.rescore_result_id === 'string') {
       return await handleRescore(req, payload)
@@ -3851,6 +3874,7 @@ async function callClaude(
     uploadId: upload?.id, nodeId: nodeConfig.id, nodeName: nodeConfig.name,
   })
   const latencyMs = Date.now() - started
+  const prices = coachModel.provider === 'lovable_ai' ? await loadGatewayPrices() : {}
   const inputTokens = call.inputTokens
   const outputTokens = call.outputTokens
   const feedback = call.text
@@ -3860,7 +3884,7 @@ async function callClaude(
   if (inputTokens !== undefined) claudeLog.prompt_tokens = inputTokens
   claudeLog.reported_model = call.reportedModel
   claudeLog.latency_ms = latencyMs
-  claudeLog.cost_usd = costUsd(coachModel, inputTokens, outputTokens)
+  claudeLog.cost_usd = costUsd(coachModel, inputTokens, outputTokens, prices)
 
   if (!feedback) {
     logWarn('claude_response_empty', {
@@ -3887,7 +3911,7 @@ async function callClaude(
       reported_model: call.reportedModel,
       model_source: coachModel.source,
       latency_ms: latencyMs,
-      cost_usd: costUsd(coachModel, inputTokens, outputTokens),
+      cost_usd: costUsd(coachModel, inputTokens, outputTokens, prices),
       status: 'COMPLETE',
       system_instructions: systemText || null,
       prompt,
@@ -4206,29 +4230,9 @@ async function handleFeedbackReplay(req: Request, payload: Record<string, unknow
 
   const resultId = String(payload.replay_feedback_for_result_id)
   const count = Math.min(5, Math.max(1, Number(payload.replay_count) || 1))
-  const { data: result, error } = await supabase
-    .from('athlete_lab_results')
-    .select('id, upload_id, aggregate_score, phase_scores, metric_results, detected_errors')
-    .eq('id', resultId)
-    .single()
-  if (error || !result) return json({ error: 'result not found' }, 404)
-  const { data: upload, error: uErr } = await supabase
-    .from('athlete_uploads')
-    .select('id, node_id, camera_angle, analysis_context')
-    .eq('id', result.upload_id)
-    .single()
-  if (uErr || !upload) return json({ error: 'upload not found' }, 404)
-  const nodeConfig = await fetchNodeConfig(upload.node_id)
-  const context = (upload.analysis_context ?? {}) as Record<string, unknown>
-  const metricResults = applyNodeScoring(
-    Array.isArray(result.metric_results) ? result.metric_results : [],
-    Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : [],
-  )
-  const rescored = calculateAggregateScore(metricResults, nodeConfig, context.catch_included !== false) as any
-  const detected = (Array.isArray(result.detected_errors) ? result.detected_errors : [])
-    .map((e: unknown) => (typeof e === 'string' ? { name: e } : e))
-    .filter((e: any) => e && typeof e.name === 'string' && e.triggered !== false)
-  const scoreResult = { aggregate_score: rescored.aggregate_score, phase_scores: rescored.phase_scores ?? result.phase_scores ?? {} }
+  const inputs = await loadReplayInputs(resultId)
+  if ('error' in inputs) return json({ error: inputs.error }, 404)
+  const { nodeConfig, scoreResult, metricResults, detected, upload, context } = inputs
 
   const runs = []
   for (let i = 0; i < count; i++) {
@@ -4286,6 +4290,124 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
       against_target: typeof m.value === 'number' ? describeAgainstTarget(m.value, Number(m.elite_target), m.tolerance, m.target_direction, m.unit) : null,
     })),
   })
+}
+
+async function loadReplayInputs(resultId: string): Promise<any> {
+  const { data: result, error } = await supabase
+    .from('athlete_lab_results')
+    .select('id, upload_id, aggregate_score, phase_scores, metric_results, detected_errors, result_data')
+    .eq('id', resultId)
+    .single()
+  if (error || !result) return { error: 'result not found' }
+  const { data: upload, error: uErr } = await supabase
+    .from('athlete_uploads')
+    .select('id, node_id, camera_angle, analysis_context')
+    .eq('id', result.upload_id)
+    .single()
+  if (uErr || !upload) return { error: 'upload not found' }
+  const nodeConfig = await fetchNodeConfig(upload.node_id)
+  const context = (upload.analysis_context ?? {}) as Record<string, unknown>
+  const metricResults = applyNodeScoring(
+    Array.isArray(result.metric_results) ? result.metric_results : [],
+    Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : [],
+  )
+  const rescored = calculateAggregateScore(metricResults, nodeConfig, context.catch_included !== false) as any
+  const detected = (Array.isArray(result.detected_errors) ? result.detected_errors : [])
+    .map((e: unknown) => (typeof e === 'string' ? { name: e } : e))
+    .filter((e: any) => e && typeof e.name === 'string' && e.triggered !== false)
+  const scoreResult = { aggregate_score: rescored.aggregate_score, phase_scores: rescored.phase_scores ?? result.phase_scores ?? {} }
+  const claude = (result.result_data as any)?.log_data?.claude_api ?? {}
+  return { nodeConfig, scoreResult, metricResults, detected, upload, context, storedTokens: { input: claude.prompt_tokens, output: claude.response_tokens } }
+}
+
+// ---------------------------------------------------------------------------
+// Model comparison (admin only, writes nothing). Disabled unless the
+// COACH_COMPARE_SECRET is set and sent, because it spends credits (F-SEC-1).
+// Step 1 "estimate" returns calls/tokens/cost and a confirm token; step 2
+// "compare" runs only with that token for the identical request.
+
+const COMPARE_MAX_PROMPTS_PER_CALL = 15
+
+async function compareConfirmToken(resultIds: string[], models: CoachModel[], n: number): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify({ resultIds, models, n }))
+  const hash = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
+}
+
+async function handleModelComparison(req: Request, payload: Record<string, any>): Promise<Response> {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!serviceKey || bearer !== serviceKey) return json({ error: 'admin only' }, 403)
+  const compareSecret = Deno.env.get('COACH_COMPARE_SECRET') ?? ''
+  if (!compareSecret) return json({ error: 'model comparison is disabled until admin login exists (F-SEC-1)' }, 403)
+  if (payload.compare_secret !== compareSecret) return json({ error: 'comparison secret required' }, 403)
+
+  const resultIds: string[] = Array.isArray(payload.result_ids) ? payload.result_ids.filter((x: unknown) => typeof x === 'string') : []
+  const models: CoachModel[] = Array.isArray(payload.models) ? payload.models : []
+  const n = Math.min(5, Math.max(1, Number(payload.n) || 1))
+  if (resultIds.length === 0 || models.length === 0) return json({ error: 'result_ids and models are required' }, 400)
+  for (const m of models) {
+    const v = validateCoachModel(m?.provider, m?.model)
+    if (!v.ok) return json({ error: `invalid model ${m?.provider}:${m?.model}: ${v.reason}` }, 400)
+  }
+
+  const inputs: any[] = []
+  for (const id of resultIds) {
+    const r = await loadReplayInputs(id)
+    if ('error' in r) return json({ error: `${id}: ${r.error}` }, 404)
+    inputs.push({ id, ...r })
+  }
+  const known = inputs.map((i) => i.storedTokens).filter((t) => typeof t.input === 'number' && typeof t.output === 'number')
+  const perCall = known.length
+    ? { input_tokens: Math.ceil(known.reduce((s, t) => s + t.input, 0) / known.length), output_tokens: Math.ceil(known.reduce((s, t) => s + t.output, 0) / known.length) }
+    : { input_tokens: 1500, output_tokens: 300 }
+  const prices = await loadGatewayPrices()
+  // Upper bound: every first draft retried once.
+  const estimate = estimateComparison(models, resultIds.length, n, perCall, 1, prices)
+  const token = await compareConfirmToken(resultIds, models, n)
+  const totalPrompts = resultIds.length * n * models.length
+
+  if (payload.mode === 'estimate') {
+    return json({
+      mode: 'estimate', per_call_tokens: perCall, retry_assumption: 'every first draft retried once (upper bound)',
+      estimate, total_prompts: totalPrompts, batches_needed: Math.ceil(totalPrompts / COMPARE_MAX_PROMPTS_PER_CALL), confirm_token: token,
+    })
+  }
+  if (payload.confirm_token !== token) return json({ error: 'run the estimate first and pass its confirm_token' }, 409)
+  if (totalPrompts > COMPARE_MAX_PROMPTS_PER_CALL) {
+    return json({ error: `too large for one call (${totalPrompts} prompts, max ${COMPARE_MAX_PROMPTS_PER_CALL}); split into batches` }, 400)
+  }
+
+  const runs: ComparisonRun[] = []
+  for (const model of models) {
+    for (const inp of inputs) {
+      for (let i = 0; i < n; i++) {
+        const started = Date.now()
+        const r = await generateCheckedFeedback(inp.nodeConfig, inp.scoreResult, inp.metricResults, { detected: inp.detected }, inp.upload, inp.context, model)
+        const fc = r.diagnostics.feedback_check
+        runs.push({
+          model, result_id: inp.id,
+          first_passed: Boolean(fc && !fc.retried && fc.passed),
+          violations: [...(fc?.violations ?? []), ...(fc?.retry_violations ?? [])],
+          retried: Boolean(fc?.retried), fallback_used: Boolean(fc?.fallback_used),
+          words: countWords(r.feedback), cost_usd: r.diagnostics.cost_usd ?? null,
+          ms: Date.now() - started, response: r.feedback, reported_model: r.diagnostics.reported_model ?? null,
+        })
+      }
+    }
+  }
+  const sideBySide = resultIds.map((id) => ({
+    result_id: id,
+    columns: models.map((m) => ({
+      model: `${m.provider}:${m.model}`,
+      responses: runs.filter((r) => r.result_id === id && r.model === m).map((r) => ({
+        outcome: r.fallback_used ? 'fallback' : r.retried ? 'retried' : 'pass', words: r.words, response: r.response,
+      })),
+    })),
+  }))
+  return json({ mode: 'compare', summary: summarizeComparison(runs), side_by_side: sideBySide })
 }
 
 // Runs the model, checks the response (level-of-play words always, other
