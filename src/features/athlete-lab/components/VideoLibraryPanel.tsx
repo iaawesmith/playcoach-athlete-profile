@@ -377,7 +377,7 @@ function ClipForm({ state, nodes, onCancel, onSaved }: ClipFormProps) {
           {textField("created_by", "Uploaded by")}
 
           {section("Test context")}
-          {select("camera_angle", "Camera angle", [["sideline", "Sideline"], ["behind_qb", "Behind QB"], ["endzone", "Endzone"], ["other", "Other"]])}
+          {select("camera_angle", "Camera angle", [["sideline", "Sideline"], ["behind_wr", "Behind WR"], ["behind_qb", "Behind QB"], ["endzone", "Endzone"], ["other", "Other"]])}
           {select("people_in_video", "People in video", [["solo", "Just me"], ["with_defender", "Me + defender"], ["multiple", "Multiple"]])}
           {select("route_direction", "Route direction", [["left", "Breaks left"], ["right", "Breaks right"], ["both", "Both"], ["straight", "Straight / no break"]])}
           {select("catch_status", "Catch", [["yes", "Yes"], ["no", "No"], ["partial", "Partial"]])}

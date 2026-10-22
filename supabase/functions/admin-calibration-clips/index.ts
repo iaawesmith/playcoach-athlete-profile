@@ -24,7 +24,7 @@ const MetadataSchema = z.object({
   fps: nullableNumber,
   file_size_bytes: z.number().int().min(0).max(MAX_BYTES).nullable().optional(),
   created_by: z.string().max(120).nullable().optional(),
-  camera_angle: z.enum(["sideline", "behind_qb", "endzone", "other"]),
+  camera_angle: z.enum(["sideline", "behind_wr", "behind_qb", "endzone", "other"]),
   people_in_video: z.enum(["solo", "with_defender", "multiple"]),
   route_direction: z.enum(["left", "right", "both", "straight"]),
   catch_status: z.enum(["yes", "no", "partial"]),

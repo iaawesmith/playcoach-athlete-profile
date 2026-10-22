@@ -15,7 +15,7 @@ export interface CalibrationClipMetadata {
   fps: number | null;
   file_size_bytes: number | null;
   created_by: string | null;
-  camera_angle: "sideline" | "behind_qb" | "endzone" | "other";
+  camera_angle: "sideline" | "behind_wr" | "behind_qb" | "endzone" | "other";
   people_in_video: "solo" | "with_defender" | "multiple";
   route_direction: "left" | "right" | "both" | "straight";
   catch_status: "yes" | "no" | "partial";

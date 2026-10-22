@@ -33,7 +33,7 @@ interface TestingPanelProps {
   node: TrainingNode;
 }
 
-type CameraAngleOption = "sideline" | "behind_qb" | "endzone" | "other";
+type CameraAngleOption = "sideline" | "behind_wr" | "behind_qb" | "endzone" | "other";
 type PeopleOption = "solo" | "with_defender" | "multiple";
 type BreakDirectionOption = "left" | "right" | "both" | "straight";
 type CatchOption = "yes" | "no" | "partial";
@@ -597,7 +597,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   };
 
   const copyContext = () => {
-    const cameraLabel: Record<CameraAngleOption, string> = { sideline: "Sideline", behind_qb: "Behind QB", endzone: "Endzone", other: "Other" };
+    const cameraLabel: Record<CameraAngleOption, string> = { sideline: "Sideline", behind_wr: "Behind WR", behind_qb: "Behind QB", endzone: "Endzone", other: "Other" };
     const peopleLabel: Record<PeopleOption, string> = { solo: "Just Me", with_defender: "Me + Defender", multiple: "Multiple People" };
     const breakLabel: Record<BreakDirectionOption, string> = {
       left: "Athlete Breaks Left",
@@ -731,6 +731,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
               <label className="mb-2 block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">Camera Angle</label>
               <RadioPills value={cameraAngle} onChange={(v) => setCameraAngle(v as CameraAngleOption)} options={[
                 { value: "sideline", label: "Sideline" },
+                { value: "behind_wr", label: "Behind WR" },
                 { value: "behind_qb", label: "Behind QB" },
                 { value: "endzone", label: "Endzone" },
                 { value: "other", label: "Other" },
