@@ -2191,7 +2191,7 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
   const dfMultiple = node.det_frequency_multiple ?? 1;
 
   /* ── Readiness checks ── */
-  const readiness: { label: string; ok: boolean; detail: string; tab: TabKey }[] = [];
+  const readiness: { label: string; ok: boolean; detail: string; tab: TabKey; warning?: boolean }[] = [];
 
   // Active-only — keeps Training Status readiness consistent with top NodeReadinessBar
   const activeMetricsForReadiness = (node.key_metrics ?? []).filter((m) => m.active !== false);
@@ -2208,7 +2208,7 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
   readiness.push({ label: "Phase weights sum to 100%", ok: segMethod !== "proportional" || phaseWeightSum === 100, detail: segMethod === "proportional" ? `${phaseWeightSum}%` : "N/A (checkpoint)", tab: "phases" });
 
   const hasRef = node.elite_videos.some(v => v.url?.trim() && v.is_reference);
-  readiness.push({ label: "Reference video for athletes (optional)", ok: hasRef, detail: hasRef ? "Set" : "Not set — warning only", tab: "videos" });
+  readiness.push({ label: "Reference video for athletes (optional)", ok: hasRef, detail: hasRef ? "Set" : "Not set — warning only", tab: "videos", warning: true });
 
   const cals = node.reference_calibrations ?? [];
   const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
@@ -2216,8 +2216,9 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
 
   readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
 
-  const passCount = readiness.filter(r => r.ok).length;
-  const failCount = readiness.length - passCount;
+  const counted = readiness.filter(r => !r.warning);
+  const passCount = counted.filter(r => r.ok).length;
+  const failCount = counted.length - passCount;
   const allPass = failCount === 0;
 
   return (
@@ -2276,7 +2277,7 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
           <div className="space-y-1">
             {readiness.map((item, i) => (
               <button key={i} type="button" onClick={() => onNavigateTab(item.tab)} className="w-full flex items-start gap-2.5 p-3 rounded-xl text-left transition-all hover:bg-surface-container-high/50">
-                <span className={`text-sm mt-0.5 ${item.ok ? 'text-primary-container' : 'text-red-400'}`}>{item.ok ? '✓' : '✗'}</span>
+                <span className={`text-sm mt-0.5 ${item.ok ? 'text-primary-container' : item.warning ? 'text-amber-400' : 'text-red-400'}`}>{item.ok ? '✓' : item.warning ? '!' : '✗'}</span>
                 <div className="flex-1">
                   <span className="text-on-surface text-sm">{item.label}</span>
                   <span className="text-on-surface-variant text-xs ml-2">— {item.detail}</span>
