@@ -40,6 +40,7 @@ const CALC_OPTIONS: { value: CalculationType; label: string; desc: string }[] = 
   { value: "acceleration", label: "ACCELERATION", desc: "Rate of velocity change. Temporal Window minimum: 5 frames." },
   { value: "frame_delta", label: "FRAME DELTA", desc: "Frames between two body position events. Temporal Window minimum: 10 frames." },
   { value: "distance_variance", label: "DISTANCE VARIANCE", desc: "Standard deviation of inter-keypoint distance across the temporal window. Low value = stable (e.g. composed hips during a cut). Requires 2 keypoints + Reference tab scale calibration. Temporal Window minimum: 5 frames." },
+  { value: "speed_retention", label: "SPEED RETENTION", desc: "Calibrated speed in the 5 frames just before the next phase starts, divided by the peak 5-frame speed in this phase. Ratio 0 to 1+. Requires 1 or 2 keypoints (e.g. L/R hip)." },
 ];
 
 const BILATERAL_OPTIONS: { value: BilateralMode; label: string }[] = [
@@ -151,6 +152,10 @@ function getKeypointValidation(calcType: CalculationType | null, count: number):
       return count === 2
         ? { valid: true, message: `✓ Valid for ${calcType === "distance" ? "Distance" : "Frame Delta"}` }
         : { valid: false, message: `⚠ ${calcType === "distance" ? "Distance" : "Frame Delta"} requires exactly 2 keypoints (${count} selected)` };
+    case "speed_retention":
+      return count >= 1 && count <= 2
+        ? { valid: true, message: "✓ Valid for Speed Retention" }
+        : { valid: false, message: `⚠ Speed Retention requires 1 or 2 keypoints (${count} selected)` };
     case "velocity":
     case "acceleration":
       return count >= 1 && count <= 2
@@ -180,6 +185,7 @@ function getTemporalWarning(calcType: CalculationType | null, window: number): s
       return window < 5 ? "Distance Variance requires minimum 5 frames" : null;
     case "angle":
     case "distance":
+    case "speed_retention":
       return null;
     default: {
       const _exhaustive: never = calcType;

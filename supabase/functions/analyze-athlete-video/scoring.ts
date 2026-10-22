@@ -30,6 +30,7 @@ function fmt(n: number): string {
 export function unitSuffix(unit: string | null | undefined): string {
   if (!unit) return ''
   if (unit === 'degrees' || unit === '°') return '°'
+  if (unit === 'ratio') return ''
   return ` ${unit}`
 }
 
