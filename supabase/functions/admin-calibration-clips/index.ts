@@ -37,7 +37,7 @@ const MetadataSchema = z.object({
   yard_line_notes: z.string().max(2000),
   start_yard_line: nullableNumber,
   break_yard_line: nullableNumber,
-  expected_calibration_source: z.enum(["dynamic", "body_based", "static", "unknown"]),
+  expected_calibration_source: z.enum(["dynamic", "height_based", "body_based", "static", "unknown"]),
   hand_timed_splits: z.string().max(2000),
   camera_setup: z.enum(["tripod", "handheld"]),
   camera_distance_notes: z.string().max(2000),

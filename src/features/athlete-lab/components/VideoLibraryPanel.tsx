@@ -31,7 +31,7 @@ const inputCls = "h-10 w-full rounded-xl border border-outline-variant/10 bg-sur
 const labelCls = "text-[10px] font-medium uppercase tracking-widest text-on-surface-variant";
 const btnCls = "flex h-9 items-center gap-1.5 rounded-full px-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed";
 
-const SOURCE_LABEL: Record<string, string> = { dynamic: "Dynamic", body_based: "Body Based", static: "Static", unknown: "Unknown" };
+const SOURCE_LABEL: Record<string, string> = { dynamic: "Dynamic", height_based: "Height Based", body_based: "Body Based", static: "Static", unknown: "Unknown" };
 
 export function VideoLibraryPanel({ nodes, onClose, onSelectNode }: VideoLibraryPanelProps) {
   const [clips, setClips] = useState<CalibrationClip[]>([]);
@@ -410,7 +410,7 @@ function ClipForm({ state, nodes, onCancel, onSaved }: ClipFormProps) {
               {yardMetrics.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
           </label>
-          {select("expected_calibration_source", "Expected calibration source", [["unknown", "Unknown"], ["dynamic", "Dynamic"], ["body_based", "Body based"], ["static", "Static"]])}
+          {select("expected_calibration_source", "Expected calibration source", [["unknown", "Unknown"], ["dynamic", "Dynamic"], ["height_based", "Height based"], ["body_based", "Body based"], ["static", "Static"]])}
           {textField("hand_timed_splits", "Hand-timed splits (optional)")}
 
           {section("Camera")}
