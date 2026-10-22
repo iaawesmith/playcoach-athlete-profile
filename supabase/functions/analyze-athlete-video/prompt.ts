@@ -144,7 +144,9 @@ export function renderTemplate(template: string, variables: Record<string, strin
 // ---------------------------------------------------------------------------
 // Post-check on the model's coaching feedback.
 
-export const MAX_FEEDBACK_WORDS = 150
+/** Instructed length is 120–140 words; the check rejects only above this. */
+export const MAX_FEEDBACK_WORDS = 160
+export const TARGET_FEEDBACK_WORDS = { min: 120, max: 140 } as const
 
 const ALWAYS_BANNED: Array<[string, RegExp]> = [
   ['elite', /\belite\b/i],
@@ -188,7 +190,12 @@ export function checkFeedback(text: string, solo: boolean): FeedbackCheck {
   const violations: string[] = []
   // The prompt's own direction wording ("at or under is perfect") describes the
   // target, not the athlete, so it never counts as praise.
-  const praiseText = text.replace(/\bat or (under|over) is perfect\b/gi, '')
+  // "Perfect" about the score ("perfect score", "a perfect 100") isn't praise of
+  // the athlete or the rep either.
+  const praiseText = text
+    .replace(/\bat or (under|over) is perfect\b/gi, '')
+    .replace(/\bperfect\s+(score|scores|100|mark|marks)\b/gi, '')
+    .replace(/\b(score|scored|scoring|scores)\s+(a\s+)?perfect\b/gi, '')
   for (const [label, re] of ALWAYS_BANNED) if (re.test(praiseText)) violations.push(`level-of-play word "${label}"`)
   if (solo) for (const [label, re] of SOLO_BANNED) if (re.test(text)) violations.push(`"${label}" on a solo rep`)
   const word_count = countWords(text)
