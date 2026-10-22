@@ -24,7 +24,7 @@ describe("Videos tab readiness", () => {
     expect(cat?.checks[0].pass).toBe(true);
   });
 
-  it("calibration check does not read video camera angles", () => {
+  it("calibration check does not read video camera angles and is a warning", () => {
     const nodes = [[], [{ url: "u", label: "l", camera_angle: "endzone" as const }]];
     const labels = nodes.map((v) =>
       computeCategories({ ...baseNode, elite_videos: v }).find((c) => c.name === "Reference Calibration")?.checks.map((c) => c.label),

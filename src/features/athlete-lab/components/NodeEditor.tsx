@@ -206,13 +206,7 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
     }
   }
 
-  // Reference calibration checks (formerly skipped for wholebody3d nodes;
-  // solution_class column dropped in 20260426025918 — gate removed in 1c.3-C)
-  const calibrations = node.reference_calibrations ?? [];
-  const hasAtLeastOne = calibrations.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-  if (!hasAtLeastOne) {
-    issues.push({ label: "Reference", detail: "At least one camera angle must be calibrated (pixels_per_yard set)" });
-  }
+  // Saved calibration is a fallback only (athlete height is required on every upload) — never blocks going live.
 
   // Camera completeness
   const cameraIssues = checkCameraCompleteness(node);
