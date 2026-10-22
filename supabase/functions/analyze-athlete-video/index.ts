@@ -4381,7 +4381,24 @@ async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, 
     const base = { ...metric, status: 'skipped' as const }
     const window = windows[mapping.phase_id]
     const nextStart = nextPhaseStart(mapping, nodeConfig.phase_breakdown, windows)
-    if (!kps.length || !window || nextStart === null) return { ...base, reason: 'stored_data_unavailable' }
+    if (!window || nextStart === null) return { ...base, reason: 'stored_data_unavailable' }
+    const scale = (kps.length ? kps : perFrame).map((_, f) => (typeof perFrame[f]?.scale_ppy === 'number' ? perFrame[f].scale_ppy : null))
+    if (!kps.length) {
+      // Older runs without raw keypoints: use the stored per-frame hip centers
+      // (same hip midpoint the run measured), detected frames only.
+      if (!perFrame.length) return { ...base, reason: 'stored_data_unavailable' }
+      const hipPf = perFrame.map((row: any) => (row?.detected !== false && typeof row?.hip_center_x === 'number' && typeof row?.hip_center_y === 'number' && !(row.hip_center_x === 0 && row.hip_center_y === 0) ? [row.hip_center_x, row.hip_center_y] as const : null))
+      const rp = computeSpeedRetention({ hip: hipPf, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 })
+      if (rp.value === null) return { ...base, reason: rp.reason, detail: rp.detail }
+      const dirPf = normalizeTargetDirection(metric.target_direction)
+      return {
+        id: metric.id, name: metric.name, unit: metric.unit, value: Math.round(rp.value * 100) / 100,
+        elite_target: metric.eliteTarget, tolerance: metric.tolerance, target_direction: dirPf,
+        deviation: scoredDeviation(rp.value, metric.eliteTarget, dirPf), score: scoreMetric(rp.value, metric.eliteTarget, metric.tolerance, dirPf),
+        weight: metric.weight, status: 'scored', keypoint_mapping: mapping,
+        detail: { ...rp.detail, unrounded_value: rp.value, hip_source: 'stored_per_frame_hip_center' },
+      }
+    }
     const threshold = mapping.confidence_threshold || 0.70
     const indices: number[] = mapping.keypoint_indices
     const phaseFrames = kps.slice(window.start, window.end + 1)
@@ -4390,7 +4407,6 @@ async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, 
       typeof mapping.min_pass_ratio === 'number' ? mapping.min_pass_ratio : DEFAULT_MIN_PASS_RATIO)
     if (!conf.passed) return { ...metric, status: 'flagged', reason: 'low_confidence', detail: { confidenceDiagnostics: conf.diagnostics } }
     const hip = kps.map((frame, f) => (frame?.[0] ? getMidpoint(frame[0], indices, scs[f]?.[0], threshold) : null))
-    const scale = kps.map((_, f) => (typeof perFrame[f]?.scale_ppy === 'number' ? perFrame[f].scale_ppy : null))
     const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 })
     if (r.value === null) return { ...base, reason: r.reason, detail: r.detail }
     const dir = normalizeTargetDirection(metric.target_direction)
