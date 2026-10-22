@@ -38,6 +38,7 @@ import {
   median,
   passesWindowGate,
 } from './quality.ts'
+import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 
 const supabase = createClient(
@@ -887,6 +888,9 @@ Deno.serve(async (req) => {
     if (payload && typeof payload.replay_feedback_for_result_id === 'string') {
       return await handleFeedbackReplay(req, payload)
     }
+    if (payload && typeof payload.rescore_result_id === 'string') {
+      return await handleRescore(req, payload)
+    }
     const upload = payload.record
     if (!upload?.id) {
       throw new Error('Invalid webhook payload: missing record.id')
@@ -1441,6 +1445,10 @@ function buildMetricLogEntries(metricResults: any[], phaseWindows: Record<string
       unit: typeof metric?.unit === 'string' ? metric.unit : '',
       elite_target: metric?.elite_target != null ? String(metric.elite_target) : '',
       deviation: deviation !== null ? formatNumber(deviation) : 'N/A',
+      target_direction: normalizeTargetDirection(metric?.target_direction),
+      against_target: value !== null && typeof metric?.elite_target === 'number'
+        ? describeAgainstTarget(value, metric.elite_target, metric?.tolerance, metric?.target_direction, metric?.unit)
+        : undefined,
       raw_score: score,
       weighted_contribution: formatNumber(score * (typeof metric?.weight === 'number' ? metric.weight : 0) / 100),
       status: metric?.status === 'scored' ? 'SCORED' as const : metric?.status === 'flagged' ? 'FLAGGED' as const : 'SKIPPED' as const,
@@ -2789,7 +2797,8 @@ async function calculateAllMetrics(
     }
 
     // Score the metric
-    const score = scoreMetric(metricValue.value, metric.eliteTarget, metric.tolerance)
+    const targetDirection = normalizeTargetDirection(metric.target_direction)
+    const score = scoreMetric(metricValue.value, metric.eliteTarget, metric.tolerance, targetDirection)
     logInfo('metric_scored', {
       ...metricContext,
       value: metricValue.value,
@@ -2810,7 +2819,8 @@ async function calculateAllMetrics(
       value: Math.round(metricValue.value * 100) / 100,
       elite_target: metric.eliteTarget,
       tolerance: metric.tolerance,
-      deviation: Math.abs(metricValue.value - metric.eliteTarget),
+      deviation: scoredDeviation(metricValue.value, metric.eliteTarget, targetDirection),
+      target_direction: targetDirection,
       score,
       weight: metric.weight,
       status: 'scored',
@@ -3554,11 +3564,6 @@ function resolveBilateralSelection(
   }
 }
 
-function scoreMetric(value: number, eliteTarget: number, tolerance: number): number {
-  const deviation = Math.abs(value - eliteTarget)
-  if (deviation <= tolerance) return 100
-  return Math.max(0, 100 - ((deviation - tolerance) / tolerance) * 50)
-}
 
 function calculateAggregateScore(
   metricResults: any[],
@@ -4200,6 +4205,48 @@ async function handleFeedbackReplay(req: Request, payload: Record<string, unknow
   return json({ result_id: resultId, node_version: nodeConfig.node_version, runs })
 }
 
+
+// Rescores a stored result's metric values with the node's current scoring
+// config (target_direction, tolerance). No pose run; writes nothing.
+async function handleRescore(req: Request, payload: Record<string, unknown>): Promise<Response> {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!serviceKey || bearer !== serviceKey) return json({ error: 'admin only' }, 403)
+  const { data: result, error } = await supabase
+    .from('athlete_lab_results')
+    .select('id, upload_id, aggregate_score, metric_results')
+    .eq('id', String(payload.rescore_result_id))
+    .single()
+  if (error || !result) return json({ error: 'result not found' }, 404)
+  const { data: upload } = await supabase.from('athlete_uploads').select('node_id, analysis_context').eq('id', result.upload_id).single()
+  if (!upload) return json({ error: 'upload not found' }, 404)
+  const nodeConfig = await fetchNodeConfig(upload.node_id)
+  const nodeMetrics: any[] = Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : []
+  const before: any[] = Array.isArray(result.metric_results) ? result.metric_results : []
+  const after = before.map((m: any) => {
+    if (m?.status !== 'scored' || typeof m.value !== 'number') return m
+    const def = nodeMetrics.find((n) => n?.name === m.name)
+    const dir = normalizeTargetDirection(def?.target_direction)
+    const target = Number(m.elite_target)
+    return { ...m, target_direction: dir, deviation: scoredDeviation(m.value, target, dir), score: scoreMetric(m.value, target, m.tolerance, dir) }
+  })
+  const ctx = (upload.analysis_context ?? {}) as Record<string, unknown>
+  const catchIncluded = ctx.catch_included !== false && ctx.catch_status !== 'no'
+  const agg = calculateAggregateScore(after, nodeConfig, catchIncluded) as any
+  return json({
+    result_id: result.id,
+    node_version: nodeConfig.node_version,
+    aggregate_before: result.aggregate_score,
+    aggregate_after: agg?.aggregate_score ?? agg?.aggregateScore ?? agg,
+    metrics: after.map((m: any, i: number) => ({
+      name: m.name, value: m.value, target: m.elite_target, direction: m.target_direction ?? 'target',
+      score_before: before[i]?.score, score_after: m.score,
+      against_target: typeof m.value === 'number' ? describeAgainstTarget(m.value, Number(m.elite_target), m.tolerance, m.target_direction, m.unit) : null,
+    })),
+  })
+}
 
 // Runs the model, checks the response (level-of-play words always, other
 // players on solo reps, 150-word limit), retries once naming the violations,
