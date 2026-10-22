@@ -57,7 +57,7 @@
 - [x] Rescore bcf95d35 from stored data
 
 ## Pose overlay player (approved Oct 22)
-- [ ] Admin overlay player in Testing Panel: stored keypoints, confidence colors, metric highlights, hip trail, follow view + minimap, phase timeline
-- [ ] First-frame-timestamp sync; verify left knee (25) on frame 46 of bcf95d35
-- [ ] One-time signed link refresh on playback error, resume at current frame
-- [ ] Per-frame px/yd and athlete height readout
+- [x] Admin overlay player in Testing Panel: stored keypoints, confidence colors, metric highlights, hip trail, follow view + minimap, phase timeline
+- [x] First-frame-timestamp sync; verify left knee (25) on frame 46 of bcf95d35
+- [x] One-time signed link refresh on playback error, resume at current frame
+- [x] Per-frame px/yd and athlete height readout
