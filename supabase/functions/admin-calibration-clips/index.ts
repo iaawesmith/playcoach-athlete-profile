@@ -55,6 +55,7 @@ const BodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("create"), storage_path: z.string().min(1).max(400), metadata: MetadataSchema }),
   z.object({ action: z.literal("update"), id: z.string().uuid(), metadata: MetadataSchema }),
   z.object({ action: z.literal("sign"), id: z.string().uuid(), purpose: z.enum(["preview", "test"]) }),
+  z.object({ action: z.literal("sign_upload"), upload_id: z.string().uuid() }),
   z.object({ action: z.literal("set_archived"), id: z.string().uuid(), archived: z.boolean() }),
   z.object({ action: z.literal("delete"), id: z.string().uuid() }),
 ]);

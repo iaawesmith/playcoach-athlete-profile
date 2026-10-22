@@ -211,6 +211,12 @@ export async function signCalibrationClip(id: string, purpose: "preview" | "test
   return res.signedUrl;
 }
 
+/** Fresh signed link for an existing upload's stored video (read-only). */
+export async function signUploadVideo(uploadId: string): Promise<string> {
+  const res = await call<{ signedUrl: string }>({ action: "sign_upload", upload_id: uploadId });
+  return res.signedUrl;
+}
+
 export async function setCalibrationClipArchived(id: string, archived: boolean): Promise<void> {
   await call({ action: "set_archived", id, archived });
 }
