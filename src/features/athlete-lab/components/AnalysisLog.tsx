@@ -139,7 +139,7 @@ function CheckRow({ check }: { check: AnalysisLogData["preflight"]["checks"][0] 
   );
 }
 
-function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string {
+function generateLogMarkdown(logData: AnalysisLogData, nodeName: string, metricResults: PipelineMetricResult[] = []): string {
   const overall = deriveOverallStatus(logData);
   const ts = logData.timestamp ?? new Date().toISOString();
   let md = `# AthleteLab Analysis Log\n# Node: ${nodeName}\n# Timestamp: ${ts}\n# Overall Status: ${overall}\n\n---\n\n`;
@@ -186,7 +186,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string): string
   // Metrics
   md += `---\n\n## Metric Calculations\n\n`;
   for (const m of logData.metrics ?? []) {
-    md += `### ${m.name} (${m.weight}%)\nPhase: ${m.phase}\nFrames: ${m.frames_evaluated} (${m.frame_range})\nKeypoints: ${m.keypoints}\nCalc type: ${m.calculation_type}\nTemporal window: ${m.temporal_window} frames\nSmoothing: ${logData.rtmlib?.temporal_smoothing?.smoothing_window_frames ?? "not recorded"} frames\nFrames used: ${m.frames_used ?? m.frames_evaluated}\nRaw value: ${m.calculated_result} ${m.unit}\nElite target: ${m.elite_target}\nDeviation: ${m.deviation}\nAgainst target: ${m.against_target ?? metricResults?.find((r) => r.name === m.name)?.against_target ?? "N/A"}\nRaw score: ${m.raw_score}\nWeighted contribution: ${m.weighted_contribution}\nStatus: ${m.status}${m.skip_reason ? `\nReason: ${m.skip_reason}` : ""}\n\n`;
+    md += `### ${m.name} (${m.weight}%)\nPhase: ${m.phase}\nFrames: ${m.frames_evaluated} (${m.frame_range})\nKeypoints: ${m.keypoints}\nCalc type: ${m.calculation_type}\nTemporal window: ${m.temporal_window} frames\nSmoothing: ${logData.rtmlib?.temporal_smoothing?.smoothing_window_frames ?? "not recorded"} frames\nFrames used: ${m.frames_used ?? m.frames_evaluated}\nRaw value: ${m.calculated_result} ${m.unit}\nElite target: ${m.elite_target}\nDeviation: ${m.deviation}\nAgainst target: ${m.against_target ?? metricResults.find((r) => r.name === m.name)?.against_target ?? "N/A"}\nRaw score: ${m.raw_score}\nWeighted contribution: ${m.weighted_contribution}\nStatus: ${m.status}${m.skip_reason ? `\nReason: ${m.skip_reason}` : ""}\n\n`;
   }
   if (logData.aggregate) {
     md += `AGGREGATE:\n  Total Mastery Score: ${logData.aggregate.mastery_score}/100\n  Confidence-adjusted: ${logData.aggregate.confidence_adjusted ? "Yes" : "No"}\n  Metrics skipped: ${logData.aggregate.metrics_skipped} of ${logData.aggregate.metrics_total}\n\n`;
