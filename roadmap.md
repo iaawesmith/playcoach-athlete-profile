@@ -63,6 +63,7 @@
 - [x] Per-frame px/yd and athlete height readout
 
 ## Videos tab narrowing
-- [ ] Videos tab: teach-tape only, hide angle/type, copy fixes
-- [ ] Readiness: Reference video is a warning; Set Live needs no video
-- [ ] Answer: is athlete height required on every upload path; scale when missing
+- [x] Videos tab: teach-tape only, hide angle/type, copy fixes
+- [x] Readiness: Reference video is a warning; Set Live needs no video
+- [x] Answer: is athlete height required on every upload path; scale when missing
+- [ ] Make athlete height required on every upload path (blocked: awaiting approval); then make Reference Calibration a warning
