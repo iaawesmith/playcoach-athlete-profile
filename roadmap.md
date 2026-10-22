@@ -80,7 +80,8 @@
 - [x] Library ground-truth distance check (lowest-hip break anchor) in Analysis Log + export
 - [x] Frame-source seam flags in export + overlay
 - [x] Clip 932b91df expected source → height_based
-- [ ] Deploy analyzer + clips function; rescore c6fa0895 and report
+- [x] Deploy analyzer + clips function; rescore c6fa0895 and report
 
 ## Behind WR camera angle
-- [ ] Add "Behind WR" to library clip form + Run Analysis context; check DB constraint; report readiness impact before applying any Reference-tab change; list "Other" records (no remap)
+- [x] Add "Behind WR" to library clip form + Run Analysis context; check DB constraint; report readiness impact before applying any Reference-tab change; list "Other" records (no remap)
+- [ ] Reference tab per-angle list: add Behind WR — waiting on user OK (display-only "of 3"→"of 4"; readiness unaffected)
