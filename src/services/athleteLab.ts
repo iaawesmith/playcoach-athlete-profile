@@ -1,4 +1,5 @@
 import { parseDetectedErrors, parseMetricResults } from "@/features/athlete-lab/utils/pipelineResults";
+import { buildPhaseStatuses } from "@/features/athlete-lab/utils/phaseStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { isLibraryRun, listCalibrationClips } from "@/services/calibrationLibrary";
 import type { CalibrationClip } from "@/services/calibrationLibrary";
@@ -132,7 +133,7 @@ type UploadHistoryRow = {
   status: string | null;
   error_message: string | null;
   progress_message?: string | null;
-  athlete_lab_nodes?: { name: string | null } | null;
+  athlete_lab_nodes?: { name: string | null; phase_breakdown?: unknown } | null;
 };
 
 type ResultHistoryRow = {
@@ -412,18 +413,21 @@ function parseRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function mapPhaseBreakdown(phaseScores: Record<string, number>, node: TrainingNode): PipelinePhaseScore[] {
-  const configured = node.phase_breakdown.map((phase) => ({
-    id: phase.id ?? phase.name,
-    name: phase.name,
-    score: typeof phaseScores[phase.id ?? phase.name] === "number" ? Math.round(phaseScores[phase.id ?? phase.name]) : null,
-  }));
-
+function mapPhaseBreakdown(phaseScores: Record<string, number>, node: TrainingNode, runMetrics: PipelineMetricResult[]): PipelinePhaseScore[] {
+  const configured = buildPhaseStatuses(node.phase_breakdown, phaseScores, runMetrics);
   const extras = Object.entries(phaseScores)
     .filter(([phaseId]) => !configured.some((phase) => phase.id === phaseId))
     .map(([phaseId, score]) => ({ id: phaseId, name: phaseId, score: Math.round(score) }));
-
   return [...configured, ...extras];
+}
+
+function historyPhaseBreakdown(rawPhases: unknown, phaseScores: Record<string, number>, runMetrics: PipelineMetricResult[]): PipelinePhaseScore[] {
+  const phases = (Array.isArray(rawPhases) ? rawPhases : [])
+    .map((p) => parseRecord(p))
+    .filter((p) => typeof p.name === "string")
+    .map((p) => ({ id: typeof p.id === "string" ? p.id : null, name: String(p.name) }));
+  if (phases.length === 0) return Object.entries(phaseScores).map(([id, score]) => ({ id, name: id, score: Math.round(score) }));
+  return buildPhaseStatuses(phases, phaseScores, runMetrics);
 }
 
 function normalizeUploadSnapshot(value: unknown): PipelineUploadSnapshot | null {
@@ -521,7 +525,7 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
     uploadStatus: "complete",
     aggregateScore: parseNumber(row.aggregate_score),
     phaseScores,
-    phaseBreakdown: mapPhaseBreakdown(phaseScores, node),
+    phaseBreakdown: mapPhaseBreakdown(phaseScores, node, parseMetricResults(row.metric_results, node.phase_breakdown, node.key_metrics)),
     metricResults: parseMetricResults(row.metric_results, node.phase_breakdown, node.key_metrics),
     confidenceFlags: Array.isArray(row.confidence_flags) ? row.confidence_flags as PipelineConfidenceFlag[] : [],
     detectedErrors: parseDetectedErrors(row.detected_errors),
@@ -867,7 +871,7 @@ function normalizeHistoryRow(upload: UploadHistoryRow, result: ResultHistoryRow 
     isLibraryRun: isLibraryRun(context),
     aggregateScore: result?.aggregate_score ?? null,
     phaseScores,
-    phaseBreakdown: Object.entries(phaseScores).map(([id, score]) => ({ id, name: id, score: Math.round(score) })),
+    phaseBreakdown: historyPhaseBreakdown(upload.athlete_lab_nodes?.phase_breakdown, phaseScores, metricResults),
     metricResults,
     confidenceFlags: parseConfidenceFlags(result?.confidence_flags),
     detectedErrors: parseDetectedErrors(result?.detected_errors),
@@ -903,7 +907,7 @@ export async function fetchAdminTestHistory(options: FetchAdminHistoryOptions = 
   const limit = options.limit ?? ADMIN_HISTORY_LIMIT;
   const { data: uploads, error: uploadError } = await supabase
     .from("athlete_uploads")
-    .select("id, node_id, node_version, video_url, analysis_context, created_at, status, error_message, athlete_lab_nodes(name)")
+    .select("id, node_id, node_version, video_url, analysis_context, created_at, status, error_message, athlete_lab_nodes(name, phase_breakdown)")
     .eq("athlete_id", FIXED_TEST_ATHLETE_ID)
     .order("created_at", { ascending: false })
     .limit(limit);

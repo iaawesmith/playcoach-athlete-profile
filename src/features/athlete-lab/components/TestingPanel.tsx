@@ -1073,6 +1073,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
                         <span className="text-sm font-bold text-on-surface">{phase.name}</span>
                         <span className="rounded-lg bg-surface-container-lowest px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Not measured</span>
                       </div>
+                      {phase.reason && <p className="mt-2 text-xs text-on-surface-variant">{phase.reason}</p>}
                     </div>
                   );
                 }

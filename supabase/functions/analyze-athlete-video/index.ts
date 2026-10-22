@@ -41,6 +41,7 @@ import {
 import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
 import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from '../_shared/coachModel.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
+import { computeSpeedRetention } from './speedRetention.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -1446,6 +1447,16 @@ function summarizeValue(value: unknown): string {
   return 'N/A'
 }
 
+/** First frame of the phase that follows a metric's phase (explicit end_before_phase_id, else next in order). */
+export function nextPhaseStart(mapping: any, phaseBreakdown: any[], phaseWindows: Record<string, { start: number; end: number }>): number | null {
+  const order = parsePhaseBreakdown(phaseBreakdown)
+  const explicit = typeof mapping?.end_before_phase_id === 'string' ? mapping.end_before_phase_id : null
+  const idx = order.findIndex((p) => p.id === mapping?.phase_id)
+  const nextId = explicit ?? (idx >= 0 ? order[idx + 1]?.id : undefined)
+  const w = nextId ? phaseWindows[nextId] : undefined
+  return w ? w.start : null
+}
+
 function parsePhaseBreakdown(phases: any[]): Array<{ id: string; name: string }> {
   if (!Array.isArray(phases)) return []
   return phases.map((phase, index) => ({
@@ -2827,6 +2838,23 @@ async function calculateAllMetrics(
           mapping.temporal_window || 10
         )
         break
+      case 'speed_retention': {
+        const threshold = mapping.confidence_threshold || 0.70
+        const nextStart = nextPhaseStart(mapping, phaseBreakdown, phaseWindows)
+        if (nextStart === null) {
+          metricValue = { value: null, status: 'skipped', reason: 'no_next_phase_window' }
+          break
+        }
+        const hip = keypoints.map((frame, f) => {
+          const person = frame?.[personIndex]
+          return person ? getMidpoint(person, bilateralDecision.effectiveIndices, scores[f]?.[personIndex], threshold) : null
+        })
+        const scale = keypoints.map((_, f) => Array.isArray(calibration.perFrame) && typeof calibration.perFrame[f] === 'number'
+          ? calibration.perFrame[f]
+          : calibration.pixelsPerYard)
+        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, windowFrames: 5 }) as MetricValueResult
+        break
+      }
       case 'distance_variance':
         metricValue = calculateDistanceVariance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
@@ -4275,7 +4303,15 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   const nodeConfig = await fetchNodeConfig(upload.node_id)
   const nodeMetrics: any[] = Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : []
   const before: any[] = Array.isArray(result.metric_results) ? result.metric_results : []
-  const after = applyNodeScoring(before, nodeMetrics)
+  // Metrics added to the node after this run are computed from the run's
+  // stored keypoints, scores, per-frame scale and phase windows.
+  const added = await computeAddedMetricsFromStored(String(result.id), nodeConfig, nodeMetrics, before)
+  const after = applyNodeScoring([...before, ...added], nodeMetrics)
+    .filter((m: any) => nodeMetrics.some((n) => n?.name === m.name && n?.active !== false))
+    .map((m: any) => {
+      const def = nodeMetrics.find((n) => n?.name === m.name)
+      return typeof def?.weight === 'number' ? { ...m, weight: def.weight } : m
+    })
   const ctx = (upload.analysis_context ?? {}) as Record<string, unknown>
   const catchIncluded = ctx.catch_included !== false
   const agg = calculateAggregateScore(after, nodeConfig, catchIncluded) as any
@@ -4284,11 +4320,58 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
     node_version: nodeConfig.node_version,
     aggregate_before: result.aggregate_score,
     aggregate_after: agg.aggregate_score,
-    metrics: after.map((m: any, i: number) => ({
+    metrics: after.map((m: any) => ({
       name: m.name, value: m.value, target: m.elite_target, direction: m.target_direction ?? 'target',
-      score_before: before[i]?.score, score_after: m.score,
+      weight_before: before.find((b) => b.name === m.name)?.weight ?? null, weight_after: m.weight,
+      score_before: before.find((b) => b.name === m.name)?.score ?? null, score_after: m.score,
+      status: m.status, reason: m.reason ?? null,
+      detail: m.detail?.method === 'speed_retention' ? m.detail : undefined,
       against_target: typeof m.value === 'number' ? describeAgainstTarget(m.value, Number(m.elite_target), m.tolerance, m.target_direction, m.unit) : null,
     })),
+  })
+}
+
+async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, nodeMetrics: any[], stored: any[]): Promise<any[]> {
+  const missing = nodeMetrics.filter((n) => n?.active !== false && n?.keypoint_mapping?.calculation_type === 'speed_retention' && !stored.some((m) => m?.name === n.name))
+  if (!missing.length) return []
+  const { data } = await supabase.from('athlete_lab_results').select('result_data').eq('id', resultId).single()
+  const rd = (data?.result_data ?? {}) as any
+  const diag = rd.diagnostics ?? {}
+  const kps: any[] = Array.isArray(diag.raw_keypoints) ? diag.raw_keypoints : []
+  const scs: any[] = Array.isArray(diag.raw_scores) ? diag.raw_scores : []
+  const perFrame: any[] = Array.isArray(diag.per_frame) ? diag.per_frame : []
+  const fps = Number(diag.service?.fps) || 30
+  const phases = parsePhaseBreakdown(nodeConfig.phase_breakdown)
+  const windows: Record<string, { start: number; end: number }> = {}
+  for (const w of (rd.log_data?.rtmlib?.phase_windows ?? []) as any[]) {
+    const p = phases.find((x) => x.name === w.phase || x.id === w.phase_id)
+    if (p) windows[p.id] = { start: w.start, end: w.end }
+  }
+  return missing.map((metric) => {
+    const mapping = metric.keypoint_mapping
+    const base = { ...metric, status: 'skipped' as const }
+    const window = windows[mapping.phase_id]
+    const nextStart = nextPhaseStart(mapping, nodeConfig.phase_breakdown, windows)
+    if (!kps.length || !window || nextStart === null) return { ...base, reason: 'stored_data_unavailable' }
+    const threshold = mapping.confidence_threshold || 0.70
+    const indices: number[] = mapping.keypoint_indices
+    const phaseFrames = kps.slice(window.start, window.end + 1)
+    const phaseScores = scs.slice(window.start, window.end + 1)
+    const conf = checkConfidence(phaseFrames, phaseScores, 0, indices, metric.name, threshold,
+      typeof mapping.min_pass_ratio === 'number' ? mapping.min_pass_ratio : DEFAULT_MIN_PASS_RATIO)
+    if (!conf.passed) return { ...metric, status: 'flagged', reason: 'low_confidence', detail: { confidenceDiagnostics: conf.diagnostics } }
+    const hip = kps.map((frame, f) => (frame?.[0] ? getMidpoint(frame[0], indices, scs[f]?.[0], threshold) : null))
+    const scale = kps.map((_, f) => (typeof perFrame[f]?.scale_ppy === 'number' ? perFrame[f].scale_ppy : null))
+    const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, windowFrames: 5 })
+    if (r.value === null) return { ...base, reason: r.reason, detail: r.detail }
+    const dir = normalizeTargetDirection(metric.target_direction)
+    return {
+      id: metric.id, name: metric.name, unit: metric.unit, value: Math.round(r.value * 100) / 100,
+      elite_target: metric.eliteTarget, tolerance: metric.tolerance, target_direction: dir,
+      deviation: scoredDeviation(r.value, metric.eliteTarget, dir), score: scoreMetric(r.value, metric.eliteTarget, metric.tolerance, dir),
+      weight: metric.weight, status: 'scored', keypoint_mapping: mapping,
+      detail: { ...r.detail, unrounded_value: r.value, confidenceDiagnostics: conf.diagnostics },
+    }
   })
 }
 

@@ -1,6 +1,6 @@
 export type TargetDirection = "target" | "at_most" | "at_least";
 
-export type CalculationType = "angle" | "distance" | "velocity" | "acceleration" | "frame_delta" | "distance_variance";
+export type CalculationType = "angle" | "distance" | "velocity" | "acceleration" | "frame_delta" | "distance_variance" | "speed_retention";
 // 'none' = the metric's keypoint indices already span both sides (e.g. hips
 // [23,24]) or reference a center keypoint (nose, hip-center). The analyzer
 // uses base indices verbatim — no mirroring, no side selection.
@@ -16,6 +16,8 @@ export interface KeypointMapping {
   bilateral_override: BilateralOverride;
   confidence_threshold: number;
   phase_id: string | null;
+  /** speed_retention only: the end window stops before this phase starts (defaults to the next phase). */
+  end_before_phase_id?: string | null;
 }
 
 export interface KeyMetric {
@@ -435,6 +437,9 @@ export interface PipelinePhaseScore {
   name: string;
   /** null = no scored metric in this phase ("not measured"). */
   score: number | null;
+  status?: "scored" | "no_active_metric" | "not_measurable";
+  /** Admin-facing reason when not measured. */
+  reason?: string | null;
 }
 
 export interface PipelineDetectedError {

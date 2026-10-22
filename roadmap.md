@@ -50,3 +50,8 @@
 - [x] Comparison replay (N per model × result IDs) with cost estimate + confirm; disabled without a secret until admin login (F-SEC-1)
 - [x] Data-handling/retention report per provider
 - [ ] Run comparison — blocked: waiting for second route to be filmed and user go-ahead
+
+## Phase display + Speed into the break (approved Oct 22)
+- [x] Admin views show every phase with "Not measured" reason; athlete-facing filter helper (no athlete results screen exists yet)
+- [x] Slant v11: Speed into the break (pre-Break end window, per-frame calibrated speeds), weights 50/20/15/15
+- [x] Rescore bcf95d35 from stored data
