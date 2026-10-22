@@ -4311,7 +4311,7 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   if (!serviceKey || bearer !== serviceKey) return json({ error: 'admin only' }, 403)
   const { data: result, error } = await supabase
     .from('athlete_lab_results')
-    .select('id, upload_id, aggregate_score, metric_results')
+    .select('id, upload_id, aggregate_score, metric_results, result_data')
     .eq('id', String(payload.rescore_result_id))
     .single()
   if (error || !result) return json({ error: 'result not found' }, 404)
@@ -4332,7 +4332,16 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   const ctx = (upload.analysis_context ?? {}) as Record<string, unknown>
   const catchIncluded = ctx.catch_included !== false
   const agg = calculateAggregateScore(after, nodeConfig, catchIncluded) as any
+  const rd = (result.result_data ?? {}) as any
+  const groundTruth = groundTruthFromRun({
+    context: ctx,
+    perFrame: Array.isArray(rd.diagnostics?.per_frame) ? rd.diagnostics.per_frame : [],
+    phaseWindows: Array.isArray(rd.log_data?.rtmlib?.phase_windows) ? rd.log_data.rtmlib.phase_windows : [],
+    releaseFrame: rd.log_data?.rtmlib?.release_anchor?.applied ? rd.log_data.rtmlib.release_anchor.frame : null,
+    fps: Number(rd.diagnostics?.service?.fps) || 30,
+  })
   return json({
+    ground_truth_distance: groundTruth,
     result_id: result.id,
     node_version: nodeConfig.node_version,
     aggregate_before: result.aggregate_score,
