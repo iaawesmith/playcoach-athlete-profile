@@ -11,6 +11,7 @@ import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
 import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
+import { CoachingModelPanel } from "./CoachingModelPanel";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
 import { MigrateCoachingCuesModal, type PhaseCommit } from "./MigrateCoachingCuesModal";
 import { CoachingCuesMigrationBanner } from "./CoachingCuesMigrationBanner";
@@ -629,6 +630,8 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         llm_prompt_template: draft.llm_prompt_template,
         llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
+        coaching_provider: draft.coaching_provider ?? null,
+        coaching_model: draft.coaching_model?.trim() ? draft.coaching_model.trim() : null,
         phase_context_mode: draft.phase_context_mode ?? "compact",
         coaching_cues_migration_status: draft.coaching_cues_migration_status ?? "pending",
         badges: draft.badges,
@@ -1176,6 +1179,17 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
             onSystemInstructionsChange={(v) => updateWithCriticalTrack("llm_system_instructions" as keyof TrainingNode, v as never)}
             phaseContextMode={draft.phase_context_mode ?? "compact"}
             onPhaseContextModeChange={(v) => updateWithCriticalTrack("phase_context_mode" as keyof TrainingNode, v as never)}
+          />
+        )}
+
+        {tab === "prompt" && (
+          <CoachingModelPanel
+            nodeProvider={draft.coaching_provider ?? null}
+            nodeModel={draft.coaching_model ?? null}
+            onNodeChange={(provider, model) => {
+              updateWithCriticalTrack("coaching_provider" as keyof TrainingNode, provider as never);
+              updateWithCriticalTrack("coaching_model" as keyof TrainingNode, model as never);
+            }}
           />
         )}
 

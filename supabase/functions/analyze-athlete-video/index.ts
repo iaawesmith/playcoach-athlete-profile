@@ -39,6 +39,7 @@ import {
   passesWindowGate,
 } from './quality.ts'
 import { scoreMetric, scoredDeviation, describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
+import { ANON_NAME, costUsd, personalizeFeedback, resolveCoachModel, summarizeComparison, estimateComparison, validateCoachModel, type CoachModel, type ComparisonRun, type ResolvedCoachModel, type TokenPrice } from '../_shared/coachModel.ts'
 import { smoothKeypoints, type KeypointSmoothingSetting } from './smoothing.ts'
 
 const supabase = createClient(
@@ -453,6 +454,12 @@ type PipelineLogData = {
     variable_tokens?: number
     response_tokens?: number
     total_tokens?: number
+    provider?: string
+    requested_model?: string
+    reported_model?: string | null
+    model_source?: string
+    latency_ms?: number
+    cost_usd?: number | null
     word_count?: number
     target_words?: number
     truncated?: boolean
@@ -461,12 +468,105 @@ type PipelineLogData = {
   }
 }
 
+type CoachCall = { text: string; raw: string; inputTokens?: number; outputTokens?: number; reportedModel: string | null }
+
+/** One adapter per provider. Neither receives athlete names (prompts are anonymized upstream). */
+async function callCoachModel(
+  m: ResolvedCoachModel,
+  system: string,
+  prompt: string,
+  maxTokens: number,
+  logCtx: Record<string, unknown>,
+): Promise<CoachCall> {
+  let response: Response
+  try {
+    if (m.provider === 'anthropic') {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: m.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: prompt }] }),
+      })
+    } else {
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}` },
+        body: JSON.stringify({ model: m.model, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }),
+      })
+    }
+  } catch (error) {
+    logWarn('claude_request_failed', { ...logCtx, provider: m.provider, model: m.model, error: (error as Error).message })
+    throw error
+  }
+  const raw = await response.text()
+  logInfo('claude_response_received', { ...logCtx, provider: m.provider, model: m.model, status: response.status, ok: response.ok, rawResponse: raw.slice(0, 4000) })
+  let data: Record<string, any>
+  try {
+    data = JSON.parse(raw)
+  } catch (error) {
+    throw new Error(`Coaching model response parse failed: ${(error as Error).message}`)
+  }
+  if (!response.ok) {
+    logWarn('claude_request_failed', { ...logCtx, provider: m.provider, status: response.status, rawResponse: raw.slice(0, 4000) })
+    throw new Error(`Coaching model request failed (${m.provider}): ${response.status} ${raw.slice(0, 300)}`)
+  }
+  const reportedModel = typeof data.model === 'string' ? data.model : null
+  if (m.provider === 'anthropic') {
+    const block = Array.isArray(data.content) ? data.content[0] : null
+    return {
+      text: typeof block?.text === 'string' ? block.text : '',
+      raw,
+      inputTokens: typeof data.usage?.input_tokens === 'number' ? data.usage.input_tokens : undefined,
+      outputTokens: typeof data.usage?.output_tokens === 'number' ? data.usage.output_tokens : undefined,
+      reportedModel,
+    }
+  }
+  const text = data.choices?.[0]?.message?.content
+  return {
+    text: typeof text === 'string' ? text : '',
+    raw,
+    inputTokens: typeof data.usage?.prompt_tokens === 'number' ? data.usage.prompt_tokens : undefined,
+    outputTokens: typeof data.usage?.completion_tokens === 'number' ? data.usage.completion_tokens : undefined,
+    reportedModel,
+  }
+}
+
+let gatewayPriceCache: Record<string, TokenPrice> | null = null
+/** Per-token prices from the built-in AI model catalog (cached per instance). */
+async function loadGatewayPrices(): Promise<Record<string, TokenPrice>> {
+  if (gatewayPriceCache) return gatewayPriceCache
+  const out: Record<string, TokenPrice> = {}
+  try {
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/models', { headers: { Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}` } })
+    if (res.ok) {
+      const body = await res.json() as { data?: any[] }
+      for (const m of body.data ?? []) {
+        const i = Number(m?.pricing?.input?.text?.tiers?.[0]?.cost)
+        const o = Number(m?.pricing?.output?.text?.tiers?.[0]?.cost)
+        if (typeof m?.id === 'string' && Number.isFinite(i) && Number.isFinite(o)) out[m.id] = { input: i, output: o }
+      }
+    }
+  } catch { /* cost stays null when prices are unavailable */ }
+  gatewayPriceCache = out
+  return out
+}
+
+async function loadWorkspaceCoachModel(): Promise<{ provider: unknown; model: unknown } | null> {
+  const { data } = await supabase.from('coaching_model_settings').select('provider, model').eq('id', true).maybeSingle()
+  return data ?? null
+}
+
 type ClaudeCallResult = {
   feedback: string
   log: PipelineLogData['claude_api']
   // Full-fidelity record for the diagnostic export (exact prompt/response).
   diagnostics: {
     model: string
+    provider?: string
+    requested_model?: string
+    reported_model?: string | null
+    model_source?: string
+    latency_ms?: number
+    cost_usd?: number | null
     status: 'COMPLETE' | 'FAILED' | 'SKIPPED'
     system_instructions: string | null
     prompt: string | null
@@ -888,6 +988,9 @@ Deno.serve(async (req) => {
     if (payload && typeof payload.replay_feedback_for_result_id === 'string') {
       return await handleFeedbackReplay(req, payload)
     }
+    if (payload && (payload.mode === 'estimate' || payload.mode === 'compare') && Array.isArray(payload.result_ids)) {
+      return await handleModelComparison(req, payload)
+    }
     if (payload && typeof payload.rescore_result_id === 'string') {
       return await handleRescore(req, payload)
     }
@@ -1151,13 +1254,13 @@ Deno.serve(async (req) => {
         .map((m: any) => phaseNames.get(m.keypoint_mapping?.phase_id) ?? '')
       feedback = buildLowQualityFeedback(affected)
       logData.claude_api = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         skipped_reason: 'low_quality_clip',
         target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
       }
       llmDiagnostics = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
         prompt: null,
@@ -1169,13 +1272,13 @@ Deno.serve(async (req) => {
       logInfo('claude_skipped_low_quality_clip', { uploadId, reason: scoreResult.reason })
     } else if (!poseQualityAudit.usableData) {
       logData.claude_api = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         skipped_reason: 'Pose confidence too low to generate reliable coaching feedback.',
         target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
       }
       llmDiagnostics = {
-        model: 'claude-sonnet-4-5',
+        model: 'not called',
         status: 'SKIPPED',
         system_instructions: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions : null,
         prompt: null,
@@ -1285,7 +1388,8 @@ async function fetchNodeConfig(nodeId: string) {
       reference_calibrations,
       reference_fallback_behavior,
       common_errors,
-      form_checkpoints
+      form_checkpoints,
+      coaching_provider, coaching_model
     `)
     .eq('id', nodeId)
     .eq('status', 'live')
@@ -3681,6 +3785,7 @@ async function callClaude(
   upload: any,
   context: any,
   retryNote = '',
+  coachModel: ResolvedCoachModel = resolveCoachModel(null, null),
 ): Promise<ClaudeCallResult> {
   const variables: Record<string, string> = {
     mastery_score: scoreResult.aggregate_score?.toString() || 'N/A',
@@ -3695,7 +3800,8 @@ async function callClaude(
     detected_errors: errorResults.detected.length > 0
       ? `Confirmed errors observed: ${errorResults.detected.map((e: { name: string }) => e.name).join(', ')}`
       : '',
-    athlete_name: context.athlete_name || 'Athlete',
+    // Names never reach a provider; the real first name is inserted after the check.
+    athlete_name: ANON_NAME,
     node_name: String(nodeConfig.name ?? '').trim(),
     // A4: position now wired from nodeConfig.
     position: nodeConfig.position || '',
@@ -3733,7 +3839,10 @@ async function callClaude(
   )
 
   const claudeLog: PipelineLogData['claude_api'] = {
-    model: 'claude-sonnet-4-5',
+    model: coachModel.model,
+    provider: coachModel.provider,
+    requested_model: coachModel.model,
+    model_source: coachModel.source,
     system_instructions_present: Boolean(nodeConfig.llm_system_instructions),
     system_instructions_chars: typeof nodeConfig.llm_system_instructions === 'string' ? nodeConfig.llm_system_instructions.length : 0,
     variables_injected: Object.entries(variables).map(([name, value]) => ({
@@ -3760,81 +3869,22 @@ async function callClaude(
     promptPreview: prompt.slice(0, 500),
   })
 
-  let response: Response
-  try {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500,
-        system: systemText,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-  } catch (error) {
-    logWarn('claude_request_failed', {
-      uploadId: upload.id,
-      nodeId: nodeConfig.id,
-      nodeName: nodeConfig.name,
-      error: (error as Error).message,
-    })
-    throw error
-  }
-
-  const rawResponseText = await response.text()
-  logInfo('claude_response_received', {
-    uploadId: upload.id,
-    nodeId: nodeConfig.id,
-    nodeName: nodeConfig.name,
-    status: response.status,
-    ok: response.ok,
-    rawResponse: rawResponseText.slice(0, 4000),
-    rawResponseLength: rawResponseText.length,
+  const started = Date.now()
+  const call = await callCoachModel(coachModel, systemText, prompt, nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500, {
+    uploadId: upload?.id, nodeId: nodeConfig.id, nodeName: nodeConfig.name,
   })
-
-  let data: Record<string, unknown>
-  try {
-    data = JSON.parse(rawResponseText) as Record<string, unknown>
-  } catch (error) {
-    logWarn('claude_response_parse_failed', {
-      uploadId: upload.id,
-      nodeId: nodeConfig.id,
-      nodeName: nodeConfig.name,
-      error: (error as Error).message,
-      rawResponse: rawResponseText.slice(0, 4000),
-    })
-    throw new Error(`Claude response parse failed: ${(error as Error).message}`)
-  }
-
-  if (!response.ok) {
-    logWarn('claude_request_failed', {
-      uploadId: upload.id,
-      nodeId: nodeConfig.id,
-      nodeName: nodeConfig.name,
-      status: response.status,
-      rawResponse: rawResponseText.slice(0, 4000),
-    })
-    throw new Error(`Claude request failed: ${response.status}`)
-  }
-
-  const usage = data.usage && typeof data.usage === 'object' ? data.usage as Record<string, unknown> : {}
-  const inputTokens = typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined
-  const outputTokens = typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined
+  const latencyMs = Date.now() - started
+  const prices = coachModel.provider === 'lovable_ai' ? await loadGatewayPrices() : {}
+  const inputTokens = call.inputTokens
+  const outputTokens = call.outputTokens
+  const feedback = call.text
+  const rawResponseText = call.raw
   claudeLog.response_tokens = outputTokens
   claudeLog.total_tokens = (inputTokens ?? 0) + (outputTokens ?? 0) || undefined
   if (inputTokens !== undefined) claudeLog.prompt_tokens = inputTokens
-
-  const content = Array.isArray(data.content) ? data.content : []
-  const firstBlock = content[0]
-  const feedback =
-    firstBlock && typeof firstBlock === 'object' && typeof (firstBlock as { text?: unknown }).text === 'string'
-      ? (firstBlock as { text: string }).text
-      : ''
+  claudeLog.reported_model = call.reportedModel
+  claudeLog.latency_ms = latencyMs
+  claudeLog.cost_usd = costUsd(coachModel, inputTokens, outputTokens, prices)
 
   if (!feedback) {
     logWarn('claude_response_empty', {
@@ -3855,7 +3905,13 @@ async function callClaude(
     feedback,
     log: claudeLog,
     diagnostics: {
-      model: 'claude-sonnet-4-5',
+      model: coachModel.model,
+      provider: coachModel.provider,
+      requested_model: coachModel.model,
+      reported_model: call.reportedModel,
+      model_source: coachModel.source,
+      latency_ms: latencyMs,
+      cost_usd: costUsd(coachModel, inputTokens, outputTokens, prices),
       status: 'COMPLETE',
       system_instructions: systemText || null,
       prompt,
@@ -4174,29 +4230,9 @@ async function handleFeedbackReplay(req: Request, payload: Record<string, unknow
 
   const resultId = String(payload.replay_feedback_for_result_id)
   const count = Math.min(5, Math.max(1, Number(payload.replay_count) || 1))
-  const { data: result, error } = await supabase
-    .from('athlete_lab_results')
-    .select('id, upload_id, aggregate_score, phase_scores, metric_results, detected_errors')
-    .eq('id', resultId)
-    .single()
-  if (error || !result) return json({ error: 'result not found' }, 404)
-  const { data: upload, error: uErr } = await supabase
-    .from('athlete_uploads')
-    .select('id, node_id, camera_angle, analysis_context')
-    .eq('id', result.upload_id)
-    .single()
-  if (uErr || !upload) return json({ error: 'upload not found' }, 404)
-  const nodeConfig = await fetchNodeConfig(upload.node_id)
-  const context = (upload.analysis_context ?? {}) as Record<string, unknown>
-  const metricResults = applyNodeScoring(
-    Array.isArray(result.metric_results) ? result.metric_results : [],
-    Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : [],
-  )
-  const rescored = calculateAggregateScore(metricResults, nodeConfig, context.catch_included !== false) as any
-  const detected = (Array.isArray(result.detected_errors) ? result.detected_errors : [])
-    .map((e: unknown) => (typeof e === 'string' ? { name: e } : e))
-    .filter((e: any) => e && typeof e.name === 'string' && e.triggered !== false)
-  const scoreResult = { aggregate_score: rescored.aggregate_score, phase_scores: rescored.phase_scores ?? result.phase_scores ?? {} }
+  const inputs = await loadReplayInputs(resultId)
+  if ('error' in inputs) return json({ error: inputs.error }, 404)
+  const { nodeConfig, scoreResult, metricResults, detected, upload, context } = inputs
 
   const runs = []
   for (let i = 0; i < count; i++) {
@@ -4256,6 +4292,124 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
   })
 }
 
+async function loadReplayInputs(resultId: string): Promise<any> {
+  const { data: result, error } = await supabase
+    .from('athlete_lab_results')
+    .select('id, upload_id, aggregate_score, phase_scores, metric_results, detected_errors, result_data')
+    .eq('id', resultId)
+    .single()
+  if (error || !result) return { error: 'result not found' }
+  const { data: upload, error: uErr } = await supabase
+    .from('athlete_uploads')
+    .select('id, node_id, camera_angle, analysis_context')
+    .eq('id', result.upload_id)
+    .single()
+  if (uErr || !upload) return { error: 'upload not found' }
+  const nodeConfig = await fetchNodeConfig(upload.node_id)
+  const context = (upload.analysis_context ?? {}) as Record<string, unknown>
+  const metricResults = applyNodeScoring(
+    Array.isArray(result.metric_results) ? result.metric_results : [],
+    Array.isArray(nodeConfig.key_metrics) ? nodeConfig.key_metrics : [],
+  )
+  const rescored = calculateAggregateScore(metricResults, nodeConfig, context.catch_included !== false) as any
+  const detected = (Array.isArray(result.detected_errors) ? result.detected_errors : [])
+    .map((e: unknown) => (typeof e === 'string' ? { name: e } : e))
+    .filter((e: any) => e && typeof e.name === 'string' && e.triggered !== false)
+  const scoreResult = { aggregate_score: rescored.aggregate_score, phase_scores: rescored.phase_scores ?? result.phase_scores ?? {} }
+  const claude = (result.result_data as any)?.log_data?.claude_api ?? {}
+  return { nodeConfig, scoreResult, metricResults, detected, upload, context, storedTokens: { input: claude.prompt_tokens, output: claude.response_tokens } }
+}
+
+// ---------------------------------------------------------------------------
+// Model comparison (admin only, writes nothing). Disabled unless the
+// COACH_COMPARE_SECRET is set and sent, because it spends credits (F-SEC-1).
+// Step 1 "estimate" returns calls/tokens/cost and a confirm token; step 2
+// "compare" runs only with that token for the identical request.
+
+const COMPARE_MAX_PROMPTS_PER_CALL = 15
+
+async function compareConfirmToken(resultIds: string[], models: CoachModel[], n: number): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify({ resultIds, models, n }))
+  const hash = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
+}
+
+async function handleModelComparison(req: Request, payload: Record<string, any>): Promise<Response> {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!serviceKey || bearer !== serviceKey) return json({ error: 'admin only' }, 403)
+  const compareSecret = Deno.env.get('COACH_COMPARE_SECRET') ?? ''
+  if (!compareSecret) return json({ error: 'model comparison is disabled until admin login exists (F-SEC-1)' }, 403)
+  if (payload.compare_secret !== compareSecret) return json({ error: 'comparison secret required' }, 403)
+
+  const resultIds: string[] = Array.isArray(payload.result_ids) ? payload.result_ids.filter((x: unknown) => typeof x === 'string') : []
+  const models: CoachModel[] = Array.isArray(payload.models) ? payload.models : []
+  const n = Math.min(5, Math.max(1, Number(payload.n) || 1))
+  if (resultIds.length === 0 || models.length === 0) return json({ error: 'result_ids and models are required' }, 400)
+  for (const m of models) {
+    const v = validateCoachModel(m?.provider, m?.model)
+    if (!v.ok) return json({ error: `invalid model ${m?.provider}:${m?.model}: ${v.reason}` }, 400)
+  }
+
+  const inputs: any[] = []
+  for (const id of resultIds) {
+    const r = await loadReplayInputs(id)
+    if ('error' in r) return json({ error: `${id}: ${r.error}` }, 404)
+    inputs.push({ id, ...r })
+  }
+  const known = inputs.map((i) => i.storedTokens).filter((t) => typeof t.input === 'number' && typeof t.output === 'number')
+  const perCall = known.length
+    ? { input_tokens: Math.ceil(known.reduce((s, t) => s + t.input, 0) / known.length), output_tokens: Math.ceil(known.reduce((s, t) => s + t.output, 0) / known.length) }
+    : { input_tokens: 1500, output_tokens: 300 }
+  const prices = await loadGatewayPrices()
+  // Upper bound: every first draft retried once.
+  const estimate = estimateComparison(models, resultIds.length, n, perCall, 1, prices)
+  const token = await compareConfirmToken(resultIds, models, n)
+  const totalPrompts = resultIds.length * n * models.length
+
+  if (payload.mode === 'estimate') {
+    return json({
+      mode: 'estimate', per_call_tokens: perCall, retry_assumption: 'every first draft retried once (upper bound)',
+      estimate, total_prompts: totalPrompts, batches_needed: Math.ceil(totalPrompts / COMPARE_MAX_PROMPTS_PER_CALL), confirm_token: token,
+    })
+  }
+  if (payload.confirm_token !== token) return json({ error: 'run the estimate first and pass its confirm_token' }, 409)
+  if (totalPrompts > COMPARE_MAX_PROMPTS_PER_CALL) {
+    return json({ error: `too large for one call (${totalPrompts} prompts, max ${COMPARE_MAX_PROMPTS_PER_CALL}); split into batches` }, 400)
+  }
+
+  const runs: ComparisonRun[] = []
+  for (const model of models) {
+    for (const inp of inputs) {
+      for (let i = 0; i < n; i++) {
+        const started = Date.now()
+        const r = await generateCheckedFeedback(inp.nodeConfig, inp.scoreResult, inp.metricResults, { detected: inp.detected }, inp.upload, inp.context, model)
+        const fc = r.diagnostics.feedback_check
+        runs.push({
+          model, result_id: inp.id,
+          first_passed: Boolean(fc && !fc.retried && fc.passed),
+          violations: [...(fc?.violations ?? []), ...(fc?.retry_violations ?? [])],
+          retried: Boolean(fc?.retried), fallback_used: Boolean(fc?.fallback_used),
+          words: countWords(r.feedback), cost_usd: r.diagnostics.cost_usd ?? null,
+          ms: Date.now() - started, response: r.feedback, reported_model: r.diagnostics.reported_model ?? null,
+        })
+      }
+    }
+  }
+  const sideBySide = resultIds.map((id) => ({
+    result_id: id,
+    columns: models.map((m) => ({
+      model: `${m.provider}:${m.model}`,
+      responses: runs.filter((r) => r.result_id === id && r.model === m).map((r) => ({
+        outcome: r.fallback_used ? 'fallback' : r.retried ? 'retried' : 'pass', words: r.words, response: r.response,
+      })),
+    })),
+  }))
+  return json({ mode: 'compare', summary: summarizeComparison(runs), side_by_side: sideBySide })
+}
+
 // Runs the model, checks the response (level-of-play words always, other
 // players on solo reps, 150-word limit), retries once naming the violations,
 // and falls back to a data-only summary. A failing response is never shipped.
@@ -4266,25 +4420,28 @@ async function generateCheckedFeedback(
   errorResults: any,
   upload: any,
   context: any,
+  modelOverride: CoachModel | null = null,
 ): Promise<ClaudeCallResult> {
   const solo = normalizePeopleInVideo(context?.people_in_video) === 'solo'
-  const first = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context)
+  const coachModel = resolveCoachModel(nodeConfig, await loadWorkspaceCoachModel(), modelOverride)
+  const firstName = context?.athlete_name
+  const first = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, '', coachModel)
   const firstCheck = checkFeedback(first.feedback, solo)
   const record: FeedbackCheckRecord = {
     passed: firstCheck.passed, violations: firstCheck.violations, retried: false, retry_violations: [], fallback_used: false,
   }
-  if (firstCheck.passed) return withCheck(first, record)
+  if (firstCheck.passed) return withCheck(first, record, firstName)
 
   record.first_response = first.feedback
   record.retried = true
   const note = `\n\nYOUR PREVIOUS DRAFT WAS REJECTED for: ${firstCheck.violations.join('; ')}. ` +
     `Rewrite it from scratch under ${150} words, following every evidence rule, with none of those problems.`
-  const second = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, note)
+  const second = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, note, coachModel)
   const secondCheck = checkFeedback(second.feedback, solo)
   record.retry_violations = secondCheck.violations
   if (secondCheck.passed) {
     record.passed = true
-    return withCheck(second, record)
+    return withCheck(second, record, firstName)
   }
 
   record.retry_response = second.feedback
@@ -4297,10 +4454,13 @@ async function generateCheckedFeedback(
   })
   const fallback = buildFallbackFeedback(metricResults, errors, solo)
   record.passed = checkFeedback(fallback, solo).passed
-  return withCheck({ ...second, feedback: fallback }, record)
+  return withCheck({ ...second, feedback: fallback }, record, firstName)
 }
 
-function withCheck(result: ClaudeCallResult, record: FeedbackCheckRecord): ClaudeCallResult {
+// The real first name goes in only after generation and after the check.
+function withCheck(result: ClaudeCallResult, record: FeedbackCheckRecord, firstName?: unknown): ClaudeCallResult {
+  const feedback = personalizeFeedback(result.feedback, firstName)
+  result = { ...result, feedback }
   return {
     ...result,
     log: { ...(result.log ?? {}), feedback_check: record } as PipelineLogData['claude_api'],

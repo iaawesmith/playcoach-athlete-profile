@@ -202,7 +202,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string, metricR
   md += `---\n\n## Claude API\n\n`;
   const c = logData.claude_api;
   if (c) {
-    md += `Model: ${c.model ?? "N/A"}\nSystem instructions: ${c.system_instructions_present ? "PRESENT" : "NOT CONFIGURED"} (${c.system_instructions_chars ?? 0} chars)\n\n`;
+    md += `Provider: ${c.provider ?? "not recorded"}\nRequested model: ${c.requested_model ?? c.model ?? "N/A"}\nReported model: ${c.reported_model ?? "not recorded"}\nModel source: ${c.model_source ?? "not recorded"}\nResponse time: ${c.latency_ms ?? "not recorded"}ms\nSystem instructions: ${c.system_instructions_present ? "PRESENT" : "NOT CONFIGURED"} (${c.system_instructions_chars ?? 0} chars)\n\n`;
     if (c.variables_injected?.length) {
       md += `Variables injected:\n`;
       for (const v of c.variables_injected) {
@@ -585,6 +585,10 @@ export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricR
               <div className="space-y-4">
                 <div className={`${MONO} space-y-1`}>
                   <div className="text-on-surface">Model: {logData.claude_api.model ?? "N/A"}</div>
+                  <div className="text-on-surface">Provider: {logData.claude_api.provider ?? "not recorded"}</div>
+                  <div className="text-on-surface">Reported model: {logData.claude_api.reported_model ?? "not recorded"}</div>
+                  <div className="text-on-surface">Model source: {logData.claude_api.model_source ?? "not recorded"}</div>
+                  <div className="text-on-surface">Response time: {logData.claude_api.latency_ms != null ? `${logData.claude_api.latency_ms}ms` : "not recorded"}</div>
                   <div className="text-on-surface">
                     System instructions: {logData.claude_api.system_instructions_present ? "PRESENT" : "NOT CONFIGURED"} ({logData.claude_api.system_instructions_chars ?? 0} chars)
                   </div>

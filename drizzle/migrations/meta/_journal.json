@@ -8,6 +8,13 @@
       "when": 1792533435155,
       "tag": "0000_create_calibration_clips",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792703973745,
+      "tag": "0001_coaching_model_settings",
+      "breakpoints": true
     }
   ]
 }
