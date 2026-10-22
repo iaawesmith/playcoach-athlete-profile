@@ -167,7 +167,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string, metricR
   md += `---\n\n## Pose Engine Output\n\n`;
   const r = logData.rtmlib;
   if (r) {
-    md += `Solution Class: ${r.solution_class ?? "N/A"}\nModel: ${r.model ?? "N/A"}\nBackend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nService revision: ${r.service_revision ?? "not recorded"}\nService build: ${r.service_build ?? "not recorded"}\nProcessing time (total): ${r.timings_ms?.total ?? r.processing_time_ms ?? "not recorded"}ms\nPose loop: ${r.timings_ms?.pose_loop ?? "not recorded"}ms\n\n`;
+    md += `Solution Class: ${r.solution_class ?? "N/A"}\nModel: ${r.model ?? "N/A"}\nBackend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nService revision: ${r.service_revision ?? "not recorded"}\nService build: ${r.service_build ?? "not recorded"}\n${r.analyzer_build_line ?? "Analyzer build: not recorded"}\nProcessing time (total): ${r.timings_ms?.total ?? r.processing_time_ms ?? "not recorded"}ms\nPose loop: ${r.timings_ms?.pose_loop ?? "not recorded"}ms\n\n`;
     if (r.ground_truth_lines?.length) md += `${r.ground_truth_lines.join("\n")}\n\n`;
     if (r.phase_windows?.length) {
       md += `Phase Frame Windows:\n`;
@@ -428,6 +428,7 @@ export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricR
                   <div className="text-on-surface">Source FPS: {logData.rtmlib.source_fps ?? "N/A"}</div>
                   <div className="text-on-surface">Service revision: {logData.rtmlib.service_revision ?? "not recorded"}</div>
                   <div className="text-on-surface">Service build: {logData.rtmlib.service_build ?? "not recorded"}</div>
+                  <div className="text-on-surface" data-testid="analyzer-build-line">{logData.rtmlib.analyzer_build_line ?? "Analyzer build: not recorded"}</div>
                   <div className="text-on-surface">Processing time (total): {logData.rtmlib.timings_ms?.total ?? logData.rtmlib.processing_time_ms ?? "not recorded"} ms</div>
                   <div className="text-on-surface">Pose loop: {logData.rtmlib.timings_ms?.pose_loop ?? "not recorded"} ms</div>
                   <div className="text-on-surface">Confidence warnings: {reporting?.warnings.length ?? 0}</div>
