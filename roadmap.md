@@ -55,3 +55,9 @@
 - [x] Admin views show every phase with "Not measured" reason; athlete-facing filter helper (no athlete results screen exists yet)
 - [x] Slant v11: Speed into the break (pre-Break end window, per-frame calibrated speeds), weights 50/20/15/15
 - [x] Rescore bcf95d35 from stored data
+
+## Pose overlay player (approved Oct 22)
+- [ ] Admin overlay player in Testing Panel: stored keypoints, confidence colors, metric highlights, hip trail, follow view + minimap, phase timeline
+- [ ] First-frame-timestamp sync; verify left knee (25) on frame 46 of bcf95d35
+- [ ] One-time signed link refresh on playback error, resume at current frame
+- [ ] Per-frame px/yd and athlete height readout
