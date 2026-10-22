@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { computeCategories } from "@/features/athlete-lab/components/NodeReadinessBar";
 import type { EliteVideo, TrainingNode } from "@/features/athlete-lab/types";
 
-const baseNode = { elite_videos: [], reference_calibrations: [] } as unknown as TrainingNode;
+const baseNode = {
+  elite_videos: [], reference_calibrations: [], key_metrics: [], phase_breakdown: [], common_errors: [], badges: [], form_checkpoints: [],
+  llm_prompt_template: "", overview: "", camera_guidelines: {},
+} as unknown as TrainingNode;
 
 const videoCategory = (videos: EliteVideo[]) =>
   computeCategories({ ...baseNode, elite_videos: videos }).find((c) => c.name === "Reference video");
