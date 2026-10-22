@@ -4233,13 +4233,13 @@ async function handleRescore(req: Request, payload: Record<string, unknown>): Pr
     return { ...m, target_direction: dir, deviation: scoredDeviation(m.value, target, dir), score: scoreMetric(m.value, target, m.tolerance, dir) }
   })
   const ctx = (upload.analysis_context ?? {}) as Record<string, unknown>
-  const catchIncluded = ctx.catch_included !== false && ctx.catch_status !== 'no'
+  const catchIncluded = ctx.catch_included !== false
   const agg = calculateAggregateScore(after, nodeConfig, catchIncluded) as any
   return json({
     result_id: result.id,
     node_version: nodeConfig.node_version,
     aggregate_before: result.aggregate_score,
-    aggregate_after: agg?.aggregate_score ?? agg?.aggregateScore ?? agg,
+    aggregate_after: agg.aggregate_score,
     metrics: after.map((m: any, i: number) => ({
       name: m.name, value: m.value, target: m.elite_target, direction: m.target_direction ?? 'target',
       score_before: before[i]?.score, score_after: m.score,
