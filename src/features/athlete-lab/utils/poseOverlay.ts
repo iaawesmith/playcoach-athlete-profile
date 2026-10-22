@@ -312,7 +312,7 @@ export function smoothOverlayKeypoints(d: OverlayData, nodeMetrics: KeyMetric[])
   for (const m of nodeMetrics) {
     if (m.active === false || !m.keypoint_mapping) continue;
     const t = m.keypoint_mapping.confidence_threshold;
-    const threshold = typeof t === "number" && t > 0 && t <= 1 ? t : 0.5;
+    const threshold = typeof t === "number" && Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0.7;
     for (const k of m.keypoint_mapping.keypoint_indices ?? []) {
       const prev = settings.get(k);
       settings.set(k, { windowSize: SMOOTHING_WINDOW_FRAMES, confidenceThreshold: prev ? Math.max(prev.confidenceThreshold, threshold) : threshold });
