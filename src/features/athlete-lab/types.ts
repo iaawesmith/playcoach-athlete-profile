@@ -234,6 +234,9 @@ export interface TrainingNode {
 
   llm_max_words: number;
   llm_system_instructions: string;
+  /** Optional per-node coaching model override; null uses the workspace default. */
+  coaching_provider?: "anthropic" | "lovable_ai" | null;
+  coaching_model?: string | null;
   /** Phase 1c.1 — controls how phase_breakdown is rendered into the {{phase_context}} template variable. */
   phase_context_mode?: "off" | "names_only" | "compact" | "full";
   /** Phase 1c.1 Slice 2 — lifecycle for the Mechanics → Phases coaching cues migration. */
@@ -374,6 +377,12 @@ export interface AnalysisLogData {
   error_detection?: ErrorDetectionEntry[];
   claude_api?: {
     model?: string;
+    provider?: string;
+    requested_model?: string;
+    reported_model?: string | null;
+    model_source?: string;
+    latency_ms?: number;
+    cost_usd?: number | null;
     system_instructions_present?: boolean;
     system_instructions_chars?: number;
     variables_injected?: Array<{ name: string; value_summary: string; present: boolean }>;
