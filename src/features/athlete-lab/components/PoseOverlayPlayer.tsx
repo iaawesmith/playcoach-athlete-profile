@@ -76,6 +76,7 @@ export function PoseOverlayPlayer({ uploadId, node }: Props) {
   const [trail, setTrail] = useState(true);
   const [follow, setFollow] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
+  const [drawTick, setDrawTick] = useState(0);
 
   const videoRef = useRef<RvfcVideo | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -313,7 +314,7 @@ export function PoseOverlayPlayer({ uploadId, node }: Props) {
       }
       ctx.stroke();
     }
-  }, [data, view, frame, trail, follow, kpsForFrame, highlighted, angleLabels, noDetection, videoReady]);
+  }, [data, view, frame, trail, follow, kpsForFrame, highlighted, angleLabels, noDetection, videoReady, drawTick]);
 
   if (state === "loading") {
     return <div className="mt-4 aspect-video w-full animate-pulse rounded-xl bg-surface-container-high" />;
@@ -355,7 +356,7 @@ export function PoseOverlayPlayer({ uploadId, node }: Props) {
             playsInline
             preload="auto"
             onLoadedData={handleLoaded}
-            onSeeked={() => setVideoReady((v) => v)}
+            onSeeked={() => setDrawTick((t) => t + 1)}
             onPause={() => setPlaying(false)}
             onPlay={() => setPlaying(true)}
             onError={() => { void handleError(); }}
