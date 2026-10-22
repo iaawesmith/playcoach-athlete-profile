@@ -67,3 +67,6 @@
 - [x] Readiness: Reference video is a warning; Set Live needs no video
 - [x] Answer: is athlete height required on every upload path; scale when missing
 - [ ] Make athlete height required on every upload path (blocked: awaiting approval); then make Reference Calibration a warning
+- [ ] Required height (48–90 in) in Testing Panel + library clips + edge validation
+- [ ] Analyzer: no real scale -> skip distance-unit metrics with no_scale
+- [ ] Readiness: Reference Calibration becomes a warning
