@@ -25,7 +25,7 @@ describe("speed into the break", () => {
     const steps = Array.from({ length: 20 }, (_, f) => (f >= 15 ? 20 : f >= 10 ? 8 : 10));
     const r = computeSpeedRetention({ hip: track(steps), scale: steps.map(() => 30), fps: 30, phase: { start: 0, end: 19 }, nextPhaseStart: 15, peakEnd: 14 });
     if (r.value === null) throw new Error("skipped");
-    expect(r.detail.peak_window.end).toBeLessThanOrEqual(14);
+    expect(r.detail.peak_window).toEqual({ start: 1, end: 5 });
     expect(r.detail.peak_search).toEqual({ start: 1, end: 14 });
     expect(r.value).toBe(0.8);
   });
