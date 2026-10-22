@@ -294,7 +294,7 @@ export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricR
 
   const handleCopy = async () => {
     try {
-      const md = generateLogMarkdown(logData, nodeName) + (reporting?.informational.length
+      const md = generateLogMarkdown(logData, nodeName, metricResults) + (reporting?.informational.length
         ? `\nInformational keypoints (not counted as warnings):\n${reporting.informational.map(kp => `Index ${kp.index}: ${kp.status} — ${reporting.activeIndices.has(kp.index) ? "active measurement window passed" : "not used by active metrics"}`).join("\n")}\n` : "");
       await navigator.clipboard.writeText(md);
       setCopyState("success");
