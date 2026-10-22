@@ -2169,7 +2169,7 @@ function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDe
 
   const cals = node.reference_calibrations ?? [];
   const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-  readiness.push({ label: "At least 1 camera angle calibrated", ok: hasAtLeastOne, detail: hasAtLeastOne ? "Calibrated" : "No angles calibrated", tab: "reference" });
+  readiness.push({ label: "At least 1 camera angle calibrated", ok: hasAtLeastOne, detail: hasAtLeastOne ? "Calibrated" : "None saved — warning only (height sets scale per run)", tab: "reference", warning: true });
 
   readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
 
