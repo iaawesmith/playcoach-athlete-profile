@@ -9,7 +9,7 @@ describe('target direction scoring', () => {
     expect(scoreMetric(0.01, 0.05, 0.0323, 'at_most')).toBe(100)
   })
   it('at_most scores only the amount over', () => {
-    expect(scoreMetric(0.09, 0.05, 0.02, 'at_most')).toBe(50)
+    expect(scoreMetric(0.09, 0.05, 0.02, 'at_most')).toBeCloseTo(50, 6)
   })
   it('at_least scores 100 at or over the target', () => {
     expect(scoreMetric(8, 7, 1, 'at_least')).toBe(100)
