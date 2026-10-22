@@ -1,33 +1,49 @@
-# Pose overlay player (admin only, Testing Panel result view)
+# Videos tab audit and narrowing
 
-## What's stored (checked on bcf95d35)
-- Keypoints: `diagnostics.raw_keypoints`, 90 frames x 33 landmarks, original 3840x2160 pixel coordinates.
-- Confidence: **per-frame, per-landmark confidence is stored** (`diagnostics.raw_scores`, 90 x 33). The player uses it; run-level RELIABLE/MARGINAL/UNRELIABLE status is the fallback only for runs without it.
-- Per-frame: hip center, scale, athlete height, mean confidence, phases.
-- Service: fps 30, frame size, missed / rejected (+ reasons) / recovered (leading recovery, frames 0-22) / zoom-fallback (following crop, frames 77-89) frame lists, auto-zoom factor 1.75 and crop rectangle.
-- Phase windows, metric details with frames used and keypoint indices, release anchor (log), catch anchor (catch metric detail).
-- Smoothed keypoints are not stored separately. "Smoothed" view recomputes them from raw keypoints with the analyzer's own smoothing code (same 3-frame window, same missing-frame rules), so it is exactly what metrics used. Nothing is written.
-- The upload's stored clip link is a short-lived signed link; the player requests a fresh one through the existing admin function.
+## Audit: what reads Videos tab fields
 
-## Player
-1. **Video + canvas**: source clip with overlay, frame-synced via requestVideoFrameCallback (fallback currentTime x fps). Play/pause, 0.25x/0.5x/1x, step +/-1 frame (buttons and arrow keys), scrubber.
-2. **Skeleton**: 33 landmarks + standard MediaPipe connections. Green reliable, yellow marginal, red unreliable (same thresholds as the Analysis Log); a line takes its weaker endpoint's color; confidence-0 points hidden. Missed/rejected frames draw nothing and show "No detection". Raw / Smoothed toggle.
-3. **Top-left panel**: "Frame 46/89 · 1.53s"; active phase(s), both when overlapping, "pre-release (stance)" before the first; frame source (main pass with zoom 1.75x, leading recovery, following crop, missed, rejected + reason); "Release anchor" / "Catch anchor" tags on their frames; legend (confidence colors, hip trail, metric highlight).
-4. **Metric highlights**: built from the run's own metrics (any node). Dropdown: All or one metric. Highlights that metric's keypoints on its frames used, with name and value in the panel; angle metrics show the live angle at the middle joint (e.g. plant knee).
-5. **Hip trail** toggle: hip-center path from frame 0 to the current frame (from stored per-frame hip centers).
-6. **Follow athlete**: default on when athlete is under 20% of frame height. Crop ~1/3 of frame width centered on 9-frame moving-average hip, scaled to fill. Minimap corner: full frame, auto-zoom crop (white), follow window (orange), hip trail.
-7. **Phase timeline** under the player: one thin bar per phase (overlaps visible), playhead, markers for release anchor, catch anchor and metric frames; click to seek.
-8. Empty state "No stored keypoints for this run." when keypoints are absent.
+Each video has six fields: URL, label, start/end seconds, camera angle, type (educational / analysis / both) and the Reference flag. Slant has one: "ROUTE RUNNING TEACH TAPE - SLANT" (YouTube, 6–11s, sideline, educational, Reference).
 
-Opened from a "Pose overlay" button in the Testing Panel result view, admin only (same guard as today).
+| Reader | Fields read | Affects scoring or frame selection? |
+|---|---|---|
+| Analyzer | None. It never loads the videos list from the node. | No |
+| Pose service | None. It gets the athlete upload's own clip window, not the node's video timestamps. | No |
+| Analyzer calibration | Uses the upload's camera angle to choose a saved Reference calibration, not the video's angle. Height-based per-run scale is the main source. | No (video fields aren't involved) |
+| Go-live check (Set Live) | Blocks unless at least 1 video has a URL. | No, but it blocks going live |
+| Readiness bar, "Videos & Reference" (15%) | Video count, all videos have timestamps, Reference flagged | No, but these lower the score and Set Live needs 100% |
+| Readiness bar, "Reference Calibration" (5%) | Video camera angles: each angle needs a calibration | No, but it lowers the score |
+| Basics tab, Training Status checklist | At least 1 video, Reference flagged, all videos have timestamps | No (display only) |
+| Node export (copy as text) | All fields | No |
+| Testing Panel, run history, overlay player | None | No |
+| Athlete-facing views | None. No athlete results screen shows the reference video yet. | No |
 
-## Verification
-- Open bcf95d35, screenshot frames 10, 46, 82 with follow on, and show them next to your references.
-- Check the hip trail points equal the stored per-frame hip centers for every frame.
-- Tests: coordinate scaling (native to display and to follow crop), frame-source lookup, phase overlap labels, metric-highlight frames from stored detail.
+Conclusion: nothing in the pipeline uses the node's video timestamps, camera angle or type. They only feed readiness checks and copy. The Reference flag is the only field with a future athlete-facing purpose.
+
+## Proposed changes
+
+1. **Tab purpose: athlete teach tape.** Keep the video URL, label and Reference flag. Keep start/end as an optional "Play from / to" window for the athlete's view, labeled as display only.
+2. **Hide the frame-selection fields:** camera angle, type, and the Camera Coverage block. Existing values stay saved on the node, just not shown or edited.
+3. **Readiness and go-live:**
+   - Set Live no longer requires a video.
+   - "Reference video flagged" becomes a warning: it doesn't lower the score or block Set Live.
+   - Remove "All videos have timestamps" and the video-count check.
+   - The Reference Calibration check stops reading video angles. It keeps the existing "at least one calibration" check, also as a warning.
+   - Same rules in the readiness bar and the Basics checklist.
+4. **Copy fixes:**
+   - New tab description: "The teach tape athletes see next to their results. Add a clip of the route done well and flag one as the Reference. These videos are not analyzed and don't affect scoring."
+   - Remove "rtmlib" from the Reference tooltip.
+   - Remove the line "Each camera angle needs its own Reference calibration for Distance and Velocity metrics."
+   - Rewrite the Videos tooltip and empty state. The empty state currently says "for the AI to compare athlete footage against", which isn't true.
+   - Readiness category becomes "Reference video" with the tooltip "Shown to athletes as the model rep. Optional; doesn't affect analysis." This replaces the timestamp tooltip.
+   - Node export lists only the label, URL, play window and Reference flag.
+5. **Unchanged:** scoring, the analyzer, the pose service, node data, Slant's saved video.
+
+## Open question
+
+Should the readiness bar also stop counting calibration toward the score? Per-run height scale is now the main source, so a missing saved calibration is closer to a warning. As written, the plan makes it a warning.
 
 ## Technical details
-- Pure helpers in `src/features/athlete-lab/utils/poseOverlay.ts` (scaling, frame source, phase labels, highlight resolution, follow window, confidence color); tests in `src/test/poseOverlay.test.ts`.
-- Component `src/features/athlete-lab/components/PoseOverlayPlayer.tsx`, local state only; data fetched through `src/services/athleteLab.ts` (existing admin result fetch + signed clip link).
-- Smoothed view imports `supabase/functions/analyze-athlete-video/smoothing.ts` (pure).
-- No analyzer, scoring, node, or pose-service changes; AGENTS.md gets one rule for the overlay helper module.
+
+- Files: `NodeEditor.tsx` (tab subtitle, form fields, Camera Coverage, `checkCompleteness`, Training Status readiness), `NodeReadinessBar.tsx` (Videos and Reference Calibration categories, using the existing `warning` flag that `computeScore` already ignores), `nodeExport.ts`.
+- No changes to the database, types or saved data. The `EliteVideo` fields stay optional.
+- Add a test that a node without a Reference video still reaches a 100% readiness score, and that timestamps or angles no longer change it.
