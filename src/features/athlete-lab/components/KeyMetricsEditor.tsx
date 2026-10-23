@@ -463,7 +463,7 @@ function MetricFields({ m, setM, phases }: {
         </div>
         <p className="text-on-surface text-sm">
           {km.calculation_type
-            ? `${measurementDescription(km.calculation_type)}${measurementFrames(km.calculation_type) != null ? ` · ${measurementFrames(km.calculation_type)} frames` : ""}`
+            ? `${measurementDescription(km.calculation_type)}${km.calculation_type !== "velocity" && measurementFrames(km.calculation_type) != null ? ` · ${measurementFrames(km.calculation_type)} frames` : ""}`
             : "Choose a calculation type to see its measurement window"}
         </p>
       </div>
