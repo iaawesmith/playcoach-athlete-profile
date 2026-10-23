@@ -84,7 +84,7 @@ try {
   }
   const smoothing = ast.statements.find(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => d.name.getText(ast) === "SMOOTHING_WINDOW_FRAMES"));
   if (!smoothing) throw new Error("Analyzer smoothing constant not found");
-  chunks.push(smoothing.getText(ast), "const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap();", "function logInfo() {} function logWarn() {} function logError() {}", "export { calculateAllMetrics, calculateAggregateScore, parsePhaseBreakdown, detectErrors };");
+  chunks.push(smoothing.getText(ast), "const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap();", "function logInfo() {} function logWarn() {} function logError() {}", "export { calculateAllMetrics, calculateAggregateScore, parsePhaseBreakdown, detectErrors, calculatePhaseWindows };");
   const modulePath = join(temp, "analyzer.ts");
   await writeFile(modulePath, chunks.join("\n"));
   const api = await import(modulePath) as AnalyzerApi;
@@ -96,8 +96,28 @@ try {
     if (phase) windows[phase.id] = { start: numeric(window.start), end: numeric(window.end) };
   }
   if (!Object.keys(windows).length) throw new Error("Missing stored phase windows");
+  // --anchor-events: preview event-anchored phases on the same stored data
+  // (replaces stored windows; reports detected events). Default path unchanged.
+  let anchoring: unknown = null;
+  let eventsReport: unknown = undefined;
+  if (args.includes("--anchor-events")) {
+    const seg = await import(join(base, "segmentation.ts"));
+    const sorted = [...list(node.phase_breakdown)].map(row).sort((a, b) => numeric(a.sequence_order) - numeric(b.sequence_order));
+    const named = api.parsePhaseBreakdown(sorted).map((p, i) => ({ ...sorted[i], id: p.id, name: p.name }));
+    const hips = seg.hipSeries(keypoints, scores);
+    const snap = seg.snapEvent(seg.computeReleaseAnchor(hips, calibration.perFrame));
+    const snapFrame = snap.detected ? snap.frame : 0;
+    const brk = seg.phaseRoles(named).hasBreak ? seg.detectBreak(hips, calibration.perFrame, snapFrame) : null;
+    const cat = context.catch_included === false ? null : seg.detectCatch(keypoints, scores, 0.5, brk && brk.detected ? brk.end + 1 : snapFrame);
+    const events = { snap, break: brk, catch: cat };
+    const anchored = seg.anchorPhaseWindows(keypoints.length, named, events, (count: number, group: unknown[]) => api.calculatePhaseWindows(count, group, 3));
+    for (const k of Object.keys(windows)) delete windows[k];
+    for (const ap of anchored) if (ap.window) windows[ap.id] = ap.window;
+    anchoring = { anchoredPhases: anchored, catchEvent: cat };
+    eventsReport = { events, phases: anchored.map((ap: { name: string; window: unknown; missing_event: unknown }) => ({ phase: ap.name, window: ap.window, missing_event: ap.missing_event })) };
+  }
   // Stored raw_keypoints already contain the measured smoothing: never smooth twice.
-  const metrics = list(await api.calculateAllMetrics(list(node.key_metrics), keypoints, scores, windows, 0, calibration, node.reference_fallback_behavior ?? "pixel_warning", context, fps, null, node.phase_breakdown));
+  const metrics = list(await api.calculateAllMetrics(list(node.key_metrics), keypoints, scores, windows, 0, calibration, node.reference_fallback_behavior ?? "pixel_warning", context, fps, null, node.phase_breakdown, anchoring));
   const aggregate = row(api.calculateAggregateScore(metrics, node, context.catch_included !== false));
   const values: MetricFingerprintInput[] = metrics.map(item => {
     const metric = row(item);
@@ -106,7 +126,7 @@ try {
   });
   const output = fingerprintValues(values, nullableNumber(aggregate.aggregate_score));
   const expected = option("--expect");
-  process.stdout.write(JSON.stringify({ result_id: result.id, node_version: node.node_version, frame_count: keypoints.length, ...output, ...(expected ? { matches_baseline: output.fingerprint === expected } : {}), ...(args.includes("--errors") ? { errors: api.detectErrors(list(node.common_errors), metrics) } : {}) }, null, 2) + "\n");
+  process.stdout.write(JSON.stringify({ result_id: result.id, node_version: node.node_version, frame_count: keypoints.length, ...output, ...(expected ? { matches_baseline: output.fingerprint === expected } : {}), ...(eventsReport ? { anchoring: eventsReport, metrics: values } : {}), ...(args.includes("--errors") ? { errors: api.detectErrors(list(node.common_errors), metrics) } : {}) }, null, 2) + "\n");
   if (expected && output.fingerprint !== expected) process.exitCode = 2;
 } finally {
   await rm(temp, { recursive: true, force: true });
