@@ -112,6 +112,7 @@ function getDefaultMapping(): KeypointMapping {
     body_groups: ["body"],
     keypoint_indices: [],
     calculation_type: null,
+    bilateral: "auto",
     bilateral_override: "auto",
     confidence_threshold: 0.70,
     phase_id: null,

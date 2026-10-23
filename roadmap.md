@@ -92,8 +92,8 @@
 - [x] Batch 2 source: hide Pipeline Setup / checkpoints, preserve retired saved values, proportional readiness, three-key analyzer request, every-frame service loop; 149 app tests + 19 service tests pass.
 - [x] Batch 2 fresh run on deployed 4b79473 / mediapipe-service-00021-dzs: 90 detections, aa28d25d… unchanged, leading recovery 0–22 and following crop 77–89 unchanged, aggregate 94; stored c6fa0895 rescore values unchanged, aggregate 94.
 - [x] Batch 2 equivalence accepted by user: pre-Batch-2 7712968 and current code have byte-identical metrics and aggregate 94. Historical hash retired; save and verify semantic comparison in scripts/fingerprint-rescore.ts.
-- [ ] Batch 2 overlay end-to-end — actual bcf95d35 stored skeleton/panel/timeline loaded directly; blocked: history returns no rows and original video fails sandbox Chromium playback after fresh link (media error 4). No simulated history or video substitution. Do not start Batch 3.
-- [ ] Establish c6fa0895 semantic baseline (4-decimal values/scores/statuses/aggregate, sorted keys, no diagnostics) and document in AGENTS.md.
+- [ ] Batch 2 overlay end-to-end — actual bcf95d35 stored skeleton/panel/timeline loaded directly; blocked: history returns no rows and original video fails sandbox Chromium playback after fresh link (media error 4). No simulated history or video substitution. Batch 3 separately approved by user.
+- [x] Establish c6fa0895 semantic baseline (4-decimal values/scores/statuses/aggregate, sorted keys, no diagnostics) and document in AGENTS.md: fba7237f605f41960d27375977057819623d820906c28a57c148cce25fc72b21; pre-Batch-2 and current both match, aggregate 94.
 - [ ] Batch 3 Metric card Side control — approved; verify with saved comparison script and stop after this batch.
 - [ ] Batch 4 Phases (archive coaching cues into knowledge base)
 - [ ] Batch 5 Errors (remove severity + 3 dead Slant rules, rename, Wheel condition)

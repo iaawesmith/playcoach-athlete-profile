@@ -28,9 +28,11 @@ Pre-batch revision: `7712968`. Lovable's history identifier is unavailable; use 
 - Today's fresh run records `diagnostics.fingerprints.metric_results_sha256 = c255a17aaaaddea486fa3194ec6ce7acca651fca19b051cd696bd2e60838a11d`. Its stored-data reconstruction yields the same `d6cd6036…` output as c6fa0895 reconstruction. Comparing fresh diagnostic metrics with that reconstruction shows only Hip Stability detail differences: `min_yd` 0.0786747189007224 → 0.07867471890072242, `range_yd` 0.04341309077106324 → 0.04341309077106323, `stdDev_yd` 0.012624954925440883 → 0.01262495492544088. Values/scores match; full-array hashes include these floating-point details and property insertion order. The fresh run hash is not the historical rescore baseline.
 - bcf95d35 is a result ID; its actual upload is `9078c337-97cc-41ad-a622-dc07b8957800`. Browser opened the existing overlay directly with that upload ID and fetched its real stored data. Canvas, scale/height panel and phase timeline rendered. No history fixtures or replacement video used.
 
-## Pending — not a completed batch
+## Historical verification limits (superseded fingerprint decision)
+
+On October 23 the user accepted identical pre-Batch-2/current output as a pass and authorized Batch 3 with a reproducible semantic baseline. See `node-simplification-batch-3.md` for the new method and matching hash; the historical method was not recovered.
 
 - Exact historical metrics fingerprint remains unverified: original `/tmp/b0/batch1_cmp.ts` and serialization were not recoverable from surviving logs. The later full-metric-array comparator hashes to `d6cd603659986cca8578f27c0e8a6014a86f043200be0e8fa2922c6ae5af3013`, not the approved `718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e`. Identical metric values do not prove exact fingerprint equivalence; this is not evidence of keypoint drift.
 - Normal history access returned no rows even with All dates. Direct player inspection bypassed navigation only, not data loading; therefore the history-to-player flow is unverified.
 - Original video failed playback in sandbox Chromium (media error 4, zero video dimensions) even after the player's one-time fresh-link request. Stored skeleton rendered over black; synchronization/alignment against video is unverified. Evidence: `/tmp/browser/batch2checks/bcf95d35_overlay.png`.
-- Do not start Batch 3. Analyzer deployments must still run `bun scripts/stamp-analyzer-build.ts` immediately beforehand.
+- The previous stop-before-Batch-3 instruction was superseded by explicit Batch 3 approval. Analyzer deployments must still run `bun scripts/stamp-analyzer-build.ts` immediately beforehand.
