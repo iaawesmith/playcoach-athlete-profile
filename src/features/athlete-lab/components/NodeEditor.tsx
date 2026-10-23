@@ -12,9 +12,6 @@ import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCa
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { CoachingModelPanel } from "./CoachingModelPanel";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
-import { MigrateCoachingCuesModal, type PhaseCommit } from "./MigrateCoachingCuesModal";
-import { CoachingCuesMigrationBanner } from "./CoachingCuesMigrationBanner";
-import { applyConfirmedCues, nextMigrationStatus } from "../utils/migrateCoachingCues";
 import { toast } from "sonner";
 import { NodeReadinessBar } from "./NodeReadinessBar";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
@@ -156,7 +153,7 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
 
   // At least 1 phase
   if (node.phase_breakdown.length === 0) {
-    issues.push({ label: "Phases", detail: "At least 1 phase with notes is required" });
+    issues.push({ label: "Phases", detail: "At least 1 phase is required" });
   }
 
   // LLM prompt not empty
@@ -403,22 +400,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
   const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [toggling, setToggling] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ title: string; body: string; confirmLabel: string; onConfirm: () => void } | null>(null);
-  /* Phase 1c.1 Slice 2 — coaching cues migration modal state. Persistence
-     of confirmed_phase_ids is in-draft only for Step 4; Step 6 wires this
-     to per-phase persisted state. */
-  const [migrationModalOpen, setMigrationModalOpen] = useState(false);
-  const [confirmedPhaseIds, setConfirmedPhaseIds] = useState<Set<string>>(() => {
-    /* On mount, treat any phase that already has a non-empty coaching_cues
-       value as previously confirmed. Slice 2 deploys with all empty so this
-       is normally an empty set. */
-    const s = new Set<string>();
-    for (const p of node.phase_breakdown ?? []) {
-      if (p.id && typeof p.coaching_cues === "string" && p.coaching_cues.trim() !== "") {
-        s.add(p.id);
-      }
-    }
-    return s;
-  });
   /* Phase 1c.3-D: Stale-session bounce + hash-anchor redirect.
      Retired tab keys (scoring, errors, camera, checkpoints, training_status,
      overview, mechanics) are coerced to their consolidated parent. Hash
@@ -500,79 +481,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
   /* Alias retained for backward compatibility; behaves identically to `update`.
      Auto-draft on save is now unconditional for any save on a Live node. */
   const updateWithCriticalTrack = update;
-
-  /* ── Phase 1c.1 Slice 2 Step 6 — write-on-confirm persistence ──
-     Migration commits write directly to Supabase via updateNode(). The admin
-     does NOT need to click Save Changes for migration confirmations — each
-     commit is persisted immediately, and the lifecycle status advances
-     atomically in the same write.
-
-     Concurrency model: SINGLE-ADMIN, last-write-wins. Athlete Lab is admin-
-     only and there is no expectation of two admins editing the same node
-     concurrently. If two sessions did race, the later updateNode() write
-     would overwrite phase_breakdown and coaching_cues_migration_status
-     wholesale (both columns are written together, so they stay internally
-     consistent — but a concurrent edit on a different phase could be lost).
-     Optimistic concurrency (e.g. updated_at IF match) is explicitly out of
-     scope for slice 2; flag for revisit if/when multi-admin becomes real.
-
-     This function writes ONLY phase_breakdown + coaching_cues_migration_status.
-     It does not touch any other draft fields, so an in-flight admin edit on a
-     different tab is preserved (the local draft already contains those edits;
-     onUpdated() merges the persisted shape back in via the standard refresh). */
-  const persistMigrationCommits = useCallback(async (commits: PhaseCommit[]) => {
-    if (commits.length === 0) return;
-
-    // Derive the next phase_breakdown and confirmed-id set from the *current*
-    // draft (which is already up-to-date with any prior in-session commits).
-    const map = new Map<string, { coaching_cues: string; cleaned_description: string }>();
-    for (const c of commits) {
-      map.set(c.phase_id, { coaching_cues: c.coaching_cues, cleaned_description: c.cleaned_description });
-    }
-    const nextPhases = applyConfirmedCues(draft.phase_breakdown, map);
-    const nextConfirmedIds = new Set(confirmedPhaseIds);
-    for (const c of commits) nextConfirmedIds.add(c.phase_id);
-    const totalPhases = nextPhases.length;
-    const currentStatus = draft.coaching_cues_migration_status ?? "pending";
-    const nextStatus = nextMigrationStatus(currentStatus, nextConfirmedIds.size, totalPhases);
-
-    try {
-      const updated = await updateNode(draft.id, {
-        phase_breakdown: nextPhases,
-        coaching_cues_migration_status: nextStatus,
-      });
-      // Reflect persisted state locally without flipping `dirty` — the write
-      // is already through. Other tab-level draft edits are preserved because
-      // we only spread the two migration-related fields back in.
-      setDraft((d) => ({
-        ...d,
-        phase_breakdown: updated.phase_breakdown,
-        coaching_cues_migration_status: updated.coaching_cues_migration_status ?? nextStatus,
-      }));
-      setConfirmedPhaseIds(nextConfirmedIds);
-      onUpdated(updated);
-      toast.success(commits.length === 1 ? "Phase confirmed" : `${commits.length} phases confirmed`);
-    } catch (err) {
-      // Surface failure to the admin and leave local state unchanged so the
-      // commit can be retried. No silent loss.
-      const message = err instanceof Error ? err.message : "Unknown error";
-      toast.error(`Failed to save migration: ${message}`);
-      throw err;
-    }
-  }, [draft, confirmedPhaseIds, onUpdated]);
-
-  const handleMigrationCommitPhase = useCallback(async (commit: PhaseCommit) => {
-    await persistMigrationCommits([commit]);
-  }, [persistMigrationCommits]);
-
-  const handleMigrationCommitAll = useCallback(async (commits: PhaseCommit[]) => {
-    await persistMigrationCommits(commits);
-  }, [persistMigrationCommits]);
-
-  // Slice C.1 (2026-04-26): MigrateCoachingCuesModal no longer accepts an
-  // onStatusChange prop — status is owned by persistMigrationCommits and
-  // written atomically with phase_breakdown.
-
 
   const save = async () => {
     setSaving(true);
@@ -1006,13 +914,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         {tab === "phases" && (
           <div className="space-y-10">
             <div className="space-y-4">
-              <CoachingCuesMigrationBanner
-                surface="phases"
-                status={draft.coaching_cues_migration_status ?? "pending"}
-                confirmed_count={confirmedPhaseIds.size}
-                total_phases={draft.phase_breakdown.length}
-                onOpenModal={() => setMigrationModalOpen(true)}
-              />
               <PhasesEditor
                 phases={draft.phase_breakdown}
                 onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
@@ -1062,8 +963,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
             onMaxWordsChange={(v) => updateWithCriticalTrack("llm_max_words" as keyof TrainingNode, v as never)}
             systemInstructions={draft.llm_system_instructions ?? ""}
             onSystemInstructionsChange={(v) => updateWithCriticalTrack("llm_system_instructions" as keyof TrainingNode, v as never)}
-            phaseContextMode={draft.phase_context_mode ?? "compact"}
-            onPhaseContextModeChange={(v) => updateWithCriticalTrack("phase_context_mode" as keyof TrainingNode, v as never)}
           />
         )}
 
@@ -1111,16 +1010,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           confirmLabel={confirmModal?.confirmLabel ?? "Delete"}
           onConfirm={() => { confirmModal?.onConfirm(); setConfirmModal(null); }}
           onCancel={() => setConfirmModal(null)}
-        />
-        <MigrateCoachingCuesModal
-          open={migrationModalOpen}
-          phase_breakdown={draft.phase_breakdown}
-          pro_mechanics={draft.pro_mechanics}
-          status={draft.coaching_cues_migration_status ?? "pending"}
-          confirmed_phase_ids={confirmedPhaseIds}
-          onCommitPhase={handleMigrationCommitPhase}
-          onCommitAll={handleMigrationCommitAll}
-          onClose={() => setMigrationModalOpen(false)}
         />
       </div>
     </div>
@@ -1828,13 +1717,6 @@ function PhasesEditor({ phases, onChange, onConfirmDelete }: {
             </div>
           </div>
         )}
-      </div>
-      <div>
-        <div className="flex items-center gap-1 mb-2">
-          <label className={LABEL_CLASS}>Phase Description</label>
-          <SectionTooltip tip="A brief coaching description of what happens in this phase. Used as context by the AI feedback engine." />
-        </div>
-        <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} placeholder="e.g. Athlete pushes off the line with initial burst..." />
       </div>
       <div>
         <div className="flex items-center gap-1 mb-2">
