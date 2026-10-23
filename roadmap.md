@@ -89,7 +89,7 @@
 ## Node simplification (approved Oct 23, one batch at a time, user OK between batches; hide fields, never wipe data; baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e for every remaining batch)
 - [x] Batch 0 Measurement windows: fixed per-type constants, read-only display, fingerprint unchanged
 - [x] Batch 1 Camera: hidden FPS/resolution/auto-reject settings preserved; active-only body parts; distance-only readiness; Slant WR filming instructions updated with original archived. All 147 tests pass; current analyzer rescore matches baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e, aggregate 94. Real Slant Reference page verified. Stopped for Batch 2 approval.
-- [ ] Batch 2 Pipeline setup + pose service every frame, drop det_frequency (+ fresh 932b91df run, overlay bcf95d35)
+- [ ] Batch 2 (approved): hide Pipeline Setup / checkpoints and saved detection settings; service detects every frame; redeploy service, fresh 932b91df run (90 detections, aa28d25d… and recovery frames unchanged, aggregate 94), then open bcf95d35 overlay. Stop on keypoint fingerprint drift.
 - [ ] Batch 3 Metric card Side control
 - [ ] Batch 4 Phases (archive coaching cues into knowledge base)
 - [ ] Batch 5 Errors (remove severity + 3 dead Slant rules, rename, Wheel condition)
