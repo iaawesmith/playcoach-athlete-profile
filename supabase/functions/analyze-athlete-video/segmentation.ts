@@ -407,13 +407,17 @@ export function anchorPhaseWindows(
     const e = segEnd('pre_break')
     if (e !== null) fill('pre_break', snap.frame, e)
   }
-  if (brk) for (const o of out) if (o.role === 'break' && !o.missing_event) o.window = { start: brk.start, end: brk.end }
+  if (brk) {
+    phases.forEach((p, i) => {
+      if (roles[i] !== 'break' || out[i].missing_event) return
+      const fb = Math.max(0, Math.round(Number(p.frame_buffer) || 0))
+      out[i].window = { start: Math.max(0, brk.start - fb), end: Math.min(last, brk.end + fb) }
+    })
+  }
   const pcStart = brk ? brk.end + 1 : snap ? snap.frame : null
   const pcEnd = segEnd('pre_catch')
   if (pcStart !== null && pcEnd !== null) fill('pre_catch', pcStart, pcEnd)
-  if (noCatch) {
-    for (const o of out) if ((o.role === 'catch' || o.role === 'post_catch') && !o.missing_event) o.missing_event = null
-  } else if (cat && catchStart !== null && catchEnd !== null) {
+  if (!noCatch && cat && catchStart !== null && catchEnd !== null) {
     for (const o of out) if (o.role === 'catch') o.window = { start: catchStart, end: catchEnd }
     if (catchEnd < last) fill('post_catch', catchEnd + 1, last)
   }
