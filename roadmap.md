@@ -86,14 +86,15 @@
 - [x] Add "Behind WR" to library clip form + Run Analysis context; check DB constraint; report readiness impact before applying any Reference-tab change; list "Other" records (no remap)
 - [x] Reference tab per-angle list: leave Behind WR unchanged, as requested.
 
-## Node simplification (approved Oct 23, one batch at a time, user OK between batches; hide fields, never wipe data; baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e for every remaining batch)
+## Node simplification (approved Oct 23, one batch at a time, user OK between batches; hide fields, never wipe data; reproducible semantic baseline replaces historical 718c917a… by user approval)
 - [x] Batch 0 Measurement windows: fixed per-type constants, read-only display, fingerprint unchanged
 - [x] Batch 1 Camera: hidden FPS/resolution/auto-reject settings preserved; active-only body parts; distance-only readiness; Slant WR filming instructions updated with original archived. All 147 tests pass; current analyzer rescore matches baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e, aggregate 94. Real Slant Reference page verified. Stopped for Batch 2 approval.
 - [x] Batch 2 source: hide Pipeline Setup / checkpoints, preserve retired saved values, proportional readiness, three-key analyzer request, every-frame service loop; 149 app tests + 19 service tests pass.
 - [x] Batch 2 fresh run on deployed 4b79473 / mediapipe-service-00021-dzs: 90 detections, aa28d25d… unchanged, leading recovery 0–22 and following crop 77–89 unchanged, aggregate 94; stored c6fa0895 rescore values unchanged, aggregate 94.
-- [ ] Batch 2 exact baseline fingerprint — pre-Batch-2 7712968 and current code executed on the same c6fa0895 stored input: byte-identical complete metrics, d6cd6036… each, aggregate 94. Blocked: original Batch 0 method producing 718c917a… unavailable; neither execution reproduces it. Fresh run recorded metrics hash c255a17a…; reconstructed metrics d6cd6036…, only tiny Hip Stability detail precision differences. Stop before Batch 3 as requested.
+- [x] Batch 2 equivalence accepted by user: pre-Batch-2 7712968 and current code have byte-identical metrics and aggregate 94. Historical hash retired; save and verify semantic comparison in scripts/fingerprint-rescore.ts.
 - [ ] Batch 2 overlay end-to-end — actual bcf95d35 stored skeleton/panel/timeline loaded directly; blocked: history returns no rows and original video fails sandbox Chromium playback after fresh link (media error 4). No simulated history or video substitution. Do not start Batch 3.
-- [ ] Batch 3 Metric card Side control
+- [ ] Establish c6fa0895 semantic baseline (4-decimal values/scores/statuses/aggregate, sorted keys, no diagnostics) and document in AGENTS.md.
+- [ ] Batch 3 Metric card Side control — approved; verify with saved comparison script and stop after this batch.
 - [ ] Batch 4 Phases (archive coaching cues into knowledge base)
 - [ ] Batch 5 Errors (remove severity + 3 dead Slant rules, rename, Wheel condition)
 - [ ] Batch 6 Reference collapse
