@@ -21,3 +21,4 @@
 - Always run scripts/stamp-analyzer-build.ts immediately before deploying analyze-athlete-video.
 - Library ground-truth distance check lives in `analyze-athlete-video/groundTruth.ts` (pure, tested); it's display-only, reads stored per-frame hip centers and scales, and never affects scoring.
 - Metric measurement windows are fixed per calculation type in `supabase/functions/analyze-athlete-video/measurementWindow.ts` (shared by analyzer, editor and Analysis Log), not a per-metric setting, so what's displayed is always what the math used; the stored `temporal_window` is retired but preserved.
+- Camera settings parse and serialize the original JSON, including hidden legacy keys, so editing filming guidance cannot wipe retired settings; body-part guidance derives only from active metrics.
