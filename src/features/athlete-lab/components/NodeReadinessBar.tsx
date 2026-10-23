@@ -142,18 +142,14 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   // 6. CAMERA — 10%
   const camChecks: ReadinessCheck[] = [];
   const camIssues = checkCameraCompleteness(node);
-  const fpsOk = !camIssues.some(i => i.detail.toLowerCase().includes("fps"));
-  const resOk = !camIssues.some(i => i.detail.toLowerCase().includes("resolution"));
-  const distOk = !camIssues.some(i => i.detail.toLowerCase().includes("distance"));
-  camChecks.push({ label: "Minimum FPS configured", pass: fpsOk });
-  camChecks.push({ label: "Minimum resolution configured", pass: resOk });
+  const distOk = camIssues.length === 0;
   camChecks.push({ label: "Recommended distance configured", pass: distOk });
   categories.push({
     // Phase 1c.3-D: Camera tab folded into Reference (now houses both calibration
     // and filming-guidance sections). Category retained as its own entry —
-    // Camera measures upload-quality requirements, distinct from pixel calibration.
+    // Camera checks authored distance guidance, not uploaded footage.
     name: "Camera", icon: "videocam", weight: 10, checks: camChecks, tab: "reference",
-    tooltip: "Camera requirements validate upload quality before analysis runs. Unconfigured = no quality control. Lives under Reference → Filming Guidance."
+    tooltip: "Checks recommended filming distance only, not upload quality. Lives under Reference → Filming Guidance."
   });
 
   // 7. REFERENCE CALIBRATION — 5%

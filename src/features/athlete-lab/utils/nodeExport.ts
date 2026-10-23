@@ -3,7 +3,7 @@ import { measurementDescription, measurementFrames } from "../../../../supabase/
 import { parseCameraSettings } from "../components/CameraEditor";
 import { migrateCheckpoints } from "../components/CheckpointsEditor";
 import { computeCategories, computeScore } from "../components/NodeReadinessBar";
-import { partitionMetricsByActive } from "./metrics";
+import { getActiveMetrics, partitionMetricsByActive } from "./metrics";
 import keypointLibrary from "@/constants/keypointLibrary.json";
 
 // Active vs. inactive metrics: this module uses the shared helpers in
@@ -255,28 +255,29 @@ function generateReference(node: TrainingNode): string {
 
 function generateCamera(node: TrainingNode): string {
   const cam = parseCameraSettings(node.camera_guidelines);
-  const metrics = node.key_metrics ?? [];
+  const metrics = getActiveMetrics(node);
 
   // Build body part groups from metrics
   const bodyPartGroups = new Map<string, { indices: Set<number>; metrics: string[] }>();
   for (const m of metrics) {
     const indices = m.keypoint_mapping?.keypoint_indices ?? [];
     for (const idx of indices) {
-      const kp = (keypointLibrary as any).keypoints.find((k: any) => k.index === idx);
+      const kp = keypointLibrary.keypoints.find((k) => k.index === idx);
       if (kp) {
         const group = kp.sub_group || kp.group;
         if (!bodyPartGroups.has(group)) bodyPartGroups.set(group, { indices: new Set(), metrics: [] });
-        const g = bodyPartGroups.get(group)!;
+        const g = bodyPartGroups.get(group);
+        if (!g) continue;
         g.indices.add(idx);
         if (!g.metrics.includes(m.name)) g.metrics.push(m.name);
       }
     }
   }
 
-  let out = `## Filming Guidance\n\nMin FPS: ${cam.camera_min_fps}\nMin Resolution: ${cam.camera_min_resolution}\nRecommended Distance: ${cam.camera_min_distance ?? "not set"} to ${cam.camera_max_distance ?? "not set"} yards\nDuration Range: ${node.clip_duration_min}s to ${node.clip_duration_max}s (read-only — set in Basics tab)\n`;
+  let out = `## Filming Guidance\n\nRecommended Distance: ${cam.camera_min_distance ?? "not set"} to ${cam.camera_max_distance ?? "not set"} yards\nDuration Range: ${node.clip_duration_min}s to ${node.clip_duration_max}s (read-only — set in Basics tab)\n`;
 
   if (bodyPartGroups.size > 0) {
-    out += `\nRequired Visible Body Parts (derived from Metrics keypoint mappings):\n`;
+    out += `\nRequired Visible Body Parts (derived from active Metrics keypoint mappings):\n`;
     for (const [group, data] of bodyPartGroups) {
       const idxArr = Array.from(data.indices);
       out += `  ${group} (indices: ${idxArr.join(", ")})\n  Required for: ${data.metrics.join(", ")}\n`;
