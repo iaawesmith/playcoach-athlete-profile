@@ -84,7 +84,7 @@
 
 ## Behind WR camera angle
 - [x] Add "Behind WR" to library clip form + Run Analysis context; check DB constraint; report readiness impact before applying any Reference-tab change; list "Other" records (no remap)
-- [ ] Reference tab per-angle list: add Behind WR — waiting on user OK (display-only "of 3"→"of 4"; readiness unaffected)
+- [x] Reference tab per-angle list: leave Behind WR unchanged, as requested.
 
 ## Node simplification (approved Oct 23, one batch at a time, user OK between batches; hide fields, never wipe data; baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e for every remaining batch)
 - [x] Batch 0 Measurement windows: fixed per-type constants, read-only display, fingerprint unchanged
