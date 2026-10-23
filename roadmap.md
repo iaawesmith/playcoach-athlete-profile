@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Post-cleanup: correct three Slant internal metric notes, percentage ratio displays, actual velocity frame label, resolve static scale fallback; fba7237f… must match.
+- [x] Post-cleanup: three Slant admin notes corrected; percentage ratio prompt/log, actual velocity span (15 frames; minimum 3 elapsed) verified on stored run; static Reference scale retained/reachable and resolution-scaled (80→160 at 4K), analyzer deployed. fba7237f… matches/94, 176 tests/build OK; live read-only replay 134 words passes after retry. Stopped.
 
 - [x] Correct Analysis Log reporting only: node measurement windows, separate smoothing/frames, active-used keypoint warnings, service identity/timings, optional variable display; real result 3e01efe2 verified in browser (3/15/10, smoothing 3, zero warnings, PASS); 11 reporting/export tests pass.
 
