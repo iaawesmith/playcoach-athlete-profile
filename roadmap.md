@@ -100,4 +100,5 @@
 - [x] Wheel WR: exact Drifting to the sideline wording archived and read-back verified before removal; other rules/metrics/version preserved.
 - [x] Batch 6 Reference: camera-angle + px/yd controls, legacy metadata/fallback settings hidden and preserved, filming guidance retained; fba7237f… unchanged (94), identical before/after errors; 165 tests and real Slant/Wheel browser checks pass. Stopped after Batch 6.
 - [x] Batch 7 Scoring and fixes: hidden/preserved bands/rules/llm_max_words, fixed 500-token cap on both providers, Max skipped metrics % label, zero confidence blocked. Identical-input/fresh-read fba7237f… PASS (94), 170 tests, real editor verification, deployed read-only replay 131 words passes 160-word guard. Stopped after Batch 7.
-- [ ] Batch 8 rtmlib cleanup + knowledge base rewrite (+ fresh run, overlay)
+- [x] Batch 8a only: audited dead pose items removed, live names renamed with stored log/config/checklist aliases preserved; fba7237f… PASS, fresh 932b91df aa28d25d…/90 frames/94 and recovery ranges unchanged; bcf95d35 skeleton/panel/timeline loaded (existing Chromium video error 4 remains). 171 tests, build OK; analyzer/health deployed, pose service untouched. Stopped after 8a.
+- [ ] Batch 8b knowledge base rewrite — not approved; do not start.

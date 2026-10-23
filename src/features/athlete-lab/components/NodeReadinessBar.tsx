@@ -148,8 +148,6 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   });
 
   // 7. REFERENCE CALIBRATION — 5%
-  // Phase 1c.3-C: solution_class column dropped — drop the wholebody3d
-  // short-circuit and always run the per-angle calibration check.
   const refChecks: ReadinessCheck[] = [];
   {
     // Scale is measured per run; saved calibration is the fallback when height and field lines are unavailable.

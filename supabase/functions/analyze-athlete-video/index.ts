@@ -55,7 +55,9 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-const RTMLIB_FALLBACK =
+// Deployment compatibility: retain the legacy secret and endpoint, not the old engine.
+const LEGACY_POSE_URL_ENV = 'RTMLIB_URL'
+const POSE_SERVICE_FALLBACK =
   'https://rtmlib-service-874407535869.us-central1.run.app'
 
 const MAX_CLIP_WINDOW_SECONDS = 3
@@ -354,6 +356,7 @@ type PipelineLogData = {
     pipeline_stopped?: boolean
     stop_reason?: string
   }
+  /** Persisted compatibility key; live code aliases this as poseLog. */
   rtmlib?: {
     model?: string
     backend?: string
@@ -633,7 +636,7 @@ function round3(value: number): number {
  * feeds back into scoring, calibration, or feedback.
  */
 async function buildRunDiagnostics(input: {
-  rtmlibResult: CloudRunResponse
+  poseResult: CloudRunResponse
   detFrequency: number
   trackedKeypoints: VideoKeypoints
   trackedScores: VideoScores
@@ -647,7 +650,7 @@ async function buildRunDiagnostics(input: {
   llm: LlmDiagnostics
 }): Promise<RunDiagnostics> {
   const {
-    rtmlibResult,
+    poseResult,
     detFrequency,
     trackedKeypoints,
     trackedScores,
@@ -669,7 +672,7 @@ async function buildRunDiagnostics(input: {
     : null
   const scaleSeries = Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : null
 
-  const missedSet = new Set<number>(Array.isArray(rtmlibResult.missed_frame_indices) ? rtmlibResult.missed_frame_indices : [])
+  const missedSet = new Set<number>(Array.isArray(poseResult.missed_frame_indices) ? poseResult.missed_frame_indices : [])
   const perFrame: JsonRecord[] = trackedKeypoints.map((frame, index) => {
     const person = frame?.[0]
     const personScores = trackedScores[index]?.[0]
@@ -704,35 +707,35 @@ async function buildRunDiagnostics(input: {
   })
 
   const service: JsonRecord = {
-    frames_detected: rtmlibResult.frames_detected ?? null,
-    missed_frame_indices: rtmlibResult.missed_frame_indices ?? null,
-    recovered_frame_indices: rtmlibResult.recovered_frame_indices ?? null,
-    det_frequency_used: rtmlibResult.det_frequency_used ?? detFrequency,
-    frame_width: rtmlibResult.frame_width ?? null,
-    frame_height: rtmlibResult.frame_height ?? null,
-    frame_count: rtmlibResult.frame_count ?? null,
-    fps: rtmlibResult.fps ?? null,
-    pixels_per_yard: getPixelsPerYardValue(rtmlibResult),
-    calibration_source: getCalibrationSourceLabel(rtmlibResult),
-    calibration_confidence: getCalibrationConfidenceLabel(rtmlibResult),
-    person_detection_confidence: rtmlibResult.person_detection_confidence ?? rtmlibResult.personDetectionConfidence ?? null,
+    frames_detected: poseResult.frames_detected ?? null,
+    missed_frame_indices: poseResult.missed_frame_indices ?? null,
+    recovered_frame_indices: poseResult.recovered_frame_indices ?? null,
+    det_frequency_used: poseResult.det_frequency_used ?? detFrequency,
+    frame_width: poseResult.frame_width ?? null,
+    frame_height: poseResult.frame_height ?? null,
+    frame_count: poseResult.frame_count ?? null,
+    fps: poseResult.fps ?? null,
+    pixels_per_yard: getPixelsPerYardValue(poseResult),
+    calibration_source: getCalibrationSourceLabel(poseResult),
+    calibration_confidence: getCalibrationConfidenceLabel(poseResult),
+    person_detection_confidence: poseResult.person_detection_confidence ?? poseResult.personDetectionConfidence ?? null,
     auto_zoom: {
-      applied: rtmlibResult.auto_zoom_applied ?? rtmlibResult.autoZoomApplied ?? null,
-      reason: rtmlibResult.auto_zoom_reason ?? rtmlibResult.autoZoomReason ?? null,
-      factor: rtmlibResult.auto_zoom_factor ?? rtmlibResult.autoZoomFactor ?? null,
-      final_fill_ratio: rtmlibResult.auto_zoom_final_fill_ratio ?? rtmlibResult.autoZoomFinalFillRatio ?? null,
-      crop_rect: rtmlibResult.auto_zoom_crop_rect ?? rtmlibResult.autoZoomCropRect ?? null,
-      padding: rtmlibResult.auto_zoom_padding ?? rtmlibResult.autoZoomPadding ?? null,
-      safety_backoff_applied: rtmlibResult.safety_backoff_applied ?? rtmlibResult.safetyBackoffApplied ?? null,
-      mean_keypoint_confidence_before: rtmlibResult.mean_keypoint_confidence_before_auto_zoom ?? rtmlibResult.meanKeypointConfidenceBeforeAutoZoom ?? null,
-      mean_keypoint_confidence_after: rtmlibResult.mean_keypoint_confidence_after_auto_zoom ?? rtmlibResult.meanKeypointConfidenceAfterAutoZoom ?? null,
+      applied: poseResult.auto_zoom_applied ?? poseResult.autoZoomApplied ?? null,
+      reason: poseResult.auto_zoom_reason ?? poseResult.autoZoomReason ?? null,
+      factor: poseResult.auto_zoom_factor ?? poseResult.autoZoomFactor ?? null,
+      final_fill_ratio: poseResult.auto_zoom_final_fill_ratio ?? poseResult.autoZoomFinalFillRatio ?? null,
+      crop_rect: poseResult.auto_zoom_crop_rect ?? poseResult.autoZoomCropRect ?? null,
+      padding: poseResult.auto_zoom_padding ?? poseResult.autoZoomPadding ?? null,
+      safety_backoff_applied: poseResult.safety_backoff_applied ?? poseResult.safetyBackoffApplied ?? null,
+      mean_keypoint_confidence_before: poseResult.mean_keypoint_confidence_before_auto_zoom ?? poseResult.meanKeypointConfidenceBeforeAutoZoom ?? null,
+      mean_keypoint_confidence_after: poseResult.mean_keypoint_confidence_after_auto_zoom ?? poseResult.meanKeypointConfidenceAfterAutoZoom ?? null,
     },
-    timings_ms: rtmlibResult.timings_ms ?? null,
-    service_build: rtmlibResult.service_build ?? null,
-    service_revision: rtmlibResult.service_revision ?? null,
-    zoom_fallback_frame_indices: rtmlibResult.zoom_fallback_frame_indices ?? null,
-    rejected_frame_indices: rtmlibResult.rejected_frame_indices ?? null,
-    rejected_frame_reasons: rtmlibResult.rejected_frame_reasons ?? null,
+    timings_ms: poseResult.timings_ms ?? null,
+    service_build: poseResult.service_build ?? null,
+    service_revision: poseResult.service_revision ?? null,
+    zoom_fallback_frame_indices: poseResult.zoom_fallback_frame_indices ?? null,
+    rejected_frame_indices: poseResult.rejected_frame_indices ?? null,
+    rejected_frame_reasons: poseResult.rejected_frame_reasons ?? null,
   }
 
   const [keypointsHash, metricsHash, calibrationHash] = await Promise.all([
@@ -745,7 +748,7 @@ async function buildRunDiagnostics(input: {
     schema_version: 1,
     analyzer_build: ANALYZER_BUILD,
     deployment_id: Deno.env.get('DENO_DEPLOYMENT_ID') ?? null,
-    cloud_run_revision: rtmlibResult.service_revision ?? null,
+    cloud_run_revision: poseResult.service_revision ?? null,
     service,
     per_frame: perFrame,
     metrics: metricResults.map((m) => ({ ...m })),
@@ -1069,54 +1072,54 @@ Deno.serve(async (req) => {
       pixelsPerYard: staticCalibration?.pixels_per_yard ?? null,
     })
 
-    // STEP 4: Call Cloud Run rtmlib service with the uploaded video URL
+    // STEP 4: Call Cloud Run pose service with the uploaded video URL
     await setUploadProgress(upload.id, 'Loading model on server...')
     await ensureNotCancelled(upload.id)
-    const rtmlibResult = await callCloudRun({
+    const poseResult = await callCloudRun({
       uploadId: upload.id,
       video_url: upload.video_url,
       start_seconds: upload.start_seconds,
       end_seconds: upload.end_seconds,
     })
-    const cloudRunMetadata = buildCloudRunMetadata(rtmlibResult)
-    logData.rtmlib = {
+    const cloudRunMetadata = buildCloudRunMetadata(poseResult)
+    const poseLog: NonNullable<PipelineLogData['rtmlib']> = logData.rtmlib = {
       backend: 'cloud_run',
-      total_frames: rtmlibResult.frame_count,
-      source_fps: rtmlibResult.fps,
-      keypoint_confidence: summarizeKeypointConfidence(rtmlibResult.scores),
-      calibration_source: getCalibrationSourceLabel(rtmlibResult) ?? undefined,
-      pixels_per_yard: getPixelsPerYardValue(rtmlibResult) ?? undefined,
+      total_frames: poseResult.frame_count,
+      source_fps: poseResult.fps,
+      keypoint_confidence: summarizeKeypointConfidence(poseResult.scores),
+      calibration_source: getCalibrationSourceLabel(poseResult) ?? undefined,
+      pixels_per_yard: getPixelsPerYardValue(poseResult) ?? undefined,
       ...(Object.keys(cloudRunMetadata).length > 0 ? cloudRunMetadata : {}),
     }
-    const personCountSummary = summarizePersonCount(rtmlibResult.keypoints)
+    const personCountSummary = summarizePersonCount(poseResult.keypoints)
     logInfo('cloud_run_response_received', {
       uploadId,
-      frameCount: rtmlibResult.frame_count,
-      fps: rtmlibResult.fps,
+      frameCount: poseResult.frame_count,
+      fps: poseResult.fps,
       firstFramePersonCount: personCountSummary.firstFrame,
       maxFramePersonCount: personCountSummary.maxAcrossFrames,
-      calibrationSource: getCalibrationSourceLabel(rtmlibResult),
-      pixelsPerYard: getPixelsPerYardValue(rtmlibResult),
-      goodLinePairs: getGoodLinePairsValue(rtmlibResult),
+      calibrationSource: getCalibrationSourceLabel(poseResult),
+      pixelsPerYard: getPixelsPerYardValue(poseResult),
+      goodLinePairs: getGoodLinePairsValue(poseResult),
     })
     await ensureNotCancelled(upload.id)
 
     // STEP 5: Apply temporal smoothing to keypoints
     await setUploadProgress(upload.id, 'Applying temporal smoothing to tracked keypoints...')
     const smoothingExcluded = new Set<number>([
-      ...(Array.isArray(rtmlibResult.missed_frame_indices) ? rtmlibResult.missed_frame_indices : []),
-      ...(Array.isArray(rtmlibResult.rejected_frame_indices) ? rtmlibResult.rejected_frame_indices : []),
+      ...(Array.isArray(poseResult.missed_frame_indices) ? poseResult.missed_frame_indices : []),
+      ...(Array.isArray(poseResult.rejected_frame_indices) ? poseResult.rejected_frame_indices : []),
     ])
-    const smoothing = applyTemporalSmoothing(rtmlibResult.keypoints, rtmlibResult.scores, nodeConfig, smoothingExcluded)
+    const smoothing = applyTemporalSmoothing(poseResult.keypoints, poseResult.scores, nodeConfig, smoothingExcluded)
     const smoothedKeypoints = smoothing.keypoints
-    if (logData.rtmlib) {
-      ;(logData.rtmlib as Record<string, unknown>).temporal_smoothing = {
+    if (poseLog) {
+      ;(poseLog as Record<string, unknown>).temporal_smoothing = {
         smoothing_window_frames: SMOOTHING_WINDOW_FRAMES,
         keypoint_windows: smoothing.keypointWindows,
         excluded_frames: Array.from(smoothingExcluded).sort((a, b) => a - b),
       }
     }
-    const smoothedScores = rtmlibResult.scores
+    const smoothedScores = poseResult.scores
 
     // STEP 6: Lock onto target person
     await setUploadProgress(upload.id, 'Locking onto the athlete in frame...')
@@ -1137,13 +1140,13 @@ Deno.serve(async (req) => {
     )
 
     await setUploadProgress(upload.id, 'Running dynamic calibration...')
-    const serviceFrame = rtmlibResult as unknown as { frame_width?: unknown; frame_height?: unknown }
+    const serviceFrame = poseResult as unknown as { frame_width?: unknown; frame_height?: unknown }
     const serviceHeight = typeof serviceFrame.frame_height === 'number' && serviceFrame.frame_height > 0
       ? Math.min(serviceFrame.frame_height, typeof serviceFrame.frame_width === 'number' && serviceFrame.frame_width > 0 ? serviceFrame.frame_width : serviceFrame.frame_height)
       : null
     const resolutionHeight = serviceHeight ?? await lookupClipResolutionHeight(context)
     const { resolved: resolvedCalibration, audit: calibrationAudit } = resolveCalibration(
-      rtmlibResult,
+      poseResult,
       trackedPersonFrames.keypoints,
       trackedPersonFrames.scores,
       getAthleteHeightMeasurement(context),
@@ -1163,20 +1166,20 @@ Deno.serve(async (req) => {
     const anchorFrame = releaseAnchor.applied ? releaseAnchor.frame : 0
     const phaseWindows = offsetWindows(
       calculatePhaseWindows(
-        rtmlibResult.frame_count - anchorFrame,
+        poseResult.frame_count - anchorFrame,
         nodeConfig.phase_breakdown,
         3,
       ),
       anchorFrame,
     )
     logInfo('release_anchor', { uploadId, ...releaseAnchor })
-    if (logData.rtmlib) {
-      logData.rtmlib.phase_windows = buildPhaseWindowLog(
+    if (poseLog) {
+      poseLog.phase_windows = buildPhaseWindowLog(
         phaseWindows,
         nodeConfig.phase_breakdown,
-        rtmlibResult.frame_count,
+        poseResult.frame_count,
       )
-      logData.rtmlib.release_anchor = releaseAnchor
+      poseLog.release_anchor = releaseAnchor
     }
 
     // STEP 8: Calculate all metrics
@@ -1190,7 +1193,7 @@ Deno.serve(async (req) => {
       resolvedCalibration,
       (nodeConfig.reference_fallback_behavior as ReferenceFallbackBehavior | undefined) || 'pixel_warning',
       context,
-      rtmlibResult.fps,
+      poseResult.fps,
       uploadId,
       nodeConfig.phase_breakdown,
     )
@@ -1223,15 +1226,15 @@ Deno.serve(async (req) => {
     }
     const poseQualityAudit = buildPoseQualityAudit(
       personCountSummary,
-      logData.rtmlib?.keypoint_confidence,
+      poseLog?.keypoint_confidence,
       metricResults,
       scoreResult.aggregate_score,
     )
-    if (logData.rtmlib) {
-      logData.rtmlib.person_detected = poseQualityAudit.personDetected
-      logData.rtmlib.average_keypoint_confidence = poseQualityAudit.averageKeypointConfidence
-      logData.rtmlib.reliable_frame_percentage = poseQualityAudit.reliableFramePercentage
-      logData.rtmlib.most_common_issue = poseQualityAudit.mostCommonIssue
+    if (poseLog) {
+      poseLog.person_detected = poseQualityAudit.personDetected
+      poseLog.average_keypoint_confidence = poseQualityAudit.averageKeypointConfidence
+      poseLog.reliable_frame_percentage = poseQualityAudit.reliableFramePercentage
+      poseLog.most_common_issue = poseQualityAudit.mostCommonIssue
     }
 
     // STEP 10: Error auto-detection
@@ -1307,11 +1310,11 @@ Deno.serve(async (req) => {
     await ensureNotCancelled(upload.id)
     await setUploadProgress(upload.id, 'Writing analysis results...')
     const diagnostics = await buildRunDiagnostics({
-      rtmlibResult,
+      poseResult,
       detFrequency,
       trackedKeypoints: trackedPersonFrames.keypoints,
       trackedScores: trackedPersonFrames.scores,
-      phaseWindows: (logData.rtmlib?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
+      phaseWindows: (poseLog?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
       resolvedCalibration,
       calibrationAudit,
       metricResults,
@@ -1324,9 +1327,9 @@ Deno.serve(async (req) => {
     diagnostics.ground_truth_distance = groundTruthFromRun({
       context,
       perFrame: diagnostics.per_frame as any[],
-      phaseWindows: (logData.rtmlib?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
-      releaseFrame: (logData.rtmlib as any)?.release_anchor?.applied ? (logData.rtmlib as any).release_anchor.frame : null,
-      fps: Number(rtmlibResult.fps) || 30,
+      phaseWindows: (poseLog?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
+      releaseFrame: poseLog.release_anchor?.applied ? poseLog.release_anchor.frame : null,
+      fps: Number(poseResult.fps) || 30,
     })
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata, calibrationAudit, diagnostics)
     logInfo('results_written', {
@@ -1504,9 +1507,7 @@ function summarizeKeypointConfidence(scores: VideoScores) {
     })
   }
 
-  // Emit all observed indices (MediaPipe-33). Previously truncated to 17
-  // (COCO-17 era), which hid confidence stats for indices 19-28 used by
-  // active metrics (Plant Leg Extension: 23,25,27; Hip Stability: 23,24).
+  // Emit all observed MediaPipe-33 indices, including those used by active metrics.
   // MediaPipe landmark name lookup deferred to Phase 1c.
   return Array.from(totals.entries())
     .map(([index, summary]) => {
@@ -2203,10 +2204,7 @@ function calculateBodyBasedCalibration(
     if (!Array.isArray(frameKeypoints) || !Array.isArray(frameScores)) continue
 
     // MediaPipe Pose-33 indices: 11=L shoulder, 12=R shoulder, 23=L hip, 24=R hip.
-    // Previously used COCO-17 indices [5,6,11,12], which on MediaPipe-33 data
-    // map to ear/eye landmarks → produced impossible measurements (e.g. 186mph
-    // release speed). Anthropometric ratios below (0.259 shoulder, 0.191 hip of
-    // standing height) are landmark-agnostic and remain correct under this swap.
+    // Anthropometric ratios below use shoulder and hip widths relative to standing height.
     const leftShoulder = frameKeypoints[11]
     const rightShoulder = frameKeypoints[12]
     const leftHip = frameKeypoints[23]
@@ -3890,12 +3888,12 @@ async function callCloudRun(payload: {
   start_seconds: number
   end_seconds: number
 }): Promise<CloudRunResponse> {
-  const rtmlibBase =
+  const poseServiceBase =
     Deno.env.get('MEDIAPIPE_SERVICE_URL')?.trim() ||
-    Deno.env.get('RTMLIB_URL')?.trim() ||
-    RTMLIB_FALLBACK
-  const normalizedBase = rtmlibBase.replace(/\/+$/, '')
-  const rtmlibUrl = normalizedBase.endsWith('/analyze')
+    Deno.env.get(LEGACY_POSE_URL_ENV)?.trim() ||
+    POSE_SERVICE_FALLBACK
+  const normalizedBase = poseServiceBase.replace(/\/+$/, '')
+  const poseServiceUrl = normalizedBase.endsWith('/analyze')
     ? normalizedBase
     : `${normalizedBase}/analyze`
 
@@ -3918,7 +3916,7 @@ async function callCloudRun(payload: {
   const timeoutId = setTimeout(() => controller.abort(), CLOUD_RUN_FETCH_TIMEOUT_MS)
   let response: Response
   try {
-    response = await fetch(rtmlibUrl, {
+    response = await fetch(poseServiceUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload),
@@ -3928,8 +3926,8 @@ async function callCloudRun(payload: {
     const isAbort = (err as Error).name === 'AbortError'
     throw new Error(
       isAbort
-        ? `Cloud Run fetch timed out after ${CLOUD_RUN_FETCH_TIMEOUT_MS / 1000}s (RTMLIB_URL: ${rtmlibUrl})`
-        : `Cloud Run fetch failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
+        ? `Cloud Run fetch timed out after ${CLOUD_RUN_FETCH_TIMEOUT_MS / 1000}s (POSE_SERVICE_URL: ${poseServiceUrl})`
+        : `Cloud Run fetch failed (POSE_SERVICE_URL: ${poseServiceUrl}): ${(err as Error).message}`
     )
   } finally {
     clearTimeout(timeoutId)
@@ -3939,12 +3937,12 @@ async function callCloudRun(payload: {
     const bodyText = await response.text().catch(() => '')
     throw new Error(
       `Cloud Run call failed: ${response.status} ${response.statusText} ` +
-      `(RTMLIB_URL: ${rtmlibUrl})${bodyText ? ` — ${bodyText.slice(0, 200)}` : ''}`
+      `(POSE_SERVICE_URL: ${poseServiceUrl})${bodyText ? ` — ${bodyText.slice(0, 200)}` : ''}`
     )
   }
 
   if (!response.body) {
-    throw new Error(`Cloud Run returned no response body (RTMLIB_URL: ${rtmlibUrl})`)
+    throw new Error(`Cloud Run returned no response body (POSE_SERVICE_URL: ${poseServiceUrl})`)
   }
 
   const reader = response.body.getReader()
@@ -3992,8 +3990,8 @@ async function callCloudRun(payload: {
     const isAbort = (err as Error).name === 'AbortError'
     throw new Error(
       isAbort
-        ? `Cloud Run stream timed out after ${CLOUD_RUN_FETCH_TIMEOUT_MS / 1000}s (RTMLIB_URL: ${rtmlibUrl})`
-        : `Cloud Run stream read failed (RTMLIB_URL: ${rtmlibUrl}): ${(err as Error).message}`
+        ? `Cloud Run stream timed out after ${CLOUD_RUN_FETCH_TIMEOUT_MS / 1000}s (POSE_SERVICE_URL: ${poseServiceUrl})`
+        : `Cloud Run stream read failed (POSE_SERVICE_URL: ${poseServiceUrl}): ${(err as Error).message}`
     )
   }
 
@@ -4002,12 +4000,12 @@ async function callCloudRun(payload: {
     throw new Error(
       `Cloud Run pipeline error ${err.status}: ${
         typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
-      } (RTMLIB_URL: ${rtmlibUrl})`
+      } (POSE_SERVICE_URL: ${poseServiceUrl})`
     )
   }
 
   if (!final) {
-    throw new Error(`Cloud Run stream ended without result (RTMLIB_URL: ${rtmlibUrl})`)
+    throw new Error(`Cloud Run stream ended without result (POSE_SERVICE_URL: ${poseServiceUrl})`)
   }
 
   const result = final as CloudRunResponse & { progress_updates?: CloudRunProgressUpdate[] }

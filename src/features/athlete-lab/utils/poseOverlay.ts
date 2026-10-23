@@ -235,7 +235,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
   if (rawFrames.length === 0) return null;
   const service = rec(diag.service);
   const logData = rec(resultData.log_data);
-  const rtm = rec(logData.rtmlib);
+  const poseLog = rec(logData.rtmlib);
   const keypoints: Array<Pt[] | null> = rawFrames.map((f) => {
     const person = arr(arr(f)[0]);
     if (person.length === 0) return null;
@@ -248,7 +248,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     : null;
 
   const landmarkStatus = new Map<number, ConfidenceLevel>();
-  for (const e of arr(rtm.keypoint_confidence)) {
+  for (const e of arr(poseLog.keypoint_confidence)) {
     const r = rec(e);
     const idx = num(r.index);
     if (idx === null) continue;
@@ -268,7 +268,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     };
   });
 
-  const phaseWindows: PhaseWindowLite[] = arr(rtm.phase_windows).map((e) => {
+  const phaseWindows: PhaseWindowLite[] = arr(poseLog.phase_windows).map((e) => {
     const r = rec(e);
     return { phase: String(r.phase ?? ""), start: num(r.start) ?? 0, end: num(r.end) ?? 0 };
   });
@@ -278,7 +278,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
   const cx = num(crop.x), cy = num(crop.y), cw = num(crop.w), ch = num(crop.h);
   const zoomCrop = autoZoom.applied !== false && cx !== null && cy !== null && cw !== null && ch !== null ? { x: cx, y: cy, w: cw, h: ch } : null;
 
-  const release = rec(rtm.release_anchor);
+  const release = rec(poseLog.release_anchor);
   const rejectedReasons = rec(service.rejected_frame_reasons);
   const rejected = new Map<number, string>();
   for (const f of nums(service.rejected_frame_indices)) {

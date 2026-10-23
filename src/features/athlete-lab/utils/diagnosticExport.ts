@@ -106,7 +106,7 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
   const resultData = result ? asRecord(result.result_data) ?? {} : {};
   const diagnostics = asRecord(resultData.diagnostics);
   const logData = asRecord(resultData.log_data);
-  const rtmlibLog = logData ? asRecord(logData.rtmlib) : null;
+  const poseLog = logData ? asRecord(logData.rtmlib) : null;
   const context = upload.analysis_context ?? {};
   const overrides = asArray(context.overrides) ?? asRecord(context.overrides);
 
@@ -190,14 +190,14 @@ export function buildDiagnosticExport(input: DiagnosticExportInput): JsonRecord 
     per_frame: markSeams(normalizePerFrame(diagnostics ? asArray(diagnostics.per_frame) : null, service), seams) ?? NOT_RECORDED,
     frame_source_seams: seams ?? NOT_RECORDED,
     ground_truth_distance: diagnostics ? present(asRecord(diagnostics.ground_truth_distance)) : NOT_RECORDED,
-    release_anchor: (rtmlibLog ? asRecord(rtmlibLog.release_anchor) : null) ?? NOT_RECORDED,
+    release_anchor: (poseLog ? asRecord(poseLog.release_anchor) : null) ?? NOT_RECORDED,
     // Keypoint smoothing window — separate from each metric's measurement window (metrics[].temporal_window).
-    temporal_smoothing: (rtmlibLog ? asRecord(rtmlibLog.temporal_smoothing) : null) ?? NOT_RECORDED,
+    temporal_smoothing: (poseLog ? asRecord(poseLog.temporal_smoothing) : null) ?? NOT_RECORDED,
     confidence_flags: result ? present(result.confidence_flags ?? null) : NOT_RECORDED,
     calibration_audit: asRecord(resultData.calibration_audit) ?? NOT_RECORDED,
-    phase_windows: (rtmlibLog ? asArray(rtmlibLog.phase_windows) : null) ?? NOT_RECORDED,
+    phase_windows: (poseLog ? asArray(poseLog.phase_windows) : null) ?? NOT_RECORDED,
     metrics: metrics ?? NOT_RECORDED,
-    keypoint_confidence: (rtmlibLog ? asArray(rtmlibLog.keypoint_confidence) : null) ?? NOT_RECORDED,
+    keypoint_confidence: (poseLog ? asArray(poseLog.keypoint_confidence) : null) ?? NOT_RECORDED,
     errors: {
       rule_evaluations:
         (diagnostics ? asRecord(diagnostics.errors)?.evaluations : null) ??
