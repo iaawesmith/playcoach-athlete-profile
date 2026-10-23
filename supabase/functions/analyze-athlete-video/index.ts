@@ -1,3 +1,4 @@
+import { measurementDescription, measurementFrames } from './measurementWindow.ts'
 import {
   buildFallbackFeedback,
   checkFeedback,
@@ -57,7 +58,6 @@ const RTMLIB_FALLBACK =
 const MAX_CLIP_WINDOW_SECONDS = 3
 
 // Fallback temporal windows used by calculateAllMetrics when a mapping omits one.
-const DEFAULT_TEMPORAL_WINDOW: Record<string, number> = { velocity: 3, acceleration: 5, frame_delta: 10, distance_variance: 10 }
 
 type JsonRecord = Record<string, unknown>
 type Point = [number, number]
@@ -410,6 +410,7 @@ type PipelineLogData = {
     keypoints: string
     calculation_type: string
     temporal_window: number
+    measurement_window?: string
     extracted_values?: string
     calculated_result: string
     unit: string
@@ -1560,11 +1561,8 @@ function buildMetricLogEntries(metricResults: any[], phaseWindows: Record<string
       calculation_type: typeof metric?.keypoint_mapping?.calculation_type === 'string'
         ? metric.keypoint_mapping.calculation_type
         : 'unknown',
-      temporal_window: typeof metric?.temporal_window === 'number' && metric.temporal_window > 0
-        ? metric.temporal_window
-        : typeof metric?.keypoint_mapping?.temporal_window === 'number' && metric.keypoint_mapping.temporal_window > 0
-        ? metric.keypoint_mapping.temporal_window
-        : DEFAULT_TEMPORAL_WINDOW[metric?.keypoint_mapping?.calculation_type as string] ?? 0,
+      temporal_window: measurementFrames(metric?.keypoint_mapping?.calculation_type) ?? 0,
+      measurement_window: measurementDescription(metric?.keypoint_mapping?.calculation_type),
       extracted_values: value !== null ? formatNumber(value) : summarizeValue(detail),
       calculated_result: value !== null ? formatNumber(value) : metric?.reason || 'N/A',
       unit: typeof metric?.unit === 'string' ? metric.unit : '',
@@ -2755,7 +2753,7 @@ async function calculateAllMetrics(
       rightIndices: bilateralDecision.rightIndices,
       leftAverageConfidence: bilateralDecision.leftAverageConfidence,
       rightAverageConfidence: bilateralDecision.rightAverageConfidence,
-      temporalWindow: mapping.temporal_window || null,
+      temporalWindow: measurementFrames(mapping.calculation_type),
       confidenceThreshold: mapping.confidence_threshold || 0.7,
     })
 
@@ -2839,20 +2837,20 @@ async function calculateAllMetrics(
       case 'velocity':
         metricValue = calculateVelocity(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 3, fps, metricCalibration, fallbackBehavior,
+          measurementFrames('velocity') ?? 3, fps, metricCalibration, fallbackBehavior,
           phaseScores, mapping.confidence_threshold || 0.70,
         )
         break
       case 'acceleration':
         metricValue = calculateAcceleration(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 5, fps, metricCalibration, fallbackBehavior
+          measurementFrames('acceleration') ?? 5, fps, metricCalibration, fallbackBehavior
         )
         break
       case 'frame_delta':
         metricValue = calculateFrameDelta(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 10
+          measurementFrames('frame_delta') ?? 10
         )
         break
       case 'speed_retention': {
@@ -2869,13 +2867,13 @@ async function calculateAllMetrics(
         const scale = keypoints.map((_, f) => Array.isArray(calibration.perFrame) && typeof calibration.perFrame[f] === 'number'
           ? calibration.perFrame[f]
           : calibration.pixelsPerYard)
-        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 }) as MetricValueResult
+        metricValue = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: measurementFrames('speed_retention') ?? 5 }) as MetricValueResult
         break
       }
       case 'distance_variance':
         metricValue = calculateDistanceVariance(
           phaseFrames, personIndex, bilateralDecision.effectiveIndices,
-          mapping.temporal_window || 10, metricCalibration, fallbackBehavior, metric.name
+          measurementFrames('distance_variance') ?? 10, metricCalibration, fallbackBehavior, metric.name
         )
         break
     }
@@ -4388,7 +4386,7 @@ async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, 
       // (same hip midpoint the run measured), detected frames only.
       if (!perFrame.length) return { ...base, reason: 'stored_data_unavailable' }
       const hipPf = perFrame.map((row: any) => (row?.detected !== false && typeof row?.hip_center_x === 'number' && typeof row?.hip_center_y === 'number' && !(row.hip_center_x === 0 && row.hip_center_y === 0) ? [row.hip_center_x, row.hip_center_y] as const : null))
-      const rp = computeSpeedRetention({ hip: hipPf, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 })
+      const rp = computeSpeedRetention({ hip: hipPf, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: measurementFrames('speed_retention') ?? 5 })
       if (rp.value === null) return { ...base, reason: rp.reason, detail: rp.detail }
       const dirPf = normalizeTargetDirection(metric.target_direction)
       return {
@@ -4407,7 +4405,7 @@ async function computeAddedMetricsFromStored(resultId: string, nodeConfig: any, 
       typeof mapping.min_pass_ratio === 'number' ? mapping.min_pass_ratio : DEFAULT_MIN_PASS_RATIO)
     if (!conf.passed) return { ...metric, status: 'flagged', reason: 'low_confidence', detail: { confidenceDiagnostics: conf.diagnostics } }
     const hip = kps.map((frame, f) => (frame?.[0] ? getMidpoint(frame[0], indices, scs[f]?.[0], threshold) : null))
-    const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: 5 })
+    const r = computeSpeedRetention({ hip, scale, fps, phase: window, nextPhaseStart: nextStart, peakEnd: nextStart - 1, windowFrames: measurementFrames('speed_retention') ?? 5 })
     if (r.value === null) return { ...base, reason: r.reason, detail: r.detail }
     const dir = normalizeTargetDirection(metric.target_direction)
     return {
