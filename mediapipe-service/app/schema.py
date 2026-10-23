@@ -78,6 +78,16 @@ class AnalyzeResponse(BaseModel):
     safety_backoff_applied: bool = False
     athlete_framing_message: str | None = None
     mean_keypoint_confidence_before_auto_zoom: float = 0.0
+
+    # Decode bounds (frame cap replaces the old 3 s window limit)
+    frame_cap: int = 300
+    frame_cap_reached: bool = False
+    frames_requested: int = 0
+    frames_decoded: int = 0
+    achieved_fps: float = 0.0
+    source_fps: float = 0.0
+    clip_duration_s: float | None = None
+    decode_reopens: int = 0
     mean_keypoint_confidence_after_auto_zoom: float = 0.0
 
     # Auto-zoom exit fallback + partial-detection rejection (additive)
