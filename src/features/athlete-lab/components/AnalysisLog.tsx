@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import type { AnalysisLogData, KeyMetric, PipelineMetricResult } from "../types";
 
-import { buildAnalysisLogReporting, isOptionalLogVariable } from "../utils/analysisLogReporting";
+import { buildAnalysisLogReporting, decodeLine, isOptionalLogVariable, phaseWindowLine, routeEventLines } from "../utils/analysisLogReporting";
 
 type CopyState = "idle" | "success" | "error";
 
@@ -169,10 +169,13 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string, metricR
   if (r) {
     md += `Backend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nService revision: ${r.service_revision ?? "not recorded"}\nService build: ${r.service_build ?? "not recorded"}\n${r.analyzer_build_line ?? "Analyzer build: not recorded"}\nProcessing time (total): ${r.timings_ms?.total ?? r.processing_time_ms ?? "not recorded"}ms\nPose loop: ${r.timings_ms?.pose_loop ?? "not recorded"}ms\n\n`;
     if (r.ground_truth_lines?.length) md += `${r.ground_truth_lines.join("\n")}\n\n`;
+    md += `${decodeLine(r.decode, Number(r.source_fps) || 30)}\n\n`;
+    const eventLines = routeEventLines(r.route_events, 30);
+    if (eventLines.length) md += `Detected Events:\n${eventLines.map((l) => `  ${l}`).join("\n")}\n\n`;
     if (r.phase_windows?.length) {
       md += `Phase Frame Windows:\n`;
       for (const pw of r.phase_windows) {
-        md += `  ${pw.phase}: frames ${pw.start} to ${pw.end} (${pw.frame_count} frames, ${pw.percent}%)\n`;
+        md += `  ${phaseWindowLine(pw)}\n`;
       }
       md += "\n";
     }
@@ -435,15 +438,26 @@ export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricR
                   ))}
                 </div>
 
-                {logData.rtmlib.phase_windows?.length ? (
-                  <div>
-                    <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-2">Phase Frame Windows</div>
-                    <div className="space-y-1">
-                      {logData.rtmlib.phase_windows.map((pw, i) => (
-                        <div key={i} className={`${MONO} text-on-surface`}>
-                          {pw.phase}: frames {pw.start} to {pw.end} ({pw.frame_count} frames, {pw.percent}%)
-                        </div>
-                      ))}
+                <div className={`${MONO} text-on-surface`} data-testid="decode-line">{decodeLine(logData.rtmlib.decode, 30)}</div>
+
+                {logData.rtmlib.phase_windows?.length || logData.rtmlib.route_events ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-2">Phase Frame Windows</div>
+                      <div className="space-y-1">
+                        {(logData.rtmlib.phase_windows ?? []).map((pw, i) => (
+                          <div key={i} className={`${MONO} ${pw.not_measured ? "text-error-dim" : "text-on-surface"}`}>{phaseWindowLine(pw)}</div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-on-surface-variant text-[10px] font-semibold uppercase tracking-widest mb-2">Detected Events</div>
+                      <div className="space-y-1" data-testid="route-events">
+                        {routeEventLines(logData.rtmlib.route_events, 30).map((line) => (
+                          <div key={line} className={`${MONO} ${line.includes("NOT DETECTED") ? "text-error-dim" : "text-on-surface"}`}>{line}</div>
+                        ))}
+                        {!logData.rtmlib.route_events && <div className={`${MONO} text-on-surface-variant`}>Not recorded (run predates event anchoring)</div>}
+                      </div>
                     </div>
                   </div>
                 ) : null}

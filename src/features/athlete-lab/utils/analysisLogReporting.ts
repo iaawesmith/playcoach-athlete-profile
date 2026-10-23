@@ -78,3 +78,36 @@ export function analyzerBuildLine(build: string | null | undefined, runAt?: stri
   const age = days <= 0 ? "same day as this run" : `${days} day${days === 1 ? "" : "s"} before this run`;
   return `Analyzer build: ${build} (stamped ${stamp}, ${age})`;
 }
+
+type DecodeLog = {
+  frame_cap?: number | null; frame_cap_reached?: boolean | null; frames_decoded?: number | null;
+  achieved_fps?: number | null; clip_duration_s?: number | null; frames_requested?: number | null;
+};
+type RouteEventLog = { detected?: boolean; frame?: number; start?: number; end?: number; confidence?: number; reason?: string } | null | undefined;
+
+/** "Frame cap 300 (10.0 s @ 30 fps) · decoded 240 · achieved 30.0 fps · clip 8.00 s · cap not reached" */
+export function decodeLine(decode: DecodeLog | null | undefined, fps = 30): string {
+  if (!decode || typeof decode.frame_cap !== "number") return "Decode: not recorded (pose service predates the frame cap)";
+  const n = (v: number | null | undefined, d: number) => (typeof v === "number" ? v.toFixed(d) : "not recorded");
+  const cap = decode.frame_cap_reached === true ? "cap reached" : decode.frame_cap_reached === false ? "cap not reached" : "cap status not recorded";
+  return `Frame cap ${decode.frame_cap} (${(decode.frame_cap / fps).toFixed(1)} s @ ${fps} fps) · decoded ${decode.frames_decoded ?? "not recorded"} · achieved ${n(decode.achieved_fps, 1)} fps · clip ${n(decode.clip_duration_s, 2)} s · ${cap}`;
+}
+
+/** One line per detected event; null = this route/clip has no such event. */
+export function routeEventLines(events: { snap?: RouteEventLog; break?: RouteEventLog; catch?: RouteEventLog } | null | undefined, fps = 30): string[] {
+  if (!events) return [];
+  const label = { snap: "Snap (first movement)", break: "Break", catch: "Catch" } as const;
+  return (["snap", "break", "catch"] as const).map((key) => {
+    const e = events[key];
+    if (e === null) return `${label[key]}: not applicable ${key === "break" ? "(route has no break phase)" : "(clip has no catch)"}`;
+    if (!e) return `${label[key]}: not recorded`;
+    if (!e.detected) return `${label[key]}: NOT DETECTED (${e.reason ?? "unknown"}) — dependent metrics skipped`;
+    const span = e.start !== undefined && e.end !== undefined && e.start !== e.end ? `, frames ${e.start}–${e.end}` : "";
+    return `${label[key]}: frame ${e.frame} (${((e.frame ?? 0) / fps).toFixed(2)} s${span}), confidence ${e.confidence ?? "—"}`;
+  });
+}
+
+export function phaseWindowLine(pw: { phase: string; start: number; end: number; frame_count: number; percent: number; not_measured?: string }): string {
+  if (pw.not_measured) return `${pw.phase}: no window — ${pw.not_measured}`;
+  return `${pw.phase}: frames ${pw.start} to ${pw.end} (${pw.frame_count} frames, ${pw.percent}%)`;
+}

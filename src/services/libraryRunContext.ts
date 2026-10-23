@@ -1,5 +1,9 @@
 import type { CalibrationClip } from "./calibrationLibrary";
 
+/** Analysis is bounded by decoded frames (pose service frame cap), not seconds. */
+export const ANALYSIS_FRAME_CAP = 300;
+export const ANALYSIS_FRAME_CAP_SECONDS = ANALYSIS_FRAME_CAP / 30;
+
 export interface LibraryContextValues {
   camera_angle: string;
   people_in_video: string;
@@ -37,7 +41,7 @@ export function libraryClipValues(clip: CalibrationClip): LibraryContextValues {
     // Clips have no separate performance-description or focus-area column.
     performance_description: clip.notes, focus_area: "",
     end_seconds: typeof clip.duration_seconds === "number" && Number.isFinite(clip.duration_seconds) && clip.duration_seconds > 0
-      ? Math.min(clip.duration_seconds, 3) : null,
+      ? clip.duration_seconds : null,
   };
 }
 

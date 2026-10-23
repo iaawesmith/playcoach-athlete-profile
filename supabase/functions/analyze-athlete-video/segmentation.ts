@@ -179,3 +179,263 @@ export function sideForRoute(route: 'left' | 'right', rule: SideRule): 'left' | 
   if (rule === 'break_side') return route
   return route === 'left' ? 'right' : 'left'
 }
+
+// ---------------------------------------------------------------------------
+// Detected route events (snap, break, catch) and event-anchored phase windows
+// ---------------------------------------------------------------------------
+
+export const BREAK_SPAN_FRAMES = 8
+export const BREAK_MIN_TURN_DEG = 30
+export const BREAK_RUN_FRAMES = 3
+export const BREAK_MIN_PEAK_DEG = 60
+export const BREAK_MIN_MOVE_YD = 0.75
+export const BREAK_MIN_MOVE_PX = 40
+export const BREAK_MIN_COVERAGE = 0.8
+/** Assumed horizontal field of view for depth-from-scale (typical phone main camera, ~70 degrees). */
+export const BREAK_ASSUMED_FOCAL_FRACTION = 0.714
+export const CATCH_RUN_FRAMES = 2
+export const CATCH_MAX_HAND_GAP_SHOULDERS = 1.5
+export const CATCH_LEAD_FRAMES = 10
+export const CATCH_TAIL_FRAMES = 5
+
+const SHOULDER_L = 11
+const SHOULDER_R = 12
+
+export type RouteEvent =
+  | { detected: true; frame: number; start: number; end: number; confidence: number; detail: Record<string, unknown> }
+  | { detected: false; reason: string; detail: Record<string, unknown> }
+
+export type RouteEventName = 'snap' | 'break' | 'catch'
+
+export type RouteEvents = {
+  snap: RouteEvent
+  break: RouteEvent | null // null = this route has no break phase
+  catch: RouteEvent | null // null = clip has no catch (catch_included false)
+}
+
+/** Centered moving average over valid points only; gaps stay null. */
+function smoothHips(hips: Array<Pt | null>, w = 5): Array<Pt | null> {
+  const h = Math.floor(w / 2)
+  return hips.map((p, i) => {
+    if (!p) return null
+    let sx = 0, sy = 0, n = 0
+    for (let k = i - h; k <= i + h; k++) {
+      const q = hips[k]
+      if (q) { sx += q[0]; sy += q[1]; n++ }
+    }
+    return [sx / n, sy / n]
+  })
+}
+
+export function snapEvent(anchor: ReleaseAnchor): RouteEvent {
+  return anchor.applied
+    ? { detected: true, frame: anchor.frame, start: anchor.frame, end: anchor.frame, confidence: 1, detail: { method: 'sustained_hip_movement', threshold: anchor.threshold_yd, units: anchor.units } }
+    : { detected: false, reason: anchor.reason, detail: { threshold: anchor.threshold_yd, units: anchor.units } }
+}
+
+/**
+ * Break = the sharpest sustained change of direction on the ground plane after
+ * the snap. Ground position per frame: lateral x = (hip_x - centre) / scale and
+ * depth z = focal / scale, using the per-frame height scale (px/yd), so cuts
+ * toward or away from the camera count as well as lateral cuts. Turn at frame
+ * i = angle between the BREAK_SPAN_FRAMES displacement before and after it,
+ * counted only while the athlete moves >= BREAK_MIN_MOVE_YD each side. Runs of
+ * >= BREAK_RUN_FRAMES frames at >= BREAK_MIN_TURN_DEG are candidates; the run
+ * with the highest peak wins and must reach BREAK_MIN_PEAK_DEG. A straight
+ * run never qualifies. Without a per-frame scale, image coordinates are used.
+ */
+export function detectBreak(
+  hips: Array<Pt | null>,
+  ppy: Array<number | null> | number | null,
+  searchFrom: number,
+  frame: { width: number; height: number } | null = null,
+  searchTo: number | null = null,
+): RouteEvent {
+  const n = hips.length
+  const K = BREAK_SPAN_FRAMES
+  const perFrame = Array.isArray(ppy) && frame && frame.width > 0 ? ppy : null
+  const focal = frame ? BREAK_ASSUMED_FOCAL_FRACTION * Math.max(frame.width, frame.height) : 0
+  const s = smoothHips(hips)
+  const g: Array<Pt | null> = s.map((p, i) => {
+    if (!p) return null
+    if (!perFrame) return p
+    const sc = perFrame[i]
+    return typeof sc === 'number' && sc > 0 ? [(p[0] - frame!.width / 2) / sc, focal / sc] : null
+  })
+  const minMove = perFrame ? BREAK_MIN_MOVE_YD : BREAK_MIN_MOVE_PX
+  const last = Math.min(n - 1, searchTo ?? n - 1)
+  const turn: Array<number | null> = g.map((p, i) => {
+    if (i < searchFrom + K || i + K > last) return null
+    const a = g[i - K], b = g[i + K]
+    if (!p || !a || !b) return null
+    if (Math.hypot(p[0] - a[0], p[1] - a[1]) < minMove || Math.hypot(b[0] - p[0], b[1] - p[1]) < minMove) return null
+    const h1 = Math.atan2(p[1] - a[1], p[0] - a[0])
+    const h2 = Math.atan2(b[1] - p[1], b[0] - p[0])
+    let d = Math.abs(h2 - h1) * 180 / Math.PI
+    if (d > 180) d = 360 - d
+    return d
+  })
+  type Run = { start: number; end: number; peak: number }
+  const runs: Run[] = []
+  for (let i = 0; i < n; i++) {
+    if ((turn[i] ?? 0) < BREAK_MIN_TURN_DEG) continue
+    let end = i
+    while (end + 1 < n && (turn[end + 1] ?? 0) >= BREAK_MIN_TURN_DEG) end++
+    if (end - i + 1 >= BREAK_RUN_FRAMES) {
+      let peak = i
+      for (let f = i; f <= end; f++) if ((turn[f] ?? 0) > (turn[peak] ?? 0)) peak = f
+      runs.push({ start: i, end, peak })
+    }
+    i = end
+  }
+  const r2 = (v: number) => Math.round(v * 100) / 100
+  const candidates = runs.map((r) => ({ start: r.start, end: r.end, peak: r.peak, peak_turn_deg: r2(turn[r.peak] ?? 0) }))
+  const base = { search_from: searchFrom, search_to: last, space: perFrame ? 'ground_plane_yd' : 'image_px', span_frames: K, min_turn_deg: BREAK_MIN_TURN_DEG, min_peak_deg: BREAK_MIN_PEAK_DEG, candidates }
+  const best = runs.reduce<Run | null>((b, r) => (!b || (turn[r.peak] ?? 0) > (turn[b.peak] ?? 0) ? r : b), null)
+  if (!best) return { detected: false, reason: 'no_sustained_direction_change', detail: base }
+  const peakDeg = turn[best.peak] ?? 0
+  if (peakDeg < BREAK_MIN_PEAK_DEG) return { detected: false, reason: 'direction_change_below_peak', detail: base }
+  let have = 0
+  for (let f = best.peak - K; f <= best.peak + K; f++) if (hips[f]) have++
+  const coverage = have / (2 * K + 1)
+  if (coverage < BREAK_MIN_COVERAGE) return { detected: false, reason: 'low_hip_coverage', detail: { ...base, coverage } }
+  const conf = Math.min(1, Math.min(1, peakDeg / 90) * 0.5 + coverage * 0.5)
+  return {
+    detected: true, frame: best.peak, start: best.start, end: best.end, confidence: Math.round(conf * 1000) / 1000,
+    detail: { ...base, method: 'ground_plane_direction_change', peak_turn_deg: r2(peakDeg), coverage: Math.round(coverage * 1000) / 1000 },
+  }
+}
+
+/**
+ * Catch = hands raised together: both wrists confident, the gap between them
+ * <= CATCH_MAX_HAND_GAP_SHOULDERS shoulder widths and both above the shoulder
+ * line, for CATCH_RUN_FRAMES in a row, after searchFrom. Frame = highest mean
+ * wrist point in the first such run. A mid-stride arm swing (one hand forward,
+ * hands apart, below the shoulders) never qualifies.
+ */
+export function detectCatch(keypoints: FrameKps[], scores: FrameScores[], threshold: number, searchFrom: number): RouteEvent {
+  const n = keypoints.length
+  const handsUp: Array<number | null> = keypoints.map((frame, f) => {
+    if (f < searchFrom) return null
+    const p = frame?.[0]
+    const sc = scores[f]?.[0]
+    if (!p || !sc) return null
+    const ids = [WRIST_L, WRIST_R, SHOULDER_L, SHOULDER_R]
+    if (ids.some((id) => !p[id] || (sc[id] ?? 0) < threshold || (p[id][0] === 0 && p[id][1] === 0))) return null
+    const lw = p[WRIST_L], rw = p[WRIST_R], ls = p[SHOULDER_L], rs = p[SHOULDER_R]
+    const shoulderW = Math.hypot(ls[0] - rs[0], ls[1] - rs[1])
+    const shoulderY = Math.min(ls[1], rs[1])
+    if (shoulderW <= 0) return null
+    const gap = Math.hypot(lw[0] - rw[0], lw[1] - rw[1]) / shoulderW
+    if (gap > CATCH_MAX_HAND_GAP_SHOULDERS || lw[1] > shoulderY || rw[1] > shoulderY) return null
+    return (lw[1] + rw[1]) / 2
+  })
+  for (let i = Math.max(0, searchFrom); i + CATCH_RUN_FRAMES - 1 < n; i++) {
+    let ok = true
+    for (let k = 0; k < CATCH_RUN_FRAMES; k++) if (handsUp[i + k] === null) { ok = false; break }
+    if (!ok) continue
+    let end = i
+    while (end + 1 < n && handsUp[end + 1] !== null) end++
+    let best = i
+    for (let f = i; f <= end; f++) if ((handsUp[f] as number) < (handsUp[best] as number)) best = f
+    const runConf = Math.min(1, (end - i + 1) / 6)
+    return { detected: true, frame: best, start: i, end, confidence: Math.round((0.5 + 0.5 * runConf) * 1000) / 1000, detail: { method: 'hands_raised_together', search_from: searchFrom, run_frames: end - i + 1 } }
+  }
+  return { detected: false, reason: 'no_hands_raised_together', detail: { search_from: searchFrom } }
+}
+
+export type PhaseRole = 'pre_break' | 'break' | 'pre_catch' | 'catch' | 'post_catch'
+const BREAK_NAME = /\b(break|snap back|sink|turn|cross)\b/i
+const CATCH_NAME = /\bcatch\b/i
+
+/** Role of each phase (sorted by order) from its name relative to the break and catch phases. */
+export function phaseRoles(phases: Array<{ id: string; name: string }>): { roles: PhaseRole[]; hasBreak: boolean } {
+  const catchIdx = phases.findIndex((p) => CATCH_NAME.test(p.name))
+  const breakIdx = phases.findIndex((p, i) => i > 0 && (catchIdx < 0 || i < catchIdx) && BREAK_NAME.test(p.name) && !CATCH_NAME.test(p.name))
+  const roles = phases.map((_, i): PhaseRole => {
+    if (i === catchIdx) return 'catch'
+    if (catchIdx >= 0 && i > catchIdx) return 'post_catch'
+    if (i === breakIdx) return 'break'
+    if (breakIdx >= 0 && i < breakIdx) return 'pre_break'
+    return breakIdx >= 0 ? 'pre_catch' : 'pre_break'
+  })
+  return { roles, hasBreak: breakIdx >= 0 }
+}
+
+export type AnchoredPhase = {
+  id: string
+  name: string
+  role: PhaseRole
+  window: { start: number; end: number } | null
+  depends_on: RouteEventName[]
+  missing_event: RouteEventName | null
+}
+
+type Splitter = (count: number, phases: Array<{ id: string; name: string; proportion_weight?: number; frame_buffer?: number; sequence_order?: number }>) => Record<string, { start: number; end: number }>
+
+/**
+ * Phase windows anchored to detected events. Release..stem split [snap, break
+ * start); Break = the detected turning run; phases between break and catch
+ * split the frames between them; Catch Window = catch-LEAD..catch+TAIL; later
+ * phases run to the clip end. Phases bounded by an undetected event get no
+ * window (their metrics are skipped, never scored from an assumed window).
+ */
+export function anchorPhaseWindows(
+  totalFrames: number,
+  phases: Array<{ id: string; name: string; proportion_weight?: number; frame_buffer?: number; sequence_order?: number }>,
+  events: RouteEvents,
+  split: Splitter,
+): AnchoredPhase[] {
+  const { roles } = phaseRoles(phases)
+  const last = totalFrames - 1
+  const ev = (e: RouteEvent | null) => (e && e.detected ? e : null)
+  const snap = ev(events.snap)
+  const brk = ev(events.break)
+  const cat = ev(events.catch)
+  const noCatch = events.catch === null
+  const catchStart = cat ? Math.max(0, cat.frame - CATCH_LEAD_FRAMES) : null
+  const catchEnd = cat ? Math.min(last, cat.frame + CATCH_TAIL_FRAMES) : null
+  const segEnd = (role: PhaseRole): number | null => {
+    if (role === 'pre_break') return events.break ? (brk ? brk.start - 1 : null) : (noCatch ? last : catchStart !== null ? catchStart - 1 : null)
+    if (role === 'pre_catch') return noCatch ? last : catchStart !== null ? catchStart - 1 : null
+    return null
+  }
+  const deps = (role: PhaseRole): RouteEventName[] => {
+    const hasBreak = events.break !== null
+    if (role === 'pre_break') return hasBreak ? ['snap', 'break'] : noCatch ? ['snap'] : ['snap', 'catch']
+    if (role === 'break') return ['break']
+    if (role === 'pre_catch') return noCatch ? (hasBreak ? ['break'] : ['snap']) : hasBreak ? ['break', 'catch'] : ['snap', 'catch']
+    return noCatch ? [] : ['catch']
+  }
+  const detectedOf: Record<RouteEventName, boolean> = { snap: !!snap, break: !!brk, catch: !!cat }
+  const out: AnchoredPhase[] = phases.map((p, i) => {
+    const d = deps(roles[i])
+    const missing = d.find((e) => !detectedOf[e]) ?? null
+    return { id: p.id, name: p.name, role: roles[i], window: null, depends_on: d, missing_event: missing }
+  })
+  const fill = (role: PhaseRole, from: number, to: number) => {
+    const group = phases.filter((_, i) => roles[i] === role && !out[i].missing_event)
+    if (!group.length || to < from) return
+    const w = split(to - from + 1, group)
+    for (const o of out) if (o.role === role && w[o.id]) o.window = { start: w[o.id].start + from, end: w[o.id].end + from }
+  }
+  if (snap) {
+    const e = segEnd('pre_break')
+    if (e !== null) fill('pre_break', snap.frame, e)
+  }
+  if (brk) {
+    phases.forEach((p, i) => {
+      if (roles[i] !== 'break' || out[i].missing_event) return
+      const fb = Math.max(0, Math.round(Number(p.frame_buffer) || 0))
+      out[i].window = { start: Math.max(0, brk.start - fb), end: Math.min(last, brk.end + fb) }
+    })
+  }
+  const pcStart = brk ? brk.end + 1 : snap ? snap.frame : null
+  const pcEnd = segEnd('pre_catch')
+  if (pcStart !== null && pcEnd !== null) fill('pre_catch', pcStart, pcEnd)
+  if (!noCatch && cat && catchStart !== null && catchEnd !== null) {
+    for (const o of out) if (o.role === 'catch') o.window = { start: catchStart, end: catchEnd }
+    if (catchEnd < last) fill('post_catch', catchEnd + 1, last)
+  }
+  return out
+}

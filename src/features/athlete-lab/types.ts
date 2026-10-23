@@ -272,6 +272,8 @@ export interface PhaseWindow {
   end: number;
   frame_count: number;
   percent: number;
+  /** Set when the phase got no window (e.g. event_not_detected:break). */
+  not_measured?: string;
 }
 
 export interface KeypointConfidence {
@@ -351,6 +353,8 @@ export interface AnalysisLogData {
     most_common_issue?: string;
     phase_windows?: PhaseWindow[];
     keypoint_confidence?: KeypointConfidence[];
+    decode?: { frame_cap?: number | null; frame_cap_reached?: boolean | null; frames_requested?: number | null; frames_decoded?: number | null; achieved_fps?: number | null; source_fps?: number | null; clip_duration_s?: number | null };
+    route_events?: Record<"snap" | "break" | "catch", { detected?: boolean; frame?: number; start?: number; end?: number; confidence?: number; reason?: string } | null>;
   };
   metrics?: MetricLogEntry[];
   aggregate?: {

@@ -20,6 +20,7 @@ from .pose import (
     reject_partial_detections,
 )
 from .frameLoop import run_every_frame
+from .frame_source import achieved_fps
 from .schema import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -31,7 +32,7 @@ from .schema import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("mediapipe-service")
 
-MAX_WINDOW_SECONDS = 3.0
+# Cost is bounded by decoded frames, not seconds (see frame_source.MAX_DECODED_FRAMES).
 # Build identifier: SERVICE_BUILD (set at deploy, e.g. git SHA) else Cloud Run revision.
 SERVICE_BUILD = os.getenv("SERVICE_BUILD") or None
 SERVICE_REVISION = os.getenv("K_REVISION") or None
@@ -71,13 +72,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
     if req.end_seconds <= req.start_seconds:
         raise HTTPException(status_code=400, detail="end_seconds must be > start_seconds")
     window = req.end_seconds - req.start_seconds
-    if window > MAX_WINDOW_SECONDS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"clip window must be <= {MAX_WINDOW_SECONDS}s (got {window:.2f}s)",
-        )
-
-    log.info("analyze start window=%.2fs every_frame=true", window)
+    log.info("analyze start window=%.2fs every_frame=true frame_cap=%d", window, video.MAX_DECODED_FRAMES)
 
     progress: list[ProgressUpdate] = []
 
@@ -94,15 +89,16 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         t_download = time.perf_counter() - download_start
 
         decode_start = time.perf_counter()
-        frames, width, height = await asyncio.to_thread(
-            video.decode_window,
+        frames, window_info = await asyncio.to_thread(
+            video.open_window,
             local_path,
             req.start_seconds,
             req.end_seconds,
             video.TARGET_FPS,
         )
+        width, height = window_info.width, window_info.height
         t_decode = time.perf_counter() - decode_start
-        if not frames:
+        if frames is None or len(frames) == 0:
             raise HTTPException(status_code=422, detail="no frames decoded from window")
 
         total = len(frames)
@@ -182,6 +178,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
             t_calibration = time.perf_counter() - calibration_start
         finally:
             engine.close()
+            frames.close()
 
     detected_frac = (
         sum(1 for pf in original_space if pf.detected) / max(1, len(original_space))
@@ -240,6 +237,14 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         rejected_frame_indices=sorted(rejected.keys()),
         rejected_frame_reasons={str(k): v for k, v in rejected.items()},
         rejected_frame_details={str(k): v for k, v in rejected_details.items()},
+        frame_cap=window_info.plan.frame_cap,
+        frame_cap_reached=window_info.plan.frame_cap_reached,
+        frames_requested=window_info.plan.requested_frames,
+        frames_decoded=len(original_space),
+        achieved_fps=achieved_fps(window_info.plan.src_indices[: len(original_space)], video.TARGET_FPS),
+        source_fps=round(window_info.src_fps, 3),
+        clip_duration_s=window_info.clip_duration_s,
+        decode_reopens=frames.reopens,
         timings_ms={
             "download": round(t_download * 1000, 1),
             "decode": round(t_decode * 1000, 1),

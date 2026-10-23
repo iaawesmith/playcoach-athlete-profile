@@ -22,12 +22,11 @@ import { GroundTruthComparison } from "./GroundTruthComparison";
 import { CalibrationAuditPanel } from "./CalibrationAuditPanel";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 import { buildLibraryRunTag, listCalibrationClips, type CalibrationClip } from "@/services/calibrationLibrary";
-import { libraryClipValues, libraryContextDifferences, libraryAnalysisContext, LIBRARY_CONTEXT_LABELS, type LibraryContextValues } from "@/services/libraryRunContext";
+import { ANALYSIS_FRAME_CAP, ANALYSIS_FRAME_CAP_SECONDS, libraryClipValues, libraryContextDifferences, libraryAnalysisContext, LIBRARY_CONTEXT_LABELS, type LibraryContextValues } from "@/services/libraryRunContext";
 import { LibraryRunContextPanel } from "./LibraryRunContextPanel";
 import { cn } from "@/lib/utils";
 import { roundScore } from "../utils/pipelineResults";
 
-const MAX_CLIP_WINDOW_SECONDS = 3;
 
 interface TestingPanelProps {
   node: TrainingNode;
@@ -262,7 +261,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
   const [athleteWingspan, setAthleteWingspan] = useState("");
   const [athleteWingspanUnit, setAthleteWingspanUnit] = useState<MeasurementUnit>("inches");
   const [endSeconds, setEndSeconds] = useState(
-    Math.min(node.clip_duration_max, MAX_CLIP_WINDOW_SECONDS).toString(),
+    node.clip_duration_max.toString(),
   );
   const [contextCopied, setContextCopied] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -405,7 +404,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
     setAthleteHeightUnit(window.localStorage.getItem(ATHLETE_HEIGHT_UNIT_KEY) === "cm" ? "cm" : "inches");
     setAthleteWingspan("");
     setAthleteWingspanUnit("inches");
-    setEndSeconds(String(Math.min(node.clip_duration_max, MAX_CLIP_WINDOW_SECONDS)));
+    setEndSeconds(String(node.clip_duration_max));
   };
 
   const handleRetry = () => {
@@ -472,7 +471,7 @@ export function TestingPanel({ node }: TestingPanelProps) {
 
     try {
       const parsedEndSeconds = endSeconds.trim() ? Number(endSeconds) : Number.NaN;
-      const effectiveMax = Math.min(node.clip_duration_max, MAX_CLIP_WINDOW_SECONDS);
+      const effectiveMax = ANALYSIS_FRAME_CAP_SECONDS;
       const effectiveMin = Math.min(node.clip_duration_min, effectiveMax);
       const normalizedEndSeconds = libraryClip ? parsedEndSeconds : Number.isFinite(parsedEndSeconds)
         ? Math.min(Math.max(parsedEndSeconds, effectiveMin), effectiveMax)
@@ -500,8 +499,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
         if (!overrideLibrary && differences.length) {
           throw new Error(`Library context differs: ${differences.map((entry) => LIBRARY_CONTEXT_LABELS[entry.field]).join(", ")}. Reload the clip or enable Override for this run.`);
         }
-        if (values.end_seconds === null || values.end_seconds <= 0 || values.end_seconds > 3) {
-          throw new Error("Library run needs a valid clip end between 0 and 3 seconds. Edit the clip if its duration is missing.");
+        if (values.end_seconds === null || values.end_seconds <= 0 || !Number.isFinite(values.end_seconds)) {
+          throw new Error("Library run needs a valid clip end above 0 seconds. Edit the clip if its duration is missing.");
         }
         outgoingContext = {
           ...libraryAnalysisContext(values), ...buildLibraryRunTag(freshClip),
@@ -904,14 +903,13 @@ export function TestingPanel({ node }: TestingPanelProps) {
           <input
             readOnly={Boolean(libraryClip) && (!overrideLibrary || isRunning)}
             type="number"
-            min={libraryClip ? 0 : Math.min(node.clip_duration_min, MAX_CLIP_WINDOW_SECONDS)}
-            max={MAX_CLIP_WINDOW_SECONDS}
+            min={libraryClip ? 0 : node.clip_duration_min}
             step="0.1"
             value={endSeconds}
             onChange={(e) => setEndSeconds(e.target.value)}
             className="w-full rounded-xl border border-outline-variant/10 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 transition-colors focus:border-primary-container/50 focus:outline-none"
           />
-          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">{libraryClip ? "From library clip: stored duration capped at 3 seconds; start is 0." : "Start is 0; end seconds are clamped to the node limits and 3 seconds."}</p>
+          <p className="mt-1.5 text-[10px] text-on-surface-variant/50">{libraryClip ? `From library clip: full stored duration; start is 0. Analysis stops at ${ANALYSIS_FRAME_CAP} frames (${ANALYSIS_FRAME_CAP_SECONDS}s at 30 fps).` : `Start is 0; analysis stops at ${ANALYSIS_FRAME_CAP} frames (${ANALYSIS_FRAME_CAP_SECONDS}s at 30 fps).`}</p>
           {libraryClip && Number(endSeconds) < node.clip_duration_min && <p className="mt-2 text-xs text-destructive-foreground">This clip is shorter than the node minimum of {node.clip_duration_min}s. The current pipeline will reject it at preflight; its duration will not be padded.</p>}
         </div>
 

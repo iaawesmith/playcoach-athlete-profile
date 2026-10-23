@@ -16,8 +16,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   computeReleaseAnchor,
   findCatchArrival,
+  snapEvent,
+  detectBreak,
+  detectCatch,
+  phaseRoles,
+  anchorPhaseWindows,
+  type AnchoredPhase,
+  type CatchArrival,
+  type RouteEvent,
+  type RouteEvents,
   hipSeries,
-  offsetWindows,
   resolveSideRule,
   sideForRoute,
   type FrameKps,
@@ -61,7 +69,8 @@ const LEGACY_POSE_URL_ENV = 'RTMLIB_URL'
 const POSE_SERVICE_FALLBACK =
   'https://rtmlib-service-874407535869.us-central1.run.app'
 
-const MAX_CLIP_WINDOW_SECONDS = 3
+// Must match mediapipe-service frame_source.MAX_DECODED_FRAMES.
+const MAX_DECODED_FRAMES = 300
 
 // Fallback temporal windows used by calculateAllMetrics when a mapping omits one.
 
@@ -320,6 +329,15 @@ type CloudRunResponse = {
   zoom_fallback_frame_indices?: number[] | null
   rejected_frame_indices?: number[] | null
   rejected_frame_reasons?: Record<string, string> | null
+  // Frame-cap decode fields (absent on older service revisions)
+  frame_cap?: number | null
+  frame_cap_reached?: boolean | null
+  frames_requested?: number | null
+  frames_decoded?: number | null
+  achieved_fps?: number | null
+  source_fps?: number | null
+  clip_duration_s?: number | null
+  decode_reopens?: number | null
 }
 
 type CloudRunMetadata = {
@@ -371,12 +389,16 @@ type PipelineLogData = {
     reliable_frame_percentage?: number
     most_common_issue?: string
     release_anchor?: ReleaseAnchor
+    route_events?: RouteEvents
+    decode?: DecodeSummary
+    phase_anchoring?: Array<{ phase: string; role: string; depends_on: string[]; missing_event: string | null; start: number | null; end: number | null }>
     phase_windows?: Array<{
       phase: string
       start: number
       end: number
       frame_count: number
       percent: number
+      not_measured?: string
     }>
     keypoint_confidence?: Array<{
       index: number
@@ -737,6 +759,7 @@ async function buildRunDiagnostics(input: {
     zoom_fallback_frame_indices: poseResult.zoom_fallback_frame_indices ?? null,
     rejected_frame_indices: poseResult.rejected_frame_indices ?? null,
     rejected_frame_reasons: poseResult.rejected_frame_reasons ?? null,
+    decode: decodeSummary(poseResult),
   }
 
   const [keypointsHash, metricsHash, calibrationHash] = await Promise.all([
@@ -1164,23 +1187,61 @@ Deno.serve(async (req) => {
       hipSeries(trackedPersonFrames.keypoints as unknown as FrameKps[], trackedPersonFrames.scores as unknown as FrameScores[]),
       Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : resolvedCalibration.pixelsPerYard,
     )
-    const anchorFrame = releaseAnchor.applied ? releaseAnchor.frame : 0
-    const phaseWindows = offsetWindows(
-      calculatePhaseWindows(
-        poseResult.frame_count - anchorFrame,
-        nodeConfig.phase_breakdown,
-        3,
-      ),
-      anchorFrame,
+    // Event-anchored phases: snap (release anchor), break (hip heading change)
+    // and catch (hands raised together) bound the windows; phases bounded by an
+    // undetected event get no window and their metrics are skipped.
+    const sortedPhases = [...(Array.isArray(nodeConfig.phase_breakdown) ? nodeConfig.phase_breakdown : [])]
+      .sort((a: any, b: any) => (a?.sequence_order || 0) - (b?.sequence_order || 0))
+    const namedPhases = parsePhaseBreakdown(sortedPhases).map((p, i) => ({ ...sortedPhases[i], id: p.id, name: p.name }))
+    const routeHips = hipSeries(trackedPersonFrames.keypoints as unknown as FrameKps[], trackedPersonFrames.scores as unknown as FrameScores[])
+    const ppySeries = Array.isArray(resolvedCalibration.perFrame) ? resolvedCalibration.perFrame : resolvedCalibration.pixelsPerYard
+    const snap = snapEvent(releaseAnchor)
+    const snapFrame = snap.detected ? snap.frame : 0
+    const routeHasBreak = phaseRoles(namedPhases).hasBreak
+    const trackedKps = trackedPersonFrames.keypoints as unknown as FrameKps[]
+    const trackedScores = trackedPersonFrames.scores as unknown as FrameScores[]
+    // Break is searched before the first hands-up moment so post-catch turns upfield never win.
+    const preliminaryCatch = context.catch_included === false ? null : detectCatch(trackedKps, trackedScores, CATCH_EVENT_CONFIDENCE, snapFrame)
+    const breakSearchTo = preliminaryCatch && preliminaryCatch.detected ? preliminaryCatch.start - 1 : null
+    const frameSize = typeof serviceFrame.frame_width === 'number' && typeof serviceFrame.frame_height === 'number'
+      ? { width: serviceFrame.frame_width, height: serviceFrame.frame_height } : null
+    const breakEvent = routeHasBreak ? detectBreak(routeHips, ppySeries, snapFrame, frameSize, breakSearchTo) : null
+    const catchEvent = context.catch_included === false
+      ? null
+      : detectCatch(
+          trackedPersonFrames.keypoints as unknown as FrameKps[],
+          trackedPersonFrames.scores as unknown as FrameScores[],
+          CATCH_EVENT_CONFIDENCE,
+          breakEvent && breakEvent.detected ? breakEvent.end + 1 : snapFrame,
+        )
+    const routeEvents: RouteEvents = { snap, break: breakEvent, catch: catchEvent }
+    const anchoredPhases = anchorPhaseWindows(
+      poseResult.frame_count,
+      namedPhases,
+      routeEvents,
+      (count, group) => calculatePhaseWindows(count, group, 3),
     )
+    const phaseWindows: Record<string, { start: number; end: number }> = {}
+    for (const ap of anchoredPhases) if (ap.window) phaseWindows[ap.id] = ap.window
     logInfo('release_anchor', { uploadId, ...releaseAnchor })
+    logInfo('route_events', { uploadId, routeEvents, anchoredPhases })
     if (poseLog) {
+      poseLog.route_events = routeEvents
+      poseLog.decode = decodeSummary(poseResult)
+      poseLog.phase_anchoring = anchoredPhases.map((ap) => ({
+        phase: ap.name, role: ap.role, depends_on: ap.depends_on, missing_event: ap.missing_event,
+        start: ap.window?.start ?? null, end: ap.window?.end ?? null,
+      }))
       poseLog.phase_windows = buildPhaseWindowLog(
         phaseWindows,
         nodeConfig.phase_breakdown,
         poseResult.frame_count,
       )
       poseLog.release_anchor = releaseAnchor
+      const missingByName = new Map(anchoredPhases.filter((ap) => !ap.window).map((ap) => [ap.name, ap.missing_event]))
+      poseLog.phase_windows = poseLog.phase_windows.map((pw) => missingByName.has(pw.phase)
+        ? { ...pw, start: -1, end: -1, frame_count: 0, percent: 0, not_measured: missingByName.get(pw.phase) ? `event_not_detected:${missingByName.get(pw.phase)}` : 'no_window' }
+        : pw)
     }
 
     // STEP 8: Calculate all metrics
@@ -1197,6 +1258,7 @@ Deno.serve(async (req) => {
       poseResult.fps,
       uploadId,
       nodeConfig.phase_breakdown,
+      { anchoredPhases, catchEvent },
     )
     logInfo('metric_calculation_complete', {
       uploadId,
@@ -1411,13 +1473,14 @@ async function runPreflight(upload: any, nodeConfig: any) {
       name: 'Clip duration',
       expected: `${nodeConfig.clip_duration_min}-${nodeConfig.clip_duration_max}s`,
       actual: `${duration}s`,
-      result: duration < nodeConfig.clip_duration_min || duration > nodeConfig.clip_duration_max ? 'FAIL' as const : 'PASS' as const,
+      // Above the node max is advisory now that the full clip is analyzed (frame cap bounds cost).
+      result: duration < nodeConfig.clip_duration_min ? 'FAIL' as const : duration > nodeConfig.clip_duration_max ? 'WARN' as const : 'PASS' as const,
     },
     {
-      name: 'Launch clip cap',
-      expected: `<= ${MAX_CLIP_WINDOW_SECONDS}s (3-second clips are currently supported; longer clips coming soon)`,
+      name: 'Frame cap',
+      expected: `${MAX_DECODED_FRAMES} decoded frames (${(MAX_DECODED_FRAMES / 30).toFixed(1)}s at 30 fps); longer clips are analyzed up to the cap`,
       actual: `${duration}s`,
-      result: duration > MAX_CLIP_WINDOW_SECONDS ? 'FAIL' as const : 'PASS' as const,
+      result: 'PASS' as const,
     },
     {
       name: 'Node status',
@@ -1458,6 +1521,30 @@ export function nextPhaseStart(mapping: any, phaseBreakdown: any[], phaseWindows
   const nextId = explicit ?? (idx >= 0 ? order[idx + 1]?.id : undefined)
   const w = nextId ? phaseWindows[nextId] : undefined
   return w ? w.start : null
+}
+
+const CATCH_EVENT_CONFIDENCE = 0.5
+
+type DecodeSummary = {
+  frame_cap: number | null
+  frame_cap_reached: boolean | null
+  frames_requested: number | null
+  frames_decoded: number | null
+  achieved_fps: number | null
+  source_fps: number | null
+  clip_duration_s: number | null
+}
+
+function decodeSummary(poseResult: CloudRunResponse): DecodeSummary {
+  return {
+    frame_cap: poseResult.frame_cap ?? null,
+    frame_cap_reached: poseResult.frame_cap_reached ?? null,
+    frames_requested: poseResult.frames_requested ?? null,
+    frames_decoded: poseResult.frames_decoded ?? poseResult.frame_count ?? null,
+    achieved_fps: poseResult.achieved_fps ?? null,
+    source_fps: poseResult.source_fps ?? null,
+    clip_duration_s: poseResult.clip_duration_s ?? null,
+  }
 }
 
 function parsePhaseBreakdown(phases: any[]): Array<{ id: string; name: string }> {
@@ -2595,8 +2682,11 @@ async function calculateAllMetrics(
   fps: number,
   uploadId?: string | null,
   phaseBreakdown: any[] = [],
+  // Present on event-anchored runs; absent when rescoring legacy stored windows.
+  anchoring?: { anchoredPhases: AnchoredPhase[]; catchEvent: RouteEvent | null } | null,
 ) {
   const results: any[] = []
+  const missingEventByPhase = new Map((anchoring?.anchoredPhases ?? []).filter((p) => p.missing_event).map((p) => [p.id, p.missing_event as string]))
   const phaseNameById = new Map(parsePhaseBreakdown(phaseBreakdown).map((p) => [p.id, p.name]))
   // Ball arrival for catch-anchored distance metrics (computed lazily per threshold).
   const personOnlyKps = keypoints.map((f) => [f?.[personIndex]]) as unknown as FrameKps[]
@@ -2632,6 +2722,14 @@ async function calculateAllMetrics(
     if (!mapping?.keypoint_indices?.length) {
       logWarn('metric_skipped', { ...metricContext, reason: 'no_keypoint_mapping' })
       results.push({ ...metric, status: 'skipped', reason: 'no_keypoint_mapping' })
+      continue
+    }
+
+    const missingEvent = missingEventByPhase.get(mapping.phase_id)
+    if (missingEvent) {
+      const reason = `event_not_detected:${missingEvent}`
+      logWarn('metric_skipped', { ...metricContext, reason })
+      results.push({ ...metric, status: 'skipped', reason })
       continue
     }
 
@@ -2714,7 +2812,11 @@ async function calculateAllMetrics(
         if (/catch/i.test(phaseName)) {
           // Catch-anchored: measure around ball arrival, never elsewhere.
           const threshold = mapping.confidence_threshold || 0.70
-          const arrival = findCatchArrival(personOnlyKps, personOnlyScores, threshold)
+          // Event-anchored runs use the detected catch; legacy rescoring keeps the wrist-peak search.
+          const detectedCatch = anchoring?.catchEvent && anchoring.catchEvent.detected ? anchoring.catchEvent : null
+          const arrival: CatchArrival | { ok: true; frame: number; source: 'detected_catch'; confidence: number } = detectedCatch
+            ? { ok: true, frame: detectedCatch.frame, source: 'detected_catch', confidence: detectedCatch.confidence }
+            : findCatchArrival(personOnlyKps, personOnlyScores, threshold)
           if (!arrival.ok) {
             metricValue = { value: null, status: 'skipped', reason: 'catch_frames_unavailable', detail: { catchAnchor: arrival } }
             break

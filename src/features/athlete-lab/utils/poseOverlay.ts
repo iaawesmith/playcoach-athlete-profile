@@ -272,6 +272,8 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     const r = rec(e);
     return { phase: String(r.phase ?? ""), start: num(r.start) ?? 0, end: num(r.end) ?? 0 };
   });
+  // Phases with no detected event are logged as start/end -1; they are never drawn.
+  const drawnPhaseWindows = phaseWindows.filter((w) => w.start >= 0 && w.end >= w.start);
 
   const autoZoom = rec(service.auto_zoom);
   const crop = rec(autoZoom.crop_rect ?? resultData.auto_zoom_crop_rect);
@@ -295,7 +297,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     const node = nodeMetrics.find((k) => k.name === name);
     const logEntry = logMetrics.find((l) => l.name === name);
     const phaseName = typeof logEntry?.phase === "string" ? logEntry.phase : null;
-    const window = phaseWindows.find((w) => w.phase === phaseName) ?? null;
+    const window = drawnPhaseWindows.find((w) => w.phase === phaseName) ?? null;
     const ca = rec(detail.catchAnchor);
     const caFrame = num(ca.frame);
     if (caFrame !== null && ca.ok !== false && catchAnchorFrame === null) catchAnchorFrame = caFrame;
@@ -323,7 +325,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     landmarkStatus,
     confidenceSource: scores ? "per_frame" : "run_level",
     perFrame,
-    phaseWindows,
+    phaseWindows: drawnPhaseWindows,
     releaseAnchorFrame: release.applied === true ? num(release.frame) : null,
     catchAnchorFrame,
     zoomFactor: num(autoZoom.factor),

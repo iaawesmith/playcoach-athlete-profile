@@ -226,11 +226,15 @@ def _decide_with_probe(
     }
 
     # Apply crop + resize back to (W, H) so downstream sees same resolution.
-    processed: list[np.ndarray] = []
-    for f in frames:
+    # Lazy: each frame is cropped+resized when the pose loop reads it, so the
+    # full-resolution processed clip is never held in memory (F-INFRA-1).
+    from .frame_source import MappedFrames
+
+    def _zoom(f: np.ndarray) -> np.ndarray:
         cropped = f[y0 : y0 + ch, x0 : x0 + cw]
-        resized = cv2.resize(cropped, (width, height), interpolation=cv2.INTER_LINEAR)
-        processed.append(resized)
+        return cv2.resize(cropped, (width, height), interpolation=cv2.INTER_LINEAR)
+
+    processed = MappedFrames(frames, _zoom)
 
     # Skip the post-zoom probe entirely when the visual change is marginal.
     if factor < POST_PROBE_MIN_FACTOR:
