@@ -37,7 +37,7 @@ export function libraryClipValues(clip: CalibrationClip): LibraryContextValues {
     // Clips have no separate performance-description or focus-area column.
     performance_description: clip.notes, focus_area: "",
     end_seconds: typeof clip.duration_seconds === "number" && Number.isFinite(clip.duration_seconds) && clip.duration_seconds > 0
-      ? Math.min(clip.duration_seconds, 3) : null,
+      ? clip.duration_seconds : null,
   };
 }
 
