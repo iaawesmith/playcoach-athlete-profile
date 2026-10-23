@@ -99,5 +99,5 @@
 - [x] Batch 5 Errors: severity hidden/preserved, three dead Slant WR rules removed, plant error renamed with unchanged <125 condition. Read-only c6fa0895 before/after errors and fba7237f… fingerprint PASS (94); only Slow release triggers; 162 tests and real editor verification pass. Stopped after Batch 5.
 - [x] Wheel WR: exact Drifting to the sideline wording archived and read-back verified before removal; other rules/metrics/version preserved.
 - [x] Batch 6 Reference: camera-angle + px/yd controls, legacy metadata/fallback settings hidden and preserved, filming guidance retained; fba7237f… unchanged (94), identical before/after errors; 165 tests and real Slant/Wheel browser checks pass. Stopped after Batch 6.
-- [ ] Batch 7 Scoring and fixes
+- [ ] Batch 7 Scoring and fixes: hide/preserve score bands and free-text rules, replace llm_max_words with constant token cap, label Max skipped metrics %, reject zero confidence, verify fba7237f… and 160-word feedback check; stop afterward.
 - [ ] Batch 8 rtmlib cleanup + knowledge base rewrite (+ fresh run, overlay)
