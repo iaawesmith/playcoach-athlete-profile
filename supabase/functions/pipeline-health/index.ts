@@ -31,10 +31,13 @@ function admin() {
   })
 }
 
+// Keep the deployed legacy secret as a compatibility alias.
+const LEGACY_POSE_URL_ENV = 'RTMLIB_URL'
+
 function poseServiceUrl(): string {
   return (
     Deno.env.get('MEDIAPIPE_SERVICE_URL')?.trim() ||
-    Deno.env.get('RTMLIB_URL')?.trim() ||
+    Deno.env.get(LEGACY_POSE_URL_ENV)?.trim() ||
     ''
   )
 }
@@ -157,8 +160,8 @@ function probeSecrets(): Probe[] {
   const poseUrl = poseServiceUrl()
   out.push(
     poseUrl
-      ? probe('secret_pose_url', 'Edge Function', 'Pose service URL secret set (MEDIAPIPE_SERVICE_URL / RTMLIB_URL)', 'pass', 'Configured.')
-      : probe('secret_pose_url', 'Edge Function', 'Pose service URL secret set (MEDIAPIPE_SERVICE_URL / RTMLIB_URL)', 'fail', 'Not set — the analyzer has no Cloud Run endpoint to call.'),
+      ? probe('secret_pose_url', 'Edge Function', 'Pose service URL secret set', 'pass', 'Configured.')
+      : probe('secret_pose_url', 'Edge Function', 'Pose service URL secret set', 'fail', 'Not set — the analyzer has no Cloud Run endpoint to call.'),
   )
 
   for (const [name, id] of [

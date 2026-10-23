@@ -330,7 +330,7 @@ function LinksTab() {
               Link Title
               <span className="material-symbols-outlined text-on-surface-variant/40 cursor-help" style={{ fontSize: 12 }} title="The display name for this link.">info</span>
             </label>
-            <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder='e.g. rtmlib Documentation' className="mt-1 w-full h-9 bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 text-on-surface text-xs focus:outline-none focus:border-primary-container/30 transition-colors" />
+            <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder='e.g. MediaPipe Documentation' className="mt-1 w-full h-9 bg-surface-container-lowest border border-outline-variant/10 rounded-lg px-3 text-on-surface text-xs focus:outline-none focus:border-primary-container/30 transition-colors" />
           </div>
           <div>
             <label className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-1">

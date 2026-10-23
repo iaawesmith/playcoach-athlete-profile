@@ -13,6 +13,10 @@ interface Phase {
   items: ChecklistItem[];
 }
 
+// Preserve existing checklist progress under its historical database IDs.
+const POSE_MODEL_CHECK_ID = "rtmw_model_confirmed";
+const POSE_ENDPOINT_CHECK_ID = "wholebody_tested";
+
 const PHASES: Phase[] = [
   {
     name: "SUPABASE INFRASTRUCTURE",
@@ -38,7 +42,7 @@ const PHASES: Phase[] = [
 
       // CORE BUILD (Application Code)
       { item_id: "dockerfile_created", title: "Dockerfile created", description: "Phase 1 placeholder — container with MediaPipe Tasks (vision/pose), numpy, opencv-python-headless, fastapi, uvicorn, yt-dlp, ffmpeg. Based on python:3.11-slim. Install system dependencies for yt-dlp and OpenCV (libgl1, libglib2.0-0)." },
-      { item_id: "fastapi_implemented", title: "FastAPI service implemented", description: "Phase 1 placeholder — POST /analyze endpoint accepts video_url, start_seconds, end_seconds, and pose_engine config in JSON body. Downloads the clip via yt-dlp, runs MediaPipe Pose Landmarker, returns landmarks (33 per person), scores, frame_count, and fps in JSON response." },
+      { item_id: "fastapi_implemented", title: "FastAPI service implemented", description: "Phase 1 placeholder — POST /analyze endpoint accepts video_url, start_seconds, and end_seconds in JSON body. Downloads the clip via yt-dlp, runs MediaPipe Pose Landmarker, returns landmarks (33 per person), scores, frame_count, and fps in JSON response." },
       { item_id: "dynamic_calibration_implemented", title: "Dynamic field line calibration implemented (basic)", description: "Ship the basic version first, iterate after real athlete data. Use cv2.Canny edge detection on first 10 frames → HoughLinesP to detect horizontal line segments → filter for lines spanning frame width → measure pixel distance between consecutive detected lines → divide by 5 (yard spacing) → return pixels_per_yard. Fall back to node's static reference_calibrations value if detection fails. Expect 30-40% detection failure rate in first iteration — tune thresholds after first 20 analyses." },
 
       // DEPLOYMENT (Push to Production)
@@ -46,8 +50,8 @@ const PHASES: Phase[] = [
       { item_id: "cloud_run_deployed", title: "Cloud Run service deployed (CPU)", description: "Phase 1 placeholder — start with CPU deployment to validate pipeline end-to-end before optimizing for speed. Recommended: --memory=4Gi --cpu=2 --timeout=300 --region=us-central1. Note the service URL from deploy output — required for the integration step." },
 
       // VERIFICATION (Test Before Wiring)
-      { item_id: "rtmw_model_confirmed", title: "MediaPipe model confirmed on first request", description: "First request to Cloud Run triggers download / load of the MediaPipe Pose Landmarker model. Confirm via Cloud Run logs that the model loads without error. Expected load time: 5-15 seconds on cold start. Subsequent requests use the warm model." },
-      { item_id: "wholebody_tested", title: "Pose endpoint tested with sample frame", description: "Test with a known good video frame. Confirm response includes landmarks[person][index] returning [x, y, z, visibility] for all 33 indices (0-32). Spot check specific landmarks: left hip (23), right hip (24), left heel (29), nose (0), left index (19)." },
+      { item_id: POSE_MODEL_CHECK_ID, title: "MediaPipe model confirmed on first request", description: "First request to Cloud Run triggers download / load of the MediaPipe Pose Landmarker model. Confirm via Cloud Run logs that the model loads without error. Expected load time: 5-15 seconds on cold start. Subsequent requests use the warm model." },
+      { item_id: POSE_ENDPOINT_CHECK_ID, title: "Pose endpoint tested with sample frame", description: "Test with a known good video frame. Confirm response includes landmarks[person][index] returning [x, y, z, visibility] for all 33 indices (0-32). Spot check specific landmarks: left hip (23), right hip (24), left heel (29), nose (0), left index (19)." },
       { item_id: "cloud_run_isolation_test", title: "Cloud Run endpoint tested in isolation", description: "Before wiring to Edge Function, test Cloud Run independently via curl with the Slant Route reference video. Confirms service is functional in isolation. Prevents scenario where a bad service breaks the live pipeline with no easy rollback. Expected response includes landmarks, scores, frame_count, and fps." },
 
       // INTEGRATION (Go Live)

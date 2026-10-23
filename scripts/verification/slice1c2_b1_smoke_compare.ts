@@ -154,18 +154,6 @@ for (const [phase, baseScore] of Object.entries(BASELINE.phase_scores)) {
   console.log(`  phase ${phase.padEnd(20)} actual=${actual ?? "missing"}  baseline=${baseScore}`);
 }
 
-console.log("\n--- Calibration source (informational; B1 expects body_based, B2 expects static/pixel_warning) ---");
-const rtmlibSummary = (latest.result_data as Record<string, unknown> | null)?.rtmlibSummary as
-  Record<string, unknown> | undefined;
-const calSource = rtmlibSummary?.calibration_source ?? "(unknown)";
-const calConf = rtmlibSummary?.calibration_confidence ?? "(unknown)";
-console.log(`  calibration_source     = ${calSource}`);
-console.log(`  calibration_confidence = ${calConf}`);
-if (mode === "B1" && calSource !== "body_based") {
-  console.log(`  ⚠️  B1 should not change calibration. Source flipped → halt and investigate.`);
-  fails++;
-}
-
 console.log("\n--- Verdict ---");
 console.log(`  FAILs: ${fails}   WARNs: ${warns}`);
 console.log(`  R-08 reminder: confirm \`mediapipe_request_payload\` log shows keys = ${JSON.stringify(BASELINE.mediapipe_payload_keys)}`);

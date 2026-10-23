@@ -129,23 +129,23 @@ function formatNumber(value: number | null | undefined) {
 
 function buildPoseQualityAudit(result: PipelineAnalysisResult) {
   const logData = result.log_data;
-  const rtmlib = logData?.rtmlib;
+  const poseLog = logData?.rtmlib;
   const metrics = result.metricResults;
   const lowConfidenceFlags = result.confidenceFlags.filter((flag) => flag.reason.toLowerCase().includes("confidence"));
   const lowConfidenceMetrics = metrics.filter((metric) => metric.status === "flagged" && (metric.reason ?? "").toLowerCase().includes("confidence"));
-  const reliableFramePercentage = typeof rtmlib?.reliable_frame_percentage === "number"
-    ? rtmlib.reliable_frame_percentage
-    : typeof rtmlib?.keypoint_confidence?.length === "number" && rtmlib.keypoint_confidence.length > 0
-      ? Math.max(0, 100 - (rtmlib.keypoint_confidence.reduce((sum, entry) => sum + entry.percent_below, 0) / rtmlib.keypoint_confidence.length))
+  const reliableFramePercentage = typeof poseLog?.reliable_frame_percentage === "number"
+    ? poseLog.reliable_frame_percentage
+    : typeof poseLog?.keypoint_confidence?.length === "number" && poseLog.keypoint_confidence.length > 0
+      ? Math.max(0, 100 - (poseLog.keypoint_confidence.reduce((sum, entry) => sum + entry.percent_below, 0) / poseLog.keypoint_confidence.length))
       : null;
-  const averageKeypointConfidence = typeof rtmlib?.average_keypoint_confidence === "number"
-    ? rtmlib.average_keypoint_confidence
-    : typeof rtmlib?.keypoint_confidence?.length === "number" && rtmlib.keypoint_confidence.length > 0
-      ? rtmlib.keypoint_confidence.reduce((sum, entry) => sum + entry.mean_confidence, 0) / rtmlib.keypoint_confidence.length
+  const averageKeypointConfidence = typeof poseLog?.average_keypoint_confidence === "number"
+    ? poseLog.average_keypoint_confidence
+    : typeof poseLog?.keypoint_confidence?.length === "number" && poseLog.keypoint_confidence.length > 0
+      ? poseLog.keypoint_confidence.reduce((sum, entry) => sum + entry.mean_confidence, 0) / poseLog.keypoint_confidence.length
       : null;
-  const personDetected = typeof rtmlib?.person_detected === "boolean"
-    ? rtmlib.person_detected
-    : Boolean(rtmlib?.total_frames && (rtmlib.keypoint_confidence?.length ?? 0) > 0);
+  const personDetected = typeof poseLog?.person_detected === "boolean"
+    ? poseLog.person_detected
+    : Boolean(poseLog?.total_frames && (poseLog.keypoint_confidence?.length ?? 0) > 0);
   const isLowConfidence = (result.aggregateScore ?? 0) === 0 || lowConfidenceMetrics.length >= Math.max(2, Math.ceil(Math.max(metrics.length, 1) * 0.6));
 
   if (!isLowConfidence) return null;
@@ -154,7 +154,7 @@ function buildPoseQualityAudit(result: PipelineAnalysisResult) {
     personDetected,
     averageKeypointConfidence,
     reliableFramePercentage,
-    mostCommonIssue: rtmlib?.most_common_issue ?? (lowConfidenceFlags.length > 0 ? lowConfidenceFlags[0]?.reason : "Pose quality too low for reliable scoring"),
+    mostCommonIssue: poseLog?.most_common_issue ?? (lowConfidenceFlags.length > 0 ? lowConfidenceFlags[0]?.reason : "Pose quality too low for reliable scoring"),
   };
 }
 

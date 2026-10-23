@@ -167,7 +167,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string, metricR
   md += `---\n\n## Pose Engine Output\n\n`;
   const r = logData.rtmlib;
   if (r) {
-    md += `Solution Class: ${r.solution_class ?? "N/A"}\nModel: ${r.model ?? "N/A"}\nBackend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nService revision: ${r.service_revision ?? "not recorded"}\nService build: ${r.service_build ?? "not recorded"}\n${r.analyzer_build_line ?? "Analyzer build: not recorded"}\nProcessing time (total): ${r.timings_ms?.total ?? r.processing_time_ms ?? "not recorded"}ms\nPose loop: ${r.timings_ms?.pose_loop ?? "not recorded"}ms\n\n`;
+    md += `Backend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nService revision: ${r.service_revision ?? "not recorded"}\nService build: ${r.service_build ?? "not recorded"}\n${r.analyzer_build_line ?? "Analyzer build: not recorded"}\nProcessing time (total): ${r.timings_ms?.total ?? r.processing_time_ms ?? "not recorded"}ms\nPose loop: ${r.timings_ms?.pose_loop ?? "not recorded"}ms\n\n`;
     if (r.ground_truth_lines?.length) md += `${r.ground_truth_lines.join("\n")}\n\n`;
     if (r.phase_windows?.length) {
       md += `Phase Frame Windows:\n`;
@@ -421,8 +421,6 @@ export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricR
             {logData.rtmlib ? (
               <div className="space-y-4">
                 <div className={`${MONO} space-y-1`}>
-                  <div className="text-on-surface">Solution Class: {logData.rtmlib.solution_class ?? "N/A"}</div>
-                  <div className="text-on-surface">Model: {logData.rtmlib.model ?? "N/A"}</div>
                   <div className="text-on-surface">Backend: {logData.rtmlib.backend ?? "N/A"}</div>
                   <div className="text-on-surface">Total frames: {logData.rtmlib.total_frames ?? "N/A"}</div>
                   <div className="text-on-surface">Source FPS: {logData.rtmlib.source_fps ?? "N/A"}</div>

@@ -542,7 +542,6 @@ const PRESET_FIELDS: Record<string, { name: string; unit: string }> = {
   "Separation Distance": { name: "Separation Distance", unit: "yards" },
   "Release Speed": { name: "Release Speed", unit: "mph" },
   "Head Snap Timing": { name: "Head Snap Timing", unit: "frames" },
-  "Catch Efficiency (wholebody)": { name: "Catch Efficiency", unit: "%" },
 };
 
 function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {

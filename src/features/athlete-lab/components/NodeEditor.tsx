@@ -1818,16 +1818,6 @@ function serializeStructuredField(fields: Record<string, string>): string {
 
 
 /* ── Training Status helpers ── */
-// Phase 1c.3-C (F-SLICE-E-6): Solution Class, Performance Mode, Tracking,
-// and the legacy single det_frequency control were removed. Their backing
-// columns were dropped in migration 20260426025918; the controls had been
-// silently failing on save (allow-list filter) since then. Pose-engine
-// configuration is now Phase-1 work tracked separately.
-//
-// Removed: SOLUTION_CLASSES, SOLUTION_CLASS_MAP, getSolutionClassWarnings,
-// the legacy RTMlib pipelineCode no-op template, the wholebody3d-conditional
-// reference-calibration readiness gate, and the Pipeline Reference accordion.
-
 const CAMERA_ANGLES_LIST: CameraAngle[] = ["sideline", "endzone", "behind_qb"];
 const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
 function ReferenceCalibrationEditor({
