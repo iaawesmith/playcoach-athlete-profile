@@ -1,4 +1,4 @@
-"""Video download (urllib) + cv2.VideoCapture decode at a fixed fps."""
+"""Video download (urllib) + streaming cv2.VideoCapture decode at a fixed fps."""
 from __future__ import annotations
 
 import os
@@ -6,10 +6,13 @@ import tempfile
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from urllib.request import Request, urlopen
 
 import cv2
 import numpy as np
+
+from .frame_source import MAX_DECODED_FRAMES, FrameSource, SamplePlan, sample_plan
 
 TARGET_FPS = 30
 DOWNLOAD_TIMEOUT_SEC = 120
@@ -45,54 +48,54 @@ def download_to_tmp(video_url: str) -> Iterator[str]:
             pass
 
 
-def decode_window(
+class _CvReader:
+    def __init__(self, path: str) -> None:
+        self._cap = cv2.VideoCapture(path)
+
+    def seek(self, index: int) -> None:
+        self._cap.set(cv2.CAP_PROP_POS_FRAMES, index)
+
+    def read(self) -> tuple[bool, np.ndarray | None]:
+        return self._cap.read()
+
+    def release(self) -> None:
+        self._cap.release()
+
+
+@dataclass
+class WindowInfo:
+    width: int
+    height: int
+    src_fps: float
+    clip_duration_s: float | None
+    plan: SamplePlan
+
+
+def open_window(
     path: str,
     start_seconds: float,
     end_seconds: float,
     fps: int = TARGET_FPS,
-) -> tuple[list[np.ndarray], int, int]:
-    """Decode the [start, end] window via cv2.VideoCapture, resampled to target fps.
-
-    Returns (frames, width, height).
-    """
+    frame_cap: int = MAX_DECODED_FRAMES,
+) -> tuple[FrameSource | None, WindowInfo]:
+    """Streaming replacement for the old eager decode_window: same fixed-fps
+    sampling and seek/read sequence, full resolution, capped at frame_cap frames,
+    with only a small frame cache held in memory (F-INFRA-1)."""
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
-        return [], 0, 0
-
+        return None, WindowInfo(0, 0, float(fps), None, sample_plan(0, 0, fps, fps, frame_cap))
     try:
         src_fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
         if src_fps <= 0 or src_fps != src_fps:  # NaN guard
             src_fps = float(fps)
-
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
-        if width <= 0 or height <= 0:
-            return [], width, height
-
-        duration = max(0.0, end_seconds - start_seconds)
-        if duration <= 0:
-            return [], width, height
-
-        target_count = int(round(duration * fps))
-        if target_count <= 0:
-            return [], width, height
-
-        # Sample timestamps in the [start, end] window at the target fps.
-        sample_ts = [start_seconds + (i / float(fps)) for i in range(target_count)]
-        # Convert to source-frame indices.
-        src_indices = [int(round(ts * src_fps)) for ts in sample_ts]
-
-        frames: list[np.ndarray] = []
-        last_idx = -1
-        for idx in src_indices:
-            if idx != last_idx + 1:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            ok, frame = cap.read()
-            if not ok or frame is None:
-                break
-            frames.append(frame)
-            last_idx = idx
-
-        return frames, width, height
+        n_src = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0
+        clip_duration = round(n_src / src_fps, 3) if n_src > 0 else None
     finally:
         cap.release()
+    plan = sample_plan(start_seconds, end_seconds, src_fps, fps, frame_cap)
+    info = WindowInfo(width, height, src_fps, clip_duration, plan)
+    if width <= 0 or height <= 0 or not plan.src_indices:
+        return None, info
+    return FrameSource(lambda: _CvReader(path), plan.src_indices), info
