@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import type { AnalysisLogData, KeyMetric, PipelineMetricResult } from "../types";
 
-import { buildAnalysisLogReporting, isOptionalLogVariable } from "../utils/analysisLogReporting";
+import { buildAnalysisLogReporting, decodeLine, isOptionalLogVariable, phaseWindowLine, routeEventLines } from "../utils/analysisLogReporting";
 
 type CopyState = "idle" | "success" | "error";
 
