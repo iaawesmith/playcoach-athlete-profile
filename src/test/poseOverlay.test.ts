@@ -5,6 +5,7 @@ import {
   frameSource,
   mediaTimeForFrame,
   phaseLabel,
+  parseOverlayData,
   resolveMetricFrames,
   toDisplay,
 } from "@/features/athlete-lab/utils/poseOverlay";
@@ -15,6 +16,25 @@ const windows = [
   { phase: "Break", start: 38, end: 53 },
   { phase: "Catch Window", start: 46, end: 80 },
 ];
+
+describe("historical pose log compatibility", () => {
+  it("loads phase windows, confidence and release anchor from stored log_data.rtmlib", () => {
+    const stored = { result_data: {
+      diagnostics: { raw_keypoints: [[[[10, 20]]]], service: { frame_count: 90, fps: 30 } },
+      log_data: { rtmlib: {
+        phase_windows: windows,
+        release_anchor: { applied: true, frame: 10 },
+        keypoint_confidence: [{ index: 25, status: "RELIABLE" }],
+      } },
+    } };
+    const data = parseOverlayData(stored, []);
+    expect(data?.frameCount).toBe(90);
+    expect(data?.phaseWindows).toEqual(windows);
+    expect(data?.releaseAnchorFrame).toBe(10);
+    expect(data?.landmarkStatus.get(25)).toBe("reliable");
+    expect(data?.keypoints[0]).toEqual([[10, 20]]);
+  });
+});
 
 describe("coordinate scaling", () => {
   it("maps 4K native pixels to a 960x540 display", () => {

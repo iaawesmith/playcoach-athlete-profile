@@ -1328,7 +1328,7 @@ Deno.serve(async (req) => {
       context,
       perFrame: diagnostics.per_frame as any[],
       phaseWindows: (poseLog?.phase_windows ?? []).map((w) => ({ phase: w.phase, start: w.start, end: w.end })),
-      releaseFrame: (poseLog as any)?.release_anchor?.applied ? (poseLog as any).release_anchor.frame : null,
+      releaseFrame: poseLog.release_anchor?.applied ? poseLog.release_anchor.frame : null,
       fps: Number(poseResult.fps) || 30,
     })
     await writeResults(upload, nodeConfig, scoreResult, metricResults, errorResults, feedback, logData, cloudRunMetadata, calibrationAudit, diagnostics)
@@ -2204,10 +2204,7 @@ function calculateBodyBasedCalibration(
     if (!Array.isArray(frameKeypoints) || !Array.isArray(frameScores)) continue
 
     // MediaPipe Pose-33 indices: 11=L shoulder, 12=R shoulder, 23=L hip, 24=R hip.
-    // Previously used COCO-17 indices [5,6,11,12], which on MediaPipe-33 data
-    // map to ear/eye landmarks → produced impossible measurements (e.g. 186mph
-    // release speed). Anthropometric ratios below (0.259 shoulder, 0.191 hip of
-    // standing height) are landmark-agnostic and remain correct under this swap.
+    // Anthropometric ratios below use shoulder and hip widths relative to standing height.
     const leftShoulder = frameKeypoints[11]
     const rightShoulder = frameKeypoints[12]
     const leftHip = frameKeypoints[23]
