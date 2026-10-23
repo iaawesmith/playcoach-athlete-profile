@@ -61,11 +61,11 @@ export function ConsolidationRedirectBanner() {
               </li>
               <li>
                 <span className="text-on-surface font-semibold">Checkpoints</span>
-                <span className="text-on-surface-variant"> → Phases (Checkpoints section, shown when segmentation method is checkpoint-based)</span>
+                <span className="text-on-surface-variant"> → Retired; saved values retained</span>
               </li>
               <li>
                 <span className="text-on-surface font-semibold">Training Status</span>
-                <span className="text-on-surface-variant"> → Basics (Pipeline Config section)</span>
+                <span className="text-on-surface-variant"> → Fixed every-frame pose detection</span>
               </li>
             </ul>
           </div>

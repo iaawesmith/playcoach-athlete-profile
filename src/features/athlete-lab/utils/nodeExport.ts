@@ -345,10 +345,8 @@ function generateKnowledgeBase(node: TrainingNode): string {
 // Phase 1c.3-D (Decision H): tab generators now combine merged sub-section
 // markdown for the consolidated 8-tab set. Copying the Metrics tab returns
 // metrics + scoring + errors; Reference returns reference + camera; Phases
-// returns phases + checkpoints (only when checkpoint-segmented to avoid
-// noise); Basics returns basics + the surviving det_frequency triplet under
-// a "Pipeline Config" sub-section. The retired single-section generators
-// (generateScoring/Errors/Camera/Checkpoints) are still called as
+// returns proportional phases; Basics omits retired detection settings.
+// The surviving single-section generators (generateScoring/Errors/Camera) are called as
 // composable building blocks — only the tab-key surface collapsed.
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
   basics: generateBasics,
