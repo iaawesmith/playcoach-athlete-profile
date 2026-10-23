@@ -90,7 +90,9 @@
 - [x] Batch 0 Measurement windows: fixed per-type constants, read-only display, fingerprint unchanged
 - [x] Batch 1 Camera: hidden FPS/resolution/auto-reject settings preserved; active-only body parts; distance-only readiness; Slant WR filming instructions updated with original archived. All 147 tests pass; current analyzer rescore matches baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e, aggregate 94. Real Slant Reference page verified. Stopped for Batch 2 approval.
 - [x] Batch 2 source: hide Pipeline Setup / checkpoints, preserve retired saved values, proportional readiness, three-key analyzer request, every-frame service loop; 149 app tests + 19 service tests pass.
-- [ ] Batch 2 verification: stored-data baseline rescore; external Cloud Run deploy blocked on user Cloud Shell access; then analyzer deploy, fresh 932b91df run (90 detections, aa28d25d… and recovery frames unchanged, aggregate 94), then open bcf95d35 overlay. Stop on keypoint fingerprint drift; do not start Batch 3.
+- [x] Batch 2 fresh run on deployed 4b79473 / mediapipe-service-00021-dzs: 90 detections, aa28d25d… unchanged, leading recovery 0–22 and following crop 77–89 unchanged, aggregate 94; stored c6fa0895 rescore values unchanged, aggregate 94.
+- [ ] Batch 2 exact baseline fingerprint — blocked: original 718c917a… comparator serialization unavailable; later full-array hash d6cd6036… is not an equivalent verified comparator.
+- [ ] Batch 2 overlay end-to-end — actual bcf95d35 stored skeleton/panel/timeline loaded directly; blocked: history returns no rows and original video fails sandbox Chromium playback after fresh link (media error 4). No simulated history or video substitution. Do not start Batch 3.
 - [ ] Batch 3 Metric card Side control
 - [ ] Batch 4 Phases (archive coaching cues into knowledge base)
 - [ ] Batch 5 Errors (remove severity + 3 dead Slant rules, rename, Wheel condition)
