@@ -398,6 +398,7 @@ type PipelineLogData = {
       end: number
       frame_count: number
       percent: number
+      not_measured?: string
     }>
     keypoint_confidence?: Array<{
       index: number
@@ -1230,6 +1231,10 @@ Deno.serve(async (req) => {
         poseResult.frame_count,
       )
       poseLog.release_anchor = releaseAnchor
+      const missingByName = new Map(anchoredPhases.filter((ap) => !ap.window).map((ap) => [ap.name, ap.missing_event]))
+      poseLog.phase_windows = poseLog.phase_windows.map((pw) => missingByName.has(pw.phase)
+        ? { ...pw, start: -1, end: -1, frame_count: 0, percent: 0, not_measured: missingByName.get(pw.phase) ? `event_not_detected:${missingByName.get(pw.phase)}` : 'no_window' }
+        : pw)
     }
 
     // STEP 8: Calculate all metrics
