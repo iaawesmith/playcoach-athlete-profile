@@ -42,7 +42,7 @@ const CALC_OPTIONS: { value: CalculationType; label: string; desc: string }[] = 
 ];
 
 const GROUP_NAMES: Record<string, string> = { body: "BODY", feet: "FEET", hands: "HANDS", face: "FACE" };
-const ALL_GROUPS = ["body", "feet", "hands", "face"];
+const ALL_GROUPS = Array.from(new Set(keypointLibrary.keypoints.map(keypoint => keypoint.group)));
 
 type KeypointLibraryEntry = {
   index: number;

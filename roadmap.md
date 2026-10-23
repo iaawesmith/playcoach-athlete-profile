@@ -94,7 +94,7 @@
 - [x] Batch 2 equivalence accepted by user: pre-Batch-2 7712968 and current code have byte-identical metrics and aggregate 94. Historical hash retired; save and verify semantic comparison in scripts/fingerprint-rescore.ts.
 - [ ] Batch 2 overlay end-to-end — actual bcf95d35 stored skeleton/panel/timeline loaded directly; blocked: history returns no rows and original video fails sandbox Chromium playback after fresh link (media error 4). No simulated history or video substitution. Batch 3 separately approved by user.
 - [x] Establish c6fa0895 semantic baseline (4-decimal values/scores/statuses/aggregate, sorted keys, no diagnostics) and document in AGENTS.md: fba7237f605f41960d27375977057819623d820906c28a57c148cce25fc72b21; pre-Batch-2 and current both match, aggregate 94.
-- [ ] Batch 3 Metric card Side control — approved; verify with saved comparison script and stop after this batch.
+- [x] Batch 3: hide Depends On and Body Groups, unrestricted landmark picker, single Side adapter, admin notes preserved; baseline unchanged on identical stored input and fresh read, aggregate 94; 160 tests pass; actual Slant draft Side interactions checked and cancelled without node writes. Stopped after Batch 3; later batches await approval.
 - [ ] Batch 4 Phases (archive coaching cues into knowledge base)
 - [ ] Batch 5 Errors (remove severity + 3 dead Slant rules, rename, Wheel condition)
 - [ ] Batch 6 Reference collapse

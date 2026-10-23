@@ -31,7 +31,7 @@ Pre-Batch-2 `7712968`, current-before-Batch-3 and current-after-Batch-3 all matc
 ## Changes
 
 - Hide Depends On and Body Group controls without removing saved fields.
-- Landmark picker shows every body-region tab, independent of the hidden saved group list. Selection and presets preserve hidden groups and landmark order.
+- Landmark picker shows every region present in the landmark library, independent of the hidden saved group list, without empty tabs. Selection and presets preserve hidden groups and landmark order.
 - One Side choice replaces Node Default and Direction Override: Auto → auto/auto, Left → left/force_left, Right → right/force_right, Not bilateral → none/none.
 - Display uses analyzer precedence (forced override, either none, fixed side, auto). Opening or saving untouched settings does not normalize conflicting legacy values.
 - Human-readable node export shows Side and omits retired Depends On/Body Groups. Admin documentation remains editable and exported.
@@ -39,7 +39,8 @@ Pre-Batch-2 `7712968`, current-before-Batch-3 and current-after-Batch-3 all matc
 
 ## Verification
 
-- Canonical hashing and Side preservation tests added; 47 targeted regression tests pass.
+- Canonical hashing and Side preservation tests added; all 160 tests pass (47 targeted regression tests).
+- Actual Slant editor checked in the browser: single Side selector responds to Right/Auto changes; retired controls absent; admin documentation retained. Draft cancelled without saving node data. No browser runtime errors.
 - Stored result is not overwritten; aggregate remains 94 and semantic baseline matches.
 - Stop after Batch 3. Batch 4 and later remain unstarted.
 - Previous Batch 2 history/video-playback verification limits remain historical limits, not claims of new verification.
