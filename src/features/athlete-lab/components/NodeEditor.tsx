@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, ConfidenceHandling, ScoreBands, ReferenceCalibration, PerformanceMode, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, ConfidenceHandling, ReferenceCalibration, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
@@ -18,6 +18,7 @@ import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 import { generateTabMarkdown } from "../utils/nodeExport";
 import { getMappedRouteName, resolveNodeIcon } from "../utils/routeIcons";
 import { withReferenceScale } from "../utils/referenceCalibration";
+import { metricConfidenceErrors } from "../utils/confidenceValidation";
 
 type CopyState = "idle" | "success" | "error";
 
@@ -109,7 +110,7 @@ const CARD_CLASS = "p-5 rounded-xl border border-outline-variant/20 space-y-3 bg
 interface BlockingItem { label: string; detail: string }
 
 function checkCompleteness(node: TrainingNode): BlockingItem[] {
-  const issues: BlockingItem[] = [];
+  const issues: BlockingItem[] = metricConfidenceErrors(node.key_metrics ?? []).map(detail => ({ label: "Metrics", detail }));
 
   // Videos are athlete-facing teach tape only — never required to go live.
 
@@ -484,6 +485,11 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
   const updateWithCriticalTrack = update;
 
   const save = async () => {
+    const confidenceErrors = metricConfidenceErrors(draft.key_metrics ?? []);
+    if (confidenceErrors.length > 0) {
+      toast.error(confidenceErrors.join(" "));
+      return;
+    }
     setSaving(true);
     try {
       const shouldAutoDraft = node.status === "live";
@@ -498,12 +504,10 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         icon_url: draft.icon_url,
         overview: draft.overview,
         key_metrics: draft.key_metrics,
-        scoring_rules: draft.scoring_rules,
         common_errors: draft.common_errors,
         phase_breakdown: draft.phase_breakdown,
         camera_guidelines: draft.camera_guidelines,
         llm_prompt_template: draft.llm_prompt_template,
-        llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
         coaching_provider: draft.coaching_provider ?? null,
         coaching_model: draft.coaching_model?.trim() ? draft.coaching_model.trim() : null,
@@ -516,7 +520,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         clip_duration_max: draft.clip_duration_max,
         confidence_handling: draft.confidence_handling,
         min_metrics_threshold: draft.min_metrics_threshold,
-        score_bands: draft.score_bands,
         scoring_renormalize_on_skip: draft.scoring_renormalize_on_skip,
         reference_calibrations: draft.reference_calibrations,
         reference_fallback_behavior: draft.reference_fallback_behavior,
@@ -884,15 +887,11 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
               <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Scoring</div>
               <div className="pt-5">
                 <ScoringEditor
-                  scoringRules={draft.scoring_rules}
-                  onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
                   metrics={draft.key_metrics}
                   confidenceHandling={draft.confidence_handling ?? "skip"}
                   onConfidenceHandlingChange={(v) => updateWithCriticalTrack("confidence_handling", v)}
                   minMetricsThreshold={draft.min_metrics_threshold ?? 50}
                   onMinMetricsThresholdChange={(v) => updateWithCriticalTrack("min_metrics_threshold", v)}
-                  scoreBands={draft.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" }}
-                  onScoreBandsChange={(v) => updateWithCriticalTrack("score_bands", v)}
                   renormalizeOnSkip={draft.scoring_renormalize_on_skip ?? true}
                   onRenormalizeOnSkipChange={(v) => updateWithCriticalTrack("scoring_renormalize_on_skip", v)}
                 />
@@ -957,8 +956,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           <LlmPromptEditor
             promptTemplate={draft.llm_prompt_template}
             onPromptChange={(v) => updateWithCriticalTrack("llm_prompt_template", v)}
-            maxWords={draft.llm_max_words ?? 150}
-            onMaxWordsChange={(v) => updateWithCriticalTrack("llm_max_words" as keyof TrainingNode, v as never)}
             systemInstructions={draft.llm_system_instructions ?? ""}
             onSystemInstructionsChange={(v) => updateWithCriticalTrack("llm_system_instructions" as keyof TrainingNode, v as never)}
           />
@@ -1901,20 +1898,16 @@ function ReferenceCalibrationEditor({
 /* ── Scoring Editor ── */
 
 interface ScoringEditorProps {
-  scoringRules: string;
-  onScoringRulesChange: (v: string) => void;
   metrics: KeyMetric[];
   confidenceHandling: ConfidenceHandling;
   onConfidenceHandlingChange: (v: ConfidenceHandling) => void;
   minMetricsThreshold: number;
   onMinMetricsThresholdChange: (v: number) => void;
-  scoreBands: ScoreBands;
-  onScoreBandsChange: (v: ScoreBands) => void;
   renormalizeOnSkip: boolean;
   onRenormalizeOnSkipChange: (v: boolean) => void;
 }
 
-function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidenceHandling, onConfidenceHandlingChange, minMetricsThreshold, onMinMetricsThresholdChange, scoreBands, onScoreBandsChange, renormalizeOnSkip, onRenormalizeOnSkipChange }: ScoringEditorProps) {
+function ScoringEditor({ metrics, confidenceHandling, onConfidenceHandlingChange, minMetricsThreshold, onMinMetricsThresholdChange, renormalizeOnSkip, onRenormalizeOnSkipChange }: ScoringEditorProps) {
   const [simValues, setSimValues] = useState<Record<string, number>>({});
 
   // Active-only — inactive metrics are preserved but excluded from scoring
@@ -1937,7 +1930,7 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
     return "#ef4444";
   };
 
-  const flaggedCount = Math.ceil(activeMetrics.length * minMetricsThreshold / 100);
+  const rejectedCount = Math.floor(activeMetrics.length * minMetricsThreshold / 100) + 1;
 
   const CONFIDENCE_OPTIONS: { value: ConfidenceHandling; label: string; recommended?: boolean; description: string }[] = [
     { value: "skip", label: "SKIP", recommended: true, description: "Exclude low-confidence metrics from the aggregate score and redistribute their weight proportionally across remaining metrics. Produces the most accurate score from available data." },
@@ -1945,29 +1938,8 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
     { value: "flag_only", label: "FLAG ONLY", description: "Score normally but mark the metric as low confidence in athlete results. Use for informational nodes where score accuracy is less critical." },
   ];
 
-  const BAND_ROWS: { key: keyof ScoreBands; rangeLabel: string }[] = [
-    { key: "elite", rangeLabel: "90 — 100" },
-    { key: "varsity", rangeLabel: "75 — 89" },
-    { key: "developing", rangeLabel: "60 — 74" },
-    { key: "needs_work", rangeLabel: "Below 60" },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Scoring Formula Description */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <label className={LABEL_CLASS}>Scoring Formula Description</label>
-          <SectionTooltip tip="Describe how the overall Route Mastery Score is calculated from individual metrics. The AI uses this to explain scores to athletes." />
-        </div>
-        <textarea
-          className={`${INPUT_CLASS} min-h-[120px] resize-y`}
-          value={scoringRules}
-          onChange={(e) => onScoringRulesChange(e.target.value)}
-          placeholder="e.g. Route Mastery Score = weighted average of all metrics. Scores ≥ 80 indicate elite execution..."
-        />
-      </div>
-
       {/* Weight Distribution Table */}
       <div className={CARD_CLASS}>
         <div className="flex items-center justify-between mb-4">
@@ -2084,14 +2056,14 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
         </div>
       </div>
 
-      {/* ── SECTION 2: Minimum Metrics Threshold ── */}
+      {/* ── SECTION 2: Max skipped metrics % ── */}
       <div className={CARD_CLASS + " space-y-4"}>
         <div className="flex items-center gap-1.5">
           <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>block</span>
-            Minimum Metrics Threshold
+            Max skipped metrics %
           </h4>
-          <SectionTooltip tip="If more than this percentage of metrics are flagged as low confidence, the entire analysis is rejected and the athlete is asked to refilm. Prevents meaningless Mastery Scores from poor footage." />
+          <SectionTooltip tip="If more than this percentage of metrics are skipped (including low-confidence metrics when handling is Skip), the entire analysis is rejected and the athlete is asked to refilm. Prevents meaningless Mastery Scores from poor footage." />
         </div>
 
         <div className="flex items-center gap-3">
@@ -2101,15 +2073,16 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
             min={0}
             max={100}
             className={`${INPUT_CLASS} w-20 text-center font-bold`}
+            aria-label="Max skipped metrics %"
             value={minMetricsThreshold}
             onChange={(e) => onMinMetricsThresholdChange(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
           />
-          <span className="text-on-surface-variant text-xs whitespace-nowrap">% of metrics are low confidence</span>
+          <span className="text-on-surface-variant text-xs whitespace-nowrap">% of metrics are skipped</span>
         </div>
 
         {metrics.length > 0 && (
           <p className="text-on-surface-variant/70 text-xs leading-relaxed">
-            With <span className="text-on-surface font-semibold">{metrics.length}</span> metrics configured, analysis is rejected if <span className="text-on-surface font-semibold">{flaggedCount}</span> or more metrics are flagged.
+            With <span className="text-on-surface font-semibold">{activeMetrics.length}</span> active metrics configured, {rejectedCount <= activeMetrics.length ? <>analysis is rejected if <span className="text-on-surface font-semibold">{rejectedCount}</span> or more metrics are skipped.</> : <>skipping alone does not exceed this limit.</>}
           </p>
         )}
       </div>
@@ -2150,46 +2123,13 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
         )}
       </div>
 
-      {/* ── SECTION 3: Score Bands ── */}
-      <div className="pt-2">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-px flex-1 bg-outline-variant/20" />
-          <span className={`${LABEL_CLASS} shrink-0`}>Score Bands</span>
-          <div className="h-px flex-1 bg-outline-variant/20" />
-        </div>
-      </div>
-
-      <div className={CARD_CLASS + " space-y-4"}>
-        <div className="flex items-center gap-1.5">
-          <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
-            <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>label</span>
-            Score Band Labels
-          </h4>
-          <SectionTooltip tip="Labels shown to athletes alongside their Mastery Score. Also used by the AI feedback system to frame results." />
-        </div>
-
-        <div className="space-y-2">
-          {BAND_ROWS.map((band) => (
-            <div key={band.key} className="flex items-center gap-4 p-3 rounded-xl border border-outline-variant/15" style={{ backgroundColor: '#0E1319' }}>
-              <span className="text-on-surface-variant text-xs font-semibold w-24 shrink-0 tabular-nums">{band.rangeLabel}</span>
-              <input
-                className={`${INPUT_CLASS} flex-1`}
-                value={scoreBands[band.key]}
-                onChange={(e) => onScoreBandsChange({ ...scoreBands, [band.key]: e.target.value })}
-                placeholder="Label"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Scoring Preview Simulator */}
       {metrics.length > 0 && weightValid && (
         <div className={CARD_CLASS + " space-y-4"}>
           <h4 className={`${LABEL_CLASS} flex items-center gap-2`}>
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>calculate</span>
             Scoring Preview Simulator
-            <SectionTooltip tip="Enter sample scores (0–100) for each metric to preview the calculated Mastery Score and its band label." />
+            <SectionTooltip tip="Enter sample scores (0–100) for each metric to preview the calculated Mastery Score from the active metrics." />
           </h4>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -2225,14 +2165,10 @@ function ScoringEditor({ scoringRules, onScoringRulesChange, metrics, confidence
               {simulatedScore ?? "—"}
             </div>
             <div>
-              <div className="text-on-surface font-black uppercase tracking-tighter text-lg flex items-center gap-1.5">Simulated Score <SectionTooltip tip="This simulated score uses the weighted average formula that the live pipeline applies. Adjust individual metric scores above to see how each one affects the final Mastery Score. The score band label updates automatically based on your configured Score Band Labels above." /></div>
+              <div className="text-on-surface font-black uppercase tracking-tighter text-lg flex items-center gap-1.5">Simulated Score <SectionTooltip tip="This simulated score uses the weighted average formula that the live pipeline applies. Adjust individual metric scores above to see how each one affects the final Mastery Score." /></div>
               <p className="text-on-surface-variant text-xs">
                 Based on weighted average of {metrics.length} metrics
-                {simulatedScore !== null && (
-                  <span className="ml-2 text-primary-container font-semibold">
-                    — {simulatedScore >= 90 ? scoreBands.elite : simulatedScore >= 75 ? scoreBands.varsity : simulatedScore >= 60 ? scoreBands.developing : scoreBands.needs_work}
-                  </span>
-                )}
+
               </p>
             </div>
           </div>

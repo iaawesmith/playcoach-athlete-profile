@@ -1,3 +1,4 @@
+import { metricConfidenceErrors } from "@/features/athlete-lab/utils/confidenceValidation";
 import { groundTruthLines, type GroundTruthDistance } from "../../supabase/functions/analyze-athlete-video/groundTruth";
 import { parseDetectedErrors, parseMetricResults } from "@/features/athlete-lab/utils/pipelineResults";
 import { buildPhaseStatuses } from "@/features/athlete-lab/utils/phaseStatus";
@@ -58,6 +59,8 @@ export async function createNode(node: Partial<TrainingNode>): Promise<TrainingN
 }
 
 export async function updateNode(id: string, updates: Partial<TrainingNode>): Promise<TrainingNode> {
+  const errors = metricConfidenceErrors(updates.key_metrics ?? []);
+  if (errors.length > 0) throw new Error(errors.join(" "));
   const { data, error } = await supabase
     .from("athlete_lab_nodes" as never)
     .update(updates as never)

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import type { KeyMetric, KeypointMapping, TargetDirection, CalculationType, PhaseNote } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
+import { confidenceThresholdError } from "../utils/confidenceValidation";
 import { metricSide, withMetricSide, withMetricKeypoints, type MetricSide } from "../utils/metricSide";
 
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319] [&_option]:bg-surface-container [&_option]:text-on-surface [&_option:checked]:bg-primary-container/20";
@@ -181,6 +182,7 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
   };
 
   const saveEdit = (i: number) => {
+    if (editDraft.keypoint_mapping && confidenceThresholdError(editDraft.keypoint_mapping.confidence_threshold)) return;
     const n = [...metrics];
     n[i] = editDraft;
     onChange(n);
@@ -188,6 +190,7 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
   };
 
   const handleAdd = () => {
+    if (draft.keypoint_mapping && confidenceThresholdError(draft.keypoint_mapping.confidence_threshold)) return;
     onChange([...metrics, draft]);
     setDraft({ ...defaultMetric });
     setAdding(false);
@@ -788,6 +791,8 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
         <div className="flex items-center gap-3">
           <input
             type="range"
+            aria-label="Confidence Threshold"
+            aria-invalid={Boolean(confidenceThresholdError(km.confidence_threshold))}
             min={0}
             max={1}
             step={0.05}
@@ -799,7 +804,10 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
             {km.confidence_threshold.toFixed(2)}
           </span>
         </div>
-        {km.confidence_threshold < 0.60 && (
+        {confidenceThresholdError(km.confidence_threshold) && (
+          <p role="alert" className="text-error-dim text-xs mt-2">{confidenceThresholdError(km.confidence_threshold)}</p>
+        )}
+        {km.confidence_threshold > 0 && km.confidence_threshold < 0.60 && (
           <p className="text-red-400 text-[10px] mt-1">Not recommended</p>
         )}
       </div>
