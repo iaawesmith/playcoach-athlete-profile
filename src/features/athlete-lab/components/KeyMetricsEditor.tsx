@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { measurementDescription, measurementFrames } from "../../../../supabase/functions/analyze-athlete-video/measurementWindow";
 import ReactMarkdown from "react-markdown";
-import type { KeyMetric, KeypointMapping, TargetDirection, CalculationType, BilateralMode, BilateralOverride, PhaseNote } from "../types";
+import type { KeyMetric, KeypointMapping, TargetDirection, CalculationType, PhaseNote } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
 import keypointLibrary from "@/constants/keypointLibrary.json";
+import { metricSide, withMetricSide, withMetricKeypoints, type MetricSide } from "../utils/metricSide";
 
 const INPUT_CLASS = "w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface text-sm placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary-container/70 focus:ring-2 focus:ring-primary-container/30 focus:shadow-[0_0_8px_rgba(0,230,57,0.15)] transition-all bg-[#0E1319] [&_option]:bg-surface-container [&_option]:text-on-surface [&_option:checked]:bg-primary-container/20";
 const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase tracking-widest";
@@ -20,17 +21,13 @@ const TOOLTIPS = {
   weight: "How much this metric contributes to the overall Mastery Score. All metric weights in the node must sum to exactly 100. Higher weight = greater influence on the final score. Never assign less than 5% or more than 30% to a single metric.",
   tolerance: "The acceptable deviation from the Elite Target before scoring penalties apply. A value within tolerance scores at or near 100. Accounts for natural movement variance and measurement noise. Recommended ranges: Angle ±2-5°, Distance ±0.3-0.7 yards, Velocity ±1-2 mph, Frame Delta ±1-2 frames.",
   temporalWindow: "Fixed by the calculation type and not editable. It matches what the analyzer measures, so the editor, the Analysis Log and the score always agree.",
-  dependsOn: "Optional. Select another metric that must succeed before this one is evaluated. If the upstream metric is flagged as low confidence or skipped, this metric is automatically skipped too. Example: Post-Catch YAC Burst depends on Catch Efficiency — acceleration after the catch only matters if the catch was confirmed.",
   keypointMapping: "Defines which body landmarks the pose engine extracts from each video frame and what calculation to apply. The analysis pipeline reads these settings directly — a metric with no keypoint mapping cannot be scored.",
-  bodyGroup: "Filter keypoints by body region. MediaPipe Pose covers all 33 landmarks (body, feet, and approximate hand positions) in a single model.",
   selectKeypoints: "Select the body landmarks for this metric. For Angle: select exactly 3 in order — first endpoint, vertex joint, second endpoint. Distance and Frame Delta: exactly 2. Velocity and Acceleration: 1 or 2.",
   calculationType: "The mathematical operation applied to the selected keypoints. Angle measures degrees at the vertex keypoint. Distance measures space between 2 points (requires Reference tab calibration for pixel-to-yard conversion). Velocity measures movement speed. Acceleration measures rate of speed change. Frame Delta counts frames between two body position events.",
-  bilateral: "Routes break in either direction. Auto-detect uses pose engine confidence scores to determine the active plant side per frame — recommended for all route metrics. Use Left or Right only for drills where direction is fixed.",
   confidenceThreshold: "The pose engine returns a confidence score 0-1 per keypoint. If any keypoint falls below this threshold the metric is flagged and excluded from scoring. Default 0.70 works for most metrics. Increase to 0.80 for high-weight metrics. Never set below 0.50.",
   phase: "Assigns this metric to a movement phase. The pipeline only evaluates this metric within the frame window belonging to the selected phase. Assigning the wrong phase produces scores calculated on the wrong frames.",
   keypointIndices: "Raw index numbers passed to the pose engine pipeline. Auto-populated from your keypoint selection above. Verify these match your intended keypoints before going Live.",
   quickSelect: "Common football metric presets. Clicking a preset auto-populates the keypoint selector and calculation type. You can modify the selection after loading a preset.",
-  bilateralOverride: "Controls which side's keypoints are used for this metric. AUTO uses pose engine confidence scores to determine the active side. When athlete provides route direction before uploading, AUTO is overridden by their input. Use FORCE LEFT or FORCE RIGHT only for drills that always run one direction.",
   requiresCatch: "When ON, this metric is excluded from scoring when the athlete indicates no catch was made in the upload flow. Prevents incomplete reps from producing misleading scores on catch-dependent measurements.",
 };
 
@@ -44,22 +41,8 @@ const CALC_OPTIONS: { value: CalculationType; label: string; desc: string }[] = 
   { value: "speed_retention", label: "SPEED RETENTION", desc: "Calibrated speed in the 5 frames just before the next phase starts, divided by the peak 5-frame speed in this phase. Ratio 0 to 1+. Requires 1 or 2 keypoints (e.g. L/R hip)." },
 ];
 
-const BILATERAL_OPTIONS: { value: BilateralMode; label: string }[] = [
-  { value: "auto", label: "Node Default (Auto)" },
-  { value: "left", label: "Node Default (Left)" },
-  { value: "right", label: "Node Default (Right)" },
-  { value: "none", label: "Not bilateral (center / both-sides keypoints)" },
-];
-
-const BILATERAL_OVERRIDE_OPTIONS: { value: BilateralOverride; label: string; description: string }[] = [
-  { value: "auto", label: "Auto (confidence)", description: "Uses the metric/node setting, then route direction, then confidence-based side choice." },
-  { value: "force_left", label: "Force Left", description: "Always uses the derived left-side indices for this metric." },
-  { value: "force_right", label: "Force Right", description: "Always uses the derived right-side indices for this metric." },
-  { value: "none", label: "Not bilateral", description: "Use the metric's keypoint indices verbatim. No mirroring or side selection. Use for center keypoints (nose, hip-center) or metrics that intentionally span both sides (e.g. hip width, ankle stance width)." },
-];
-
 const GROUP_NAMES: Record<string, string> = { body: "BODY", feet: "FEET", hands: "HANDS", face: "FACE" };
-const ALL_GROUPS = ["body", "feet", "hands", "face"];
+const ALL_GROUPS = Array.from(new Set(keypointLibrary.keypoints.map(keypoint => keypoint.group)));
 
 type KeypointLibraryEntry = {
   index: number;
@@ -210,8 +193,8 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
     setAdding(false);
   };
 
-  const renderFields = (m: KeyMetric, setM: (v: KeyMetric) => void, allMetrics: KeyMetric[], selfIdx: number | null) => (
-    <MetricFields m={m} setM={setM} allMetrics={allMetrics} selfIdx={selfIdx} phases={phases} />
+  const renderFields = (m: KeyMetric, setM: (v: KeyMetric) => void) => (
+    <MetricFields m={m} setM={setM} phases={phases} />
   );
 
   const totalClass = totalWeight === 100
@@ -241,7 +224,7 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
                   <div className="flex items-center justify-between">
                     <span className="text-on-surface text-xs font-bold">Metric {i + 1}</span>
                   </div>
-                  {renderFields(editDraft, setEditDraft, metrics, i)}
+                  {renderFields(editDraft, setEditDraft)}
                   <div className="flex gap-2 pt-2">
                     <button onClick={() => saveEdit(i)} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Save</button>
                     <button onClick={() => setEditIdx(null)} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
@@ -296,7 +279,7 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
       {adding ? (
         <div className={CARD_CLASS + " border-primary-container/20"}>
           <p className="text-on-surface text-xs font-bold uppercase tracking-widest">Add Metric</p>
-          {renderFields(draft, setDraft, metrics, null)}
+          {renderFields(draft, setDraft)}
           <div className="flex gap-2 pt-2">
             <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">Add</button>
             <button onClick={() => { setAdding(false); setDraft({ ...defaultMetric }); }} className="px-4 py-2 rounded-lg text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors" style={{ backgroundColor: '#1A2029' }}>Cancel</button>
@@ -312,11 +295,9 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
 }
 
 /* ── Metric Fields (expanded edit state) ── */
-function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
+function MetricFields({ m, setM, phases }: {
   m: KeyMetric;
   setM: (v: KeyMetric) => void;
-  allMetrics: KeyMetric[];
-  selfIdx: number | null;
   phases: PhaseNote[];
 }) {
   const [mappingOpen, setMappingOpen] = useState(false);
@@ -325,7 +306,6 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
   const km = m.keypoint_mapping ?? getDefaultMapping();
   const setKm = (newKm: KeypointMapping) => setM({ ...m, keypoint_mapping: newKm });
 
-  const otherMetrics = allMetrics.filter((_, i) => i !== selfIdx);
 
   const mappingConfigured = isKeypointMappingConfigured(m.keypoint_mapping);
 
@@ -485,24 +465,6 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
         </p>
       </div>
 
-      {/* Depends On */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Depends On</span>
-          <SectionTooltip tip={TOOLTIPS.dependsOn} />
-        </div>
-        <select
-          className={INPUT_CLASS + " max-w-[320px]"}
-          value={m.depends_on_metric_id ?? ""}
-          onChange={(e) => setM({ ...m, depends_on_metric_id: e.target.value || null })}
-        >
-          <option value="">None (no dependency)</option>
-          {otherMetrics.map((om, oi) => (
-            <option key={oi} value={om.name}>{om.name || `Metric ${oi + 1}`}</option>
-          ))}
-        </select>
-      </div>
-
       {/* Keypoint Mapping collapsible */}
       <div className="border-t border-white/[0.08] pt-3 mt-3">
         <button
@@ -587,7 +549,7 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   metric: KeyMetric;
   setMetric: (v: KeyMetric) => void;
 }) {
-  const [activeGroupTab, setActiveGroupTab] = useState<string>(km.body_groups[0] || "body");
+  const [activeGroupTab, setActiveGroupTab] = useState<string>("body");
   const [presetLoaded, setPresetLoaded] = useState<string | null>(null);
 
   const subGroupOrder = keypointLibrary.sub_group_order as Record<string, string[]>;
@@ -595,10 +557,6 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   const combinations = keypointLibrary.common_football_combinations as Array<{
     metric: string; keypoints: number[]; names: string[]; calculation: string; notes: string;
   }>;
-
-  const filteredKeypoints = useMemo(() => {
-    return KEYPOINTS.filter(kp => km.body_groups.includes(kp.group));
-  }, [km.body_groups]);
 
   const tabKeypoints = useMemo(() => {
     return KEYPOINTS.filter(kp => kp.group === activeGroupTab);
@@ -614,57 +572,21 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
     return order.map(sg => ({ subGroup: sg, displayName: subGroupDisplayNames[sg] || sg, keypoints: groups[sg] || [] })).filter(g => g.keypoints.length > 0);
   }, [tabKeypoints, activeGroupTab, subGroupOrder, subGroupDisplayNames]);
 
-  const toggleGroup = (g: string) => {
-    const newGroups = km.body_groups.includes(g)
-      ? km.body_groups.filter(x => x !== g)
-      : [...km.body_groups, g];
-    if (newGroups.length === 0) return;
-    // Remove keypoints that belong to deselected groups
-    const validKeypoints = km.keypoint_indices.filter(idx => {
-      const kp = KEYPOINTS.find(k => k.index === idx);
-      return kp && newGroups.includes(kp.group);
-    });
-    setKm({ ...km, body_groups: newGroups, keypoint_indices: validKeypoints });
-    if (!newGroups.includes(activeGroupTab)) setActiveGroupTab(newGroups[0]);
-  };
-
   const toggleKeypoint = (idx: number) => {
     const newIndices = km.keypoint_indices.includes(idx)
       ? km.keypoint_indices.filter(x => x !== idx)
       : [...km.keypoint_indices, idx];
-    setKm({ ...km, keypoint_indices: newIndices });
+    setKm(withMetricKeypoints(km, newIndices));
   };
 
   const removeKeypoint = (idx: number) => {
-    setKm({ ...km, keypoint_indices: km.keypoint_indices.filter(x => x !== idx) });
+    setKm(withMetricKeypoints(km, km.keypoint_indices.filter(x => x !== idx)));
   };
 
   const loadPreset = (combo: typeof combinations[0]) => {
-    // Determine needed body groups from keypoint indices using both
-    // library lookup AND index-range fallback to guarantee correctness
-    const neededGroups = new Set<string>();
-    for (const idx of combo.keypoints) {
-        const kp = KEYPOINTS.find(k => k.index === idx);
-      if (kp) {
-        neededGroups.add(kp.group);
-      } else {
-        // Fallback: derive group from index range
-        if (idx >= 0 && idx <= 16) neededGroups.add("body");
-        else if (idx >= 17 && idx <= 22) neededGroups.add("feet");
-        else if (idx >= 23 && idx <= 90) neededGroups.add("face");
-        else if (idx >= 91 && idx <= 132) neededGroups.add("hands");
-      }
-    }
-    const newGroups = Array.from(new Set([...km.body_groups, ...neededGroups]));
-    setKm({
-      ...km,
-      body_groups: newGroups,
-      keypoint_indices: combo.keypoints,
-      calculation_type: combo.calculation as CalculationType,
-    });
-    // Switch active tab to the first newly-added group so user sees the selection
-    const firstNewGroup = Array.from(neededGroups).find(g => !km.body_groups.includes(g));
-    if (firstNewGroup) setActiveGroupTab(firstNewGroup);
+    setKm({ ...withMetricKeypoints(km, combo.keypoints), calculation_type: combo.calculation as CalculationType });
+    const firstGroup = KEYPOINT_BY_INDEX.get(combo.keypoints[0])?.group;
+    if (firstGroup) setActiveGroupTab(firstGroup);
 
     // Pre-fill name and unit on parent metric if empty
     const presetFields = PRESET_FIELDS[combo.metric];
@@ -684,14 +606,6 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
   const validation = getKeypointValidation(km.calculation_type, km.keypoint_indices.length);
   const leftIndices = useMemo(() => mapIndicesToSide(km.keypoint_indices, "left"), [km.keypoint_indices]);
   const rightIndices = useMemo(() => mapIndicesToSide(km.keypoint_indices, "right"), [km.keypoint_indices]);
-  const bilateralControlMode = (km.bilateral_override ?? "auto") === "force_left"
-    ? "force_left"
-    : (km.bilateral_override ?? "auto") === "force_right"
-      ? "force_right"
-      : (km.bilateral ?? "auto") === "auto"
-        ? "auto_confidence"
-        : "node_default";
-
   const confidenceColor = km.confidence_threshold >= 0.70
     ? "text-primary-container"
     : km.confidence_threshold >= 0.60
@@ -700,30 +614,6 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
 
   return (
     <div className="space-y-4 pl-1">
-      {/* Body Group toggles */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Body Group</span>
-          <SectionTooltip tip={TOOLTIPS.bodyGroup} />
-        </div>
-        <div className="flex gap-2">
-          {ALL_GROUPS.map(g => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => toggleGroup(g)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
-                km.body_groups.includes(g)
-                  ? "bg-primary-container/20 text-primary-container border border-primary-container/30"
-                  : "bg-surface-container text-on-surface-variant/50 border border-outline-variant/20"
-              }`}
-            >
-              {GROUP_NAMES[g]}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Quick Select presets */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
@@ -756,7 +646,7 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
         </div>
         {/* Group tabs */}
         <div className="flex gap-1 mb-3">
-          {km.body_groups.map(g => (
+          {ALL_GROUPS.map(g => (
             <button
               key={g}
               type="button"
@@ -871,80 +761,23 @@ function KeypointMappingPanel({ km, setKm, phases, metric, setMetric }: {
         </div>
       </div>
 
-      {/* Bilateral */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Node Default</span>
-          <SectionTooltip tip={TOOLTIPS.bilateral} />
-        </div>
-        <div className="space-y-1.5">
-          {BILATERAL_OPTIONS.map(opt => (
-            <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer">
-              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                km.bilateral === opt.value ? "border-primary-container" : "border-outline-variant/40"
-              }`}>
-                {km.bilateral === opt.value && <div className="w-2 h-2 rounded-full bg-primary-container" />}
-              </div>
-              <span className="text-on-surface text-xs">{opt.label}</span>
-              <input
-                type="radio"
-                name="bilateral"
-                className="hidden"
-                checked={km.bilateral === opt.value}
-                onChange={() => setKm({ ...km, bilateral: opt.value })}
-              />
+      {/* One Side control; unchanged legacy fields remain untouched. */}
+      <fieldset>
+        <legend className={LABEL_CLASS + " mb-2"}>SIDE</legend>
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {([
+            { value: "auto", label: "AUTO" },
+            { value: "left", label: "LEFT" },
+            { value: "right", label: "RIGHT" },
+            { value: "none", label: "NOT BILATERAL" },
+          ] satisfies { value: MetricSide; label: string }[]).map(option => (
+            <label key={option.value} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium cursor-pointer transition-colors ${metricSide(km) === option.value ? "bg-primary-container/20 text-primary-container" : "bg-surface-container text-on-surface-variant"}`}>
+              <input type="radio" name={`metric-side-${metric.name}`} value={option.value} checked={metricSide(km) === option.value} onChange={() => setKm(withMetricSide(km, option.value))} className="accent-primary-container" />
+              {option.label}
             </label>
           ))}
         </div>
-      </div>
-
-      {/* Direction Override */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Metric Bilateral Control</span>
-          <SectionTooltip tip={TOOLTIPS.bilateralOverride} />
-        </div>
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              value: "node_default",
-              label: "Node Default",
-              description: "Uses the metric's node-default side setting above.",
-              onClick: () => setKm({ ...km, bilateral_override: "auto" }),
-            },
-            {
-              value: "auto_confidence",
-              label: "Auto (confidence)",
-              description: "Uses route direction first, then confidence-based side choice.",
-              onClick: () => setKm({ ...km, bilateral: "auto", bilateral_override: "auto" }),
-            },
-            ...BILATERAL_OVERRIDE_OPTIONS.filter((opt) => opt.value !== "auto").map((opt) => ({
-              value: opt.value,
-              label: opt.label,
-              description: opt.description,
-              onClick: () => setKm({ ...km, bilateral_override: opt.value }),
-            })),
-          ].map(opt => {
-            const active = bilateralControlMode === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={opt.onClick}
-                className={`rounded-xl border px-3 py-2 text-left transition-all ${
-                  active
-                    ? "bg-primary-container/20 text-primary-container border-primary-container/30"
-                    : "bg-surface-container text-on-surface-variant/70 border-outline-variant/20"
-                }`}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-widest">{opt.label}</p>
-                <p className="mt-1 text-[10px] leading-relaxed">{opt.description}</p>
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-on-surface-variant/50 text-[10px] mt-2">Derived left/right indices above show exactly what the pipeline may use for this metric.</p>
-      </div>
+      </fieldset>
 
       {/* Confidence Threshold */}
       <div>

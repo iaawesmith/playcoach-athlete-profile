@@ -4,6 +4,7 @@ import { parseCameraSettings } from "../components/CameraEditor";
 import { computeCategories, computeScore } from "../components/NodeReadinessBar";
 import { getActiveMetrics, partitionMetricsByActive } from "./metrics";
 import keypointLibrary from "@/constants/keypointLibrary.json";
+import { metricSide } from "./metricSide";
 
 // Active vs. inactive metrics: this module uses the shared helpers in
 // `./metrics` (getActiveMetrics, partitionMetricsByActive) so that scoring
@@ -174,7 +175,7 @@ function generateMetrics(node: TrainingNode): string {
     const internalDocsBlock = internalDocs
       ? `\nInternal Documentation (admin-only, not sent to LLM):\n${internalDocs}\n`
       : `\nInternal Documentation: Not configured\n`;
-    return `\n### Metric ${idx + 1}: ${m.name || "Untitled"} (${m.weight}%)\nActive: ${isActive ? "Yes" : "No"}\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nMeasurement Window (fixed): ${measurementDescription(km?.calculation_type)}\nCalculation Type: ${km?.calculation_type || "Not configured"}\nBody Groups: ${km?.body_groups?.length ? km.body_groups.join(", ") : "None"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nBilateral: ${km?.bilateral ?? "auto"}\nDirection Override: ${km?.bilateral_override ?? "auto"}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nDepends On: ${m.depends_on_metric_id ? (allMetrics.find(x => x.name === m.depends_on_metric_id)?.name ?? m.depends_on_metric_id) : "None"}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}${internalDocsBlock}`;
+    return `\n### Metric ${idx + 1}: ${m.name || "Untitled"} (${m.weight}%)\nActive: ${isActive ? "Yes" : "No"}\nDescription: ${m.description?.trim() || "Not configured"}\nUnit: ${m.unit || "Not configured"}\nElite Target: ${m.eliteTarget || "Not configured"}\nTolerance: ±${m.tolerance ?? "Not configured"}\nPhase: ${phaseStatus}\nMeasurement Window (fixed): ${measurementDescription(km?.calculation_type)}\nCalculation Type: ${km?.calculation_type || "Not configured"}\nKeypoint Indices: ${km?.keypoint_indices?.join(", ") || "None"}\nKeypoint Names: ${km?.keypoint_indices?.length ? kpNames(km.keypoint_indices) : "None"}\nSide: ${metricSide(km) === "none" ? "Not bilateral" : metricSide(km)}\nConfidence Threshold: ${km?.confidence_threshold ?? 0.7}\nRequires Catch: ${m.requires_catch ? "Yes" : "No"}\nKeypoint Mapping: ${mappingStatus}${missing.length > 0 ? ` — missing: ${missing.join(", ")}` : ""}${internalDocsBlock}`;
   };
 
   activeMetrics.forEach((m, i) => { out += renderMetric(m, i, true); });
