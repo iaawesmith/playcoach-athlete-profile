@@ -9,12 +9,9 @@ const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase t
 const CARD_CLASS = "p-5 rounded-xl border border-outline-variant/20 space-y-3 bg-[#1A2029]";
 
 /* ── Camera settings stored as JSON in camera_guidelines ── */
-// Note: legacy `auto_reject_*` flags were removed in Group C — they were
-// UI-only toggles never consumed by the Edge Function. parseCameraSettings
-// silently drops them on next save by spreading DEFAULT_SETTINGS first.
+// Retired settings remain in the JSON for restoration; only guidance is edited.
 export interface CameraSettings {
-  camera_min_fps: number;
-  camera_min_resolution: string;
+  [key: string]: unknown;
   camera_min_distance: number | null;
   camera_max_distance: number | null;
   camera_filming_instructions: string;
@@ -22,31 +19,27 @@ export interface CameraSettings {
 }
 
 const DEFAULT_SETTINGS: CameraSettings = {
-  camera_min_fps: 30,
-  camera_min_resolution: "720p",
   camera_min_distance: null,
   camera_max_distance: null,
   camera_filming_instructions: "",
   skill_specific_filming_notes: "",
 };
 
-export function parseCameraSettings(raw: string): CameraSettings {
+export function parseCameraSettings(raw: unknown): CameraSettings {
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && "camera_min_fps" in parsed) {
-      // Pick only known fields — legacy auto_reject_* keys are dropped here.
+    const parsed: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const record = parsed as Record<string, unknown>;
       return {
-        ...DEFAULT_SETTINGS,
-        camera_min_fps: parsed.camera_min_fps ?? DEFAULT_SETTINGS.camera_min_fps,
-        camera_min_resolution: parsed.camera_min_resolution ?? DEFAULT_SETTINGS.camera_min_resolution,
-        camera_min_distance: parsed.camera_min_distance ?? DEFAULT_SETTINGS.camera_min_distance,
-        camera_max_distance: parsed.camera_max_distance ?? DEFAULT_SETTINGS.camera_max_distance,
-        camera_filming_instructions: parsed.camera_filming_instructions ?? DEFAULT_SETTINGS.camera_filming_instructions,
-        skill_specific_filming_notes: parsed.skill_specific_filming_notes ?? DEFAULT_SETTINGS.skill_specific_filming_notes,
+        ...record,
+        camera_min_distance: typeof record.camera_min_distance === "number" ? record.camera_min_distance : null,
+        camera_max_distance: typeof record.camera_max_distance === "number" ? record.camera_max_distance : null,
+        camera_filming_instructions: typeof record.camera_filming_instructions === "string" ? record.camera_filming_instructions : "",
+        skill_specific_filming_notes: typeof record.skill_specific_filming_notes === "string" ? record.skill_specific_filming_notes : "",
       };
     }
-  } catch { /* not JSON, legacy text */ }
-  return { ...DEFAULT_SETTINGS };
+  } catch { /* Legacy plain-text filming instructions. */ }
+  return { ...DEFAULT_SETTINGS, camera_filming_instructions: typeof raw === "string" ? raw : "" };
 }
 
 export function serializeCameraSettings(s: CameraSettings): string {
@@ -84,7 +77,7 @@ function getKeypointName(index: number): string {
   return kp ? kp.name : `Keypoint ${index}`;
 }
 
-function getRequiredBodyParts(metrics: KeyMetric[]) {
+export function getRequiredBodyParts(metrics: KeyMetric[]) {
   const result: Array<{
     group: BodyPartGroup;
     indices: number[];
@@ -96,7 +89,7 @@ function getRequiredBodyParts(metrics: KeyMetric[]) {
     const matchingIndices = new Set<number>();
     const matchingMetrics = new Set<string>();
 
-    for (const m of metrics) {
+    for (const m of metrics.filter((metric) => metric.active !== false)) {
       const indices = m.keypoint_mapping?.keypoint_indices ?? [];
       for (const idx of indices) {
         if (idx >= grp.indexRange[0] && idx <= grp.indexRange[1]) {
@@ -119,35 +112,6 @@ function getRequiredBodyParts(metrics: KeyMetric[]) {
 
   return result;
 }
-
-/* ── FPS / Resolution helpers ── */
-const FPS_OPTIONS = [
-  { value: 24, label: "24 fps — Not recommended" },
-  { value: 30, label: "30 fps — Minimum required" },
-  { value: 60, label: "60 fps — Recommended for precision" },
-  { value: 120, label: "120 fps — High speed (slow motion)" },
-];
-
-const FPS_HELPER: Record<number, { text: string; color: string }> = {
-  24: { text: "Below minimum — Velocity and Acceleration metrics will have reduced accuracy", color: "text-amber-400" },
-  30: { text: "Minimum for reliable analysis", color: "text-on-surface-variant/60" },
-  60: { text: "Recommended — captures the break moment with 2x frame resolution", color: "text-primary-container" },
-  120: { text: "High precision — ideal for plant foot and timing metrics", color: "text-primary-container" },
-};
-
-const RES_OPTIONS = [
-  { value: "480p", label: "480p — Not recommended" },
-  { value: "720p", label: "720p — Minimum required" },
-  { value: "1080p", label: "1080p — Recommended" },
-  { value: "4K", label: "4K — Maximum quality" },
-];
-
-const RES_HELPER: Record<string, { text: string; color: string }> = {
-  "480p": { text: "Below minimum — hand and foot keypoints will be unreliable at this resolution", color: "text-amber-400" },
-  "720p": { text: "Minimum for reliable keypoint detection", color: "text-on-surface-variant/60" },
-  "1080p": { text: "Recommended — optimal detail for all keypoint groups", color: "text-primary-container" },
-  "4K": { text: "Highest quality — automatically downsampled to 1080p for processing", color: "text-on-surface-variant/60" },
-};
 
 /* ── Section Divider ── */
 function SectionDivider({ label }: { label: string }) {
@@ -186,55 +150,11 @@ export function CameraEditor({ node, value, onChange }: CameraEditorProps) {
       <SectionDivider label="Filming Requirements" />
 
       <div className={CARD_CLASS}>
-        {/* FPS */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <label className={LABEL_CLASS}>Minimum FPS</label>
-            <SectionTooltip tip="Minimum frames per second required for accurate metric calculations. Velocity and Acceleration metrics lose precision below 30fps. 60fps is strongly recommended for break angle and plant foot metrics where the critical moment spans only 3-5 frames." />
-          </div>
-          <select
-            className={`${INPUT_CLASS} max-w-xs`}
-            value={settings.camera_min_fps}
-            onChange={(e) => updateField("camera_min_fps", parseInt(e.target.value, 10))}
-          >
-            {FPS_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          {FPS_HELPER[settings.camera_min_fps] && (
-            <p className={`text-[10px] mt-1.5 ${FPS_HELPER[settings.camera_min_fps].color}`}>
-              {FPS_HELPER[settings.camera_min_fps].text}
-            </p>
-          )}
-        </div>
-
-        {/* Resolution */}
-        <div className="pt-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <label className={LABEL_CLASS}>Minimum Resolution</label>
-            <SectionTooltip tip="Minimum source video resolution. The pose engine downsamples frames to roughly 384×288 — source footage below 720p provides insufficient detail for reliable keypoint extraction, especially for hand and foot keypoints." />
-          </div>
-          <select
-            className={`${INPUT_CLASS} max-w-xs`}
-            value={settings.camera_min_resolution}
-            onChange={(e) => updateField("camera_min_resolution", e.target.value)}
-          >
-            {RES_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          {RES_HELPER[settings.camera_min_resolution] && (
-            <p className={`text-[10px] mt-1.5 ${RES_HELPER[settings.camera_min_resolution].color}`}>
-              {RES_HELPER[settings.camera_min_resolution].text}
-            </p>
-          )}
-        </div>
-
         {/* Distance */}
         <div className="pt-3">
           <div className="flex items-center gap-1.5 mb-2">
             <label className={LABEL_CLASS}>Recommended Distance</label>
-            <SectionTooltip tip="How far the camera should be positioned from the athlete. Too close and full body parts leave the frame. Too far and the athlete occupies less than 15% of the frame — triggering auto-rejection." />
+            <SectionTooltip tip="How far the camera should be positioned from the athlete. Too close and full body parts leave the frame. Too far and keypoints become harder to detect. This distance is filming guidance, not an upload rejection rule." />
           </div>
           <div className="flex gap-3 items-center">
             <div className="flex items-center gap-2">
@@ -278,13 +198,13 @@ export function CameraEditor({ node, value, onChange }: CameraEditorProps) {
 
       <div className={CARD_CLASS}>
         <p className="text-on-surface-variant text-xs leading-relaxed">
-          Auto-derived from your Metrics tab keypoint mappings. These body parts must be clearly visible throughout the clip for accurate analysis.
+          Auto-derived from active metrics only. These body parts must be clearly visible throughout the clip for accurate analysis.
         </p>
 
         {requiredBodyParts.length === 0 ? (
           <div className="flex items-center gap-3 py-4">
             <span className="material-symbols-outlined text-on-surface-variant/40" style={{ fontSize: 28 }}>skeleton</span>
-            <p className="text-on-surface-variant/60 text-sm">Configure metrics in the Metrics tab to see required body part requirements.</p>
+            <p className="text-on-surface-variant/60 text-sm">Activate a metric in the Metrics tab to see required body parts.</p>
           </div>
         ) : (
           <div className="space-y-3 pt-1">
@@ -342,12 +262,6 @@ export function checkCameraCompleteness(node: TrainingNode): Array<{ label: stri
   const issues: Array<{ label: string; detail: string }> = [];
   const settings = parseCameraSettings(node.camera_guidelines);
 
-  if (!settings.camera_min_fps) {
-    issues.push({ label: "Camera", detail: "Minimum FPS not configured" });
-  }
-  if (!settings.camera_min_resolution) {
-    issues.push({ label: "Camera", detail: "Minimum resolution not configured" });
-  }
   if (settings.camera_min_distance == null || settings.camera_max_distance == null) {
     issues.push({ label: "Camera", detail: "Recommended distance not set" });
   } else if (settings.camera_min_distance >= settings.camera_max_distance) {

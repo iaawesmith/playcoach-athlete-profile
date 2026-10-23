@@ -84,11 +84,11 @@
 
 ## Behind WR camera angle
 - [x] Add "Behind WR" to library clip form + Run Analysis context; check DB constraint; report readiness impact before applying any Reference-tab change; list "Other" records (no remap)
-- [ ] Reference tab per-angle list: add Behind WR — waiting on user OK (display-only "of 3"→"of 4"; readiness unaffected)
+- [x] Reference tab per-angle list: leave Behind WR unchanged, as requested.
 
-## Node simplification (approved Oct 23, one batch at a time, user OK between batches; hide fields, never wipe data)
+## Node simplification (approved Oct 23, one batch at a time, user OK between batches; hide fields, never wipe data; baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e for every remaining batch)
 - [x] Batch 0 Measurement windows: fixed per-type constants, read-only display, fingerprint unchanged
-- [ ] Batch 1 Camera (waiting on OK after batch 0)
+- [x] Batch 1 Camera: hidden FPS/resolution/auto-reject settings preserved; active-only body parts; distance-only readiness; Slant WR filming instructions updated with original archived. All 147 tests pass; current analyzer rescore matches baseline 718c917a66f44a5edb40fde67c80ccf704f9a0ebc22a7d916541adaf6e55688e, aggregate 94. Real Slant Reference page verified. Stopped for Batch 2 approval.
 - [ ] Batch 2 Pipeline setup + pose service every frame, drop det_frequency (+ fresh 932b91df run, overlay bcf95d35)
 - [ ] Batch 3 Metric card Side control
 - [ ] Batch 4 Phases (archive coaching cues into knowledge base)

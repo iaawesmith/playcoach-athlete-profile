@@ -70,7 +70,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "The teach tape athletes see next to their results. Add a clip of the route done well and flag one as the Reference. These videos are not analyzed and don't affect scoring." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. When Segmentation Method is set to Checkpoint-triggered, configure the per-frame Checkpoints in the sub-section below." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures, how scores are calculated, and the common errors the pipeline auto-detects from metric output. Includes Scoring and Errors sections." },
-  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Configure pixel-to-yard calibrations for each camera angle and the athlete-facing Filming Guidance (FPS, resolution, distance, instructions)." },
+  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Configure pixel-to-yard calibrations for each camera angle and the athlete-facing Filming Guidance (distance, active body parts, instructions)." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Define achievements athletes earn by hitting performance milestones. Badges appear on athlete profiles and provide motivation to improve." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
@@ -1136,7 +1136,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
             <div>
               <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Filming Guidance</div>
               <p className="text-on-surface-variant text-xs leading-snug mt-1 mb-3">
-                Athlete-facing filming requirements (FPS, resolution, distance, instructions). Sets pre-upload expectations so the analysis pipeline gets reliable keypoint detection.
+                Athlete-facing distance, active body-part visibility, and filming instructions. These are filming guidance, not upload-quality rejection rules.
               </p>
               <div className="border-t border-outline-variant/10 pt-5">
                 <CameraEditor node={draft} value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
