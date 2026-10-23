@@ -480,7 +480,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
       badges: migrateBadges(node.badges as any),
       key_metrics: (node.key_metrics ?? []).map((m) => ({
         tolerance: null,
-        temporal_window: 1,
         depends_on_metric_id: null,
         ...m,
         keypoint_mapping: m.keypoint_mapping
