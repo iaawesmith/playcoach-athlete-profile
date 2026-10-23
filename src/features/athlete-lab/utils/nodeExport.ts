@@ -193,7 +193,7 @@ function generateErrors(node: TrainingNode): string {
   let out = `## Errors (${errors.length} errors defined)\n`;
   if (errors.length === 0) return out + "\nNo errors defined.";
   errors.forEach((e, i) => {
-    out += `\n### Error ${i + 1}: ${e.error} — ${e.severity ?? "common"}\nDescription: ${e.correction || "Not configured"}\nAuto-Detectable: ${e.auto_detectable ? "Yes" : "No"}\nDetection Condition: ${e.auto_detection_condition || "Not configured"}\n`;
+    out += `\n### Error ${i + 1}: ${e.error}\nAdmin Note (not sent to coach model): ${e.correction || "Not configured"}\nAuto-Detectable: ${e.auto_detectable ? "Yes" : "No"}\nDetection Condition: ${e.auto_detection_condition || "Not configured"}\n`;
   });
   return out;
 }

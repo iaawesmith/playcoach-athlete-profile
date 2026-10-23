@@ -67,6 +67,30 @@ describe("low-quality feedback", () => {
   });
 });
 
+describe("Slant Batch 5 rules on c6fa0895", () => {
+  const rules = [
+    { error: "Sinking too deep in the plant", auto_detectable: true, auto_detection_condition: "Plant Leg Extension < 125" },
+    { error: "Slow release off the line", auto_detectable: true, auto_detection_condition: "Release Speed < 5" },
+  ];
+  const metrics = [
+    { name: "Plant Leg Extension", status: "scored", value: 139.61, unit: "degrees" },
+    { name: "Release Speed", status: "scored", value: 3.76, unit: "mph" },
+  ];
+
+  it("does not trigger sinking at 139.61 because the condition is below 125", () => {
+    const [plant] = evaluateErrorRules(rules, metrics);
+    expect(plant).toMatchObject({ name: "Sinking too deep in the plant", metric_value: 139.61, triggered: false, reason: "condition_false" });
+    expect(evaluateErrorRules(rules, [{ ...metrics[0], value: 125 }])[0].triggered).toBe(false);
+    expect(evaluateErrorRules(rules, [{ ...metrics[0], value: 124.99 }])[0].triggered).toBe(true);
+  });
+
+  it("still detects only slow release at 3.76 against the unchanged limit of 5", () => {
+    expect(evaluateErrorRules(rules, metrics).filter(e => e.triggered).map(e => e.name))
+      .toEqual(["Slow release off the line"]);
+    expect(evaluateErrorRules(rules, [{ ...metrics[1], value: 5 }])[1].triggered).toBe(false);
+  });
+});
+
 describe("results parsing", () => {
   it("reads numeric elite targets and nested phase / calc type", () => {
     const [m] = parseMetricResults(

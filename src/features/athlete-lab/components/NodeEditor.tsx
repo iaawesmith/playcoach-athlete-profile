@@ -1493,19 +1493,6 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
     setAdding(false);
   };
 
-  const SEVERITY_OPTIONS: { value: string; label: string; activeClass: string }[] = [
-    { value: "minor", label: "MINOR", activeClass: "bg-on-surface-variant/20 text-on-surface-variant border-on-surface-variant/40" },
-    { value: "common", label: "COMMON", activeClass: "bg-amber-500/15 text-amber-400 border-amber-500/40" },
-    { value: "critical", label: "CRITICAL", activeClass: "bg-red-500/15 text-red-400 border-red-500/40" },
-  ];
-
-  const severityPill = (sev: string | undefined) => {
-    const s = sev || "common";
-    const opt = SEVERITY_OPTIONS.find(o => o.value === s);
-    if (!opt) return null;
-    return <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${opt.activeClass}`}>{opt.label}</span>;
-  };
-
   const renderFields = (err: CommonError, setErr: (v: CommonError) => void) => (
     <div className="space-y-3 pt-3">
       <div>
@@ -1516,31 +1503,10 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
         <input className={INPUT_CLASS} value={err.error} onChange={(e) => setErr({ ...err, error: e.target.value })} placeholder="e.g. Rounding the break instead of planting and cutting" />
       </div>
 
-      {/* Severity */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Severity</span>
-          <SectionTooltip tip="How prominently this error appears in athlete feedback. Critical errors are always highlighted first regardless of other results. Common errors appear in standard feedback flow. Minor errors are mentioned only when the athlete's score is high enough that small details matter." />
-        </div>
-        <div className="flex gap-2">
-          {SEVERITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setErr({ ...err, severity: opt.value as CommonError["severity"] })}
-              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] border transition-all active:scale-95 ${(err.severity || "common") === opt.value ? opt.activeClass : "border-outline-variant/20 text-on-surface-variant/50 hover:border-outline-variant/40"}`}
-              style={(err.severity || "common") !== opt.value ? { backgroundColor: '#0E1319' } : undefined}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Correction</span>
-          <SectionTooltip tip="The coaching correction shown to the athlete when this error is detected. Be specific and actionable." />
+          <span className={LABEL_CLASS}>Admin Note</span>
+          <SectionTooltip tip="Admin reference only. This note is not sent to the coach model or used in fallback feedback." />
         </div>
         <textarea className={`${INPUT_CLASS} min-h-[60px] resize-y`} value={err.correction} onChange={(e) => setErr({ ...err, correction: e.target.value })} placeholder="e.g. Plant hard on the inside foot at 45 degrees, then accelerate through the break" />
       </div>
@@ -1555,7 +1521,7 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
           <div className="flex items-center gap-2">
             <span className={`${LABEL_CLASS} flex items-center gap-1`}>
               Auto-Detectable
-              <SectionTooltip tip="When ON, the pipeline evaluates the condition above against metric results for every analysis. Confirmed detections are passed to Claude as facts. When OFF, this error exists as LLM context only — Claude may mention it as a possibility based on low metric scores but cannot confirm it automatically." />
+              <SectionTooltip tip="When ON, the pipeline evaluates the condition against scored metric values. When OFF, the rule is not evaluated and is not sent to the coach model." />
             </span>
             <button
               type="button"
@@ -1600,7 +1566,6 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
               <div className="flex items-center gap-3 group">
                 <span className="text-on-surface-variant/30 text-[10px] font-mono font-semibold w-4 text-center shrink-0">{i + 1}</span>
                 <p className="text-on-surface text-sm font-semibold truncate flex-1 min-w-0">{err.error || "Untitled Error"}</p>
-                {severityPill(err.severity)}
                 {err.auto_detectable && (
                   <span className="text-primary-container/60 text-[9px] font-semibold uppercase tracking-widest flex items-center gap-0.5 shrink-0">
                     <span className="material-symbols-outlined" style={{ fontSize: 12 }}>bolt</span>
