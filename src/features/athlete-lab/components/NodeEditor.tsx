@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, ConfidenceHandling, ScoreBands, ReferenceCalibration, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
@@ -17,6 +17,7 @@ import { NodeReadinessBar } from "./NodeReadinessBar";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 import { generateTabMarkdown } from "../utils/nodeExport";
 import { getMappedRouteName, resolveNodeIcon } from "../utils/routeIcons";
+import { withReferenceScale } from "../utils/referenceCalibration";
 
 type CopyState = "idle" | "success" | "error";
 
@@ -66,7 +67,7 @@ const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "The teach tape athletes see next to their results. Add a clip of the route done well and flag one as the Reference. These videos are not analyzed and don't affect scoring." },
   { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases and their proportional frame windows for this skill." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures, how scores are calculated, and the common errors the pipeline auto-detects from metric output. Includes Scoring and Errors sections." },
-  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Configure pixel-to-yard calibrations for each camera angle and the athlete-facing Filming Guidance (distance, active body parts, instructions)." },
+  { key: "reference", label: "Reference", icon: "straighten", subtitle: "Saved camera-angle scale fallback and athlete-facing filming guidance. Athlete height supplies the per-run scale; unscaled distance metrics are not scored." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
   { key: "badges", label: "Badges", icon: "military_tech", subtitle: "Define achievements athletes earn by hitting performance milestones. Badges appear on athlete profiles and provide motivation to improve." },
   { key: "test", label: "Run Analysis", icon: "science", subtitle: "Test the node configuration with sample videos and review AI output." },
@@ -881,7 +882,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
 
             <div>
               <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Scoring</div>
-              <div className="border-t border-outline-variant/10 pt-5">
+              <div className="pt-5">
                 <ScoringEditor
                   scoringRules={draft.scoring_rules}
                   onScoringRulesChange={(v) => updateWithCriticalTrack("scoring_rules", v)}
@@ -900,7 +901,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
 
             <div>
               <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Common Errors</div>
-              <div className="border-t border-outline-variant/10 pt-5">
+              <div className="pt-5">
                 <CommonErrorsEditor
                   errors={draft.common_errors}
                   onChange={(e) => update("common_errors", e)}
@@ -938,9 +939,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
                 const settings = parseCameraSettings(draft.camera_guidelines);
                 update("camera_guidelines", serializeCameraSettings({ ...settings, skill_specific_filming_notes: v }));
               }}
-              fallbackBehavior={(draft.reference_fallback_behavior ?? "pixel_warning") as ReferenceFallback}
-              onFallbackBehaviorChange={(v) => update("reference_fallback_behavior", v)}
-              eliteVideos={draft.elite_videos ?? []}
             />
 
             <div>
@@ -948,7 +946,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
               <p className="text-on-surface-variant text-xs leading-snug mt-1 mb-3">
                 Athlete-facing distance, active body-part visibility, and filming instructions. These are filming guidance, not upload-quality rejection rules.
               </p>
-              <div className="border-t border-outline-variant/10 pt-5">
+              <div className="pt-5">
                 <CameraEditor node={draft} value={draft.camera_guidelines} onChange={(v) => update("camera_guidelines", v)} />
               </div>
             </div>
@@ -1835,380 +1833,65 @@ function serializeStructuredField(fields: Record<string, string>): string {
 
 const CAMERA_ANGLES_LIST: CameraAngle[] = ["sideline", "endzone", "behind_qb"];
 const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
-const CAMERA_ANGLE_STATUS_OPTIONS: Array<{ value: CameraAngleStatus; label: string; description: string }> = [
-  { value: "primary", label: "Primary", description: "Recommended angle for this skill. Use this when it delivers the cleanest metric coverage." },
-  { value: "supported", label: "Supported", description: "This angle works for the skill, but it is not the recommended setup." },
-  { value: "not_supported", label: "Not Supported", description: "Do not use this angle for this skill because the node’s metrics will not evaluate reliably." },
-];
-
-const REF_PRESETS: { label: string; sizeYards: number }[] = [
-  { label: "5-Yard Line Spacing", sizeYards: 5 },
-  { label: "Hash Mark Width", sizeYards: 1.83 },
-  { label: "Standard Cone", sizeYards: 0.5 },
-];
-
-const DEFAULT_CALIBRATIONS: Record<CameraAngle, Partial<ReferenceCalibration>> = {
-  sideline: {},
-  behind_qb: {
-    reference_object_name: "Custom",
-    placement_instructions: "Position a cone or marker on the hash marks directly behind the line of scrimmage. Hash marks are visible from the behind QB angle and provide a consistent reference. Measure pixel distance between two consecutive hash marks.",
-    filming_instructions: "Film from directly behind the quarterback position, 5-8 yards behind the line of scrimmage at head height. The full route should be visible from snap to catch. Two hash marks must be visible in the frame for distance calibration.",
-  },
-  endzone: {
-    reference_object_name: "5-Yard Line Spacing",
-    known_size_yards: 5,
-    placement_instructions: "Film from the back of the endzone at field level. The 5-yard line markers are visible across the full width of the field from this angle and provide accurate horizontal scale calibration.",
-    filming_instructions: "Stand at the back of the endzone, centered on the field. Film at waist height. The full route must be visible from line of scrimmage to the catch point. Both sideline hash marks should be visible to establish field scale.",
-  },
-};
-
 function ReferenceCalibrationEditor({
   calibrations,
   onCalibrationsChange,
   skillSpecificFilmingNotes,
   onSkillSpecificFilmingNotesChange,
-  fallbackBehavior,
-  onFallbackBehaviorChange,
 }: {
   calibrations: ReferenceCalibration[];
-  onCalibrationsChange: (c: ReferenceCalibration[]) => void;
+  onCalibrationsChange: (calibrations: ReferenceCalibration[]) => void;
   skillSpecificFilmingNotes: string;
-  onSkillSpecificFilmingNotesChange: (v: string) => void;
-  fallbackBehavior: ReferenceFallback;
-  onFallbackBehaviorChange: (v: ReferenceFallback) => void;
-  eliteVideos: EliteVideo[];
+  onSkillSpecificFilmingNotesChange: (value: string) => void;
 }) {
-  // Phase 1c.3-C (F-SLICE-E-6): solutionClass prop removed (column dropped in
-  // 20260426025918). The wholebody3d short-circuit branch and the
-  // genericFallbackInstructions textarea (which wrote to the dropped
-  // reference_filming_instructions column) were deleted at the same time.
-  const [collapsed, setCollapsed] = useState<Set<CameraAngle>>(new Set(["behind_qb", "endzone"]));
-
-
-  const getCalibration = (angle: CameraAngle): ReferenceCalibration => {
-    const existing = calibrations.find(c => c.camera_angle === angle);
-    if (existing) return { status: "supported", calibration_notes: "", ...existing };
-    const defaults = DEFAULT_CALIBRATIONS[angle];
-    return {
-      camera_angle: angle,
-      status: angle === "sideline" ? "primary" : "supported",
-      reference_object_name: defaults.reference_object_name ?? "",
-      known_size_yards: defaults.known_size_yards ?? null,
-      known_size_unit: defaults.known_size_yards ? "yards" : undefined,
-      placement_instructions: defaults.placement_instructions ?? "",
-      pixels_per_yard: null,
-      filming_instructions: defaults.filming_instructions ?? "",
-      calibration_notes: "",
-    };
-  };
-
-  const updateCalibration = (angle: CameraAngle, patch: Partial<ReferenceCalibration>) => {
-    const existing = getCalibration(angle);
-    const updated = { ...existing, ...patch };
-    const next = calibrations.filter(c => c.camera_angle !== angle);
-    next.push(updated);
-    onCalibrationsChange(next);
-  };
-
-  const isCalibrated = (angle: CameraAngle): boolean => {
-    const c = getCalibration(angle);
-    return !!(c.pixels_per_yard && c.pixels_per_yard > 0);
-  };
-
-  const toggleCollapse = (angle: CameraAngle) => {
-    setCollapsed(prev => {
-      const next = new Set(prev);
-      if (next.has(angle)) next.delete(angle);
-      else next.add(angle);
-      return next;
-    });
-  };
-
-  const calibratedCount = CAMERA_ANGLES_LIST.filter(a => isCalibrated(a)).length;
-
-  const UNIT_OPTIONS = ["yards", "feet", "inches"] as const;
+  const calibratedCount = CAMERA_ANGLES_LIST.filter((angle) =>
+    (calibrations.find((calibration) => calibration.camera_angle === angle)?.pixels_per_yard ?? 0) > 0,
+  ).length;
 
   return (
     <div className="space-y-6">
-      {/* Summary */}
-      <div className="flex items-center justify-between">
-        <span className="text-on-surface-variant text-xs">
-          <span className="font-bold text-on-surface">{calibratedCount}</span> of 3 camera angles calibrated
-        </span>
-      </div>
-
-      {CAMERA_ANGLES_LIST.map(angle => {
-        const cal = getCalibration(angle);
-        const calibrated = isCalibrated(angle);
-        const isCollapsed = collapsed.has(angle);
-
-        return (
-          <CalibrationCard
-            key={angle}
-            angle={angle}
-            label={CAMERA_ANGLE_LABELS[angle]}
-            calibration={cal}
-            calibrated={calibrated}
-            unitOptions={UNIT_OPTIONS}
-            onUpdate={(patch) => updateCalibration(angle, patch)}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapse(angle)}
-          />
-        );
-      })}
-
-      <div className={CARD_CLASS}>
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5">
-            <label className={LABEL_CLASS}>Skill-Specific Filming Notes</label>
-            <SectionTooltip tip="Primary filming guidance for this node. These notes override the generic fallback instructions shown below." />
-          </div>
-          <p className="text-on-surface-variant text-xs leading-relaxed">
-            Use this field for skill-specific setup instructions. Keep shared infrastructure generic and put node-specific guidance here.
-          </p>
-          <textarea
-            className={`${INPUT_CLASS} min-h-[120px] resize-y`}
-            value={skillSpecificFilmingNotes}
-            onChange={(e) => onSkillSpecificFilmingNotesChange(e.target.value)}
-            placeholder="Add node-specific filming guidance that should take priority over any generic fallback copy."
-          />
-        </div>
-      </div>
-
-      {/* Generic Fallback Filming Instructions textarea removed in
-          Phase 1c.3-C (F-SLICE-E-6) — wrote to dropped column
-          reference_filming_instructions (migration 20260426025918). */}
-
-
-      {/* Global fallback */}
-      <div className="pt-2">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-px flex-1 bg-outline-variant/20" />
-          <span className={`${LABEL_CLASS} shrink-0`}>Global Fallback</span>
-          <div className="h-px flex-1 bg-outline-variant/20" />
-        </div>
-      </div>
-
       <div>
-        <div className="flex items-center gap-1.5 mb-4">
-          <label className={LABEL_CLASS}>If No Reference Detected</label>
-          <SectionTooltip tip="What the pipeline does if it cannot find a reference object in the athlete's video. This applies to any angle that fails reference detection." />
-        </div>
-        <div className="space-y-3">
-          {([
-            { value: "pixel_warning" as const, label: "USE PIXEL UNITS WITH WARNING", desc: "Score Distance metrics using pixel values. Flag results as uncalibrated in athlete results.", isDefault: true },
-            { value: "disable_distance" as const, label: "DISABLE DISTANCE METRICS", desc: "Skip all Distance and Velocity metrics. Only Angle and Frame Delta metrics are scored.", isDefault: false },
-            { value: "estimate_field_lines" as const, label: "ESTIMATE USING FIELD LINES", desc: "Attempt to estimate scale from standard field line spacing. Less accurate — use only as last resort.", isDefault: false },
-          ]).map(opt => (
-            <label key={opt.value} className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${fallbackBehavior === opt.value ? 'border-primary-container/40' : 'border-outline-variant/20'}`} style={{ backgroundColor: fallbackBehavior === opt.value ? 'rgba(0,230,57,0.04)' : '#1A2029' }}>
-              <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${fallbackBehavior === opt.value ? 'border-primary-container' : 'border-outline-variant/50'}`}>
-                {fallbackBehavior === opt.value && <div className="w-2 h-2 rounded-full bg-primary-container" />}
-              </div>
-              <div>
-                <div className="text-on-surface text-xs font-black uppercase tracking-[0.15em]">{opt.label}{opt.isDefault && <span className="ml-2 text-on-surface-variant font-normal normal-case tracking-normal">(default)</span>}</div>
-                <p className="text-on-surface-variant text-xs mt-1 leading-relaxed">{opt.desc}</p>
-              </div>
-              <input type="radio" className="sr-only" checked={fallbackBehavior === opt.value} onChange={() => onFallbackBehaviorChange(opt.value)} />
-            </label>
-          ))}
-        </div>
+        <h3 className="text-on-surface font-black uppercase text-lg">Saved Scale Fallback</h3>
+        <p className="text-on-surface-variant text-xs leading-relaxed mt-2">
+          Athlete height supplies per-run scale. Saved pixels per yard are a fallback, not a requirement.
+          If no real scale resolves, distance and speed metrics are skipped, never scored from pixels.
+        </p>
+        <p className="text-on-surface-variant text-xs mt-2">{calibratedCount} of 3 camera angles have a saved scale</p>
       </div>
-    </div>
-  );
-}
-
-function CalibrationCard({ angle, label, calibration, calibrated, unitOptions, onUpdate, isCollapsed, onToggleCollapse }: {
-  angle: CameraAngle;
-  label: string;
-  calibration: ReferenceCalibration;
-  calibrated: boolean;
-  unitOptions: readonly string[];
-  onUpdate: (patch: Partial<ReferenceCalibration>) => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-}) {
-  const [sizeUnit, setSizeUnit] = useState<string>(calibration.known_size_unit || "yards");
-  const [displaySize, setDisplaySize] = useState<string>(calibration.known_size_yards?.toString() ?? "");
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(() => {
-    const match = REF_PRESETS.find(p => p.label === calibration.reference_object_name);
-    return match ? match.label : calibration.reference_object_name ? "custom" : null;
-  });
-
-  useEffect(() => {
-    setDisplaySize(calibration.known_size_yards?.toString() ?? "");
-    setSizeUnit(calibration.known_size_unit || "yards");
-    const match = REF_PRESETS.find(p => p.label === calibration.reference_object_name);
-    setSelectedPreset(match ? match.label : calibration.reference_object_name ? "custom" : null);
-  }, [angle]);
-
-  const applyPreset = (preset: { label: string; sizeYards: number } | null) => {
-    if (!preset) {
-      setSelectedPreset("custom");
-      onUpdate({ reference_object_name: "", known_size_yards: null });
-      setDisplaySize("");
-      return;
-    }
-    setSelectedPreset(preset.label);
-    onUpdate({ reference_object_name: preset.label, known_size_yards: preset.sizeYards, known_size_unit: "yards" });
-    setDisplaySize(preset.sizeYards.toString());
-    setSizeUnit("yards");
-  };
-
-  const handleSizeChange = (raw: string, unit: string) => {
-    setDisplaySize(raw);
-    const num = parseFloat(raw);
-    if (isNaN(num)) {
-      onUpdate({ known_size_yards: null, known_size_unit: unit });
-      return;
-    }
-    let yards = num;
-    if (unit === "feet") yards = num / 3;
-    if (unit === "inches") yards = num / 36;
-    onUpdate({ known_size_yards: parseFloat(yards.toFixed(4)), known_size_unit: unit });
-  };
-
-  const status = calibration.status ?? (angle === "sideline" ? "primary" : "supported");
-  const statusMeta = CAMERA_ANGLE_STATUS_OPTIONS.find((option) => option.value === status) ?? CAMERA_ANGLE_STATUS_OPTIONS[1];
-
-  return (
-    <div className={CARD_CLASS}>
-      {/* Header row */}
-      <div className="flex items-center gap-3 cursor-pointer select-none" onClick={onToggleCollapse}>
-        <button className="text-on-surface-variant/50 hover:text-on-surface transition-colors shrink-0">
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-            {isCollapsed ? "chevron_right" : "expand_more"}
-          </span>
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-on-surface font-black uppercase tracking-tighter text-lg">{label}</h3>
-            <span className="rounded-full border border-outline-variant/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant">
-              {statusMeta.label}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">{statusMeta.description}</p>
-        </div>
-        <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${calibrated ? 'text-primary-container' : 'text-on-surface-variant/50'}`}>
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{calibrated ? 'check_circle' : 'radio_button_unchecked'}</span>
-          {calibrated ? 'Calibrated' : 'Not Calibrated'}
-        </span>
+      <div className="grid gap-4 md:grid-cols-3">
+        {CAMERA_ANGLES_LIST.map((angle) => {
+          const calibration = calibrations.find((saved) => saved.camera_angle === angle);
+          const inputId = `reference-scale-${angle}`;
+          return (
+            <div key={angle} className="rounded-xl bg-surface-container-high p-4 space-y-3">
+              <h4 className="text-on-surface font-black uppercase text-sm">{CAMERA_ANGLE_LABELS[angle]}</h4>
+              <label htmlFor={inputId} className="block text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">Pixels Per Yard</label>
+              <input
+                id={inputId}
+                type="number"
+                min="1"
+                step="1"
+                className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary-container/50"
+                value={calibration?.pixels_per_yard ?? ""}
+                onChange={(event) => onCalibrationsChange(withReferenceScale(
+                  calibrations, angle, event.target.value ? Number(event.target.value) : null,
+                ))}
+              />
+            </div>
+          );
+        })}
       </div>
-
-      {/* Collapsible content */}
-      {!isCollapsed && (
-        <div className="pt-3 space-y-4">
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Angle Status</label>
-              <SectionTooltip tip="Set whether this camera angle is primary, supported, or not supported for this node. The cards stay generic; the status is configured per node." />
-            </div>
-            <div className="grid gap-2 md:grid-cols-3">
-              {CAMERA_ANGLE_STATUS_OPTIONS.map((option) => {
-                const selected = status === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => onUpdate({ status: option.value })}
-                    className={`rounded-xl border px-3 py-3 text-left transition-all active:scale-95 ${selected ? 'border-primary-container/40 bg-primary-container/10' : 'border-outline-variant/20 bg-surface-container-low'}`}
-                  >
-                    <div className="text-on-surface text-xs font-black uppercase tracking-[0.16em]">{option.label}</div>
-                    <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{option.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Reference Object</label>
-              <SectionTooltip tip="The physical object placed in frame that the pipeline uses to calculate the pixel-to-yard conversion ratio. Must be clearly visible in the video." />
-            </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {REF_PRESETS.map(p => (
-                <button key={p.label} type="button" onClick={() => applyPreset(p)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === p.label ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
-                  style={selectedPreset === p.label ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
-                  {p.label}
-                </button>
-              ))}
-              <button type="button" onClick={() => applyPreset(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all active:scale-95 ${selectedPreset === 'custom' ? 'border-primary-container/50 text-primary-container' : 'border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/50'}`}
-                style={selectedPreset === 'custom' ? { backgroundColor: 'rgba(0,230,57,0.08)' } : { backgroundColor: '#0E1319' }}>
-                Custom
-              </button>
-            </div>
-            {(selectedPreset === "custom" || (!selectedPreset && !REF_PRESETS.some(p => p.label === calibration.reference_object_name) && calibration.reference_object_name)) && (
-              <input className={INPUT_CLASS} value={calibration.reference_object_name} onChange={(e) => onUpdate({ reference_object_name: e.target.value })} placeholder="Enter custom reference object name" />
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Known Real-World Size</label>
-              <SectionTooltip tip="The exact real-world measurement of the reference object. The pipeline divides the pixel measurement of this object by this value to get pixels-per-yard." />
-            </div>
-            <div className="flex gap-3">
-              <input type="number" step="0.01" className={`${INPUT_CLASS} w-[30%]`} value={displaySize} onChange={(e) => handleSizeChange(e.target.value, sizeUnit)} placeholder="e.g. 5" />
-              <select className={`${INPUT_CLASS} w-[25%]`} value={sizeUnit} onChange={(e) => { setSizeUnit(e.target.value); handleSizeChange(displaySize, e.target.value); }}>
-                {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Placement Instructions</label>
-              <SectionTooltip tip="Instructions shown to athletes in the upload flow explaining where to place this reference object. Be specific — vague instructions produce inconsistent calibration." />
-            </div>
-            <textarea
-              className={`${INPUT_CLASS} min-h-[80px] resize-y`}
-              value={calibration.placement_instructions}
-              onChange={(e) => onUpdate({ placement_instructions: e.target.value })}
-              placeholder="e.g. Place a standard cone at the line of scrimmage, clearly visible in the bottom third of the frame."
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Pixels Per Yard</label>
-              <SectionTooltip tip="Auto-calculated from test footage or set manually. This is the exact value the Edge Function uses to convert pixel distances to yards. Higher values = camera is closer to the field." />
-            </div>
-            <input type="number" step="1" className={INPUT_CLASS} value={calibration.pixels_per_yard ?? ""} onChange={(e) => onUpdate({ pixels_per_yard: e.target.value ? parseFloat(e.target.value) : null })} placeholder="e.g. 142" />
-            <p className="text-on-surface-variant/60 text-[10px] mt-1.5">Measure from a test clip: count pixels across your reference object, divide by its known size in yards.</p>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Generic Fallback Angle Instructions</label>
-              <SectionTooltip tip="Shared fallback instructions for this angle. Node-specific filming notes should override this copy when present." />
-            </div>
-            <p className="text-on-surface-variant text-xs leading-relaxed mb-2">
-              Keep this reusable across skills. Use the node-level skill-specific notes field above for skill-specific direction.
-            </p>
-            <textarea
-              className={`${INPUT_CLASS} min-h-[100px] resize-y`}
-              value={calibration.filming_instructions ?? ""}
-              onChange={(e) => onUpdate({ filming_instructions: e.target.value })}
-              placeholder="Add generic fallback instructions for this camera angle."
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className={LABEL_CLASS}>Calibration Notes</label>
-              <SectionTooltip tip="Optional node-specific guidance for this angle’s calibration setup. Use this for angle-specific reminders without changing the shared card structure." />
-            </div>
-            <textarea
-              className={`${INPUT_CLASS} min-h-[90px] resize-y`}
-              value={calibration.calibration_notes ?? ""}
-              onChange={(e) => onUpdate({ calibration_notes: e.target.value })}
-              placeholder="Add calibration notes specific to this node and camera angle."
-            />
-          </div>
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <label className={LABEL_CLASS}>Skill-Specific Filming Notes</label>
+          <SectionTooltip tip="Saved node-specific filming guidance, separate from measurement scale." />
         </div>
-      )}
+        <textarea
+          className={`${INPUT_CLASS} min-h-[120px] resize-y`}
+          value={skillSpecificFilmingNotes}
+          onChange={(event) => onSkillSpecificFilmingNotesChange(event.target.value)}
+        />
+      </div>
     </div>
   );
 }
