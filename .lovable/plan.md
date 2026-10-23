@@ -112,7 +112,7 @@ Each batch is checked by rescoring c6fa0895 from stored data with the metrics fi
    - Remove phase_context_mode and the `{{phase_context}}` advertisement.
    - Keep phase description and coaching cues as admin notes, labeled "not sent to the coach model". Removing them is an alternative.
 5. **Errors:**
-   - Keep name, condition and correction (correction is used by the fallback summary? No: fallback excludes it, so label it "admin note").
+   - Keep name, condition and correction. Label correction "admin note", because neither the coach model nor the fallback summary uses it.
    - Severity becomes display only.
 6. **Reference:**
    - Collapse to camera angle plus pixels-per-yard.
