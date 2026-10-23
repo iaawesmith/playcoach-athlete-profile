@@ -265,7 +265,8 @@ export function detectBreak(
     return d
   })
   const maxTurn = turn.reduce<number>((m, v) => (v !== null && v > m ? v : m), 0)
-  const fail = (reason: string): RouteEvent => ({ detected: false, reason, detail: { search_from: searchFrom, max_turn_deg: Math.round(maxTurn * 100) / 100, min_turn_deg: BREAK_MIN_TURN_DEG } })
+  const sink = detectPlantSink(hips, ppy, searchFrom)
+  const fail = (reason: string): RouteEvent => sink ?? ({ detected: false, reason, detail: { search_from: searchFrom, max_turn_deg: Math.round(maxTurn * 100) / 100, min_turn_deg: BREAK_MIN_TURN_DEG, max_sink_fraction: maxSinkFraction(ppy, searchFrom, hips.length), min_sink_fraction: BREAK_SINK_FRACTION } })
   for (let i = 0; i + BREAK_RUN_FRAMES - 1 < n; i++) {
     let ok = true
     for (let k = 0; k < BREAK_RUN_FRAMES; k++) {
@@ -282,12 +283,68 @@ export function detectBreak(
     const coverage = have / (2 * K + 1)
     if (coverage < BREAK_MIN_COVERAGE) return fail('low_hip_coverage')
     const conf = Math.min(1, ((turn[peak] ?? 0) / 90) * 0.5 + coverage * 0.5)
+    // A plant sink that happens earlier is the break (cut toward/away from the camera).
+    if (sink && sink.detected && sink.frame < i) return sink
     return {
       detected: true, frame: peak, start: i, end, confidence: Math.round(conf * 1000) / 1000,
       detail: { method: 'hip_heading_change', peak_turn_deg: Math.round((turn[peak] ?? 0) * 100) / 100, coverage: Math.round(coverage * 1000) / 1000, search_from: searchFrom },
     }
   }
   return fail('no_sustained_heading_change')
+}
+
+export const BREAK_SINK_FRACTION = 0.1
+export const BREAK_SINK_HALF_WINDOW = 10
+
+/** Per-frame scale is athlete pixel height / height; a plant drops it below its neighbourhood. */
+function sinkFractions(ppy: Array<number | null> | number | null, n: number): Array<number | null> {
+  if (!Array.isArray(ppy)) return Array.from({ length: n }, () => null)
+  return ppy.map((v, i) => {
+    if (typeof v !== 'number' || v <= 0) return null
+    const near: number[] = []
+    for (let k = i - BREAK_SINK_HALF_WINDOW; k <= i + BREAK_SINK_HALF_WINDOW; k++) {
+      const q = ppy[k]
+      if (k !== i && typeof q === 'number' && q > 0) near.push(q)
+    }
+    if (near.length < BREAK_SINK_HALF_WINDOW) return null
+    near.sort((a, b) => a - b)
+    const med = near[Math.floor(near.length / 2)]
+    return 1 - v / med
+  })
+}
+
+function maxSinkFraction(ppy: Array<number | null> | number | null, from: number, n: number): number | null {
+  const f = sinkFractions(ppy, n).slice(from).filter((v): v is number => v !== null)
+  return f.length ? Math.round(Math.max(...f) * 1000) / 1000 : null
+}
+
+/**
+ * Plant sink: after the snap, while the hips are tracked, the athlete's pixel
+ * height drops >= BREAK_SINK_FRACTION below the median of the surrounding
+ * frames for BREAK_RUN_FRAMES in a row (a monotonic run toward/away from the
+ * camera never qualifies). Frame = deepest point of that run.
+ */
+export function detectPlantSink(hips: Array<Pt | null>, ppy: Array<number | null> | number | null, searchFrom: number): RouteEvent | null {
+  const f = sinkFractions(ppy, hips.length)
+  for (let i = Math.max(searchFrom + BREAK_SPAN_FRAMES, 0); i + BREAK_RUN_FRAMES - 1 < f.length; i++) {
+    let ok = true
+    for (let k = 0; k < BREAK_RUN_FRAMES; k++) {
+      const v = f[i + k]
+      if (v === null || v < BREAK_SINK_FRACTION || !hips[i + k]) { ok = false; break }
+    }
+    if (!ok) continue
+    let end = i
+    while (end + 1 < f.length && (f[end + 1] ?? 0) >= BREAK_SINK_FRACTION && hips[end + 1]) end++
+    let peak = i
+    for (let k = i; k <= end; k++) if ((f[k] ?? 0) > (f[peak] ?? 0)) peak = k
+    const depth = f[peak] ?? 0
+    return {
+      detected: true, frame: peak, start: i, end,
+      confidence: Math.round(Math.min(1, 0.5 + depth) * 1000) / 1000,
+      detail: { method: 'plant_sink', sink_fraction: Math.round(depth * 1000) / 1000, search_from: searchFrom },
+    }
+  }
+  return null
 }
 
 /**
