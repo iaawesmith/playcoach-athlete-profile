@@ -12,7 +12,7 @@ const metrics = [
 describe("Analysis Log reporting", () => {
   it("reports the actual velocity endpoint span rather than its minimum", () => {
     const log = { metrics: [{ name: "Release Speed", calculation_type: "velocity", frames_evaluated: 20 }] } as AnalysisLogData;
-    const result = { name: "Release Speed", detail: { firstFrameIndex: 2, lastFrameIndex: 16, actualWindow: 20 } } as PipelineMetricResult;
+    const result: PipelineMetricResult = { name: "Release Speed", unit: "mph", value: 3.76, elite_target: "7", weight: 20, status: "scored", detail: { firstFrameIndex: 2, lastFrameIndex: 16, actualWindow: 20 } };
     const row = buildAnalysisLogReporting(log, metrics, [result]).metrics[0];
     expect(row.frames_used).toBe(15);
     expect(row.temporal_window).toBe(0);
