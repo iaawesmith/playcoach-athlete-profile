@@ -85,3 +85,14 @@
 ## Behind WR camera angle
 - [x] Add "Behind WR" to library clip form + Run Analysis context; check DB constraint; report readiness impact before applying any Reference-tab change; list "Other" records (no remap)
 - [ ] Reference tab per-angle list: add Behind WR — waiting on user OK (display-only "of 3"→"of 4"; readiness unaffected)
+
+## Node simplification (approved Oct 23, one batch at a time, user OK between batches; hide fields, never wipe data)
+- [x] Batch 0 Measurement windows: fixed per-type constants, read-only display, fingerprint unchanged
+- [ ] Batch 1 Camera (waiting on OK after batch 0)
+- [ ] Batch 2 Pipeline setup + pose service every frame, drop det_frequency (+ fresh 932b91df run, overlay bcf95d35)
+- [ ] Batch 3 Metric card Side control
+- [ ] Batch 4 Phases (archive coaching cues into knowledge base)
+- [ ] Batch 5 Errors (remove severity + 3 dead Slant rules, rename, Wheel condition)
+- [ ] Batch 6 Reference collapse
+- [ ] Batch 7 Scoring and fixes
+- [ ] Batch 8 rtmlib cleanup + knowledge base rewrite (+ fresh run, overlay)

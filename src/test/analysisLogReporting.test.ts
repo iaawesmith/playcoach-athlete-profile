@@ -3,16 +3,19 @@ import { buildAnalysisLogReporting } from "../features/athlete-lab/utils/analysi
 import type { AnalysisLogData, KeyMetric, PipelineMetricResult } from "../features/athlete-lab/types";
 
 const metrics = [
-  { name: "Plant Leg Extension", temporal_window: 3, active: true },
-  { name: "Hip Stability", temporal_window: 15, active: true },
-  { name: "Release Speed", temporal_window: 10, active: true },
+  { name: "Plant Leg Extension", temporal_window: 3, active: true, keypoint_mapping: { calculation_type: "angle", keypoint_indices: [23, 25, 27] } },
+  { name: "Hip Stability", temporal_window: 15, active: true, keypoint_mapping: { calculation_type: "distance_variance", keypoint_indices: [23, 24] } },
+  { name: "Release Speed", temporal_window: 10, active: true, keypoint_mapping: { calculation_type: "velocity", keypoint_indices: [23, 24] } },
+  { name: "Speed into the break", temporal_window: 5, active: true, keypoint_mapping: { calculation_type: "speed_retention", keypoint_indices: [23, 24] } },
 ] as KeyMetric[];
 
 describe("Analysis Log reporting", () => {
-  it("reports configured measurement windows 3/15/10 without modifying historical values", () => {
-    const log = { metrics: metrics.map((metric, i) => ({ name: metric.name, temporal_window: [0, 10, 3][i] })) } as AnalysisLogData;
-    expect(buildAnalysisLogReporting(log, metrics, []).metrics.map(metric => metric.temporal_window)).toEqual([3, 15, 10]);
-    expect(log.metrics?.map(metric => metric.temporal_window)).toEqual([0, 10, 3]);
+  it("reports the fixed window the analyzer used, ignoring the retired per-metric setting", () => {
+    const log = { metrics: metrics.map((metric, i) => ({ name: metric.name, temporal_window: [0, 10, 3, 5][i] })) } as AnalysisLogData;
+    const rows = buildAnalysisLogReporting(log, metrics, []).metrics;
+    expect(rows.map(metric => metric.temporal_window)).toEqual([5, 10, 3, 5]);
+    expect(rows[0].measurement_window).toBe("Phase midpoint ±2 frames");
+    expect(log.metrics?.map(metric => metric.temporal_window)).toEqual([0, 10, 3, 5]);
   });
 
   it("does not count inactive-only unreliable keypoints as confidence warnings", () => {

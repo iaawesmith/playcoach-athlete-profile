@@ -34,6 +34,7 @@ export interface KeyMetric {
   unit: string;
   weight: number;
   tolerance?: number | null;
+  /** DEPRECATED: no longer editable or read. Measurement windows are fixed per calculation type (measurementWindow.ts). Kept so saved values survive. */
   temporal_window?: number;
   depends_on_metric_id?: string | null;
   keypoint_mapping?: KeypointMapping | null;
@@ -302,6 +303,8 @@ export interface MetricLogEntry {
   keypoints: string;
   calculation_type: string;
   temporal_window: number;
+  /** Fixed measurement-window description for the metric's calculation type. */
+  measurement_window?: string;
   /** Reporting-only actual sample count, separate from configured measurement window. */
   frames_used?: number;
   extracted_values?: string;

@@ -187,7 +187,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string, metricR
   // Metrics
   md += `---\n\n## Metric Calculations\n\n`;
   for (const m of logData.metrics ?? []) {
-    md += `### ${m.name} (${m.weight}%)\nPhase: ${m.phase}\nFrames: ${m.frames_evaluated} (${m.frame_range})\nKeypoints: ${m.keypoints}\nCalc type: ${m.calculation_type}\nTemporal window: ${m.temporal_window} frames\nSmoothing: ${logData.rtmlib?.temporal_smoothing?.smoothing_window_frames ?? "not recorded"} frames\nFrames used: ${m.frames_used ?? m.frames_evaluated}\nRaw value: ${m.calculated_result} ${m.unit}\nElite target: ${m.elite_target}\nDeviation: ${m.deviation}\nAgainst target: ${m.against_target ?? metricResults.find((r) => r.name === m.name)?.against_target ?? "N/A"}\nRaw score: ${m.raw_score}\nWeighted contribution: ${m.weighted_contribution}\nStatus: ${m.status}${m.skip_reason ? `\nReason: ${m.skip_reason}` : ""}\n\n`;
+    md += `### ${m.name} (${m.weight}%)\nPhase: ${m.phase}\nFrames: ${m.frames_evaluated} (${m.frame_range})\nKeypoints: ${m.keypoints}\nCalc type: ${m.calculation_type}\nMeasurement window (fixed): ${m.measurement_window ?? "not recorded"}${m.temporal_window ? ` · ${m.temporal_window} frames` : ""}\nSmoothing: ${logData.rtmlib?.temporal_smoothing?.smoothing_window_frames ?? "not recorded"} frames\nFrames used: ${m.frames_used ?? m.frames_evaluated}\nRaw value: ${m.calculated_result} ${m.unit}\nElite target: ${m.elite_target}\nDeviation: ${m.deviation}\nAgainst target: ${m.against_target ?? metricResults.find((r) => r.name === m.name)?.against_target ?? "N/A"}\nRaw score: ${m.raw_score}\nWeighted contribution: ${m.weighted_contribution}\nStatus: ${m.status}${m.skip_reason ? `\nReason: ${m.skip_reason}` : ""}\n\n`;
   }
   if (logData.aggregate) {
     md += `AGGREGATE:\n  Total Mastery Score: ${logData.aggregate.mastery_score}/100\n  Confidence-adjusted: ${logData.aggregate.confidence_adjusted ? "Yes" : "No"}\n  Metrics skipped: ${logData.aggregate.metrics_skipped} of ${logData.aggregate.metrics_total}\n\n`;
@@ -509,7 +509,7 @@ export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricR
                         <div>Frames: {m.frames_evaluated} ({m.frame_range})</div>
                         <div>Keypoints: {m.keypoints}</div>
                         <div>Calc type: {m.calculation_type}</div>
-                        <div>Temporal window: {m.temporal_window} frames</div>
+                        <div>Measurement window (fixed): {m.measurement_window ?? "not recorded"}{m.temporal_window ? ` · ${m.temporal_window} frames` : ""}</div>
                         <div>Smoothing: {logData.rtmlib?.temporal_smoothing?.smoothing_window_frames ?? "not recorded"} frames</div>
                         <div>Frames used: {m.frames_used ?? m.frames_evaluated}</div>
                         {m.extracted_values && <div>Extracted values: [{m.extracted_values}]</div>}
