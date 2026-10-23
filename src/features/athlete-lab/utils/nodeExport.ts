@@ -1,7 +1,6 @@
-import type { TrainingNode, MechanicsSection, Checkpoint, KeyMetric } from "../types";
+import type { TrainingNode, MechanicsSection, KeyMetric } from "../types";
 import { measurementDescription, measurementFrames } from "../../../../supabase/functions/analyze-athlete-video/measurementWindow";
 import { parseCameraSettings } from "../components/CameraEditor";
-import { migrateCheckpoints } from "../components/CheckpointsEditor";
 import { computeCategories, computeScore } from "../components/NodeReadinessBar";
 import { getActiveMetrics, partitionMetricsByActive } from "./metrics";
 import keypointLibrary from "@/constants/keypointLibrary.json";
@@ -92,14 +91,12 @@ function generateOverview(node: TrainingNode): string {
 
 function generatePhases(node: TrainingNode): string {
   const phases = node.phase_breakdown ?? [];
-  const seg = node.segmentation_method ?? "proportional";
   const weightSum = phases.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
-  const segLabel = seg === "proportional" ? "Proportional" : "Checkpoint-triggered";
   // Phase 1c.1 Slice 2 — coaching_cues moved from the legacy Mechanics tab
   // into per-phase storage. Render as its own labeled subsection only when
   // populated so unmigrated nodes show no extra noise.
   const migrationStatus = node.coaching_cues_migration_status ?? "pending";
-  let out = `## Phases\n\nCount: ${phases.length} phases\nSegmentation Method: ${segLabel}\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\nCoaching Cues Migration Status: ${migrationStatus}\n`;
+  let out = `## Phases\n\nCount: ${phases.length} phases\nWeight Sum: ${weightSum}% ${weightSum === 100 ? "PASS" : "FAIL"}\nCoaching Cues Migration Status: ${migrationStatus}\n`;
   phases.forEach((p, i) => {
     out += `\n### Phase ${i + 1}: ${p.name} — ${p.proportion_weight ?? 0}% of clip\nDescription: ${p.description || "Not configured"}\nFrame Buffer: ${p.frame_buffer ?? 3} frames\n`;
     const cues = p.coaching_cues?.trim();
@@ -288,23 +285,6 @@ function generateCamera(node: TrainingNode): string {
   return out;
 }
 
-function generateCheckpoints(node: TrainingNode): string {
-  const cps = migrateCheckpoints(node.form_checkpoints);
-  const phases = node.phase_breakdown ?? [];
-  const seg = node.segmentation_method ?? "proportional";
-
-  if (cps.length === 0) {
-    return `## Checkpoints\n\nNo checkpoints defined.\nSegmentation Method: ${seg === "proportional" ? "Proportional" : "Checkpoint-triggered"}\nNote: Checkpoints are only required when Segmentation Method = Checkpoint-triggered.`;
-  }
-
-  let out = `## Checkpoints\n\nCount: ${cps.length} defined\nSegmentation Method: ${seg === "proportional" ? "Proportional" : "Checkpoint-triggered"}\n`;
-  cps.forEach((cp, i) => {
-    const phaseName = cp.phase_id ? (phases.find(p => p.id === cp.phase_id)?.name ?? "Unknown") : "Not assigned";
-    out += `\n### Checkpoint ${i + 1}: ${cp.name} (Priority ${cp.priority})\nDescription: ${cp.description?.trim() || "Not configured"}\nPhase: ${phaseName}\nTransition Role: ${cp.phase_transition_role}\nTrigger Condition: ${cp.trigger_condition || "Not configured"}\nRequired Keypoints: ${cp.required_keypoint_indices.join(", ")} — ${kpNames(cp.required_keypoint_indices)}\nConfidence Threshold: ${cp.confidence_threshold}\n`;
-  });
-  return out;
-}
-
 function generatePrompt(node: TrainingNode): string {
   const template = node.llm_prompt_template ?? "";
   const sysInstructions = node.llm_system_instructions ?? "";
@@ -370,18 +350,10 @@ function generateKnowledgeBase(node: TrainingNode): string {
 // a "Pipeline Config" sub-section. The retired single-section generators
 // (generateScoring/Errors/Camera/Checkpoints) are still called as
 // composable building blocks — only the tab-key surface collapsed.
-function generatePipelineConfig(node: TrainingNode): string {
-  return `## Pipeline Config\n\nDetection Frequency (frames between full detections):\n  Solo (1 person): ${node.det_frequency_solo ?? 2}\n  With Defender (2 people): ${node.det_frequency_defender ?? 1}\n  Multiple People: ${node.det_frequency_multiple ?? 1}\n\nDefault when no context is available: solo (2 frames).`;
-}
-
 const TAB_GENERATORS: Record<TabKey, (node: TrainingNode) => string> = {
-  basics: (node) => `${generateBasics(node)}\n\n${generatePipelineConfig(node)}`,
+  basics: generateBasics,
   videos: generateVideos,
-  phases: (node) => {
-    const seg = node.segmentation_method ?? "proportional";
-    const base = generatePhases(node);
-    return seg === "checkpoint" ? `${base}\n\n${generateCheckpoints(node)}` : base;
-  },
+  phases: generatePhases,
   metrics: (node) => `${generateMetrics(node)}\n\n${generateScoring(node)}\n\n${generateErrors(node)}`,
   reference: (node) => `${generateReference(node)}\n\n${generateCamera(node)}`,
   prompt: generatePrompt,

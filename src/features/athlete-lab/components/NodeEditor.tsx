@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, SegmentationMethod, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
+import type { TrainingNode, KeyMetric, CommonError, PhaseNote, Badge, EliteVideo, NodeStatus, CameraAngle, CameraAngleStatus, ConfidenceHandling, ScoreBands, ReferenceCalibration, ReferenceFallback, PerformanceMode, PositionValue } from "../types";
 import { POSITION_OPTIONS } from "../types";
 import { KeyMetricsEditor } from "./KeyMetricsEditor";
 import { updateNode, setNodeStatus } from "@/services/athleteLab";
@@ -9,7 +9,6 @@ import { HelpDrawer } from "./HelpDrawer";
 import { ConsolidationRedirectBanner } from "./ConsolidationRedirectBanner";
 import { ConfirmModal } from "./ConfirmModal";
 import { CameraEditor, checkCameraCompleteness, parseCameraSettings, serializeCameraSettings } from "./CameraEditor";
-import { CheckpointsEditor, checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { LlmPromptEditor } from "./LlmPromptEditor";
 import { CoachingModelPanel } from "./CoachingModelPanel";
 import { BadgesEditor, migrateBadges } from "./BadgesEditor";
@@ -66,9 +65,9 @@ interface NodeEditorProps {
 type TabKey = "basics" | "videos" | "phases" | "metrics" | "reference" | "prompt" | "badges" | "test";
 
 const TABS: { key: TabKey; label: string; icon: string; subtitle: string }[] = [
-  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, upload constraints, and pipeline detection-frequency configuration for this node." },
+  { key: "basics", label: "Basics", icon: "edit", subtitle: "Set the identity, icon, athlete-facing description, upload constraints for this node." },
   { key: "videos", label: "Videos", icon: "video_library", subtitle: "The teach tape athletes see next to their results. Add a clip of the route done well and flag one as the Reference. These videos are not analyzed and don't affect scoring." },
-  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases for this skill. When Segmentation Method is set to Checkpoint-triggered, configure the per-frame Checkpoints in the sub-section below." },
+  { key: "phases", label: "Phases", icon: "timeline", subtitle: "Define and sequence the movement phases and their proportional frame windows for this skill." },
   { key: "metrics", label: "Metrics", icon: "analytics", subtitle: "Define what the pose engine measures, how scores are calculated, and the common errors the pipeline auto-detects from metric output. Includes Scoring and Errors sections." },
   { key: "reference", label: "Reference", icon: "straighten", subtitle: "Configure pixel-to-yard calibrations for each camera angle and the athlete-facing Filming Guidance (distance, active body parts, instructions)." },
   { key: "prompt", label: "LLM Prompt", icon: "smart_toy", subtitle: "Write the coaching feedback template Claude uses to generate athlete results. Use the variable registry below to inject real analysis data into your prompt." },
@@ -187,8 +186,7 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
 
 
   // Phase proportion weights must sum to 100 (only when using proportional segmentation)
-  const segMethod = node.segmentation_method ?? "proportional";
-  if (segMethod === "proportional" && node.phase_breakdown.length > 0) {
+  if (node.phase_breakdown.length > 0) {
     const totalWeight = node.phase_breakdown.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
     if (totalWeight !== 100) {
       issues.push({ label: "Phases", detail: `Phase proportions must sum to 100% (currently ${totalWeight}%)` });
@@ -201,9 +199,6 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
   const cameraIssues = checkCameraCompleteness(node);
   issues.push(...cameraIssues);
 
-  // Checkpoint completeness
-  const checkpointIssues = checkCheckpointCompleteness(node.segmentation_method ?? "proportional", migrateCheckpoints(node.form_checkpoints));
-  issues.push(...checkpointIssues);
 
   return issues;
 }
@@ -473,10 +468,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
     const normalizedNode = {
       ...node,
       // det_frequency (root) dropped in 20260426025918; per-context fields below.
-      det_frequency_solo: node.det_frequency_solo ?? 2,
-      det_frequency_defender: node.det_frequency_defender ?? 1,
-      det_frequency_multiple: node.det_frequency_multiple ?? 1,
-      form_checkpoints: migrateCheckpoints(node.form_checkpoints),
       badges: migrateBadges(node.badges as any),
       key_metrics: (node.key_metrics ?? []).map((m) => ({
         tolerance: null,
@@ -602,7 +593,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         common_errors: draft.common_errors,
         phase_breakdown: draft.phase_breakdown,
         camera_guidelines: draft.camera_guidelines,
-        form_checkpoints: draft.form_checkpoints,
         llm_prompt_template: draft.llm_prompt_template,
         llm_max_words: draft.llm_max_words,
         llm_system_instructions: draft.llm_system_instructions,
@@ -615,16 +605,12 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         knowledge_base: draft.knowledge_base,
         clip_duration_min: draft.clip_duration_min,
         clip_duration_max: draft.clip_duration_max,
-        segmentation_method: draft.segmentation_method,
         confidence_handling: draft.confidence_handling,
         min_metrics_threshold: draft.min_metrics_threshold,
         score_bands: draft.score_bands,
         scoring_renormalize_on_skip: draft.scoring_renormalize_on_skip,
         reference_calibrations: draft.reference_calibrations,
         reference_fallback_behavior: draft.reference_fallback_behavior,
-        det_frequency_solo: draft.det_frequency_solo,
-        det_frequency_defender: draft.det_frequency_defender,
-        det_frequency_multiple: draft.det_frequency_multiple,
       };
       if (shouldAutoDraft) {
         updates.status = "draft";
@@ -948,57 +934,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
                 <p className="text-red-400 text-xs font-medium">Minimum must be less than maximum</p>
               )}
 
-            {/* Phase 1c.3-D: Pipeline Config — folded in from the retired
-                Training Status tab. The det_frequency triplet (solo / defender /
-                multiple) writes to the active per-context columns. The retired
-                solution_class / performance_mode / tracking_enabled fields were
-                dropped in 20260426025918 and are NOT shown here. */}
-            <div className="border-t border-white/[0.11] my-6" />
-            <div className="space-y-4">
-              <div className="flex items-center gap-1.5">
-                <label className={LABEL_CLASS}>Pipeline Config</label>
-                <SectionTooltip tip="Pose-engine detection-frequency tuning. The Edge Function reads the per-context value matching the athlete's pre-upload input about people in the video. Lower number = more accurate but slower." />
-              </div>
-              <div className="space-y-4">
-                {([
-                  { label: "Solo (1 person)", key: "det_frequency_solo" as const, value: draft.det_frequency_solo ?? 2, helper: "Recommended 2 — captures fast break movements reliably", defaultVal: 2 },
-                  { label: "With Defender (2 people)", key: "det_frequency_defender" as const, value: draft.det_frequency_defender ?? 1, helper: "Recommended 1 — frequent detection prevents person ID swap during close coverage", defaultVal: 1 },
-                  { label: "Multiple People", key: "det_frequency_multiple" as const, value: draft.det_frequency_multiple ?? 1, helper: "Recommended 1 — required for reliable tracking in crowded frame", defaultVal: 1 },
-                ]).map((scenario) => (
-                  <div key={scenario.label} className="flex items-start gap-4">
-                    <div className="w-48 shrink-0 pt-2.5">
-                      <span className="text-on-surface text-xs font-bold">{scenario.label}</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={30}
-                          step={1}
-                          className={`${INPUT_CLASS} w-20 text-center`}
-                          value={scenario.value}
-                          onChange={(e) =>
-                            updateWithCriticalTrack(
-                              scenario.key,
-                              Math.max(1, Math.min(30, parseInt(e.target.value) || scenario.defaultVal))
-                            )
-                          }
-                        />
-                        <span className="text-on-surface-variant/50 text-xs">frames</span>
-                      </div>
-                      <p className="text-on-surface-variant/50 text-[10px] mt-1">{scenario.helper}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
-                <p className="text-on-surface-variant/40 text-[10px]">
-                  If no context is available, the pipeline treats the run as <span className="text-on-surface-variant/60 font-semibold">solo</span> and uses <span className="text-on-surface-variant/60 font-semibold">2</span> frames by default.
-                </p>
-              </div>
-            </div>
-
             <div className="pt-8 mt-2 border-t border-white/[0.27]" />
             <div className="pt-5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -1068,12 +1003,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           </div>
         )}
 
-        {/* Phase 1c.3-D: Phases tab now optionally houses a Checkpoints
-            sub-section. Visibility is gated on segmentation_method ===
-            "checkpoint" — when proportional, the sub-section is fully hidden
-            (Decision F.a). Checkpoints data persists to its own column;
-            switching segmentation_method back to proportional preserves
-            existing checkpoint definitions, it only hides the editor. */}
         {tab === "phases" && (
           <div className="space-y-10">
             <div className="space-y-4">
@@ -1087,31 +1016,11 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
               <PhasesEditor
                 phases={draft.phase_breakdown}
                 onChange={(p) => updateWithCriticalTrack("phase_breakdown", p)}
-                segmentationMethod={draft.segmentation_method ?? "proportional"}
-                onSegmentationMethodChange={(m) => update("segmentation_method", m)}
                 onConfirmDelete={(opts) => setConfirmModal(opts)}
-                advancedEnabled={true}
               />
             </div>
 
-            {(draft.segmentation_method ?? "proportional") === "checkpoint" && (
-              <div>
-                <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Checkpoints</div>
-                <p className="text-on-surface-variant text-xs leading-snug mt-1 mb-3">
-                  Frame-level body position events that trigger phase boundaries. Active because Segmentation Method is set to Checkpoint-triggered.
-                </p>
-                <div className="border-t border-outline-variant/10 pt-5">
-                  <CheckpointsEditor
-                    checkpoints={draft.form_checkpoints}
-                    onChange={(c) => update("form_checkpoints", c)}
-                    onConfirmDelete={(opts) => setConfirmModal(opts)}
-                    phases={draft.phase_breakdown}
-                    segmentationMethod={draft.segmentation_method ?? "proportional"}
-                    keyMetrics={draft.key_metrics}
-                  />
-                </div>
-              </div>
-            )}
+
           </div>
         )}
 
@@ -1172,13 +1081,6 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
         {tab === "badges" && (
           <BadgesEditor badges={draft.badges} keyMetrics={draft.key_metrics} onChange={(b) => update("badges", b)} onConfirmDelete={(opts) => setConfirmModal(opts)} />
         )}
-
-        {/* Phase 1c.3-D: Training Status tab retired. det_frequency triplet
-            moved into Basics → Pipeline Config. The standalone
-            TrainingStatusEditor function below is unused and intentionally
-            kept temporarily as dead code so its readiness logic is available
-            for reference until the consolidated readiness bar covers all
-            categories. */}
 
         {tab === "test" && (
           <TestingPanel node={draft} />
@@ -1848,17 +1750,11 @@ function CommonErrorsEditor({ errors, onChange, onConfirmDelete }: { errors: Com
   );
 }
 
-function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMethodChange, onConfirmDelete, advancedEnabled }: {
+function PhasesEditor({ phases, onChange, onConfirmDelete }: {
   phases: PhaseNote[];
   onChange: (p: PhaseNote[]) => void;
-  segmentationMethod: SegmentationMethod;
-  onSegmentationMethodChange: (m: SegmentationMethod) => void;
   onConfirmDelete: ConfirmDeleteFn;
-  advancedEnabled: boolean;
 }) {
-  // When advanced tabs are off, treat segmentation as "proportional" in the UI
-  // without dirtying the form (DB value preserved until user explicitly saves).
-  const effectiveSegmentationMethod: SegmentationMethod = advancedEnabled ? segmentationMethod : "proportional";
   useEffect(() => {
     const needsIds = phases.some(p => !p.id);
     if (needsIds) {
@@ -1908,7 +1804,7 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
 
   const totalWeight = phases.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
   const remaining = 100 - totalWeight;
-  const isProportional = effectiveSegmentationMethod === "proportional";
+  const isProportional = true;
 
   const renderFields = (p: PhaseNote, setP: (v: PhaseNote) => void) => (
     <div className="space-y-3 pt-3">
@@ -1955,34 +1851,6 @@ function PhasesEditor({ phases, onChange, segmentationMethod, onSegmentationMeth
 
   return (
     <div className="space-y-4">
-      {/* Segmentation method selector */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5">
-          <label className={LABEL_CLASS}>Segmentation Method</label>
-          <SectionTooltip tip="Proportional: divides clip frames by the percentage weights you set per phase. Checkpoint-triggered: phase boundaries are set by specific body position events defined in the Checkpoints tab." />
-        </div>
-        {advancedEnabled ? (
-          <>
-            <div className="flex rounded-xl overflow-hidden border border-outline-variant/20" style={{ backgroundColor: '#0E1319' }}>
-              <button onClick={() => onSegmentationMethodChange("proportional")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${isProportional ? "bg-primary-container/15 text-primary-container border-r border-primary-container/30" : "text-on-surface-variant hover:text-on-surface border-r border-outline-variant/20"}`}>Proportional</button>
-              <button onClick={() => onSegmentationMethodChange("checkpoint")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition-all ${!isProportional ? "bg-primary-container/15 text-primary-container" : "text-on-surface-variant hover:text-on-surface"}`}>Checkpoint-triggered</button>
-            </div>
-            {!isProportional && (
-              <p className="text-on-surface-variant/50 text-xs leading-snug">Phase boundaries will be determined by Checkpoints. Proportion weights are ignored.</p>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="rounded-xl overflow-hidden border border-primary-container/30" style={{ backgroundColor: '#0E1319' }}>
-              <div className="py-2 text-center text-[10px] font-bold uppercase tracking-[0.15em] bg-primary-container/15 text-primary-container">
-                ● Proportional
-              </div>
-            </div>
-            <p className="text-on-surface-variant/50 text-xs leading-snug">Advanced segmentation coming soon when Advanced Tabs is enabled.</p>
-          </>
-        )}
-      </div>
-
       {/* Section label */}
       <div className="flex items-center gap-1.5">
         <label className={LABEL_CLASS}>Skill Phases</label>
@@ -2117,118 +1985,6 @@ function serializeStructuredField(fields: Record<string, string>): string {
 // Removed: SOLUTION_CLASSES, SOLUTION_CLASS_MAP, getSolutionClassWarnings,
 // the legacy RTMlib pipelineCode no-op template, the wholebody3d-conditional
 // reference-calibration readiness gate, and the Pipeline Reference accordion.
-
-function TrainingStatusEditor({ node, onDetFrequencySoloChange, onDetFrequencyDefenderChange, onDetFrequencyMultipleChange, onNavigateTab }: {
-  node: TrainingNode;
-  onDetFrequencySoloChange: (v: number) => void;
-  onDetFrequencyDefenderChange: (v: number) => void;
-  onDetFrequencyMultipleChange: (v: number) => void;
-  onNavigateTab: (t: TabKey) => void;
-}) {
-  const dfSolo = node.det_frequency_solo ?? 2;
-  const dfDefender = node.det_frequency_defender ?? 1;
-  const dfMultiple = node.det_frequency_multiple ?? 1;
-
-  /* ── Readiness checks ── */
-  const readiness: { label: string; ok: boolean; detail: string; tab: TabKey; warning?: boolean }[] = [];
-
-  // Active-only — keeps Training Status readiness consistent with top NodeReadinessBar
-  const activeMetricsForReadiness = (node.key_metrics ?? []).filter((m) => m.active !== false);
-  const allMapped = activeMetricsForReadiness.length > 0 && activeMetricsForReadiness.every(m => m.keypoint_mapping?.calculation_type);
-  readiness.push({ label: "All active metrics have keypoint mapping", ok: allMapped, detail: allMapped ? `${activeMetricsForReadiness.length} active metrics mapped` : "Some active metrics missing mapping", tab: "metrics" });
-  const totalWeight = activeMetricsForReadiness.reduce((s, m) => s + m.weight, 0);
-  readiness.push({ label: "Active metric weights sum to 100%", ok: totalWeight === 100, detail: `Currently ${totalWeight}%`, tab: "metrics" });
-  const allPhased = activeMetricsForReadiness.length > 0 && activeMetricsForReadiness.every(m => m.keypoint_mapping?.phase_id);
-  readiness.push({ label: "All active metrics have phase assigned", ok: allPhased, detail: allPhased ? "All assigned" : "Some missing phase", tab: "metrics" });
-
-  readiness.push({ label: "At least 4 phases defined", ok: node.phase_breakdown.length >= 4, detail: `${node.phase_breakdown.length} phases`, tab: "phases" });
-  const segMethod = node.segmentation_method ?? "proportional";
-  const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
-  readiness.push({ label: "Phase weights sum to 100%", ok: segMethod !== "proportional" || phaseWeightSum === 100, detail: segMethod === "proportional" ? `${phaseWeightSum}%` : "N/A (checkpoint)", tab: "phases" });
-
-  const hasRef = node.elite_videos.some(v => v.url?.trim() && v.is_reference);
-  readiness.push({ label: "Reference video for athletes (optional)", ok: hasRef, detail: hasRef ? "Set" : "Not set — warning only", tab: "videos", warning: true });
-
-  const cals = node.reference_calibrations ?? [];
-  const hasAtLeastOne = cals.some(c => c.pixels_per_yard != null && c.pixels_per_yard > 0);
-  readiness.push({ label: "At least 1 camera angle calibrated", ok: hasAtLeastOne, detail: hasAtLeastOne ? "Calibrated" : "None saved — warning only (height sets scale per run)", tab: "reference", warning: true });
-
-  readiness.push({ label: "Prompt template not empty", ok: !!(node.llm_prompt_template?.trim()), detail: node.llm_prompt_template?.trim() ? `${node.llm_prompt_template.trim().length} chars` : "Empty", tab: "prompt" });
-
-  const counted = readiness.filter(r => !r.warning);
-  const passCount = counted.filter(r => r.ok).length;
-  const failCount = counted.length - passCount;
-  const allPass = failCount === 0;
-
-  return (
-    <div className="space-y-8">
-      {/* SECTION 1 — DETECTION SETTINGS */}
-      <div>
-        <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Detection Settings</div>
-        <div className="border-t border-outline-variant/10 pt-5 space-y-6">
-          <div>
-            <div className="flex items-center gap-1.5 mb-3">
-              <label className={LABEL_CLASS}>Detection Frequency</label>
-              <SectionTooltip tip="How often the pose service runs full person detection vs tracking between detections. Lower number = more accurate but slower. The appropriate value depends on how many people are in the athlete's video — more people require more frequent detection to maintain accurate person tracking. These three values are selected automatically by the Edge Function based on the athlete's pre-upload input about people in video." />
-            </div>
-            <div className="space-y-4">
-              {([
-                { label: "Solo (1 person)", value: dfSolo, onChange: onDetFrequencySoloChange, helper: "Recommended 2 — captures fast break movements reliably", defaultVal: 2 },
-                { label: "With Defender (2 people)", value: dfDefender, onChange: onDetFrequencyDefenderChange, helper: "Recommended 1 — frequent detection prevents person ID swap during close coverage", defaultVal: 1 },
-                { label: "Multiple People", value: dfMultiple, onChange: onDetFrequencyMultipleChange, helper: "Recommended 1 — required for reliable tracking in crowded frame", defaultVal: 1 },
-              ] as const).map(scenario => (
-                <div key={scenario.label} className="flex items-start gap-4">
-                  <div className="w-48 shrink-0 pt-2.5">
-                    <span className="text-on-surface text-xs font-bold">{scenario.label}</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <input type="number" min={1} max={30} step={1} className={`${INPUT_CLASS} w-20 text-center`} value={scenario.value} onChange={(e) => scenario.onChange(Math.max(1, Math.min(30, parseInt(e.target.value) || scenario.defaultVal)))} />
-                      <span className="text-on-surface-variant/50 text-xs">frames</span>
-                    </div>
-                    <p className="text-on-surface-variant/50 text-[10px] mt-1">{scenario.helper}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 px-3 py-2 rounded-lg border border-outline-variant/10" style={{ backgroundColor: '#0d1218' }}>
-              <p className="text-on-surface-variant/40 text-[10px]">If no context is available, the pipeline treats the run as <span className="text-on-surface-variant/60 font-semibold">solo</span> and uses <span className="text-on-surface-variant/60 font-semibold">2</span> frames by default.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 2 — NODE READINESS */}
-      <div>
-        <div className="text-on-surface font-black uppercase tracking-tighter text-lg mb-1">Node Readiness</div>
-        <div className="border-t border-outline-variant/10 pt-5 space-y-4">
-          {allPass ? (
-            <div className="rounded-xl border border-primary-container/30 p-4 flex items-center gap-3" style={{ backgroundColor: 'rgba(0,230,57,0.06)' }}>
-              <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 20 }}>check_circle</span>
-              <span className="text-on-surface text-sm font-bold">NODE READY — all requirements met. You can set this node to Live.</span>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-amber-400/30 p-4 flex items-center gap-3" style={{ backgroundColor: 'rgba(245,158,11,0.05)' }}>
-              <span className="material-symbols-outlined text-amber-400" style={{ fontSize: 20 }}>warning</span>
-              <span className="text-on-surface text-sm font-bold">{failCount} item{failCount !== 1 ? 's' : ''} need{failCount === 1 ? 's' : ''} attention before this node can go Live.</span>
-            </div>
-          )}
-          <div className="space-y-1">
-            {readiness.map((item, i) => (
-              <button key={i} type="button" onClick={() => onNavigateTab(item.tab)} className="w-full flex items-start gap-2.5 p-3 rounded-xl text-left transition-all hover:bg-surface-container-high/50">
-                <span className={`text-sm mt-0.5 ${item.ok ? 'text-primary-container' : item.warning ? 'text-amber-400' : 'text-red-400'}`}>{item.ok ? '✓' : item.warning ? '!' : '✗'}</span>
-                <div className="flex-1">
-                  <span className="text-on-surface text-sm">{item.label}</span>
-                  <span className="text-on-surface-variant text-xs ml-2">— {item.detail}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const CAMERA_ANGLES_LIST: CameraAngle[] = ["sideline", "endzone", "behind_qb"];
 const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = { sideline: "Sideline", endzone: "Endzone", behind_qb: "Behind QB" };
