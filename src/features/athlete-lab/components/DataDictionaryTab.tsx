@@ -17,9 +17,6 @@ interface DictionaryField {
   required_for_live: boolean;
   athletelab_status: "implemented" | "in_progress" | "not_built";
   supabase_status: "column_exists" | "needs_migration" | "missing";
-  mmpose_status: "direct_mapping" | "indirect_mapping" | "llm_only" | "not_applicable";
-  mmpose_category: string;
-  rtmlib_reference: string | null;
   description: string;
   notes: string | null;
   added: string;
@@ -33,7 +30,6 @@ interface DictionaryData {
 }
 
 type StatusFilter = "needs_work" | "all_clear" | "show_all";
-type MmposeFilter = "all" | "direct_mapping" | "indirect_mapping" | "not_applicable";
 
 const GITHUB_URL =
   "https://raw.githubusercontent.com/iaawesmith/playcoach-athlete-profile/main/docs/data-dictionary/fields.json";
@@ -83,23 +79,6 @@ function StatusIcon({ status, type }: { status: string; type: "athletelab" | "su
   );
 }
 
-function MmposePill({ status, rtmlibRef }: { status: string; rtmlibRef: string | null }) {
-  const map: Record<string, { icon: string; color: string; pillBg: string; pillText: string; label: string }> = {
-    direct_mapping: { icon: "check_circle", color: "text-green-400", pillBg: "bg-green-900/40", pillText: "text-green-300", label: "DIRECT" },
-    indirect_mapping: { icon: "warning", color: "text-amber-400", pillBg: "bg-amber-900/40", pillText: "text-amber-300", label: "INDIRECT" },
-    llm_only: { icon: "psychology", color: "text-blue-400", pillBg: "bg-blue-900/40", pillText: "text-blue-300", label: "LLM" },
-    not_applicable: { icon: "remove", color: "text-on-surface-variant/40", pillBg: "bg-surface-container-high", pillText: "text-on-surface-variant/60", label: "N/A" },
-  };
-  const entry = map[status];
-  if (!entry) return null;
-  return (
-    <span title={rtmlibRef || status} className="inline-flex items-center gap-1 cursor-help">
-      <span className={`material-symbols-outlined ${entry.color}`} style={{ fontSize: 14 }}>{entry.icon}</span>
-      <span className={`${entry.pillBg} ${entry.pillText} text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full`}>{entry.label}</span>
-    </span>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /*  DataDictionaryTab                                                  */
 /* ------------------------------------------------------------------ */
@@ -109,36 +88,25 @@ function generateAuditMarkdown(fields: DictionaryField[]): string {
   const tabs = new Set(fields.map(f => f.tab));
   const alMap: Record<string, string> = { implemented: "✅", in_progress: "⚠️", not_built: "❌" };
   const sbMap: Record<string, string> = { column_exists: "✅", needs_migration: "⚠️", missing: "❌" };
-  const mmMap: Record<string, string> = { direct_mapping: "DIRECT", indirect_mapping: "INDIRECT", not_applicable: "N/A", llm_only: "LLM" };
 
   const rows = fields.map(f =>
-    `| ${f.tab} | ${f.label} | ${f.supabase_table}.${f.supabase_column} | ${f.type} | ${alMap[f.athletelab_status] || "?"} | ${sbMap[f.supabase_status] || "?"} | ${mmMap[f.mmpose_status] || "?"} | ${f.required_for_live ? "✅" : ""} |`
+    `| ${f.tab} | ${f.label} | ${f.supabase_table}.${f.supabase_column} | ${f.type} | ${alMap[f.athletelab_status] || "?"} | ${sbMap[f.supabase_status] || "?"} | ${f.required_for_live ? "✅" : ""} |`
   ).join("\n");
 
   const fullyClear = fields.filter(f => f.athletelab_status === "implemented" && f.supabase_status === "column_exists").length;
   const withGaps = fields.filter(f => f.athletelab_status !== "implemented" || f.supabase_status !== "column_exists").length;
-  const directCount = fields.filter(f => f.mmpose_status === "direct_mapping").length;
   const liveCount = fields.filter(f => f.required_for_live).length;
-  const pipelineCriticalFields = fields.filter(f => f.mmpose_status === "direct_mapping" && f.required_for_live);
-  const labelCounts = new Map<string, number>();
-  pipelineCriticalFields.forEach(f => labelCounts.set(f.label, (labelCounts.get(f.label) || 0) + 1));
-  const pipelineCritical = pipelineCriticalFields
-    .map(f => (labelCounts.get(f.label) || 0) > 1 ? `[${f.tab}] ${f.label}` : f.label)
-    .join(", ");
-
   return `# AthleteLab Data Dictionary — AI Audit Format
 # Generated: ${now}
 # Total: ${fields.length} fields across ${tabs.size} tabs
 
-| TAB | FIELD | SUPABASE PATH | TYPE | AL | SB | MMPOSE | LIVE |
-|---|---|---|---|---|---|---|---|
+| TAB | FIELD | SUPABASE PATH | TYPE | AL | SB | LIVE |
+|---|---|---|---|---|---|---|
 ${rows}
 
 ---
 
-SUMMARY: ${fields.length} fields | ${fullyClear} ✅✅ fully clear | ${withGaps} with gaps | ${directCount} direct MMPose connections | ${liveCount} required for live
-
-PIPELINE CRITICAL: fields where mmpose=DIRECT and required_for_live=true: ${pipelineCritical || "none"}
+SUMMARY: ${fields.length} fields | ${fullyClear} ✅✅ fully clear | ${withGaps} with gaps | ${liveCount} required for live
 `;
 }
 
@@ -153,7 +121,6 @@ export function DataDictionaryTab() {
   // Filters
   const [tabFilter, setTabFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("show_all");
-  const [mmposeFilter, setMmposeFilter] = useState<MmposeFilter>("all");
 
   const loadFromCache = useCallback(async (): Promise<{ data: DictionaryData; synced: string } | null> => {
     try {
@@ -276,7 +243,6 @@ export function DataDictionaryTab() {
     if (tabFilter !== "all" && f.tab !== tabFilter) return false;
     if (statusFilter === "needs_work" && f.athletelab_status === "implemented" && f.supabase_status === "column_exists") return false;
     if (statusFilter === "all_clear" && (f.athletelab_status !== "implemented" || f.supabase_status !== "column_exists")) return false;
-    if (mmposeFilter !== "all" && f.mmpose_status !== mmposeFilter) return false;
     return true;
   });
 
@@ -284,7 +250,6 @@ export function DataDictionaryTab() {
   const totalCount = filtered.length;
   const builtCount = filtered.filter((f) => f.athletelab_status === "implemented").length;
   const migrationCount = filtered.filter((f) => f.supabase_status === "needs_migration" || f.supabase_status === "missing").length;
-  const directCount = filtered.filter((f) => f.mmpose_status === "direct_mapping").length;
 
   if (loading) {
     return (
@@ -352,9 +317,7 @@ export function DataDictionaryTab() {
         <span className="text-green-400 font-bold">{builtCount}</span>
         <span className="text-on-surface-variant">built ·</span>
         <span className="text-amber-400 font-bold">{migrationCount}</span>
-        <span className="text-on-surface-variant">migrations needed ·</span>
-        <span className="text-green-400 font-bold">{directCount}</span>
-        <span className="text-on-surface-variant">direct MMPose connections</span>
+        <span className="text-on-surface-variant">migrations needed</span>
       </div>
 
       {/* Filter row */}
@@ -393,17 +356,6 @@ export function DataDictionaryTab() {
           ))}
         </div>
 
-        {/* MMPose filter */}
-        <select
-          value={mmposeFilter}
-          onChange={(e) => setMmposeFilter(e.target.value as MmposeFilter)}
-          className="h-8 px-3 rounded-lg bg-surface-container-lowest border border-outline-variant/10 text-on-surface text-xs focus:outline-none focus:border-primary-container/30 transition-colors"
-        >
-          <option value="all">All MMPose</option>
-          <option value="direct_mapping">Direct</option>
-          <option value="indirect_mapping">Indirect</option>
-          <option value="not_applicable">N/A</option>
-        </select>
       </div>
 
       {/* Table */}
@@ -416,7 +368,6 @@ export function DataDictionaryTab() {
               <col style={{ width: 280 }} />
               <col style={{ width: 100 }} />
               <col style={{ width: 100 }} />
-              <col style={{ width: 140 }} />
               <col style={{ width: 60 }} />
             </colgroup>
             <thead>
@@ -426,7 +377,6 @@ export function DataDictionaryTab() {
                 <th className="px-3 py-2.5 text-left text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Supabase Column</th>
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">AthleteLab</th>
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">Supabase</th>
-                <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em]">MMPose</th>
                 <th className="px-3 py-2.5 text-center text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em] cursor-help" title="Required for Live — this field must be configured before a node can be set to Live.">
                   <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
                 </th>
@@ -435,7 +385,7 @@ export function DataDictionaryTab() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-16 text-center text-on-surface-variant">No fields match current filters.</td>
+                  <td colSpan={6} className="px-3 py-16 text-center text-on-surface-variant">No fields match current filters.</td>
                 </tr>
               )}
               {filtered.map((f, i) => {
@@ -514,11 +464,6 @@ function FieldRow({
           <StatusIcon status={f.supabase_status} type="supabase" />
         </td>
 
-        {/* MMPose */}
-        <td className="px-3 py-2.5 text-center">
-          <MmposePill status={f.mmpose_status} rtmlibRef={f.rtmlib_reference} />
-        </td>
-
         {/* Required for Live */}
         <td className="px-3 py-2.5 text-center">
           {f.required_for_live && (
@@ -530,18 +475,12 @@ function FieldRow({
       {/* Expanded detail */}
       {isExpanded && (
         <tr className="bg-surface-container-high/40">
-          <td colSpan={7} className="px-6 py-4">
+          <td colSpan={6} className="px-6 py-4">
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
                 <p className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em] mb-1">Description</p>
                 <p className="text-on-surface/80">{f.description}</p>
               </div>
-              {f.rtmlib_reference && (
-                <div>
-                  <p className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em] mb-1">rtmlib Reference</p>
-                  <p className="text-on-surface/80">{f.rtmlib_reference}</p>
-                </div>
-              )}
               <div>
                 <p className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.15em] mb-1">Default Value</p>
                 <p className="text-on-surface/80 font-mono">{f.default === null ? "null" : String(f.default)}</p>
