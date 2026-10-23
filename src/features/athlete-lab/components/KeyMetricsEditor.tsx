@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { measurementDescription, measurementFrames } from "../../../../supabase/functions/analyze-athlete-video/measurementWindow";
 import ReactMarkdown from "react-markdown";
 import type { KeyMetric, KeypointMapping, TargetDirection, CalculationType, BilateralMode, BilateralOverride, PhaseNote } from "../types";
 import { SectionTooltip } from "./SectionTooltip";
@@ -18,7 +19,7 @@ const TOOLTIPS = {
   eliteTarget: "The benchmark value representing elite-level performance. Every athlete result is scored as a deviation from this number. Base this on actual measurement of elite footage — not assumption. This is the most important number in the metric card.",
   weight: "How much this metric contributes to the overall Mastery Score. All metric weights in the node must sum to exactly 100. Higher weight = greater influence on the final score. Never assign less than 5% or more than 30% to a single metric.",
   tolerance: "The acceptable deviation from the Elite Target before scoring penalties apply. A value within tolerance scores at or near 100. Accounts for natural movement variance and measurement noise. Recommended ranges: Angle ±2-5°, Distance ±0.3-0.7 yards, Velocity ±1-2 mph, Frame Delta ±1-2 frames.",
-  temporalWindow: "Number of consecutive frames this metric is evaluated across. Window of 1 = single snapshot (correct for Angle and Distance). Velocity requires minimum 3. Acceleration requires minimum 5. Frame Delta requires minimum 10. Setting this too low for velocity-based metrics returns null.",
+  temporalWindow: "Fixed by the calculation type and not editable. It matches what the analyzer measures, so the editor, the Analysis Log and the score always agree.",
   dependsOn: "Optional. Select another metric that must succeed before this one is evaluated. If the upstream metric is flagged as low confidence or skipped, this metric is automatically skipped too. Example: Post-Catch YAC Burst depends on Catch Efficiency — acceleration after the catch only matters if the catch was confirmed.",
   keypointMapping: "Defines which body landmarks the pose engine extracts from each video frame and what calculation to apply. The analysis pipeline reads these settings directly — a metric with no keypoint mapping cannot be scored.",
   bodyGroup: "Filter keypoints by body region. MediaPipe Pose covers all 33 landmarks (body, feet, and approximate hand positions) in a single model.",
@@ -172,29 +173,6 @@ function getKeypointValidation(calcType: CalculationType | null, count: number):
   }
 }
 
-function getTemporalWarning(calcType: CalculationType | null, window: number): string | null {
-  if (!calcType) return null;
-  switch (calcType) {
-    case "velocity":
-      return window < 3 ? "Velocity requires minimum 3 frames" : null;
-    case "acceleration":
-      return window < 5 ? "Acceleration requires minimum 5 frames" : null;
-    case "frame_delta":
-      return window < 10 ? "Frame Delta requires minimum 10 frames" : null;
-    case "distance_variance":
-      return window < 5 ? "Distance Variance requires minimum 5 frames" : null;
-    case "angle":
-    case "distance":
-    case "speed_retention":
-      return null;
-    default: {
-      const _exhaustive: never = calcType;
-      void _exhaustive;
-      return null;
-    }
-  }
-}
-
 interface KeyMetricsEditorProps {
   metrics: KeyMetric[];
   onChange: (m: KeyMetric[]) => void;
@@ -209,7 +187,7 @@ export function KeyMetricsEditor({ metrics, onChange, onConfirmDelete, phases }:
   const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  const defaultMetric: KeyMetric = { name: "", description: "", eliteTarget: "", unit: "", weight: 0, tolerance: null, temporal_window: 1, depends_on_metric_id: null, keypoint_mapping: null, requires_catch: false };
+  const defaultMetric: KeyMetric = { name: "", description: "", eliteTarget: "", unit: "", weight: 0, tolerance: null, depends_on_metric_id: null, keypoint_mapping: null, requires_catch: false };
   const [draft, setDraft] = useState<KeyMetric>(defaultMetric);
   const [editDraft, setEditDraft] = useState<KeyMetric>(defaultMetric);
 
@@ -347,7 +325,6 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
   const km = m.keypoint_mapping ?? getDefaultMapping();
   const setKm = (newKm: KeypointMapping) => setM({ ...m, keypoint_mapping: newKm });
 
-  const temporalWarning = getTemporalWarning(km.calculation_type, m.temporal_window ?? 1);
   const otherMetrics = allMetrics.filter((_, i) => i !== selfIdx);
 
   const mappingConfigured = isKeypointMappingConfigured(m.keypoint_mapping);
@@ -495,19 +472,17 @@ function MetricFields({ m, setM, allMetrics, selfIdx, phases }: {
         </p>
       </div>
 
-      {/* Temporal Window */}
+      {/* Measurement window: fixed per calculation type, read-only */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
-          <span className={LABEL_CLASS}>Temporal Window</span>
+          <span className={LABEL_CLASS}>Measurement Window</span>
           <SectionTooltip tip={TOOLTIPS.temporalWindow} />
         </div>
-        <input type="number" min={1} step={1} className={INPUT_CLASS + " max-w-[200px]"} value={m.temporal_window ?? 1} onChange={(e) => setM({ ...m, temporal_window: Math.max(1, Math.round(Number(e.target.value))) })} placeholder="1" />
-        {temporalWarning && (
-          <p className="text-amber-400 text-xs mt-1 flex items-center gap-1">
-            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>warning</span>
-            {temporalWarning}
-          </p>
-        )}
+        <p className="text-on-surface text-sm">
+          {km.calculation_type
+            ? `${measurementDescription(km.calculation_type)}${measurementFrames(km.calculation_type) != null ? ` · ${measurementFrames(km.calculation_type)} frames` : ""}`
+            : "Choose a calculation type to see its measurement window"}
+        </p>
       </div>
 
       {/* Depends On */}

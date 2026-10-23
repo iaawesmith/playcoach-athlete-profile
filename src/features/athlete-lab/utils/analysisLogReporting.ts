@@ -1,3 +1,4 @@
+import { measurementDescription, measurementFrames } from "../../../../supabase/functions/analyze-athlete-video/measurementWindow";
 import type { AnalysisLogData, KeyMetric, PipelineMetricResult } from "../types";
 
 export const isOptionalLogVariable = (name: string): boolean =>
@@ -37,7 +38,9 @@ export function buildAnalysisLogReporting(log: AnalysisLogData, nodeMetrics: Key
     const frames = detail?.framesUsed ?? detail?.actualWindow;
     return {
       ...metric,
-      temporal_window: configured?.temporal_window ?? metric.temporal_window,
+      // Fixed per calculation type: the same constant the analyzer used.
+      temporal_window: measurementFrames(configured?.keypoint_mapping?.calculation_type ?? metric.calculation_type) ?? metric.temporal_window,
+      measurement_window: measurementDescription(configured?.keypoint_mapping?.calculation_type ?? metric.calculation_type),
       frames_used: Array.isArray(frames) ? frames.length : typeof frames === "number" ? frames : metric.frames_evaluated,
     };
   });

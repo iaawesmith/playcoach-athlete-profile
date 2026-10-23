@@ -152,17 +152,6 @@ function checkCompleteness(node: TrainingNode): BlockingItem[] {
       if (!km.phase_id) {
         issues.push({ label: "Metrics", detail: `${m.name || "Untitled"}: no phase assigned` });
       }
-      // Temporal window check
-      const tw = m.temporal_window ?? 1;
-      if (km.calculation_type === "velocity" && tw < 3) {
-        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for velocity (${tw}, need ≥3)` });
-      } else if (km.calculation_type === "acceleration" && tw < 5) {
-        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for acceleration (${tw}, need ≥5)` });
-      } else if (km.calculation_type === "frame_delta" && tw < 10) {
-        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for frame delta (${tw}, need ≥10)` });
-      } else if (km.calculation_type === "distance_variance" && tw < 5) {
-        issues.push({ label: "Metrics", detail: `${m.name}: temporal window too low for distance variance (${tw}, need ≥5)` });
-      }
     }
   }
 

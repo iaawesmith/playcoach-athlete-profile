@@ -70,18 +70,6 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
     else if (km.calculation_type === "distance_variance" && count !== 2) kpCountsValid = false;
   }
   metricsChecks.push({ label: "Keypoint counts valid for calculation types", pass: kpCountsValid });
-  // Temporal windows
-  let twValid = true;
-  for (const m of activeMetrics) {
-    const km = m.keypoint_mapping;
-    if (!km) continue;
-    const tw = m.temporal_window ?? 1;
-    if (km.calculation_type === "velocity" && tw < 3) twValid = false;
-    else if (km.calculation_type === "acceleration" && tw < 5) twValid = false;
-    else if (km.calculation_type === "frame_delta" && tw < 10) twValid = false;
-    else if (km.calculation_type === "distance_variance" && tw < 5) twValid = false;
-  }
-  metricsChecks.push({ label: "Temporal windows compatible", pass: twValid });
   categories.push({
     name: "Metrics & Keypoints", icon: "analytics", weight: 25, checks: metricsChecks, tab: "metrics",
     tooltip: "Highest priority — the pipeline has no instructions for what to measure without complete keypoint mappings."
