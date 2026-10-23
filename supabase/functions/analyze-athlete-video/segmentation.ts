@@ -184,12 +184,15 @@ export function sideForRoute(route: 'left' | 'right', rule: SideRule): 'left' | 
 // Detected route events (snap, break, catch) and event-anchored phase windows
 // ---------------------------------------------------------------------------
 
-export const BREAK_SPAN_FRAMES = 6
+export const BREAK_SPAN_FRAMES = 8
 export const BREAK_MIN_TURN_DEG = 30
 export const BREAK_RUN_FRAMES = 3
-export const BREAK_MIN_MOVE_YD = 0.25
-export const BREAK_MIN_MOVE_PX = 6
+export const BREAK_MIN_PEAK_DEG = 60
+export const BREAK_MIN_MOVE_YD = 0.75
+export const BREAK_MIN_MOVE_PX = 40
 export const BREAK_MIN_COVERAGE = 0.8
+/** Assumed horizontal field of view for depth-from-scale (typical phone main camera, ~70 degrees). */
+export const BREAK_ASSUMED_FOCAL_FRACTION = 0.714
 export const CATCH_RUN_FRAMES = 2
 export const CATCH_MAX_HAND_GAP_SHOULDERS = 1.5
 export const CATCH_LEAD_FRAMES = 10
@@ -231,120 +234,76 @@ export function snapEvent(anchor: ReleaseAnchor): RouteEvent {
 }
 
 /**
- * Break = first sustained change in hip-path heading after the snap: the angle
- * between the hip displacement over the BREAK_SPAN_FRAMES before and after a
- * frame is >= BREAK_MIN_TURN_DEG for BREAK_RUN_FRAMES in a row, while the
- * athlete is actually moving. The break frame is the sharpest turn in that run;
- * start/end bound the turning run. A straight-line run never qualifies.
+ * Break = the sharpest sustained change of direction on the ground plane after
+ * the snap. Ground position per frame: lateral x = (hip_x - centre) / scale and
+ * depth z = focal / scale, using the per-frame height scale (px/yd), so cuts
+ * toward or away from the camera count as well as lateral cuts. Turn at frame
+ * i = angle between the BREAK_SPAN_FRAMES displacement before and after it,
+ * counted only while the athlete moves >= BREAK_MIN_MOVE_YD each side. Runs of
+ * >= BREAK_RUN_FRAMES frames at >= BREAK_MIN_TURN_DEG are candidates; the run
+ * with the highest peak wins and must reach BREAK_MIN_PEAK_DEG. A straight
+ * run never qualifies. Without a per-frame scale, image coordinates are used.
  */
 export function detectBreak(
   hips: Array<Pt | null>,
   ppy: Array<number | null> | number | null,
   searchFrom: number,
+  frame: { width: number; height: number } | null = null,
+  searchTo: number | null = null,
 ): RouteEvent {
-  const s = smoothHips(hips)
+  const n = hips.length
   const K = BREAK_SPAN_FRAMES
-  const n = s.length
-  const scaleAt = (i: number): number | null => {
-    const v = Array.isArray(ppy) ? ppy[i] : ppy
-    return typeof v === 'number' && v > 0 ? v : null
-  }
-  const moved = (a: Pt, b: Pt, i: number): boolean => {
-    const d = Math.hypot(b[0] - a[0], b[1] - a[1])
-    const sc = scaleAt(i)
-    return sc ? d / sc >= BREAK_MIN_MOVE_YD : d >= BREAK_MIN_MOVE_PX
-  }
-  const turn: Array<number | null> = s.map((p, i) => {
-    if (i < searchFrom + K || i + K >= n) return null
-    const a = s[i - K], b = s[i + K]
-    if (!p || !a || !b || !moved(a, p, i) || !moved(p, b, i)) return null
+  const perFrame = Array.isArray(ppy) && frame && frame.width > 0 ? ppy : null
+  const focal = frame ? BREAK_ASSUMED_FOCAL_FRACTION * Math.max(frame.width, frame.height) : 0
+  const s = smoothHips(hips)
+  const g: Array<Pt | null> = s.map((p, i) => {
+    if (!p) return null
+    if (!perFrame) return p
+    const sc = perFrame[i]
+    return typeof sc === 'number' && sc > 0 ? [(p[0] - frame!.width / 2) / sc, focal / sc] : null
+  })
+  const minMove = perFrame ? BREAK_MIN_MOVE_YD : BREAK_MIN_MOVE_PX
+  const last = Math.min(n - 1, searchTo ?? n - 1)
+  const turn: Array<number | null> = g.map((p, i) => {
+    if (i < searchFrom + K || i + K > last) return null
+    const a = g[i - K], b = g[i + K]
+    if (!p || !a || !b) return null
+    if (Math.hypot(p[0] - a[0], p[1] - a[1]) < minMove || Math.hypot(b[0] - p[0], b[1] - p[1]) < minMove) return null
     const h1 = Math.atan2(p[1] - a[1], p[0] - a[0])
     const h2 = Math.atan2(b[1] - p[1], b[0] - p[0])
     let d = Math.abs(h2 - h1) * 180 / Math.PI
     if (d > 180) d = 360 - d
     return d
   })
-  const maxTurn = turn.reduce<number>((m, v) => (v !== null && v > m ? v : m), 0)
-  const sink = detectPlantSink(hips, ppy, searchFrom)
-  const fail = (reason: string): RouteEvent => sink ?? ({ detected: false, reason, detail: { search_from: searchFrom, max_turn_deg: Math.round(maxTurn * 100) / 100, min_turn_deg: BREAK_MIN_TURN_DEG, max_sink_fraction: maxSinkFraction(ppy, searchFrom, hips.length), min_sink_fraction: BREAK_SINK_FRACTION } })
-  for (let i = 0; i + BREAK_RUN_FRAMES - 1 < n; i++) {
-    let ok = true
-    for (let k = 0; k < BREAK_RUN_FRAMES; k++) {
-      const v = turn[i + k]
-      if (v === null || v < BREAK_MIN_TURN_DEG) { ok = false; break }
-    }
-    if (!ok) continue
+  type Run = { start: number; end: number; peak: number }
+  const runs: Run[] = []
+  for (let i = 0; i < n; i++) {
+    if ((turn[i] ?? 0) < BREAK_MIN_TURN_DEG) continue
     let end = i
     while (end + 1 < n && (turn[end + 1] ?? 0) >= BREAK_MIN_TURN_DEG) end++
-    let peak = i
-    for (let f = i; f <= end; f++) if ((turn[f] ?? 0) > (turn[peak] ?? 0)) peak = f
-    let have = 0
-    for (let f = peak - K; f <= peak + K; f++) if (hips[f]) have++
-    const coverage = have / (2 * K + 1)
-    if (coverage < BREAK_MIN_COVERAGE) return fail('low_hip_coverage')
-    const conf = Math.min(1, ((turn[peak] ?? 0) / 90) * 0.5 + coverage * 0.5)
-    // A plant sink that happens earlier is the break (cut toward/away from the camera).
-    if (sink && sink.detected && sink.frame < i) return sink
-    return {
-      detected: true, frame: peak, start: i, end, confidence: Math.round(conf * 1000) / 1000,
-      detail: { method: 'hip_heading_change', peak_turn_deg: Math.round((turn[peak] ?? 0) * 100) / 100, coverage: Math.round(coverage * 1000) / 1000, search_from: searchFrom },
+    if (end - i + 1 >= BREAK_RUN_FRAMES) {
+      let peak = i
+      for (let f = i; f <= end; f++) if ((turn[f] ?? 0) > (turn[peak] ?? 0)) peak = f
+      runs.push({ start: i, end, peak })
     }
+    i = end
   }
-  return fail('no_sustained_heading_change')
-}
-
-export const BREAK_SINK_FRACTION = 0.1
-export const BREAK_SINK_HALF_WINDOW = 10
-
-/** Per-frame scale is athlete pixel height / height; a plant drops it below its neighbourhood. */
-function sinkFractions(ppy: Array<number | null> | number | null, n: number): Array<number | null> {
-  if (!Array.isArray(ppy)) return Array.from({ length: n }, () => null)
-  return ppy.map((v, i) => {
-    if (typeof v !== 'number' || v <= 0) return null
-    const near: number[] = []
-    for (let k = i - BREAK_SINK_HALF_WINDOW; k <= i + BREAK_SINK_HALF_WINDOW; k++) {
-      const q = ppy[k]
-      if (k !== i && typeof q === 'number' && q > 0) near.push(q)
-    }
-    if (near.length < BREAK_SINK_HALF_WINDOW) return null
-    near.sort((a, b) => a - b)
-    const med = near[Math.floor(near.length / 2)]
-    return 1 - v / med
-  })
-}
-
-function maxSinkFraction(ppy: Array<number | null> | number | null, from: number, n: number): number | null {
-  const f = sinkFractions(ppy, n).slice(from).filter((v): v is number => v !== null)
-  return f.length ? Math.round(Math.max(...f) * 1000) / 1000 : null
-}
-
-/**
- * Plant sink: after the snap, while the hips are tracked, the athlete's pixel
- * height drops >= BREAK_SINK_FRACTION below the median of the surrounding
- * frames for BREAK_RUN_FRAMES in a row (a monotonic run toward/away from the
- * camera never qualifies). Frame = deepest point of that run.
- */
-export function detectPlantSink(hips: Array<Pt | null>, ppy: Array<number | null> | number | null, searchFrom: number): RouteEvent | null {
-  const f = sinkFractions(ppy, hips.length)
-  for (let i = Math.max(searchFrom + BREAK_SPAN_FRAMES, 0); i + BREAK_RUN_FRAMES - 1 < f.length; i++) {
-    let ok = true
-    for (let k = 0; k < BREAK_RUN_FRAMES; k++) {
-      const v = f[i + k]
-      if (v === null || v < BREAK_SINK_FRACTION || !hips[i + k]) { ok = false; break }
-    }
-    if (!ok) continue
-    let end = i
-    while (end + 1 < f.length && (f[end + 1] ?? 0) >= BREAK_SINK_FRACTION && hips[end + 1]) end++
-    let peak = i
-    for (let k = i; k <= end; k++) if ((f[k] ?? 0) > (f[peak] ?? 0)) peak = k
-    const depth = f[peak] ?? 0
-    return {
-      detected: true, frame: peak, start: i, end,
-      confidence: Math.round(Math.min(1, 0.5 + depth) * 1000) / 1000,
-      detail: { method: 'plant_sink', sink_fraction: Math.round(depth * 1000) / 1000, search_from: searchFrom },
-    }
+  const r2 = (v: number) => Math.round(v * 100) / 100
+  const candidates = runs.map((r) => ({ start: r.start, end: r.end, peak: r.peak, peak_turn_deg: r2(turn[r.peak] ?? 0) }))
+  const base = { search_from: searchFrom, search_to: last, space: perFrame ? 'ground_plane_yd' : 'image_px', span_frames: K, min_turn_deg: BREAK_MIN_TURN_DEG, min_peak_deg: BREAK_MIN_PEAK_DEG, candidates }
+  const best = runs.reduce<Run | null>((b, r) => (!b || (turn[r.peak] ?? 0) > (turn[b.peak] ?? 0) ? r : b), null)
+  if (!best) return { detected: false, reason: 'no_sustained_direction_change', detail: base }
+  const peakDeg = turn[best.peak] ?? 0
+  if (peakDeg < BREAK_MIN_PEAK_DEG) return { detected: false, reason: 'direction_change_below_peak', detail: base }
+  let have = 0
+  for (let f = best.peak - K; f <= best.peak + K; f++) if (hips[f]) have++
+  const coverage = have / (2 * K + 1)
+  if (coverage < BREAK_MIN_COVERAGE) return { detected: false, reason: 'low_hip_coverage', detail: { ...base, coverage } }
+  const conf = Math.min(1, Math.min(1, peakDeg / 90) * 0.5 + coverage * 0.5)
+  return {
+    detected: true, frame: best.peak, start: best.start, end: best.end, confidence: Math.round(conf * 1000) / 1000,
+    detail: { ...base, method: 'ground_plane_direction_change', peak_turn_deg: r2(peakDeg), coverage: Math.round(coverage * 1000) / 1000 },
   }
-  return null
 }
 
 /**
