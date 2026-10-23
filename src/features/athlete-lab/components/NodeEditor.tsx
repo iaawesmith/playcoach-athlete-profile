@@ -987,7 +987,7 @@ export function NodeEditor({ node, onUpdated }: NodeEditorProps) {
           onClose={() => setHelpOpen(false)}
           tabKey={helpTabKey}
           tabLabel={TABS.find((t) => t.key === helpTabKey)?.label ?? helpTabKey}
-          tabs={TABS.filter((t) => t.key !== "test")}
+          tabs={TABS}
           onTabChange={(key) => setHelpTabKey(key as TabKey)}
           knowledgeBase={draft.knowledge_base ?? {}}
           onKnowledgeBaseChange={(kb) => { update("knowledge_base", kb); }}
