@@ -22,10 +22,10 @@ import {
   phaseRoles,
   anchorPhaseWindows,
   type AnchoredPhase,
+  type CatchArrival,
   type RouteEvent,
   type RouteEvents,
   hipSeries,
-  offsetWindows,
   resolveSideRule,
   sideForRoute,
   type FrameKps,
@@ -1217,8 +1217,6 @@ Deno.serve(async (req) => {
     for (const ap of anchoredPhases) if (ap.window) phaseWindows[ap.id] = ap.window
     logInfo('release_anchor', { uploadId, ...releaseAnchor })
     logInfo('route_events', { uploadId, routeEvents, anchoredPhases })
-    logData.route_events = routeEvents
-    logData.decode = decodeSummary(poseResult)
     if (poseLog) {
       poseLog.route_events = routeEvents
       poseLog.decode = decodeSummary(poseResult)
