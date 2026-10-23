@@ -2753,7 +2753,9 @@ async function calculateAllMetrics(
       rightIndices: bilateralDecision.rightIndices,
       leftAverageConfidence: bilateralDecision.leftAverageConfidence,
       rightAverageConfidence: bilateralDecision.rightAverageConfidence,
-      temporalWindow: measurementFrames(mapping.calculation_type),
+      // Always null: the per-metric window setting is gone (see measurementWindow.ts).
+      // Kept as null so stored metric fingerprints stay comparable.
+      temporalWindow: null,
       confidenceThreshold: mapping.confidence_threshold || 0.7,
     })
 
