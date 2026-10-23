@@ -10,10 +10,24 @@ const metrics = [
 ] as KeyMetric[];
 
 describe("Analysis Log reporting", () => {
+  it("reports the actual velocity endpoint span rather than its minimum", () => {
+    const log = { metrics: [{ name: "Release Speed", calculation_type: "velocity", frames_evaluated: 20 }] } as AnalysisLogData;
+    const result = { name: "Release Speed", detail: { firstFrameIndex: 2, lastFrameIndex: 16, actualWindow: 20 } } as PipelineMetricResult;
+    const row = buildAnalysisLogReporting(log, metrics, [result]).metrics[0];
+    expect(row.frames_used).toBe(15);
+    expect(row.temporal_window).toBe(0);
+  });
+  it("converts ratio value and target only in reporting without modifying stored data", () => {
+    const log = { metrics: [{ name: "Speed into the break", unit: "ratio", calculated_result: "1", elite_target: "0.9" }] } as AnalysisLogData;
+    const row = buildAnalysisLogReporting(log, metrics, []).metrics[0];
+    expect(row.calculated_result).toBe("100% of top stem speed");
+    expect(row.elite_target).toBe("90%");
+    expect(log.metrics[0].calculated_result).toBe("1");
+  });
   it("reports the fixed window the analyzer used, ignoring the retired per-metric setting", () => {
     const log = { metrics: metrics.map((metric, i) => ({ name: metric.name, temporal_window: [0, 10, 3, 5][i] })) } as AnalysisLogData;
     const rows = buildAnalysisLogReporting(log, metrics, []).metrics;
-    expect(rows.map(metric => metric.temporal_window)).toEqual([5, 10, 3, 5]);
+    expect(rows.map(metric => metric.temporal_window)).toEqual([5, 10, 0, 5]);
     expect(rows[0].measurement_window).toBe("Phase midpoint ±2 frames");
     expect(log.metrics?.map(metric => metric.temporal_window)).toEqual([0, 10, 3, 5]);
   });

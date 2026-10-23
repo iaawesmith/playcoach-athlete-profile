@@ -31,6 +31,7 @@ import {
   windowScale,
   parseResolutionHeight,
   STATIC_ASSUMED_HEIGHT_PX,
+  scaleStaticPixelsPerYard,
   DEPTH_MOTION_THRESHOLD,
   type HeightCalibration,
 } from './calibration.ts'
@@ -1878,7 +1879,8 @@ function resolveCalibration(
     ? calculateBodyBasedCalibration(keypoints, scores, athleteHeight)
     : null
   const staticCalibration = selectCalibration(nodeConfig, cameraAngle)
-  const staticPixelsPerYard = getPixelsPerYardValue(staticCalibration)
+  const staticBaselinePixelsPerYard = getPixelsPerYardValue(staticCalibration)
+  const staticPixelsPerYard = scaleStaticPixelsPerYard(staticBaselinePixelsPerYard, resolutionHeight)
 
   const heightYards = athleteHeight ? convertHeightToYards(athleteHeight) : null
   const heightCalibration: HeightCalibration | null = heightYards
@@ -1982,6 +1984,8 @@ function resolveCalibration(
         matchedCalibration: staticCalibration ?? {},
         resolutionHeight,
         assumedResolutionHeight: STATIC_ASSUMED_HEIGHT_PX,
+        baselinePixelsPerYard: staticBaselinePixelsPerYard,
+        resolutionScaleFactor: resolutionHeight !== null ? resolutionHeight / STATIC_ASSUMED_HEIGHT_PX : 1,
       },
     }
   } else {
@@ -2075,6 +2079,8 @@ function resolveCalibration(
       camera_angle: cameraAngle,
       resolution_assumed: `${STATIC_ASSUMED_HEIGHT_PX}p`,
       clip_resolution_height: resolutionHeight,
+      baseline_ppy: staticBaselinePixelsPerYard,
+      resolution_scale_factor: resolutionHeight !== null ? resolutionHeight / STATIC_ASSUMED_HEIGHT_PX : 1,
     },
   ]
   const rejectedReasons: Record<string, string> = {}
@@ -2093,12 +2099,12 @@ function resolveCalibration(
       note: 'Athlete moves toward or away from the camera; motion along that axis is not captured, so speed and distance along it may read low.',
     })
   }
-  if (selectedSource === 'static' && resolutionHeight !== null && resolutionHeight !== STATIC_ASSUMED_HEIGHT_PX) {
+  if (selectedSource === 'static' && resolutionHeight === null) {
     flags.push({
-      flag: 'static_resolution_mismatch',
+      flag: 'static_resolution_unknown',
       clip_resolution_height: resolutionHeight,
       assumed_resolution_height: STATIC_ASSUMED_HEIGHT_PX,
-      note: 'Static px/yd assumes 1080p; this clip differs, so distances and speeds are likely off.',
+      note: 'Clip resolution is unavailable; static px/yd retains the saved 1080p baseline without resolution adjustment.',
     })
   }
 

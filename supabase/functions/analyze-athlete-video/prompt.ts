@@ -35,17 +35,6 @@ type MetricResultLike = {
   keypoint_mapping?: { phase_id?: string } | null
 }
 
-function round(value: unknown, digits = 2): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return String(value ?? '')
-  return String(Number(value.toFixed(digits)))
-}
-
-function unitText(unit: string | null | undefined): string {
-  if (!unit) return ''
-  if (unit === 'degrees') return '°'
-  return ` ${unit}`
-}
-
 /** One line per scored metric, with phase, target, score and what the metric measures. */
 export function formatMetricResults(
   metrics: MetricResultLike[],

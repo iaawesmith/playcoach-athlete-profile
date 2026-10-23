@@ -5,6 +5,7 @@ import {
   postureFactor,
   sampleFrameHeight,
   windowScale,
+  scaleStaticPixelsPerYard,
 } from "../../supabase/functions/analyze-athlete-video/calibration";
 
 type P = [number, number];
@@ -27,6 +28,12 @@ const conf = Array.from({ length: 33 }, () => 0.9);
 const HEIGHT_69_IN_YD = 69 / 36;
 
 describe("height-based calibration", () => {
+  it("scales the 80 px/yard 1080p fallback to 160 at 4K", () => {
+    expect(scaleStaticPixelsPerYard(80, 1080)).toBe(80);
+    expect(scaleStaticPixelsPerYard(80, 2160)).toBe(160);
+    expect(scaleStaticPixelsPerYard(80, null)).toBe(80);
+    expect(scaleStaticPixelsPerYard(null, 2160)).toBeNull();
+  });
   it("390 px upright athlete at 69 in gives about 203.5 px/yd", () => {
     const s = sampleFrameHeight(uprightFrame(390), conf, 0, HEIGHT_69_IN_YD);
     expect(s?.upright).toBe(true);

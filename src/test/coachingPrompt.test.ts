@@ -9,6 +9,12 @@ const nodeMetrics = [{ name: 'Release Speed', description: 'Hip speed over the f
 const phases = [{ id: 'p1', name: 'Release' }]
 
 describe('coaching prompt grounding', () => {
+  it('renders ratio value 1 and target 0.9 as percentages in prompt and fallback', () => {
+    const metric = { name: 'Speed into the break', status: 'scored', value: 1, unit: 'ratio', elite_target: 0.9, target_direction: 'at_least', score: 100 }
+    expect(formatMetricResults([metric])).toContain('100% of top stem speed, target 90%')
+    expect(buildFallbackFeedback([metric], [], true)).toContain('100% of top stem speed against a 90% target')
+    expect(metric.value).toBe(1)
+  })
   it('includes the metric description with each scored value', () => {
     const text = formatMetricResults(
       [{ name: 'Release Speed', status: 'scored', value: 3.76, unit: 'mph', elite_target: 7, score: 68.97, keypoint_mapping: { phase_id: 'p1' } }],
