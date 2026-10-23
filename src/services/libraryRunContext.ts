@@ -1,5 +1,9 @@
 import type { CalibrationClip } from "./calibrationLibrary";
 
+/** Analysis is bounded by decoded frames (pose service frame cap), not seconds. */
+export const ANALYSIS_FRAME_CAP = 300;
+export const ANALYSIS_FRAME_CAP_SECONDS = ANALYSIS_FRAME_CAP / 30;
+
 export interface LibraryContextValues {
   camera_angle: string;
   people_in_video: string;

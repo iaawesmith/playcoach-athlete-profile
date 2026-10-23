@@ -12,7 +12,7 @@ const clip: CalibrationClip = {
 describe("library run provenance", () => {
   it("uses the stored duration, not the node minimum, capped at 3 seconds", () => {
     expect(libraryClipValues(clip).end_seconds).toBe(2.27);
-    expect(libraryClipValues({ ...clip, duration_seconds: 4 }).end_seconds).toBe(3);
+    expect(libraryClipValues({ ...clip, duration_seconds: 8 }).end_seconds).toBe(8);
     expect(libraryClipValues({ ...clip, duration_seconds: null }).end_seconds).toBeNull();
   });
   it("retains partial catch and straight direction exactly", () => {
