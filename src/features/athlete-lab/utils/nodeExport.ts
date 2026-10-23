@@ -210,14 +210,6 @@ function generateReference(node: TrainingNode): string {
     return c && c.pixels_per_yard && c.pixels_per_yard > 0;
   }).length;
 
-  const fallbackMap: Record<string, string> = {
-    pixel_warning: "Use pixel units with warning",
-    disable_distance: "Disable distance metrics",
-    estimate_field_lines: "Estimate using field lines",
-  };
-  const rawFallback = node.reference_fallback_behavior ?? "pixel_warning";
-  const fallbackLabel = fallbackMap[rawFallback] ?? rawFallback;
-
   const camera = parseCameraSettings(node.camera_guidelines);
   // skill_specific_filming_notes is physically stored inside the
   // camera_guidelines JSON blob (parsed above). The optional top-level
@@ -226,15 +218,13 @@ function generateReference(node: TrainingNode): string {
   // and the camera_guidelines JSON is the canonical source. If a top-level
   // column is added later, prefer it via `node.skill_specific_filming_notes
   // ?? camera.skill_specific_filming_notes`.
-  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nFallback Behavior: ${fallbackLabel}\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\n`;
+  let out = `## Reference Calibrations\n\nCount: ${calibratedCount} of 3 camera angles calibrated\nSkill-Specific Filming Notes: ${camera.skill_specific_filming_notes?.trim() || "Not configured"}\n`;
 
   for (const angle of ANGLES) {
     const cal = cals.find(c => c.camera_angle === angle.key);
     const calibrated = cal && cal.pixels_per_yard && cal.pixels_per_yard > 0;
     const status = calibrated ? "✅ Calibrated" : "⬜ Not Calibrated";
-    const supportStatus = cal?.status ? cal.status.replace(/_/g, " ") : "supported";
-    const knownSize = cal?.known_size_yards != null ? `${cal.known_size_yards} ${cal.known_size_unit || "yards"}` : "Not set";
-    out += `\n### ${angle.label} ${status}\nSupport Status: ${supportStatus}\nReference Object: ${cal?.reference_object_name || "Not configured"}\nKnown Size: ${knownSize}\nPixels Per Yard: ${cal?.pixels_per_yard ?? "Not set"}\nPlacement Instructions: ${cal?.placement_instructions?.trim() || "Not configured"}\nGeneric Fallback Angle Instructions: ${cal?.filming_instructions?.trim() || "Not configured"}\nCalibration Notes: ${cal?.calibration_notes?.trim() || "Not configured"}\n`;
+    out += `\n### ${angle.label} ${status}\nPixels Per Yard: ${cal?.pixels_per_yard ?? "Not set"}\n`;
   }
 
   return out;

@@ -97,7 +97,7 @@
 - [x] Batch 3: hide Depends On and Body Groups, unrestricted landmark picker, single Side adapter, admin notes preserved; baseline unchanged on identical stored input and fresh read, aggregate 94; 160 tests pass; actual Slant draft Side interactions checked and cancelled without node writes. Stopped after Batch 3; later batches await approval.
 - [x] Batch 4 Phases: all five current Slant cues/descriptions archived and read-back verified before hiding; unused phase-context and migration presentation removed; structural controls/buffers and stored legacy fields preserved. Identical-input and fresh-read fba7237f… baseline PASS, aggregate 94; 160 tests pass, actual Slant draft verified without node save. Stopped after Batch 4.
 - [x] Batch 5 Errors: severity hidden/preserved, three dead Slant WR rules removed, plant error renamed with unchanged <125 condition. Read-only c6fa0895 before/after errors and fba7237f… fingerprint PASS (94); only Slow release triggers; 162 tests and real editor verification pass. Stopped after Batch 5.
-- [ ] Wheel WR empty-condition fix: propose removing disabled Drifting to the sideline from measurable Errors and preserving as admin knowledge; blocked pending user OK, Wheel unchanged.
-- [ ] Batch 6 Reference collapse
+- [x] Wheel WR: exact Drifting to the sideline wording archived and read-back verified before removal; other rules/metrics/version preserved.
+- [x] Batch 6 Reference: camera-angle + px/yd controls, legacy metadata/fallback settings hidden and preserved, filming guidance retained; fba7237f… unchanged (94), identical before/after errors; 165 tests and real Slant/Wheel browser checks pass. Stopped after Batch 6.
 - [ ] Batch 7 Scoring and fixes
 - [ ] Batch 8 rtmlib cleanup + knowledge base rewrite (+ fresh run, overlay)
