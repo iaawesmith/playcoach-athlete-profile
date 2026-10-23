@@ -272,6 +272,8 @@ export interface PhaseWindow {
   end: number;
   frame_count: number;
   percent: number;
+  /** Set when the phase got no window (e.g. event_not_detected:break). */
+  not_measured?: string;
 }
 
 export interface KeypointConfidence {
