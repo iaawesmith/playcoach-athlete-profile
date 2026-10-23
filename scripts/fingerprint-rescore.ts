@@ -12,6 +12,7 @@ type AnalyzerApi = {
   calculateAllMetrics: (...args: unknown[]) => Promise<unknown>;
   calculateAggregateScore: (...args: unknown[]) => unknown;
   parsePhaseBreakdown: (phases: unknown[]) => { id: string; name: string }[];
+  detectErrors: (errors: unknown[], metrics: unknown[]) => unknown;
 };
 const row = (value: unknown): Row => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Expected an object");
@@ -33,7 +34,7 @@ const analyzerRoot = resolve(option("--analyzer-root") ?? root);
 const inputPath = option("--input");
 const id = args[0];
 if (!inputPath && (!id || !/^[a-f0-9-]{8,36}$/i.test(id))) {
-  throw new Error("Usage: bun scripts/fingerprint-rescore.ts RESULT_ID [--input snapshot.json] [--save-input snapshot.json] [--analyzer-root checkout] [--expect HASH]");
+  throw new Error("Usage: bun scripts/fingerprint-rescore.ts RESULT_ID [--input snapshot.json] [--save-input snapshot.json] [--analyzer-root checkout] [--expect HASH] [--errors]");
 }
 const input: unknown = inputPath
   ? JSON.parse(await readFile(resolve(inputPath), "utf8"))
@@ -83,7 +84,7 @@ try {
   }
   const smoothing = ast.statements.find(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => d.name.getText(ast) === "SMOOTHING_WINDOW_FRAMES"));
   if (!smoothing) throw new Error("Analyzer smoothing constant not found");
-  chunks.push(smoothing.getText(ast), "const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap();", "function logInfo() {} function logWarn() {} function logError() {}", "export { calculateAllMetrics, calculateAggregateScore, parsePhaseBreakdown };");
+  chunks.push(smoothing.getText(ast), "const MIRROR_INDEX_BY_INDEX = buildMirrorIndexMap();", "function logInfo() {} function logWarn() {} function logError() {}", "export { calculateAllMetrics, calculateAggregateScore, parsePhaseBreakdown, detectErrors };");
   const modulePath = join(temp, "analyzer.ts");
   await writeFile(modulePath, chunks.join("\n"));
   const api = await import(modulePath) as AnalyzerApi;
@@ -105,7 +106,7 @@ try {
   });
   const output = fingerprintValues(values, nullableNumber(aggregate.aggregate_score));
   const expected = option("--expect");
-  process.stdout.write(JSON.stringify({ result_id: result.id, node_version: node.node_version, frame_count: keypoints.length, ...output, ...(expected ? { matches_baseline: output.fingerprint === expected } : {}) }, null, 2) + "\n");
+  process.stdout.write(JSON.stringify({ result_id: result.id, node_version: node.node_version, frame_count: keypoints.length, ...output, ...(expected ? { matches_baseline: output.fingerprint === expected } : {}), ...(args.includes("--errors") ? { errors: api.detectErrors(list(node.common_errors), metrics) } : {}) }, null, 2) + "\n");
   if (expected && output.fingerprint !== expected) process.exitCode = 2;
 } finally {
   await rm(temp, { recursive: true, force: true });
