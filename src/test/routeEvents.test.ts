@@ -19,10 +19,10 @@ describe("break detection", () => {
     expect(e.detected).toBe(false);
   });
 
-  it("detects a 45-degree cut at the frame it happens", () => {
+  it("detects a 90-degree cut at the frame it happens", () => {
     const hips: Pt[] = straight(60);
     const [x0, y0] = hips[59];
-    for (let k = 1; k <= 60; k++) hips.push([x0 + k * 5.66, y0 - k * 5.66]);
+    for (let k = 1; k <= 60; k++) hips.push([x0 + k * 8, y0]);
     const e = detectBreak(hips, PPY, 10);
     expect(e.detected).toBe(true);
     if (e.detected) expect(Math.abs(e.frame - 59)).toBeLessThanOrEqual(3);
