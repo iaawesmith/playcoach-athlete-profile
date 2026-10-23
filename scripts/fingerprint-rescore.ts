@@ -13,6 +13,7 @@ type AnalyzerApi = {
   calculateAggregateScore: (...args: unknown[]) => unknown;
   parsePhaseBreakdown: (phases: unknown[]) => { id: string; name: string }[];
   detectErrors: (errors: unknown[], metrics: unknown[]) => unknown;
+  calculatePhaseWindows: (count: number, phases: unknown[], buffer: number) => Record<string, { start: number; end: number }>;
 };
 const row = (value: unknown): Row => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Expected an object");
