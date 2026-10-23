@@ -7,7 +7,6 @@ const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase t
 const TEMPLATE_VARIABLES = [
   { var: "{{mastery_score}}", desc: "Overall Mastery Score 0-100. Use to open feedback: 'Your score was {{mastery_score}}/100'" },
   { var: "{{phase_scores}}", desc: "Score per phase breakdown. e.g. Release: 82, Break: 71, Catch Window: 90" },
-  { var: "{{phase_context}}", desc: "Phase definitions from the Phases tab — names, weights, descriptions, coaching cues — rendered per the Phase Context Mode below. Lets Claude reason about phases without you copy-pasting them into the prompt." },
   { var: "{{scoring_rules}}", desc: "Free-text scoring rules from the Scoring tab. Tells Claude how the aggregate score is computed so it can explain it accurately." },
   { var: "{{node_overview}}", desc: "The Overview field from the Basics tab. One-paragraph summary of what this skill is and why it matters." },
   { var: "{{node_name}}", desc: "The skill being analyzed. e.g. 'Slant Route'" },
@@ -20,16 +19,6 @@ const TEMPLATE_VARIABLES = [
   { var: "{{focus_area}}", desc: "Optional focus area submitted by the athlete before filming. e.g. 'working on my break angle' or 'trying to improve my release'. Reference directly if provided. Empty string if not provided — do not reference if empty." },
   { var: "{{skipped_metrics}}", desc: "Metrics excluded from this analysis because athlete reported no catch was made. e.g. 'Catch Efficiency and YAC Burst were not evaluated on this rep.' Include a brief acknowledgment if this variable is not empty." },
 ];
-
-type PhaseContextMode = "off" | "names_only" | "compact" | "full";
-
-const PHASE_CONTEXT_MODE_OPTIONS: Array<{ value: PhaseContextMode; label: string; help: string }> = [
-  { value: "off", label: "Off", help: "{{phase_context}} resolves to empty string. Use for nodes where phase detail is irrelevant." },
-  { value: "names_only", label: "Names only", help: "Phase numbers and names only. Smallest token footprint." },
-  { value: "compact", label: "Compact (default)", help: "Names, weights, first 200 chars of description, count of coaching cues. Safe for most nodes." },
-  { value: "full", label: "Full", help: "Names, weights, full descriptions, full coaching cues, frame buffers. May overflow token budget on dense nodes." },
-];
-
 
 function getWordGuidance(words: number): { text: string; color: string } {
   if (words <= 100) return { text: "Brief — 3-4 sentences. Good for quick reps and younger athletes.", color: "text-primary-container" };
@@ -54,15 +43,12 @@ interface LlmPromptEditorProps {
   onMaxWordsChange: (v: number) => void;
   systemInstructions: string;
   onSystemInstructionsChange: (v: string) => void;
-  phaseContextMode: PhaseContextMode;
-  onPhaseContextModeChange: (v: PhaseContextMode) => void;
 }
 
 export function LlmPromptEditor({
   promptTemplate, onPromptChange,
   maxWords, onMaxWordsChange,
   systemInstructions, onSystemInstructionsChange,
-  phaseContextMode, onPhaseContextModeChange,
 }: LlmPromptEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [insertedVar, setInsertedVar] = useState<string | null>(null);
@@ -161,42 +147,6 @@ export function LlmPromptEditor({
             </p>
           </div>
         )}
-      </div>
-
-      {/* ── SECTION 1.5: PHASE CONTEXT MODE ── */}
-      <SectionDivider label="Phase Context Mode" />
-
-      <div className="p-5 rounded-xl border border-outline-variant/20 space-y-3 bg-[#1A2029]">
-        <div className="flex items-center gap-1.5 mb-1">
-          <label className={LABEL_CLASS}>Phase Context Mode</label>
-          <SectionTooltip tip="Controls how phases are rendered into the {{phase_context}} template variable. Compact is safe for most nodes. Full sends every phase description and coaching cue and may overflow the token budget on dense nodes — the Edge Function will hard-fail with a 413 rather than truncate silently." />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {PHASE_CONTEXT_MODE_OPTIONS.map((opt) => {
-            const active = phaseContextMode === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onPhaseContextModeChange(opt.value)}
-                className={`text-left rounded-xl px-4 py-3 border transition-all ${
-                  active
-                    ? "border-primary-container/60 bg-primary-container/10 shadow-[0_0_8px_rgba(0,230,57,0.15)]"
-                    : "border-outline-variant/15 bg-surface-container-lowest hover:border-outline-variant/40"
-                }`}
-              >
-                <div className={`text-xs font-bold uppercase tracking-widest ${active ? "text-primary-container" : "text-on-surface"}`}>
-                  {opt.label}
-                </div>
-                <div className="text-on-surface-variant/70 text-[11px] leading-snug mt-1">{opt.help}</div>
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-on-surface-variant/50 text-[10px] leading-snug">
-          Use {"{{phase_context}}"} in the prompt template above to inject the rendered phase block.
-          Default is Compact. Mode applies to this node only.
-        </p>
       </div>
 
       {/* ── SECTION 2: COACHING SETTINGS ── */}
