@@ -1198,7 +1198,14 @@ Deno.serve(async (req) => {
     const snap = snapEvent(releaseAnchor)
     const snapFrame = snap.detected ? snap.frame : 0
     const routeHasBreak = phaseRoles(namedPhases).hasBreak
-    const breakEvent = routeHasBreak ? detectBreak(routeHips, ppySeries, snapFrame) : null
+    const trackedKps = trackedPersonFrames.keypoints as unknown as FrameKps[]
+    const trackedScores = trackedPersonFrames.scores as unknown as FrameScores[]
+    // Break is searched before the first hands-up moment so post-catch turns upfield never win.
+    const preliminaryCatch = context.catch_included === false ? null : detectCatch(trackedKps, trackedScores, CATCH_EVENT_CONFIDENCE, snapFrame)
+    const breakSearchTo = preliminaryCatch && preliminaryCatch.detected ? preliminaryCatch.start - 1 : null
+    const frameSize = typeof serviceFrame.frame_width === 'number' && typeof serviceFrame.frame_height === 'number'
+      ? { width: serviceFrame.frame_width, height: serviceFrame.frame_height } : null
+    const breakEvent = routeHasBreak ? detectBreak(routeHips, ppySeries, snapFrame, frameSize, breakSearchTo) : null
     const catchEvent = context.catch_included === false
       ? null
       : detectCatch(
