@@ -27,4 +27,4 @@
 - Metric Side uses `metricSide.ts` with analyzer precedence; selection writes both bilateral fields, preserving legacy settings/groups/keypoint order/admin notes to prevent scoring drift.
 - Reference edits use `referenceCalibration.ts` to change only scale; preserve metadata, array order and hidden fallback settings to prevent scoring drift.
 - Phases expose names/weights/order/buffers; preserve hidden fields and archive complete Slant cues before hiding; archives are admin-only, never model evidence.
-- Pose names are engine-neutral; retain log_data.rtmlib and legacy URL secret/endpoint/checklist IDs via aliases for compatibility.
+- Keep pose log/URL/checklist aliases. setupGuide.ts provides help; stored knowledge is read-only Archive, never model evidence.
