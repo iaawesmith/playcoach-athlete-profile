@@ -297,7 +297,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     const node = nodeMetrics.find((k) => k.name === name);
     const logEntry = logMetrics.find((l) => l.name === name);
     const phaseName = typeof logEntry?.phase === "string" ? logEntry.phase : null;
-    const window = phaseWindows.find((w) => w.phase === phaseName) ?? null;
+    const window = drawnPhaseWindows.find((w) => w.phase === phaseName) ?? null;
     const ca = rec(detail.catchAnchor);
     const caFrame = num(ca.frame);
     if (caFrame !== null && ca.ok !== false && catchAnchorFrame === null) catchAnchorFrame = caFrame;
@@ -325,7 +325,7 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     landmarkStatus,
     confidenceSource: scores ? "per_frame" : "run_level",
     perFrame,
-    phaseWindows,
+    phaseWindows: drawnPhaseWindows,
     releaseAnchorFrame: release.applied === true ? num(release.frame) : null,
     catchAnchorFrame,
     zoomFactor: num(autoZoom.factor),
