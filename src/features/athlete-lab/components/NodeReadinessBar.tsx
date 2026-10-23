@@ -3,6 +3,7 @@ import type { TrainingNode } from "../types";
 import { checkCameraCompleteness } from "./CameraEditor";
 import { SectionTooltip } from "./SectionTooltip";
 import { generateFullNodeMarkdown } from "../utils/nodeExport";
+import { metricConfidenceErrors } from "../utils/confidenceValidation";
 
 // Phase 1c.3-D: Tab consolidation 13 → 8. Surviving tab keys:
 // basics, videos, phases, metrics, reference, prompt, badges, test.
@@ -43,6 +44,10 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   metricsChecks.push({ label: `Active weights sum to ${metricWeightSum}% (must be 100%)`, pass: metricWeightSum === 100 });
   const allMapped = activeMetrics.every(m => m.keypoint_mapping?.calculation_type && (m.keypoint_mapping?.keypoint_indices?.length ?? 0) > 0);
   metricsChecks.push({ label: "All active metrics have keypoint mapping", pass: allMapped });
+  const confidenceErrors = metricConfidenceErrors(allMetrics);
+  if (confidenceErrors.length > 0) {
+    metricsChecks.push({ label: confidenceErrors.join(" "), pass: false });
+  }
   const allPhased = activeMetrics.every(m => m.keypoint_mapping?.phase_id);
   metricsChecks.push({ label: "All active metrics have phase assigned", pass: allPhased });
   // Phase reference resolution — catches orphaned phase_ids from deleted phases

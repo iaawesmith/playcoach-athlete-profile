@@ -1,8 +1,11 @@
+import { coachRequestBody, MAX_COACH_OUTPUT_TOKENS } from "./coachRequest.ts"
 import { measurementDescription, measurementFrames } from './measurementWindow.ts'
 import {
   buildFallbackFeedback,
   checkFeedback,
   countWords,
+  MAX_FEEDBACK_WORDS,
+  TARGET_FEEDBACK_WORDS,
   formatAthleteLevel,
   formatMetricResults,
   formatRunContext,
@@ -463,6 +466,7 @@ type PipelineLogData = {
     model_source?: string
     latency_ms?: number
     cost_usd?: number | null
+    max_output_tokens?: number
     word_count?: number
     target_words?: number
     truncated?: boolean
@@ -478,7 +482,6 @@ async function callCoachModel(
   m: ResolvedCoachModel,
   system: string,
   prompt: string,
-  maxTokens: number,
   logCtx: Record<string, unknown>,
 ): Promise<CoachCall> {
   let response: Response
@@ -487,13 +490,13 @@ async function callCoachModel(
       response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: m.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify(coachRequestBody(m.provider, m.model, system, prompt)),
       })
     } else {
       response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}` },
-        body: JSON.stringify({ model: m.model, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }),
+        body: JSON.stringify(coachRequestBody(m.provider, m.model, system, prompt)),
       })
     }
   } catch (error) {
@@ -1250,7 +1253,7 @@ Deno.serve(async (req) => {
         model: 'not called',
         status: 'SKIPPED',
         skipped_reason: 'low_quality_clip',
-        target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+        target_words: TARGET_FEEDBACK_WORDS.max,
       }
       llmDiagnostics = {
         model: 'not called',
@@ -1268,7 +1271,7 @@ Deno.serve(async (req) => {
         model: 'not called',
         status: 'SKIPPED',
         skipped_reason: 'Pose confidence too low to generate reliable coaching feedback.',
-        target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+        target_words: TARGET_FEEDBACK_WORDS.max,
       }
       llmDiagnostics = {
         model: 'not called',
@@ -1378,7 +1381,6 @@ async function fetchNodeConfig(nodeId: string) {
       id, name, position, status, node_version,
       clip_duration_min, clip_duration_max,
       llm_prompt_template, llm_system_instructions,
-      llm_max_words,
       scoring_rules, score_bands, scoring_renormalize_on_skip,
       confidence_handling, min_metrics_threshold,
       camera_guidelines,
@@ -3781,7 +3783,8 @@ async function callClaude(
     }),
   })
 
-  const prompt = renderTemplate(template, variables) + retryNote
+  const prompt = renderTemplate(template, variables) +
+    `\n\nWrite ${TARGET_FEEDBACK_WORDS.min}–${TARGET_FEEDBACK_WORDS.max} words. Responses above ${MAX_FEEDBACK_WORDS} words are rejected.` + retryNote
   // System instructions get the same placeholders filled; empty optional
   // values read "none" so the model never sees a literal {{placeholder}}.
   const systemVariables = Object.fromEntries(
@@ -3811,7 +3814,8 @@ async function callClaude(
     system_tokens: Math.ceil((nodeConfig.llm_system_instructions || '').length / 4),
     variable_tokens: Math.ceil(Object.values(variables).join(' ').length / 4),
     prompt_tokens: Math.ceil(prompt.length / 4),
-    target_words: typeof nodeConfig.llm_max_words === 'number' ? nodeConfig.llm_max_words : undefined,
+    target_words: TARGET_FEEDBACK_WORDS.max,
+    max_output_tokens: MAX_COACH_OUTPUT_TOKENS,
     status: 'FAILED',
   }
 
@@ -3824,7 +3828,7 @@ async function callClaude(
   })
 
   const started = Date.now()
-  const call = await callCoachModel(coachModel, systemText, prompt, nodeConfig.llm_max_words ? nodeConfig.llm_max_words * 2 : 500, {
+  const call = await callCoachModel(coachModel, systemText, prompt, {
     uploadId: upload?.id, nodeId: nodeConfig.id, nodeName: nodeConfig.name,
   })
   const latencyMs = Date.now() - started
@@ -4467,7 +4471,7 @@ async function generateCheckedFeedback(
   record.first_response = first.feedback
   record.retried = true
   const note = `\n\nYOUR PREVIOUS DRAFT WAS REJECTED for: ${firstCheck.violations.join('; ')}. ` +
-    `Rewrite it from scratch under ${150} words, following every evidence rule, with none of those problems.`
+    `Rewrite it from scratch in ${TARGET_FEEDBACK_WORDS.min}–${TARGET_FEEDBACK_WORDS.max} words (never above ${MAX_FEEDBACK_WORDS}), following every evidence rule, with none of those problems.`
   const second = await callClaude(nodeConfig, scoreResult, metricResults, errorResults, upload, context, note, coachModel)
   const secondCheck = checkFeedback(second.feedback, solo)
   record.retry_violations = secondCheck.violations

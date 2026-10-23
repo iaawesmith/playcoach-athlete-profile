@@ -1,3 +1,5 @@
+import { MAX_COACH_OUTPUT_TOKENS } from "../../../../supabase/functions/analyze-athlete-video/coachRequest";
+import { MAX_FEEDBACK_WORDS, TARGET_FEEDBACK_WORDS } from "../../../../supabase/functions/analyze-athlete-video/prompt";
 import type { TrainingNode, MechanicsSection, KeyMetric } from "../types";
 import { measurementDescription, measurementFrames } from "../../../../supabase/functions/analyze-athlete-video/measurementWindow";
 import { parseCameraSettings } from "../components/CameraEditor";
@@ -178,14 +180,13 @@ function generateMetrics(node: TrainingNode): string {
 }
 
 function generateScoring(node: TrainingNode): string {
-  const bands = node.score_bands ?? { elite: "Elite", varsity: "Varsity Ready", developing: "Developing", needs_work: "Needs Work" };
   const renorm = node.scoring_renormalize_on_skip ?? true;
   const catchWeight = node.key_metrics.filter(m => m.requires_catch).reduce((s, m) => s + m.weight, 0);
   let renormLine = `Renormalize on Skip: ${renorm ? "Yes" : "No"}`;
   if (!renorm) {
     renormLine += `\nMax score when catch excluded: ${100 - catchWeight}%`;
   }
-  return `## Scoring\n\nScoring Formula Description:\n${node.scoring_rules?.trim() || "Not configured"}\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMin Metrics Threshold: ${node.min_metrics_threshold ?? 50}%\n${renormLine}\n\nScore Bands:\n  90-100: ${bands.elite}\n  75-89: ${bands.varsity}\n  60-74: ${bands.developing}\n  Below 60: ${bands.needs_work}`;
+  return `## Scoring\n\nLow Confidence Handling: ${node.confidence_handling ?? "skip"}\nMax skipped metrics %: ${node.min_metrics_threshold ?? 50}%\n${renormLine}`;
 }
 
 function generateErrors(node: TrainingNode): string {
@@ -274,7 +275,7 @@ function generatePrompt(node: TrainingNode): string {
   const recommended = ["mastery_score", "metric_results", "phase_scores", "confidence_flags", "detected_errors", "athlete_name", "node_name", "athlete_level", "focus_area", "skipped_metrics"];
   const missing = recommended.filter(v => !vars.includes(v));
 
-  let out = `## LLM Prompt Configuration\n\nMax Feedback Length: ${node.llm_max_words ?? 150} words\n\nSystem Instructions:\n${node.llm_system_instructions?.trim() || "Not configured"}\n\nPrompt Template:\n${template.trim() || "Not configured"}\n\nVariables Detected in Template:\n${vars.length > 0 ? vars.map(v => `{{${v}}}`).join(", ") : "None detected — WARNING: no template variables found, Claude will generate generic feedback without real metric data"}\n\nRecommended Variables Not Present:\n${missing.length > 0 ? missing.map(v => `{{${v}}}`).join(", ") : "None — all key variables present"}`;
+  let out = `## LLM Prompt Configuration\n\nOutput Token Cap (fixed): ${MAX_COACH_OUTPUT_TOKENS}\nFeedback Word Budget: ${TARGET_FEEDBACK_WORDS.min}–${TARGET_FEEDBACK_WORDS.max} words; rejects above ${MAX_FEEDBACK_WORDS}\n\nSystem Instructions:\n${node.llm_system_instructions?.trim() || "Not configured"}\n\nPrompt Template:\n${template.trim() || "Not configured"}\n\nVariables Detected in Template:\n${vars.length > 0 ? vars.map(v => `{{${v}}}`).join(", ") : "None detected — WARNING: no template variables found, Claude will generate generic feedback without real metric data"}\n\nRecommended Variables Not Present:\n${missing.length > 0 ? missing.map(v => `{{${v}}}`).join(", ") : "None — all key variables present"}`;
   return out;
 }
 

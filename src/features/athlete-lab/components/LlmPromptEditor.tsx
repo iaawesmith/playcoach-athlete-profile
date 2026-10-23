@@ -7,7 +7,6 @@ const LABEL_CLASS = "text-on-surface-variant text-[10px] font-medium uppercase t
 const TEMPLATE_VARIABLES = [
   { var: "{{mastery_score}}", desc: "Overall Mastery Score 0-100. Use to open feedback: 'Your score was {{mastery_score}}/100'" },
   { var: "{{phase_scores}}", desc: "Score per phase breakdown. e.g. Release: 82, Break: 71, Catch Window: 90" },
-  { var: "{{scoring_rules}}", desc: "Free-text scoring rules from the Scoring tab. Tells Claude how the aggregate score is computed so it can explain it accurately." },
   { var: "{{node_overview}}", desc: "The Overview field from the Basics tab. One-paragraph summary of what this skill is and why it matters." },
   { var: "{{node_name}}", desc: "The skill being analyzed. e.g. 'Slant Route'" },
   { var: "{{metric_results}}", desc: "Each metric: name, measured value, elite target, deviation, and score. e.g. Break Angle: 41° (target 45°, score 78/100)" },
@@ -19,13 +18,6 @@ const TEMPLATE_VARIABLES = [
   { var: "{{focus_area}}", desc: "Optional focus area submitted by the athlete before filming. e.g. 'working on my break angle' or 'trying to improve my release'. Reference directly if provided. Empty string if not provided — do not reference if empty." },
   { var: "{{skipped_metrics}}", desc: "Metrics excluded from this analysis because athlete reported no catch was made. e.g. 'Catch Efficiency and YAC Burst were not evaluated on this rep.' Include a brief acknowledgment if this variable is not empty." },
 ];
-
-function getWordGuidance(words: number): { text: string; color: string } {
-  if (words <= 100) return { text: "Brief — 3-4 sentences. Good for quick reps and younger athletes.", color: "text-primary-container" };
-  if (words <= 200) return { text: "Balanced — one paragraph. Recommended default.", color: "text-primary-container" };
-  if (words <= 350) return { text: "Detailed — full breakdown per phase. Good for training sessions.", color: "text-amber-400" };
-  return { text: "Comprehensive — full report. Use sparingly. May overwhelm athletes.", color: "text-red-400" };
-}
 
 function SectionDivider({ label }: { label: string }) {
   return (
@@ -39,15 +31,12 @@ function SectionDivider({ label }: { label: string }) {
 interface LlmPromptEditorProps {
   promptTemplate: string;
   onPromptChange: (v: string) => void;
-  maxWords: number;
-  onMaxWordsChange: (v: number) => void;
   systemInstructions: string;
   onSystemInstructionsChange: (v: string) => void;
 }
 
 export function LlmPromptEditor({
   promptTemplate, onPromptChange,
-  maxWords, onMaxWordsChange,
   systemInstructions, onSystemInstructionsChange,
 }: LlmPromptEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -79,7 +68,6 @@ export function LlmPromptEditor({
   const knownVarNames = new Set(TEMPLATE_VARIABLES.map(t => t.var.replace(/[{}]/g, "")));
   const usedVarMatches = Array.from(promptTemplate.matchAll(/\{\{([a-z_]+)\}\}/g));
   const unknownVars = Array.from(new Set(usedVarMatches.map(m => m[1]).filter(v => !knownVarNames.has(v))));
-  const wordGuidance = getWordGuidance(maxWords);
 
   return (
     <div className="space-y-6">
@@ -147,33 +135,6 @@ export function LlmPromptEditor({
             </p>
           </div>
         )}
-      </div>
-
-      {/* ── SECTION 2: COACHING SETTINGS ── */}
-      <SectionDivider label="Coaching Settings" />
-
-      <div className="p-5 rounded-xl border border-outline-variant/20 space-y-5 bg-[#1A2029]">
-        {/* Max Words */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <label className={LABEL_CLASS}>Max Feedback Length</label>
-            <SectionTooltip tip="Word count target passed to Claude. This is a guideline not a hard cap — Claude may go slightly over on complex analyses." />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-on-surface-variant text-xs">Target feedback length:</span>
-            <input
-              type="number"
-              min="50"
-              max="500"
-              step="10"
-              className={`${INPUT_CLASS} !w-24 text-center`}
-              value={maxWords}
-              onChange={(e) => onMaxWordsChange(Math.max(50, Math.min(500, parseInt(e.target.value, 10) || 150)))}
-            />
-            <span className="text-on-surface-variant text-xs">words</span>
-          </div>
-          <p className={`text-[10px] mt-1.5 ${wordGuidance.color}`}>{wordGuidance.text}</p>
-        </div>
       </div>
 
       {/* ── SECTION 3: SYSTEM INSTRUCTIONS ── */}
