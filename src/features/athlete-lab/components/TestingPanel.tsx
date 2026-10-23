@@ -22,7 +22,7 @@ import { GroundTruthComparison } from "./GroundTruthComparison";
 import { CalibrationAuditPanel } from "./CalibrationAuditPanel";
 import { useCalibrationLibraryStore } from "@/store/calibrationLibraryStore";
 import { buildLibraryRunTag, listCalibrationClips, type CalibrationClip } from "@/services/calibrationLibrary";
-import { libraryClipValues, libraryContextDifferences, libraryAnalysisContext, LIBRARY_CONTEXT_LABELS, type LibraryContextValues } from "@/services/libraryRunContext";
+import { ANALYSIS_FRAME_CAP, ANALYSIS_FRAME_CAP_SECONDS, libraryClipValues, libraryContextDifferences, libraryAnalysisContext, LIBRARY_CONTEXT_LABELS, type LibraryContextValues } from "@/services/libraryRunContext";
 import { LibraryRunContextPanel } from "./LibraryRunContextPanel";
 import { cn } from "@/lib/utils";
 import { roundScore } from "../utils/pipelineResults";
@@ -499,8 +499,8 @@ export function TestingPanel({ node }: TestingPanelProps) {
         if (!overrideLibrary && differences.length) {
           throw new Error(`Library context differs: ${differences.map((entry) => LIBRARY_CONTEXT_LABELS[entry.field]).join(", ")}. Reload the clip or enable Override for this run.`);
         }
-        if (values.end_seconds === null || values.end_seconds <= 0 || values.end_seconds > 600) {
-          throw new Error("Library run needs a valid clip end between 0 and 3 seconds. Edit the clip if its duration is missing.");
+        if (values.end_seconds === null || values.end_seconds <= 0 || !Number.isFinite(values.end_seconds)) {
+          throw new Error("Library run needs a valid clip end above 0 seconds. Edit the clip if its duration is missing.");
         }
         outgoingContext = {
           ...libraryAnalysisContext(values), ...buildLibraryRunTag(freshClip),
