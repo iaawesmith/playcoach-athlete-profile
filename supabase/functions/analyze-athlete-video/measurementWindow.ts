@@ -8,11 +8,11 @@ export type MeasurementWindow = { frames: number | null; description: string }
 export const MEASUREMENT_WINDOWS: Record<string, MeasurementWindow> = {
   angle: { frames: 5, description: "Phase midpoint ±2 frames" },
   distance: { frames: 5, description: "Phase midpoint ±2 frames (catch arrival ±2 for catch metrics)" },
-  velocity: { frames: 3, description: "Net displacement over the phase window (needs at least 3 frames between first and last valid point)" },
+  velocity: { frames: 3, description: "Net displacement over the phase window; minimum 3 elapsed frames between first and last valid point" },
   acceleration: { frames: 5, description: "Velocity change across the phase, split at 2 frames (needs at least 5 frames)" },
   frame_delta: { frames: 10, description: "First 10 frames of the phase" },
   distance_variance: { frames: 10, description: "First 10 frames of the phase (needs at least 5)" },
-  speed_retention: { frames: 5, description: "5-frame average before the next phase ÷ peak 5-frame average in the phase" },
+  speed_retention: { frames: 5, description: "5-frame average before the next phase ÷ peak 5-frame average in this phase before the next phase starts" },
 }
 
 /** Frame count the calculation uses; null for unknown types. */

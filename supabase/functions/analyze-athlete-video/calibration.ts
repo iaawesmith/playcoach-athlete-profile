@@ -253,3 +253,11 @@ export function parseResolutionHeight(resolution: unknown): number | null {
 }
 
 export const STATIC_ASSUMED_HEIGHT_PX = 1080
+
+/** Saved Reference scale is a 1080p baseline; unknown resolution preserves it. */
+export function scaleStaticPixelsPerYard(ppy: number | null, resolutionHeight: number | null): number | null {
+  if (ppy === null || !Number.isFinite(ppy) || ppy <= 0) return null
+  return resolutionHeight !== null && Number.isFinite(resolutionHeight) && resolutionHeight > 0
+    ? ppy * resolutionHeight / STATIC_ASSUMED_HEIGHT_PX
+    : ppy
+}

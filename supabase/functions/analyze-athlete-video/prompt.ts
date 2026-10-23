@@ -1,7 +1,7 @@
 // Pure prompt-building helpers for coaching feedback. No Deno/Supabase imports
 // so they can be unit-tested from src/test.
 
-import { describeAgainstTarget, normalizeTargetDirection } from './scoring.ts'
+import { describeAgainstTarget, normalizeTargetDirection, formatMetricValue, metricValueContext } from './scoring.ts'
 
 export type PeopleScenario = 'solo' | 'with_defender' | 'multiple'
 
@@ -35,17 +35,6 @@ type MetricResultLike = {
   keypoint_mapping?: { phase_id?: string } | null
 }
 
-function round(value: unknown, digits = 2): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return String(value ?? '')
-  return String(Number(value.toFixed(digits)))
-}
-
-function unitText(unit: string | null | undefined): string {
-  if (!unit) return ''
-  if (unit === 'degrees') return '°'
-  return ` ${unit}`
-}
-
 /** One line per scored metric, with phase, target, score and what the metric measures. */
 export function formatMetricResults(
   metrics: MetricResultLike[],
@@ -67,16 +56,16 @@ export function formatMetricResults(
   return metrics
     .filter((m) => m.status === 'scored')
     .map((m) => {
-      const u = unitText(m.unit)
       const phase = m.keypoint_mapping?.phase_id ? phaseNames.get(m.keypoint_mapping.phase_id) : undefined
       const head = phase ? `${m.name} (${phase} phase)` : m.name
       const score = typeof m.score === 'number' ? Math.round(m.score) : m.score
       const dir = normalizeTargetDirection(m.target_direction ?? directions.get(m.name.trim().toLowerCase()))
       const rel = relation(m, dir)
-      const targetText = dir === 'at_most' ? `limit ${round(m.elite_target)}${u} (at or under is perfect)`
-        : dir === 'at_least' ? `target ${round(m.elite_target)}${u} (at or over is perfect)`
-        : `target ${round(m.elite_target)}${u}`
-      let line = `- ${head}: ${round(m.value)}${u}, ${targetText}${rel ? `, ${rel}` : ''}, score ${score}/100.`
+      const target = formatMetricValue(m.elite_target, m.unit)
+      const targetText = dir === 'at_most' ? `limit ${target} (at or under is perfect)`
+        : dir === 'at_least' ? `target ${target} (at or over is perfect)`
+        : `target ${target}`
+      let line = `- ${head}: ${formatMetricValue(m.value, m.unit)}${metricValueContext(m.name, m.unit)}, ${targetText}${rel ? `, ${rel}` : ''}, score ${score}/100.`
       const desc = firstSentence(descriptions.get(m.name.trim().toLowerCase()))
       if (desc) line += ` Measures: ${desc}`
       return line
@@ -223,18 +212,17 @@ export function buildFallbackFeedback(
 ): string {
   const lines: string[] = []
   for (const m of metrics.filter((x) => x.status === 'scored')) {
-    const u = unitText(m.unit)
     const dir = normalizeTargetDirection(m.target_direction)
     const rel = relation(m, dir) || 'not compared'
     lines.push(dir === 'at_most'
-      ? `Your ${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} limit (${rel}).`
-      : `Your ${m.name}: ${round(m.value)}${u} against a ${round(m.elite_target)}${u} target (${rel}).`)
+      ? `Your ${m.name}: ${formatMetricValue(m.value, m.unit)}${metricValueContext(m.name, m.unit)} against a ${formatMetricValue(m.elite_target, m.unit)} limit (${rel}).`
+      : `Your ${m.name}: ${formatMetricValue(m.value, m.unit)}${metricValueContext(m.name, m.unit)} against a ${formatMetricValue(m.elite_target, m.unit)} target (${rel}).`)
   }
   const err = errors[0]
   if (err) {
     lines.push(`Your flagged issue: ${err.name}.`)
     const metric = err.metric ? metrics.find((m) => m.name === err.metric) : undefined
-    const focus = metric ? `${metric.name.toLowerCase()} toward ${round(metric.elite_target)}${unitText(metric.unit)}` : 'this area'
+    const focus = metric ? `${metric.name.toLowerCase()} toward ${formatMetricValue(metric.elite_target, metric.unit)}` : 'this area'
     const releaseFocused = metric?.name.trim().toLowerCase() === 'release speed' || /slow release/i.test(err.name)
     lines.push(releaseFocused
       ? 'For your next rep: five 5-yard starts from your stance at full effort, pushing the ground back hard on the first two steps.'

@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Post-cleanup: three Slant admin notes corrected; percentage ratio prompt/log, actual velocity span (15 frames; minimum 3 elapsed) verified on stored run; static Reference scale retained/reachable and resolution-scaled (80→160 at 4K), analyzer deployed. fba7237f… matches/94, 176 tests/build OK; live read-only replay 134 words passes after retry. Stopped.
+
 - [x] Correct Analysis Log reporting only: node measurement windows, separate smoothing/frames, active-used keypoint warnings, service identity/timings, optional variable display; real result 3e01efe2 verified in browser (3/15/10, smoothing 3, zero warnings, PASS); 11 reporting/export tests pass.
 
 - [x] Audit and lock library run context, explicit changed-field overrides, fresh pre-submit comparison, clip-duration cap, edit link and result context; no analyzer or node changes. Verified UI, saved height override, mismatch blocking, Clear, and 2.27s preflight rejection; 32 tests pass.

@@ -20,6 +20,10 @@ describe('target direction scoring', () => {
 })
 
 describe('target direction wording', () => {
+  it('ratio gaps use percentage points without changing scoring', () => {
+    expect(describeAgainstTarget(0.8, 0.9, 0.05, 'at_least', 'ratio')).toBe('short of the target by 10 percentage points')
+    expect(scoreMetric(0.8, 0.9, 0.05, 'at_least')).toBeCloseTo(50, 6)
+  })
   it('at_most good side is within the limit', () => {
     expect(describeAgainstTarget(0.01, 0.05, 0.02, 'at_most', 'yd')).toBe('within the limit')
   })

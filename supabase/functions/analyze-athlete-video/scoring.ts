@@ -34,6 +34,17 @@ export function unitSuffix(unit: string | null | undefined): string {
   return ` ${unit}`
 }
 
+/** Presentation only: ratio storage and scoring remain on the original 0–1 scale. */
+export function formatMetricValue(value: unknown, unit?: string | null): string {
+  const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN
+  if (!Number.isFinite(numeric)) return String(value ?? '')
+  return unit === 'ratio' ? `${fmt(numeric * 100)}%` : `${fmt(numeric)}${unitSuffix(unit)}`
+}
+
+export function metricValueContext(name: string, unit?: string | null): string {
+  return unit === 'ratio' && name.trim().toLowerCase() === 'speed into the break' ? ' of top stem speed' : ''
+}
+
 /**
  * Describes a value against its target by direction. Never says just "below".
  * at_most good side: "within the limit"; at_least good side: "met the target";
@@ -48,12 +59,13 @@ export function describeAgainstTarget(
   unit?: string | null,
 ): string {
   const dir = normalizeTargetDirection(direction)
-  const u = unitSuffix(unit)
+  const u = unit === 'ratio' ? ' percentage points' : unitSuffix(unit)
   const gap = Math.abs(value - target)
-  if (dir === 'at_most') return value <= target ? 'within the limit' : `over the target by ${fmt(gap)}${u}`
-  if (dir === 'at_least') return value >= target ? 'met the target' : `short of the target by ${fmt(gap)}${u}`
+  const displayedGap = unit === 'ratio' ? gap * 100 : gap
+  if (dir === 'at_most') return value <= target ? 'within the limit' : `over the target by ${fmt(displayedGap)}${u}`
+  if (dir === 'at_least') return value >= target ? 'met the target' : `short of the target by ${fmt(displayedGap)}${u}`
   const tol = typeof tolerance === 'number' && Number.isFinite(tolerance) && tolerance > 0 ? tolerance : 0
   if (gap <= tol * 0.25 || gap === 0) return 'on target'
-  if (gap <= tol) return `within range, ${fmt(gap)}${u} from target`
-  return `off the target by ${fmt(gap)}${u}`
+  if (gap <= tol) return `within range, ${fmt(displayedGap)}${u} from target`
+  return `off the target by ${fmt(displayedGap)}${u}`
 }

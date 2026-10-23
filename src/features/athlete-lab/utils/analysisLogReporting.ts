@@ -1,5 +1,6 @@
 import { measurementDescription, measurementFrames } from "../../../../supabase/functions/analyze-athlete-video/measurementWindow";
 import type { AnalysisLogData, KeyMetric, PipelineMetricResult } from "../types";
+import { describeAgainstTarget, formatMetricValue, metricValueContext } from "../../../../supabase/functions/analyze-athlete-video/scoring";
 
 export const isOptionalLogVariable = (name: string): boolean =>
   ["focus_area", "skipped_metrics", "confidence_flags"].includes(name.replace(/^\{\{|\}\}$/g, "").trim());
@@ -36,12 +37,31 @@ export function buildAnalysisLogReporting(log: AnalysisLogData, nodeMetrics: Key
     const configured = nodeMetrics.find((entry) => entry.name === metric.name);
     const detail = results.find((entry) => entry.name === metric.name)?.detail;
     const frames = detail?.framesUsed ?? detail?.actualWindow;
+    const calculationType = configured?.keypoint_mapping?.calculation_type ?? metric.calculation_type;
+    const first = detail?.firstFrameIndex;
+    const last = detail?.lastFrameIndex;
+    const frameCount = calculationType === "velocity" && typeof first === "number" && typeof last === "number" && first >= 0 && last >= first
+      ? last - first + 1
+      : Array.isArray(frames) ? frames.length : typeof frames === "number" ? frames : metric.frames_evaluated;
+    const result = results.find((entry) => entry.name === metric.name);
+    const value = result?.value ?? metric.calculated_result;
+    const target = result?.elite_target ?? metric.elite_target;
     return {
       ...metric,
       // Fixed per calculation type: the same constant the analyzer used.
-      temporal_window: measurementFrames(configured?.keypoint_mapping?.calculation_type ?? metric.calculation_type) ?? metric.temporal_window,
-      measurement_window: measurementDescription(configured?.keypoint_mapping?.calculation_type ?? metric.calculation_type),
-      frames_used: Array.isArray(frames) ? frames.length : typeof frames === "number" ? frames : metric.frames_evaluated,
+      temporal_window: calculationType === "velocity" ? 0 : measurementFrames(calculationType) ?? metric.temporal_window,
+      measurement_window: calculationType === "velocity"
+        ? `Phase window, ${frameCount ?? "not recorded"} frames; minimum 3 elapsed frames`
+        : measurementDescription(calculationType),
+      frames_used: frameCount,
+      ...(metric.unit === "ratio" ? {
+        calculated_result: `${formatMetricValue(value, "ratio")}${metricValueContext(metric.name, "ratio")}`,
+        elite_target: formatMetricValue(target, "ratio"),
+        deviation: Number.isFinite(Number(value)) && Number.isFinite(Number(target)) ? `${Number((Math.abs(Number(value) - Number(target)) * 100).toFixed(2))} percentage points` : metric.deviation,
+        against_target: Number.isFinite(Number(value)) && Number.isFinite(Number(target))
+          ? describeAgainstTarget(Number(value), Number(target), configured?.tolerance, result?.target_direction ?? configured?.target_direction, "ratio") : metric.against_target,
+        unit: "",
+      } : {}),
     };
   });
   return { metrics, warnings, informational, activeIndices, warningIndices };
