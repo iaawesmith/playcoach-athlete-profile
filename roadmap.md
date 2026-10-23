@@ -96,7 +96,7 @@
 - [x] Establish c6fa0895 semantic baseline (4-decimal values/scores/statuses/aggregate, sorted keys, no diagnostics) and document in AGENTS.md: fba7237f605f41960d27375977057819623d820906c28a57c148cce25fc72b21; pre-Batch-2 and current both match, aggregate 94.
 - [x] Batch 3: hide Depends On and Body Groups, unrestricted landmark picker, single Side adapter, admin notes preserved; baseline unchanged on identical stored input and fresh read, aggregate 94; 160 tests pass; actual Slant draft Side interactions checked and cancelled without node writes. Stopped after Batch 3; later batches await approval.
 - [x] Batch 4 Phases: all five current Slant cues/descriptions archived and read-back verified before hiding; unused phase-context and migration presentation removed; structural controls/buffers and stored legacy fields preserved. Identical-input and fresh-read fba7237f… baseline PASS, aggregate 94; 160 tests pass, actual Slant draft verified without node save. Stopped after Batch 4.
-- [ ] Batch 5 Errors (remove severity + 3 dead Slant rules, rename, Wheel condition)
+- [ ] Batch 5 Errors (approved): hide severity; remove 3 dead Slant WR rules; rename plant error to Sinking too deep in the plant; compare c6fa0895 detected errors/evaluations before and after plus fba7237f… fingerprint; propose Wheel empty-condition fix without applying it; stop.
 - [ ] Batch 6 Reference collapse
 - [ ] Batch 7 Scoring and fixes
 - [ ] Batch 8 rtmlib cleanup + knowledge base rewrite (+ fresh run, overlay)
