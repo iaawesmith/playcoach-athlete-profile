@@ -1053,8 +1053,7 @@ Deno.serve(async (req) => {
     // STEP 3: Select analysis context settings
     await setUploadProgress(upload.id, 'Preparing route analysis context...')
     const context = upload.analysis_context || {}
-    const detFrequencySelection = resolveDetectionFrequency(nodeConfig, context)
-    const detFrequency = detFrequencySelection.value
+    const detFrequency = 1 // Service detects every decoded frame; retained for diagnostics.
     const staticCalibration = selectCalibration(nodeConfig, context.camera_angle || upload.camera_angle)
     logInfo('analysis_context_selected', {
       uploadId,
@@ -1066,15 +1065,6 @@ Deno.serve(async (req) => {
       hasCalibration: Boolean(staticCalibration),
       pixelsPerYard: staticCalibration?.pixels_per_yard ?? null,
     })
-    logInfo('detection_frequency_selected', {
-      uploadId,
-      scenario: detFrequencySelection.scenario,
-      baseScenarioValue: detFrequencySelection.baseValue,
-      breakOverrideValue: detFrequencySelection.breakOverrideValue,
-      breakOverrideApplied: detFrequencySelection.breakOverrideApplied,
-      detFrequency,
-      message: `Detection frequency set to ${detFrequency} for this run (${detFrequencySelection.scenario})`,
-    })
 
     // STEP 4: Call Cloud Run rtmlib service with the uploaded video URL
     await setUploadProgress(upload.id, 'Loading model on server...')
@@ -1084,7 +1074,6 @@ Deno.serve(async (req) => {
       video_url: upload.video_url,
       start_seconds: upload.start_seconds,
       end_seconds: upload.end_seconds,
-      det_frequency: detFrequency,
     })
     const cloudRunMetadata = buildCloudRunMetadata(rtmlibResult)
     logData.rtmlib = {
@@ -1388,8 +1377,6 @@ async function fetchNodeConfig(nodeId: string) {
     .select(`
       id, name, position, status, node_version,
       clip_duration_min, clip_duration_max,
-      det_frequency_solo, det_frequency_defender, det_frequency_multiple,
-      segmentation_method,
       llm_prompt_template, llm_system_instructions,
       llm_max_words,
       scoring_rules, score_bands, scoring_renormalize_on_skip,
@@ -1400,7 +1387,6 @@ async function fetchNodeConfig(nodeId: string) {
       reference_calibrations,
       reference_fallback_behavior,
       common_errors,
-      form_checkpoints,
       coaching_provider, coaching_model
     `)
     .eq('id', nodeId)
@@ -1592,83 +1578,6 @@ function buildErrorDetectionLog(_errors: any[], _metricResults: any[], errorResu
   }))
 }
 
-
-function clampDetFrequency(value: unknown, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
-  return Math.max(1, Math.round(value))
-}
-
-function getScenarioDetFrequency(nodeConfig: any, scenario: 'solo' | 'with_defender' | 'multiple'): number {
-  // Phase 1c.2 Slice B1: resolver collapsed. Per-scenario columns are now
-  // authoritative (pre-step UPDATE persisted resolved values into them). The
-  // root `det_frequency` fallback is no longer consulted at runtime; the column
-  // is preserved in the DB until Slice E for backup symmetry only. The nested
-  // `detection_frequency` shape is retained as a defensive fallback for any
-  // legacy node config that pre-dates the per-scenario columns.
-  const nested = typeof nodeConfig?.detection_frequency === 'object' && nodeConfig?.detection_frequency !== null
-    ? nodeConfig.detection_frequency
-    : null
-
-  switch (scenario) {
-    case 'with_defender':
-      return clampDetFrequency(
-        nodeConfig?.det_frequency_defender ?? nested?.with_defender,
-        1,
-      )
-    case 'multiple':
-      return clampDetFrequency(
-        nodeConfig?.det_frequency_multiple ?? nested?.multiple,
-        1,
-      )
-    case 'solo':
-    default:
-      return clampDetFrequency(
-        nodeConfig?.det_frequency_solo ?? nested?.solo,
-        2,
-      )
-  }
-}
-
-function resolveBreakPhaseDetFrequency(phaseBreakdown: unknown): number | null {
-  if (!Array.isArray(phaseBreakdown)) return null
-
-  const breakPhase = phaseBreakdown.find((phase) => {
-    if (!phase || typeof phase !== 'object') return false
-    const rawName = (phase as JsonRecord).name
-    const name = typeof rawName === 'string' ? rawName.trim().toLowerCase() : ''
-    return name === 'break'
-  }) as JsonRecord | undefined
-
-  if (!breakPhase) return null
-
-  const overrideValue = clampDetFrequency(
-    breakPhase.det_frequency ?? breakPhase.detection_frequency,
-    Number.NaN,
-  )
-
-  return Number.isFinite(overrideValue) ? overrideValue : null
-}
-
-function resolveDetectionFrequency(nodeConfig: any, context: JsonRecord): {
-  scenario: 'solo' | 'with_defender' | 'multiple'
-  baseValue: number
-  breakOverrideValue: number | null
-  breakOverrideApplied: boolean
-  value: number
-} {
-  const scenario = normalizePeopleInVideo(context.people_in_video)
-  const baseValue = getScenarioDetFrequency(nodeConfig, scenario)
-  const breakOverrideValue = resolveBreakPhaseDetFrequency(nodeConfig?.phase_breakdown)
-  const value = breakOverrideValue !== null ? Math.min(baseValue, breakOverrideValue) : baseValue
-
-  return {
-    scenario,
-    baseValue,
-    breakOverrideValue,
-    breakOverrideApplied: breakOverrideValue !== null && value !== baseValue,
-    value,
-  }
-}
 
 function selectCalibration(nodeConfig: any, cameraAngle: string) {
   const calibrations = nodeConfig.reference_calibrations || []
@@ -3976,7 +3885,6 @@ async function callCloudRun(payload: {
   video_url: string
   start_seconds: number
   end_seconds: number
-  det_frequency: number
 }): Promise<CloudRunResponse> {
   const rtmlibBase =
     Deno.env.get('MEDIAPIPE_SERVICE_URL')?.trim() ||
@@ -3987,15 +3895,11 @@ async function callCloudRun(payload: {
     ? normalizedBase
     : `${normalizedBase}/analyze`
 
-  // Phase 1c.2 Slice B1 (R-08 contract): MediaPipe payload trimmed to 4 keys.
-  // `solution_class`, `performance_mode`, `tracking_enabled` were accepted-but-ignored
-  // by the service (Pydantic optional, extra='ignore'). Removed from edge first per
-  // R-08 mitigation ordering. Service-side schema cleanup tracked separately.
+  // Only the upload URL and clip window select frames; detection is always every frame.
   const requestPayload = {
     video_url: payload.video_url,
     start_seconds: payload.start_seconds,
     end_seconds: payload.end_seconds,
-    det_frequency: payload.det_frequency,
   }
 
   // Finding 5 (permanent observability for R-08): log the exact key set posted to

@@ -10,11 +10,6 @@ class AnalyzeRequest(BaseModel):
     video_url: str
     start_seconds: float = 0.0
     end_seconds: float
-    # Accepted-but-ignored in v1 (kept for request-shape parity with the Edge Function).
-    solution_class: str | None = None
-    performance_mode: str | None = "balanced"
-    det_frequency: int = Field(default=2, ge=1, le=10)
-    tracking_enabled: bool = True
 
 
 class CropRect(BaseModel):

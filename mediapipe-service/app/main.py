@@ -18,8 +18,8 @@ from .pose import (
     PoseEngine,
     recover_frames,
     reject_partial_detections,
-    run_with_skip,
 )
+from .frameLoop import run_every_frame
 from .schema import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -29,7 +29,6 @@ from .schema import (
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-SHORT_CLIP_FRAMES = 120
 log = logging.getLogger("mediapipe-service")
 
 MAX_WINDOW_SECONDS = 3.0
@@ -78,14 +77,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
             detail=f"clip window must be <= {MAX_WINDOW_SECONDS}s (got {window:.2f}s)",
         )
 
-    log.info(
-        "analyze start url=%s window=%.2fs det_frequency=%d perf_mode=%s tracking=%s",
-        req.video_url[:80],
-        window,
-        req.det_frequency,
-        req.performance_mode,
-        req.tracking_enabled,
-    )
+    log.info("analyze start window=%.2fs every_frame=true", window)
 
     progress: list[ProgressUpdate] = []
 
@@ -119,7 +111,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
                 message="Decoded video",
                 frame=total,
                 total_frames=total,
-                detection_every_n=req.det_frequency,
+                detection_every_n=1,
             )
         )
 
@@ -127,8 +119,6 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         engine = PoseEngine()
         try:
 
-            # Short clips: detect every frame (no forward-fill gaps).
-            det_frequency = 1 if total <= SHORT_CLIP_FRAMES else req.det_frequency
 
             # 1) Auto-zoom decision.
             autozoom_start = time.perf_counter()
@@ -142,14 +132,14 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
                     message=f"Auto-zoom: {'applied' if zoom.applied else 'skipped'}",
                     frame=total,
                     total_frames=total,
-                    detection_every_n=req.det_frequency,
+                    detection_every_n=1,
                 )
             )
 
             # 2) Pose loop on processed frames.
             pose_loop_start = time.perf_counter()
             pose_results = await asyncio.to_thread(
-                run_with_skip, engine, processed_frames, det_frequency, video.TARGET_FPS
+                run_every_frame, engine, processed_frames, video.TARGET_FPS
             )
             t_pose_loop = time.perf_counter() - pose_loop_start
 
@@ -158,7 +148,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
                     message="Detected pose",
                     frame=total,
                     total_frames=total,
-                    detection_every_n=req.det_frequency,
+                    detection_every_n=1,
                 )
             )
 
@@ -231,7 +221,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         frames_detected=sum(1 for pf in original_space if pf.detected),
         missed_frame_indices=[i for i, pf in enumerate(original_space) if not pf.detected],
         recovered_frame_indices=recovered_indices,
-        det_frequency_used=det_frequency,
+        det_frequency_used=1,
         person_detection_confidence=round(detected_frac, 3),
         safety_backoff_applied=zoom.safety_backoff,
         athlete_framing_message=(

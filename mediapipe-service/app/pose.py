@@ -181,35 +181,6 @@ def get_engine() -> PoseEngine:
     return _ENGINE
 
 
-def run_with_skip(
-    engine: PoseEngine,
-    frames: list[np.ndarray],
-    det_frequency: int,
-    fps: float,
-) -> list[PoseFrame]:
-    """Run pose detection every det_frequency-th frame; forward-fill in between.
-
-    Timestamps passed to MediaPipe are derived from frame index and fps and are
-    monotonically non-decreasing across detect calls (required by VIDEO mode).
-    """
-    if det_frequency < 1:
-        det_frequency = 1
-    if fps <= 0:
-        fps = 1.0
-
-    frame_interval_ms = max(1, int(round(1000 / fps)))
-    base = engine.reserve_timestamp_range(len(frames), fps)
-
-    results: list[PoseFrame] = []
-    last: PoseFrame = PoseFrame(detected=False)
-    for i, frame in enumerate(frames):
-        if i % det_frequency == 0:
-            timestamp_ms = base + i * frame_interval_ms
-            last = engine.detect(frame, timestamp_ms)
-        results.append(last)
-    return results
-
-
 RECOVERY_MIN_DETECTION_CONFIDENCE = 0.3
 
 

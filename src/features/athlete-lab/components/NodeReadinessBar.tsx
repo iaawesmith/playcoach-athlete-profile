@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import type { TrainingNode } from "../types";
 import { checkCameraCompleteness } from "./CameraEditor";
-import { checkCheckpointCompleteness, migrateCheckpoints } from "./CheckpointsEditor";
 import { SectionTooltip } from "./SectionTooltip";
 import { generateFullNodeMarkdown } from "../utils/nodeExport";
 
@@ -83,31 +82,22 @@ export function computeCategories(node: TrainingNode): ReadinessCategory[] {
   // readiness rollup with a placeholder pass so the weight stays accurate
   // until Phase 1 reintroduces pose-engine configuration.
   const tsChecks: ReadinessCheck[] = [
-    { label: "Pose engine selection deferred to Phase 1 (no admin gate)", pass: true, warning: true },
+    { label: "Pose service processes every decoded frame", pass: true, warning: true },
   ];
   categories.push({
     // Phase 1c.3-D: Training Status tab folded into Basics ("Pipeline Config" sub-section).
     // Category remains its own entry in the readiness rollup (20% weight unchanged) but
     // routes admin clicks to the Basics tab where the surviving det_frequency triplet lives.
     name: "Training Status", icon: "memory", weight: 20, checks: tsChecks, tab: "basics",
-    tooltip: "Pose-engine selection moved to Phase 1. No admin-side gating in Phase 1c. Detection frequency lives in Basics → Pipeline Config."
+    tooltip: "Pose-engine selection moved to Phase 1. No admin-side gating in Phase 1c. Detection settings are fixed by the pose service."
   });
 
   // 3. PHASES & STRUCTURE — 15%
   const phaseChecks: ReadinessCheck[] = [];
   phaseChecks.push({ label: `${node.phase_breakdown.length} phases defined (min 4)`, pass: node.phase_breakdown.length >= 4 });
-  const segMethod = node.segmentation_method ?? "proportional";
-  if (segMethod === "proportional" && node.phase_breakdown.length > 0) {
-    const phaseWeightSum = node.phase_breakdown.reduce((s, p) => s + (p.proportion_weight ?? 0), 0);
+  if (node.phase_breakdown.length > 0) {
+    const phaseWeightSum = node.phase_breakdown.reduce((sum, phase) => sum + (phase.proportion_weight ?? 0), 0);
     phaseChecks.push({ label: `Phase weights sum to ${phaseWeightSum}% (must be 100%)`, pass: phaseWeightSum === 100 });
-  } else {
-    phaseChecks.push({ label: "Phase weights sum to 100%", pass: true });
-  }
-  phaseChecks.push({ label: `Segmentation method: ${segMethod}`, pass: true });
-  // Checkpoint check if checkpoint-triggered
-  if (segMethod === "checkpoint") {
-    const cps = migrateCheckpoints(node.form_checkpoints);
-    phaseChecks.push({ label: "Checkpoints defined for checkpoint segmentation", pass: cps.length > 0 });
   }
   categories.push({
     name: "Phases & Structure", icon: "timeline", weight: 15, checks: phaseChecks, tab: "phases",
