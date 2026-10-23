@@ -75,9 +75,9 @@ export function HelpDrawer({ open, onClose, tabKey, onTabChange, knowledgeBase }
         </div>
       )}
       <main className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
-        {selected && <article className="mx-auto max-w-3xl">
+        {selected && <article className="mx-auto max-w-3xl min-w-0">
           <h3 className="mb-5 text-xl font-extrabold uppercase">{selected.sectionTitle}</h3>
-          <div className="space-y-4 text-sm leading-7 text-on-surface-variant [&_strong]:font-semibold [&_strong]:text-on-surface [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:block [&_table]:overflow-x-auto"
+          <div className="space-y-4 break-words text-sm leading-7 text-on-surface-variant [&_strong]:font-semibold [&_strong]:text-on-surface [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_table]:block [&_table]:overflow-x-auto"
             dangerouslySetInnerHTML={{ __html: selected.content }} />
         </article>}
       </main>
