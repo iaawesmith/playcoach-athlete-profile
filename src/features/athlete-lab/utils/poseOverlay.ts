@@ -272,6 +272,8 @@ export function parseOverlayData(resultRow: Record<string, unknown> | null, node
     const r = rec(e);
     return { phase: String(r.phase ?? ""), start: num(r.start) ?? 0, end: num(r.end) ?? 0 };
   });
+  // Phases with no detected event are logged as start/end -1; they are never drawn.
+  const drawnPhaseWindows = phaseWindows.filter((w) => w.start >= 0 && w.end >= w.start);
 
   const autoZoom = rec(service.auto_zoom);
   const crop = rec(autoZoom.crop_rect ?? resultData.auto_zoom_crop_rect);
