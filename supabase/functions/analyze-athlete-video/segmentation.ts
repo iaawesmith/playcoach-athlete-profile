@@ -113,9 +113,9 @@ function accelerationAnchor(moves: Array<number | null>, n: number, units: 'yard
   const first = v.findIndex((x) => x !== null)
   if (first < 0 || first > maxFrame) return null
   const base = { applied: true, stance_jitter_yd: null, units } as const
-  // First tracked frame index = the move into it, so the athlete is visible from first - 1.
+  // v[first] averages the moves into frames first-1..first+1, so the athlete is first tracked at first - 2.
   if ((v[first] as number) >= SNAP_IN_MOTION_YD_PER_FRAME) {
-    return { ...base, frame: Math.max(0, first - 1), reason: 'in_motion_at_start', threshold_yd: SNAP_IN_MOTION_YD_PER_FRAME }
+    return { ...base, frame: Math.max(0, first - 2), reason: 'in_motion_at_start', threshold_yd: SNAP_IN_MOTION_YD_PER_FRAME }
   }
   for (let i = first; i + RELEASE_RUN_LENGTH < v.length && i <= maxFrame; i++) {
     let ok = true
