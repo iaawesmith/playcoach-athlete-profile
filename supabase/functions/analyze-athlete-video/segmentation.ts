@@ -337,9 +337,11 @@ export function detectBreak(
 ): RouteEvent {
   const n = hips.length
   const K = BREAK_SPAN_FRAMES
-  const calibrated = Array.isArray(ppy) && frame && frame.width > 0 ? ppy : null
-  // A flat scale series (static fallback) carries no depth: use the athlete's own body size instead.
-  const useBody = !!calibrated && isFlatSeries(calibrated) && !!bodyScale && bodyScale.some((v) => typeof v === 'number' && v > 0)
+  const hasFrame = !!frame && frame.width > 0
+  const calibrated = Array.isArray(ppy) && hasFrame ? ppy : null
+  // A single scale or a flat series (static fallback) carries no depth: use the athlete's own body size instead.
+  const flat = calibrated ? isFlatSeries(calibrated) : typeof ppy === 'number' && ppy > 0
+  const useBody = hasFrame && flat && !!bodyScale && bodyScale.some((v) => typeof v === 'number' && v > 0)
   const perFrame = useBody ? bodyScale : calibrated
   const focal = frame ? BREAK_ASSUMED_FOCAL_FRACTION * Math.max(frame.width, frame.height) : 0
   const s = smoothHips(hips)
