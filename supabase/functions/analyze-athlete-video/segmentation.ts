@@ -294,10 +294,14 @@ export function detectBreak(
   searchFrom: number,
   frame: { width: number; height: number } | null = null,
   searchTo: number | null = null,
+  bodyScale: Array<number | null> | null = null,
 ): RouteEvent {
   const n = hips.length
   const K = BREAK_SPAN_FRAMES
-  const perFrame = Array.isArray(ppy) && frame && frame.width > 0 ? ppy : null
+  const calibrated = Array.isArray(ppy) && frame && frame.width > 0 ? ppy : null
+  // A flat scale series (static fallback) carries no depth: use the athlete's own body size instead.
+  const useBody = !!calibrated && isFlatSeries(calibrated) && !!bodyScale && bodyScale.some((v) => typeof v === 'number' && v > 0)
+  const perFrame = useBody ? bodyScale : calibrated
   const focal = frame ? BREAK_ASSUMED_FOCAL_FRACTION * Math.max(frame.width, frame.height) : 0
   const s = smoothHips(hips)
   const g: Array<Pt | null> = s.map((p, i) => {
@@ -320,33 +324,55 @@ export function detectBreak(
     return d
   })
   type Run = { start: number; end: number; peak: number }
-  const runs: Run[] = []
-  for (let i = 0; i < n; i++) {
-    if ((turn[i] ?? 0) < BREAK_MIN_TURN_DEG) continue
-    let end = i
-    while (end + 1 < n && (turn[end + 1] ?? 0) >= BREAK_MIN_TURN_DEG) end++
-    if (end - i + 1 >= BREAK_RUN_FRAMES) {
-      let peak = i
-      for (let f = i; f <= end; f++) if ((turn[f] ?? 0) > (turn[peak] ?? 0)) peak = f
-      runs.push({ start: i, end, peak })
+  const findRuns = (minTurn: number): Run[] => {
+    const runs: Run[] = []
+    for (let i = 0; i < n; i++) {
+      if ((turn[i] ?? 0) < minTurn) continue
+      let end = i
+      while (end + 1 < n && (turn[end + 1] ?? 0) >= minTurn) end++
+      if (end - i + 1 >= BREAK_RUN_FRAMES) {
+        let peak = i
+        for (let f = i; f <= end; f++) if ((turn[f] ?? 0) > (turn[peak] ?? 0)) peak = f
+        runs.push({ start: i, end, peak })
+      }
+      i = end
     }
-    i = end
+    return runs
   }
+  const pick = (runs: Run[]) => runs.reduce<Run | null>((b, r) => (!b || (turn[r.peak] ?? 0) > (turn[b.peak] ?? 0) ? r : b), null)
   const r2 = (v: number) => Math.round(v * 100) / 100
-  const candidates = runs.map((r) => ({ start: r.start, end: r.end, peak: r.peak, peak_turn_deg: r2(turn[r.peak] ?? 0) }))
-  const base = { search_from: searchFrom, search_to: last, space: perFrame ? 'ground_plane_yd' : 'image_px', span_frames: K, min_turn_deg: BREAK_MIN_TURN_DEG, min_peak_deg: BREAK_MIN_PEAK_DEG, candidates }
-  const best = runs.reduce<Run | null>((b, r) => (!b || (turn[r.peak] ?? 0) > (turn[b.peak] ?? 0) ? r : b), null)
-  if (!best) return { detected: false, reason: 'no_sustained_direction_change', detail: base }
+  const describe = (runs: Run[]) => runs.map((r) => ({ start: r.start, end: r.end, peak: r.peak, peak_turn_deg: r2(turn[r.peak] ?? 0) }))
+  const space = useBody ? 'ground_plane_body_size' : perFrame ? 'ground_plane_yd' : 'image_px'
+  const fixedRuns = findRuns(BREAK_MIN_TURN_DEG)
+  const base = { search_from: searchFrom, search_to: last, space, span_frames: K, min_turn_deg: BREAK_MIN_TURN_DEG, min_peak_deg: BREAK_MIN_PEAK_DEG, candidates: describe(fixedRuns) }
+  const fixedBest = pick(fixedRuns)
+  let best: Run | null = fixedBest && (turn[fixedBest.peak] ?? 0) >= BREAK_MIN_PEAK_DEG ? fixedBest : null
+  let method = 'ground_plane_direction_change'
+  let detail: Record<string, unknown> = base
+  if (!best) {
+    // Clip-relative: the sharpest sustained turn must stand out from this clip's own straight-running turn noise.
+    const vals = turn.filter((t): t is number => t !== null).sort((a, b) => a - b)
+    const noise = vals.length ? vals[Math.floor(vals.length / 2)] : 0
+    const relMinTurn = Math.max(BREAK_REL_MIN_TURN_DEG, BREAK_REL_RUN_MULTIPLE * noise)
+    const relMinPeak = Math.max(BREAK_REL_MIN_PEAK_DEG, BREAK_REL_PEAK_MULTIPLE * noise)
+    const relRuns = findRuns(relMinTurn)
+    const relBest = pick(relRuns)
+    detail = { ...base, relative: { turn_noise_deg: r2(noise), min_turn_deg: r2(relMinTurn), min_peak_deg: r2(relMinPeak), candidates: describe(relRuns) } }
+    if (!relBest) return { detected: false, reason: fixedBest ? 'direction_change_below_peak' : 'no_sustained_direction_change', detail }
+    if ((turn[relBest.peak] ?? 0) < relMinPeak) return { detected: false, reason: 'direction_change_below_peak', detail }
+    best = relBest
+    method = 'clip_relative_direction_change'
+  }
   const peakDeg = turn[best.peak] ?? 0
-  if (peakDeg < BREAK_MIN_PEAK_DEG) return { detected: false, reason: 'direction_change_below_peak', detail: base }
   let have = 0
   for (let f = best.peak - K; f <= best.peak + K; f++) if (hips[f]) have++
   const coverage = have / (2 * K + 1)
-  if (coverage < BREAK_MIN_COVERAGE) return { detected: false, reason: 'low_hip_coverage', detail: { ...base, coverage } }
-  const conf = Math.min(1, Math.min(1, peakDeg / 90) * 0.5 + coverage * 0.5)
+  if (coverage < BREAK_MIN_COVERAGE) return { detected: false, reason: 'low_hip_coverage', detail: { ...detail, coverage } }
+  const raw = Math.min(1, Math.min(1, peakDeg / 90) * 0.5 + coverage * 0.5)
+  const conf = method === 'clip_relative_direction_change' ? raw * BREAK_REL_CONFIDENCE_FACTOR : raw
   return {
     detected: true, frame: best.peak, start: best.start, end: best.end, confidence: Math.round(conf * 1000) / 1000,
-    detail: { ...base, method: 'ground_plane_direction_change', peak_turn_deg: r2(peakDeg), coverage: Math.round(coverage * 1000) / 1000 },
+    detail: { ...detail, method, peak_turn_deg: r2(peakDeg), coverage: Math.round(coverage * 1000) / 1000 },
   }
 }
 
