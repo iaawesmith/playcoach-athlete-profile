@@ -270,8 +270,10 @@ function smoothHips(hips: Array<Pt | null>, w = 5): Array<Pt | null> {
 }
 
 export function snapEvent(anchor: ReleaseAnchor): RouteEvent {
+  const confidence = anchor.reason === 'forward_acceleration' ? SNAP_ACCEL_CONFIDENCE
+    : anchor.reason === 'in_motion_at_start' ? SNAP_IN_MOTION_CONFIDENCE : 1
   return anchor.applied
-    ? { detected: true, frame: anchor.frame, start: anchor.frame, end: anchor.frame, confidence: 1, detail: { method: 'sustained_hip_movement', threshold: anchor.threshold_yd, units: anchor.units } }
+    ? { detected: true, frame: anchor.frame, start: anchor.frame, end: anchor.frame, confidence, detail: { method: anchor.reason, threshold: anchor.threshold_yd, units: anchor.units } }
     : { detected: false, reason: anchor.reason, detail: { threshold: anchor.threshold_yd, units: anchor.units } }
 }
 
