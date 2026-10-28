@@ -85,7 +85,7 @@ export function computeReleaseAnchor(
     if (i > maxFrame) return none('anchor_beyond_max_fraction', jitter, threshold)
     return { frame: i, applied: i > 0, reason: 'sustained_hip_movement', stance_jitter_yd: jitter, threshold_yd: threshold, units }
   }
-  return none('no_sustained_movement', jitter, threshold)
+  return accelerationAnchor(moves, hips.length, units) ?? none('no_sustained_movement', jitter, threshold)
 }
 
 /** Snap fallback thresholds, yd per frame (30 fps: 0.033 = 1 yd/s). */
