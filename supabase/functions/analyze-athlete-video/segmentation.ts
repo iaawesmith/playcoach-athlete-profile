@@ -415,22 +415,35 @@ export function detectBreak(
   }
 }
 
+/** Chest-height catch: hand gap and forward reach in torso lengths (mid-shoulder to mid-hip). */
+export const CATCH_REACH_MAX_GAP_TORSO = 0.35
+export const CATCH_REACH_MIN_FORWARD_TORSO = 0.4
+export const CATCH_CONVERGE_TORSO = 0.3
+export const CATCH_CONVERGE_LOOKBACK = 6
+const HIP_IDS = [HIP_L, HIP_R]
+
 /**
- * Catch = hands raised together: both wrists confident, the gap between them
- * <= CATCH_MAX_HAND_GAP_SHOULDERS shoulder widths and both above the shoulder
- * line, for CATCH_RUN_FRAMES in a row, after searchFrom. Frame = highest mean
- * wrist point in the first such run. A mid-stride arm swing (one hand forward,
- * hands apart, below the shoulders) never qualifies.
+ * Catch = the first qualifying run of CATCH_RUN_FRAMES+ frames after
+ * searchFrom of either kind:
+ * - hands raised together: both wrists above the shoulder line, gap <=
+ *   CATCH_MAX_HAND_GAP_SHOULDERS shoulder widths (high ball); frame = highest
+ *   mean wrist point.
+ * - hands converging with a forward reach, at any height above the hips: gap
+ *   <= CATCH_REACH_MAX_GAP_TORSO torso lengths, both wrists on the same side
+ *   of the shoulders by >= CATCH_REACH_MIN_FORWARD_TORSO, and the gap closed by
+ *   >= CATCH_CONVERGE_TORSO over the CATCH_CONVERGE_LOOKBACK frames before the
+ *   run; frame = tightest hand gap.
+ * A running arm swing (hands moving opposite ways) qualifies as neither.
  */
 export function detectCatch(keypoints: FrameKps[], scores: FrameScores[], threshold: number, searchFrom: number): RouteEvent {
   const n = keypoints.length
+  const ok = (p: number[][], sc: number[], ids: number[]) =>
+    ids.every((id) => p[id] && (sc[id] ?? 0) >= threshold && !(p[id][0] === 0 && p[id][1] === 0))
   const handsUp: Array<number | null> = keypoints.map((frame, f) => {
     if (f < searchFrom) return null
     const p = frame?.[0]
     const sc = scores[f]?.[0]
-    if (!p || !sc) return null
-    const ids = [WRIST_L, WRIST_R, SHOULDER_L, SHOULDER_R]
-    if (ids.some((id) => !p[id] || (sc[id] ?? 0) < threshold || (p[id][0] === 0 && p[id][1] === 0))) return null
+    if (!p || !sc || !ok(p, sc, [WRIST_L, WRIST_R, SHOULDER_L, SHOULDER_R])) return null
     const lw = p[WRIST_L], rw = p[WRIST_R], ls = p[SHOULDER_L], rs = p[SHOULDER_R]
     const shoulderW = Math.hypot(ls[0] - rs[0], ls[1] - rs[1])
     const shoulderY = Math.min(ls[1], rs[1])
@@ -439,18 +452,62 @@ export function detectCatch(keypoints: FrameKps[], scores: FrameScores[], thresh
     if (gap > CATCH_MAX_HAND_GAP_SHOULDERS || lw[1] > shoulderY || rw[1] > shoulderY) return null
     return (lw[1] + rw[1]) / 2
   })
-  for (let i = Math.max(0, searchFrom); i + CATCH_RUN_FRAMES - 1 < n; i++) {
-    let ok = true
-    for (let k = 0; k < CATCH_RUN_FRAMES; k++) if (handsUp[i + k] === null) { ok = false; break }
-    if (!ok) continue
-    let end = i
-    while (end + 1 < n && handsUp[end + 1] !== null) end++
-    let best = i
-    for (let f = i; f <= end; f++) if ((handsUp[f] as number) < (handsUp[best] as number)) best = f
-    const runConf = Math.min(1, (end - i + 1) / 6)
-    return { detected: true, frame: best, start: i, end, confidence: Math.round((0.5 + 0.5 * runConf) * 1000) / 1000, detail: { method: 'hands_raised_together', search_from: searchFrom, run_frames: end - i + 1 } }
+  // Hand gap (torso lengths) every frame, plus whether the frame is a forward reach.
+  const gapT: Array<number | null> = new Array(n).fill(null)
+  const reach: Array<boolean> = new Array(n).fill(false)
+  keypoints.forEach((frame, f) => {
+    const p = frame?.[0]
+    const sc = scores[f]?.[0]
+    if (!p || !sc || !ok(p, sc, [WRIST_L, WRIST_R, SHOULDER_L, SHOULDER_R, ...HIP_IDS])) return
+    const lw = p[WRIST_L], rw = p[WRIST_R]
+    const msx = (p[SHOULDER_L][0] + p[SHOULDER_R][0]) / 2, msy = (p[SHOULDER_L][1] + p[SHOULDER_R][1]) / 2
+    const mhy = (p[HIP_L][1] + p[HIP_R][1]) / 2, mhx = (p[HIP_L][0] + p[HIP_R][0]) / 2
+    const torso = Math.hypot(msx - mhx, msy - mhy)
+    if (torso <= 0) return
+    const g = Math.hypot(lw[0] - rw[0], lw[1] - rw[1]) / torso
+    gapT[f] = g
+    if (f < searchFrom) return
+    const dl = (lw[0] - msx) / torso, dr = (rw[0] - msx) / torso
+    const forward = Math.sign(dl) === Math.sign(dr) && Math.min(Math.abs(dl), Math.abs(dr)) >= CATCH_REACH_MIN_FORWARD_TORSO
+    reach[f] = g <= CATCH_REACH_MAX_GAP_TORSO && forward && lw[1] < mhy && rw[1] < mhy
+  })
+  const firstRun = (q: (f: number) => boolean, from: number): { start: number; end: number } | null => {
+    for (let i = Math.max(0, from); i + CATCH_RUN_FRAMES - 1 < n; i++) {
+      let all = true
+      for (let k = 0; k < CATCH_RUN_FRAMES; k++) if (!q(i + k)) { all = false; break }
+      if (!all) continue
+      let end = i
+      while (end + 1 < n && q(end + 1)) end++
+      return { start: i, end }
+    }
+    return null
   }
-  return { detected: false, reason: 'no_hands_raised_together', detail: { search_from: searchFrom } }
+  const raised = firstRun((f) => handsUp[f] !== null, searchFrom)
+  let reachRun: { start: number; end: number; closed: number } | null = null
+  for (let from = searchFrom; from < n;) {
+    const r = firstRun((f) => reach[f], from)
+    if (!r) break
+    const before = gapT.slice(Math.max(0, r.start - CATCH_CONVERGE_LOOKBACK), r.start).filter((g): g is number => g !== null)
+    const inRun = gapT.slice(r.start, r.end + 1).filter((g): g is number => g !== null)
+    const closed = before.length ? Math.max(...before) - Math.min(...inRun) : 0
+    if (closed >= CATCH_CONVERGE_TORSO) { reachRun = { ...r, closed }; break }
+    from = r.end + 1
+  }
+  const runConf = (s: number, e: number) => Math.round((0.5 + 0.5 * Math.min(1, (e - s + 1) / 6)) * 1000) / 1000
+  if (raised && (!reachRun || raised.start <= reachRun.start)) {
+    let best = raised.start
+    for (let f = raised.start; f <= raised.end; f++) if ((handsUp[f] as number) < (handsUp[best] as number)) best = f
+    return { detected: true, frame: best, start: raised.start, end: raised.end, confidence: runConf(raised.start, raised.end), detail: { method: 'hands_raised_together', search_from: searchFrom, run_frames: raised.end - raised.start + 1 } }
+  }
+  if (reachRun) {
+    let best = reachRun.start
+    for (let f = reachRun.start; f <= reachRun.end; f++) if ((gapT[f] as number) < (gapT[best] as number)) best = f
+    return {
+      detected: true, frame: best, start: reachRun.start, end: reachRun.end, confidence: runConf(reachRun.start, reachRun.end),
+      detail: { method: 'hands_converging_forward_reach', search_from: searchFrom, run_frames: reachRun.end - reachRun.start + 1, gap_closed_torso: Math.round(reachRun.closed * 1000) / 1000 },
+    }
+  }
+  return { detected: false, reason: 'no_hands_together', detail: { search_from: searchFrom } }
 }
 
 export type PhaseRole = 'pre_break' | 'break' | 'pre_catch' | 'catch' | 'post_catch'
