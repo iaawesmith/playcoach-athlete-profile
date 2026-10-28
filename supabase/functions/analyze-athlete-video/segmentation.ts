@@ -88,6 +88,48 @@ export function computeReleaseAnchor(
   return none('no_sustained_movement', jitter, threshold)
 }
 
+/** Snap fallback thresholds, yd per frame (30 fps: 0.033 = 1 yd/s). */
+export const SNAP_ACCEL_RISE_YD_PER_FRAME = 0.02
+export const SNAP_ACCEL_MIN_YD_PER_FRAME = 0.033
+export const SNAP_IN_MOTION_YD_PER_FRAME = 0.067
+/** Fallback snaps are less certain than a measured stance. */
+export const SNAP_ACCEL_CONFIDENCE = 0.7
+export const SNAP_IN_MOTION_CONFIDENCE = 0.5
+
+/**
+ * Snap without a usable stance (athlete off-screen or already moving at the
+ * start): first frame from which the 3-frame mean hip speed rises by at least
+ * SNAP_ACCEL_RISE over the next RELEASE_RUN_LENGTH frames and reaches
+ * SNAP_ACCEL_MIN. If the athlete is already at SNAP_IN_MOTION speed when first
+ * tracked, snap is that first tracked frame. Calibrated (yard) units only.
+ */
+function accelerationAnchor(moves: Array<number | null>, n: number, units: 'yards' | 'pixels'): ReleaseAnchor | null {
+  if (units !== 'yards') return null
+  const v: Array<number | null> = moves.map((_, i) => {
+    const w = [moves[i - 1], moves[i], moves[i + 1]]
+    return w.every((x) => typeof x === 'number') ? (w as number[]).reduce((a, b) => a + b, 0) / 3 : null
+  })
+  const maxFrame = Math.floor(n * RELEASE_MAX_ANCHOR_FRACTION)
+  const first = v.findIndex((x) => x !== null)
+  if (first < 0 || first > maxFrame) return null
+  const base = { applied: true, stance_jitter_yd: null, units } as const
+  // First tracked frame index = the move into it, so the athlete is visible from first - 1.
+  if ((v[first] as number) >= SNAP_IN_MOTION_YD_PER_FRAME) {
+    return { ...base, frame: Math.max(0, first - 1), reason: 'in_motion_at_start', threshold_yd: SNAP_IN_MOTION_YD_PER_FRAME }
+  }
+  for (let i = first; i + RELEASE_RUN_LENGTH < v.length && i <= maxFrame; i++) {
+    let ok = true
+    for (let k = 0; k <= RELEASE_RUN_LENGTH; k++) if (v[i + k] === null || (k > 0 && (v[i + k] as number) < (v[i + k - 1] as number))) { ok = false; break }
+    if (!ok) continue
+    const end = v[i + RELEASE_RUN_LENGTH] as number
+    if (end - (v[i] as number) >= SNAP_ACCEL_RISE_YD_PER_FRAME && end >= SNAP_ACCEL_MIN_YD_PER_FRAME) {
+      return { ...base, frame: i, reason: 'forward_acceleration', threshold_yd: SNAP_ACCEL_MIN_YD_PER_FRAME }
+    }
+  }
+  return null
+}
+
+
 /** Shift windows computed over the remaining frames so the first phase starts at the anchor. */
 export function offsetWindows<T extends { start: number; end: number }>(
   windows: Record<string, T>,
