@@ -57,8 +57,12 @@ if (fps <= 0) throw new Error("FPS must be positive");
 const context = row(result.analysis_context ?? rd.analysis_context ?? rd.context);
 const savedMetrics = list(result.metric_results ?? diagnostics.metrics);
 const calibrationMetric = savedMetrics.map(row).find(m => m.detail && row(m.detail).calibrationDetails);
-if (!calibrationMetric) throw new Error("Missing stored calibration details");
-const detail = row(calibrationMetric.detail);
+// Runs where every metric was skipped carry calibration only at result level.
+const detail = calibrationMetric ? row(calibrationMetric.detail) : rd.calibration_details ? {
+  pixelsPerYard: rd.pixels_per_yard ?? null, calibrationSource: rd.calibration_source,
+  calibrationConfidence: rd.calibration_confidence ?? 0, calibrationDetails: rd.calibration_details,
+} : null;
+if (!detail) throw new Error("Missing stored calibration details");
 const details = { ...row(detail.calibrationDetails) };
 delete details.windowPixelsPerYard; delete details.windowStart; delete details.windowEnd;
 const calibration = {
