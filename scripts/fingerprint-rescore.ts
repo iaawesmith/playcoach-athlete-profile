@@ -60,7 +60,7 @@ const calibrationMetric = savedMetrics.map(row).find(m => m.detail && row(m.deta
 // Runs where every metric was skipped carry calibration only at result level.
 const detail = calibrationMetric ? row(calibrationMetric.detail) : rd.calibration_details ? {
   pixelsPerYard: rd.pixels_per_yard ?? null, calibrationSource: rd.calibration_source,
-  calibrationConfidence: rd.calibration_confidence ?? 0, calibrationDetails: rd.calibration_details,
+  calibrationConfidence: Number(rd.calibration_confidence) || 0, calibrationDetails: rd.calibration_details,
 } : null;
 if (!detail) throw new Error("Missing stored calibration details");
 const details = { ...row(detail.calibrationDetails) };
