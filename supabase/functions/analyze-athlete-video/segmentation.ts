@@ -71,7 +71,7 @@ export function computeReleaseAnchor(
   const stance = moves.slice(1, RELEASE_STANCE_FRAMES + 1).filter((m): m is number => m !== null)
   const none = (reason: string, jitter: number | null = null, threshold: number | null = null): ReleaseAnchor =>
     ({ frame: 0, applied: false, reason, stance_jitter_yd: jitter, threshold_yd: threshold, units })
-  if (stance.length < 3) return none('insufficient_stance_frames')
+  if (stance.length < 3) return accelerationAnchor(moves, hips.length, units) ?? none('insufficient_stance_frames')
   const jitter = stance.reduce((a, b) => a + b, 0) / stance.length
   const threshold = Math.max(RELEASE_JITTER_MULTIPLE * jitter, hasScale ? RELEASE_FLOOR_YD_PER_FRAME : 0)
   const maxFrame = Math.floor(hips.length * RELEASE_MAX_ANCHOR_FRACTION)
