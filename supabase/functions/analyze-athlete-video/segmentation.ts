@@ -416,10 +416,10 @@ export function detectBreak(
 }
 
 /** Chest-height catch: hand gap and forward reach in torso lengths (mid-shoulder to mid-hip). */
-export const CATCH_REACH_MAX_GAP_TORSO = 0.35
-export const CATCH_REACH_MIN_FORWARD_TORSO = 0.4
-export const CATCH_CONVERGE_TORSO = 0.3
-export const CATCH_CONVERGE_LOOKBACK = 6
+export const CATCH_REACH_MAX_GAP_TORSO = 0.45
+export const CATCH_REACH_MIN_FORWARD_TORSO = 0.3
+export const CATCH_CONVERGE_TORSO = 0.15
+export const CATCH_CONVERGE_LOOKBACK = 8
 const HIP_IDS = [HIP_L, HIP_R]
 
 /**
