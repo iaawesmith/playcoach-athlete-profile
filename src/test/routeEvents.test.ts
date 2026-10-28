@@ -84,7 +84,7 @@ describe("event-anchored phase windows", () => {
   });
 
   it("skips catch phases when the catch is not detected", () => {
-    const events: RouteEvents = { snap: ev(10), break: ev(60), catch: { detected: false, reason: "no_hands_raised_together", detail: {} } };
+    const events: RouteEvents = { snap: ev(10), break: ev(60), catch: { detected: false, reason: "no_hands_together", detail: {} } };
     const out = anchorPhaseWindows(240, phases, events, split);
     expect(out[3].missing_event).toBe("catch");
     expect(out[4].missing_event).toBe("catch");

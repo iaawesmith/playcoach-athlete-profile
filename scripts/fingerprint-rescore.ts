@@ -57,8 +57,12 @@ if (fps <= 0) throw new Error("FPS must be positive");
 const context = row(result.analysis_context ?? rd.analysis_context ?? rd.context);
 const savedMetrics = list(result.metric_results ?? diagnostics.metrics);
 const calibrationMetric = savedMetrics.map(row).find(m => m.detail && row(m.detail).calibrationDetails);
-if (!calibrationMetric) throw new Error("Missing stored calibration details");
-const detail = row(calibrationMetric.detail);
+// Runs where every metric was skipped carry calibration only at result level.
+const detail = calibrationMetric ? row(calibrationMetric.detail) : rd.calibration_details ? {
+  pixelsPerYard: rd.pixels_per_yard ?? null, calibrationSource: rd.calibration_source,
+  calibrationConfidence: Number(rd.calibration_confidence) || 0, calibrationDetails: rd.calibration_details,
+} : null;
+if (!detail) throw new Error("Missing stored calibration details");
 const details = { ...row(detail.calibrationDetails) };
 delete details.windowPixelsPerYard; delete details.windowStart; delete details.windowEnd;
 const calibration = {
@@ -110,7 +114,7 @@ try {
     const snapFrame = snap.detected ? snap.frame : 0;
     const svc = row(diagnostics.service);
     const pre = context.catch_included === false ? null : seg.detectCatch(keypoints, scores, 0.5, snapFrame);
-    const brk = seg.phaseRoles(named).hasBreak ? seg.detectBreak(hips, calibration.perFrame, snapFrame, { width: numeric(svc.frame_width), height: numeric(svc.frame_height) }, pre && pre.detected ? pre.start - 1 : null) : null;
+    const brk = seg.phaseRoles(named).hasBreak ? seg.detectBreak(hips, calibration.perFrame, snapFrame, { width: numeric(svc.frame_width), height: numeric(svc.frame_height) }, pre && pre.detected ? pre.start - 1 : null, seg.bodyScaleSeries(keypoints, scores)) : null;
     const cat = context.catch_included === false ? null : seg.detectCatch(keypoints, scores, 0.5, brk && brk.detected ? brk.end + 1 : snapFrame);
     const events = { snap, break: brk, catch: cat };
     const anchored = seg.anchorPhaseWindows(keypoints.length, named, events, (count: number, group: unknown[]) => api.calculatePhaseWindows(count, group, 3));

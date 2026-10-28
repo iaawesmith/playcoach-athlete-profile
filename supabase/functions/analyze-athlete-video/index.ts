@@ -15,6 +15,7 @@ import {
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   computeReleaseAnchor,
+  bodyScaleSeries,
   findCatchArrival,
   snapEvent,
   detectBreak,
@@ -1205,7 +1206,7 @@ Deno.serve(async (req) => {
     const breakSearchTo = preliminaryCatch && preliminaryCatch.detected ? preliminaryCatch.start - 1 : null
     const frameSize = typeof serviceFrame.frame_width === 'number' && typeof serviceFrame.frame_height === 'number'
       ? { width: serviceFrame.frame_width, height: serviceFrame.frame_height } : null
-    const breakEvent = routeHasBreak ? detectBreak(routeHips, ppySeries, snapFrame, frameSize, breakSearchTo) : null
+    const breakEvent = routeHasBreak ? detectBreak(routeHips, ppySeries, snapFrame, frameSize, breakSearchTo, bodyScaleSeries(trackedKps, trackedScores)) : null
     const catchEvent = context.catch_included === false
       ? null
       : detectCatch(
