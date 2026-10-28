@@ -235,6 +235,45 @@ export const BREAK_MIN_MOVE_PX = 40
 export const BREAK_MIN_COVERAGE = 0.8
 /** Assumed horizontal field of view for depth-from-scale (typical phone main camera, ~70 degrees). */
 export const BREAK_ASSUMED_FOCAL_FRACTION = 0.714
+/** Clip-relative fallback: run and peak must exceed these multiples of the clip's median turn, with absolute floors. */
+export const BREAK_REL_RUN_MULTIPLE = 2
+export const BREAK_REL_PEAK_MULTIPLE = 3
+export const BREAK_REL_MIN_TURN_DEG = 15
+export const BREAK_REL_MIN_PEAK_DEG = 30
+export const BREAK_REL_CONFIDENCE_FACTOR = 0.8
+/** Scale series whose max/min stays under this ratio is treated as flat (no depth signal). */
+export const FLAT_SCALE_RATIO = 1.03
+/** Body-size depth proxy: rolling median window and assumed shoulder-to-ankle length in yards. */
+export const BODY_SCALE_WINDOW = 15
+export const BODY_SHOULDER_ANKLE_YD = 1.5
+
+function isFlatSeries(series: Array<number | null>): boolean {
+  const v = series.filter((x): x is number => typeof x === 'number' && x > 0)
+  if (v.length < 2) return true
+  return Math.max(...v) / Math.min(...v) < FLAT_SCALE_RATIO
+}
+
+/**
+ * Per-frame depth proxy (px per yd) from the athlete's own shoulder-to-ankle
+ * length, rolling-median smoothed. Used only for break direction when the
+ * calibration scale is flat; never for any measured distance.
+ */
+export function bodyScaleSeries(keypoints: FrameKps[], scores: FrameScores[], threshold = MIN_HIP_CONF): Array<number | null> {
+  const ids = [11, 12, 27, 28]
+  const raw = keypoints.map((frame, i) => {
+    const p = frame?.[0], sc = scores[i]?.[0]
+    if (!p || !sc || ids.some((id) => !p[id] || (sc[id] ?? 0) < threshold || (p[id][0] === 0 && p[id][1] === 0))) return null
+    const sx = (p[11][0] + p[12][0]) / 2, sy = (p[11][1] + p[12][1]) / 2
+    const ax = (p[27][0] + p[28][0]) / 2, ay = (p[27][1] + p[28][1]) / 2
+    return Math.hypot(sx - ax, sy - ay) / BODY_SHOULDER_ANKLE_YD
+  })
+  const h = Math.floor(BODY_SCALE_WINDOW / 2)
+  return raw.map((v, i) => {
+    if (v === null) return null
+    const w = raw.slice(Math.max(0, i - h), i + h + 1).filter((x): x is number => x !== null).sort((a, b) => a - b)
+    return w.length >= 5 ? w[Math.floor(w.length / 2)] : null
+  })
+}
 export const CATCH_RUN_FRAMES = 2
 export const CATCH_MAX_HAND_GAP_SHOULDERS = 1.5
 export const CATCH_LEAD_FRAMES = 10
