@@ -612,6 +612,129 @@ export type Database = {
         }
         Relationships: []
       }
+      zz_node_backup_20261109: {
+        Row: {
+          backed_up_at: string | null
+          badges: Json | null
+          camera_guidelines: string | null
+          clip_duration_max: number | null
+          clip_duration_min: number | null
+          coaching_cues_migration_status: string | null
+          coaching_model: string | null
+          coaching_provider: string | null
+          common_errors: Json | null
+          confidence_handling: string | null
+          created_at: string | null
+          det_frequency_defender: number | null
+          det_frequency_multiple: number | null
+          det_frequency_solo: number | null
+          elite_videos: Json | null
+          form_checkpoints: Json | null
+          icon_url: string | null
+          id: string | null
+          key_metrics: Json | null
+          knowledge_base: Json | null
+          llm_max_words: number | null
+          llm_prompt_template: string | null
+          llm_system_instructions: string | null
+          min_metrics_threshold: number | null
+          name: string | null
+          node_version: number | null
+          overview: string | null
+          phase_breakdown: Json | null
+          phase_context_mode: string | null
+          position: string | null
+          reference_calibrations: Json | null
+          reference_fallback_behavior: string | null
+          score_bands: Json | null
+          scoring_renormalize_on_skip: boolean | null
+          scoring_rules: string | null
+          segmentation_method: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          badges?: Json | null
+          camera_guidelines?: string | null
+          clip_duration_max?: number | null
+          clip_duration_min?: number | null
+          coaching_cues_migration_status?: string | null
+          coaching_model?: string | null
+          coaching_provider?: string | null
+          common_errors?: Json | null
+          confidence_handling?: string | null
+          created_at?: string | null
+          det_frequency_defender?: number | null
+          det_frequency_multiple?: number | null
+          det_frequency_solo?: number | null
+          elite_videos?: Json | null
+          form_checkpoints?: Json | null
+          icon_url?: string | null
+          id?: string | null
+          key_metrics?: Json | null
+          knowledge_base?: Json | null
+          llm_max_words?: number | null
+          llm_prompt_template?: string | null
+          llm_system_instructions?: string | null
+          min_metrics_threshold?: number | null
+          name?: string | null
+          node_version?: number | null
+          overview?: string | null
+          phase_breakdown?: Json | null
+          phase_context_mode?: string | null
+          position?: string | null
+          reference_calibrations?: Json | null
+          reference_fallback_behavior?: string | null
+          score_bands?: Json | null
+          scoring_renormalize_on_skip?: boolean | null
+          scoring_rules?: string | null
+          segmentation_method?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          badges?: Json | null
+          camera_guidelines?: string | null
+          clip_duration_max?: number | null
+          clip_duration_min?: number | null
+          coaching_cues_migration_status?: string | null
+          coaching_model?: string | null
+          coaching_provider?: string | null
+          common_errors?: Json | null
+          confidence_handling?: string | null
+          created_at?: string | null
+          det_frequency_defender?: number | null
+          det_frequency_multiple?: number | null
+          det_frequency_solo?: number | null
+          elite_videos?: Json | null
+          form_checkpoints?: Json | null
+          icon_url?: string | null
+          id?: string | null
+          key_metrics?: Json | null
+          knowledge_base?: Json | null
+          llm_max_words?: number | null
+          llm_prompt_template?: string | null
+          llm_system_instructions?: string | null
+          min_metrics_threshold?: number | null
+          name?: string | null
+          node_version?: number | null
+          overview?: string | null
+          phase_breakdown?: Json | null
+          phase_context_mode?: string | null
+          position?: string | null
+          reference_calibrations?: Json | null
+          reference_fallback_behavior?: string | null
+          score_bands?: Json | null
+          scoring_renormalize_on_skip?: boolean | null
+          scoring_rules?: string | null
+          segmentation_method?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
