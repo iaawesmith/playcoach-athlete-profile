@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Missing-break phase fallback (Nov 11)
-- [ ] Add weighted snap-to-catch fallback; keep genuine break phases skipped and catch/post-catch unchanged; log derivation and WARN.
-- [ ] Deploy analyzer and rerun Slant Sideline baseline + Cross Behind WR; report windows and scores; leave stored fingerprint untouched.
+- [x] Add weighted snap-to-catch fallback; keep genuine break phases skipped and catch/post-catch unchanged; log derivation and WARN; 200 tests pass.
+- [x] Analyzer db8fb82 deployed; fresh Slant e704d9a2 stays 94 with identical metrics; Cross 064b73f0 scores 48 with Release 26–44 / Shallow Stem 39–72, Cross skipped, catch/YAC unchanged; browser and saved result verified; fba7237f… unchanged.
 
 ## Full-clip analysis + event-anchored phases (approved Oct 23)
 - [x] Pose service: 300-frame cap, streaming frames at full resolution (no memory increase), decode fields; tests pass
