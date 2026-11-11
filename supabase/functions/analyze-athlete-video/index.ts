@@ -392,7 +392,7 @@ type PipelineLogData = {
     release_anchor?: ReleaseAnchor
     route_events?: RouteEvents
     decode?: DecodeSummary
-    phase_anchoring?: Array<{ phase: string; role: string; depends_on: string[]; missing_event: string | null; start: number | null; end: number | null }>
+    phase_anchoring?: Array<{ phase: string; role: string; depends_on: string[]; missing_event: string | null; start: number | null; end: number | null; derivation: string }>
     phase_windows?: Array<{
       phase: string
       start: number
@@ -400,6 +400,7 @@ type PipelineLogData = {
       frame_count: number
       percent: number
       not_measured?: string
+      derivation?: string
     }>
     keypoint_confidence?: Array<{
       index: number
@@ -1226,12 +1227,20 @@ Deno.serve(async (req) => {
     for (const ap of anchoredPhases) if (ap.window) phaseWindows[ap.id] = ap.window
     logInfo('release_anchor', { uploadId, ...releaseAnchor })
     logInfo('route_events', { uploadId, routeEvents, anchoredPhases })
+    const fallbackPhases = anchoredPhases.filter((ap) => ap.derivation === 'proportional fallback (break not detected)')
+    if (fallbackPhases.length) {
+      logData.preflight.checks.push({
+        name: 'Phase window derivation', expected: 'event-anchored',
+        actual: `proportional fallback (break not detected): ${fallbackPhases.map((ap) => ap.name).join(', ')}`,
+        result: 'WARN',
+      })
+    }
     if (poseLog) {
       poseLog.route_events = routeEvents
       poseLog.decode = decodeSummary(poseResult)
       poseLog.phase_anchoring = anchoredPhases.map((ap) => ({
         phase: ap.name, role: ap.role, depends_on: ap.depends_on, missing_event: ap.missing_event,
-        start: ap.window?.start ?? null, end: ap.window?.end ?? null,
+        start: ap.window?.start ?? null, end: ap.window?.end ?? null, derivation: ap.derivation,
       }))
       poseLog.phase_windows = buildPhaseWindowLog(
         phaseWindows,
@@ -1242,7 +1251,7 @@ Deno.serve(async (req) => {
       const missingByName = new Map(anchoredPhases.filter((ap) => !ap.window).map((ap) => [ap.name, ap.missing_event]))
       poseLog.phase_windows = poseLog.phase_windows.map((pw) => missingByName.has(pw.phase)
         ? { ...pw, start: -1, end: -1, frame_count: 0, percent: 0, not_measured: missingByName.get(pw.phase) ? `event_not_detected:${missingByName.get(pw.phase)}` : 'no_window' }
-        : pw)
+        : { ...pw, derivation: anchoredPhases.find((ap) => ap.name === pw.phase)?.derivation })
     }
 
     // STEP 8: Calculate all metrics

@@ -107,7 +107,7 @@ export function routeEventLines(events: { snap?: RouteEventLog; break?: RouteEve
   });
 }
 
-export function phaseWindowLine(pw: { phase: string; start: number; end: number; frame_count: number; percent: number; not_measured?: string }): string {
+export function phaseWindowLine(pw: { phase: string; start: number; end: number; frame_count: number; percent: number; not_measured?: string; derivation?: string }): string {
   if (pw.not_measured) return `${pw.phase}: no window — ${pw.not_measured}`;
-  return `${pw.phase}: frames ${pw.start} to ${pw.end} (${pw.frame_count} frames, ${pw.percent}%)`;
+  return `${pw.phase}: frames ${pw.start} to ${pw.end} (${pw.frame_count} frames, ${pw.percent}%)${pw.derivation ? ` — ${pw.derivation}` : ''}`;
 }

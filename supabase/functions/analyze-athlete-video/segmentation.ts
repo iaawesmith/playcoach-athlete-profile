@@ -537,6 +537,7 @@ export type AnchoredPhase = {
   window: { start: number; end: number } | null
   depends_on: RouteEventName[]
   missing_event: RouteEventName | null
+  derivation: 'event-anchored' | 'proportional fallback (break not detected)'
 }
 
 type Splitter = (count: number, phases: Array<{ id: string; name: string; proportion_weight?: number; frame_buffer?: number; sequence_order?: number }>) => Record<string, { start: number; end: number }>
@@ -545,8 +546,8 @@ type Splitter = (count: number, phases: Array<{ id: string; name: string; propor
  * Phase windows anchored to detected events. Release..stem split [snap, break
  * start); Break = the detected turning run; phases between break and catch
  * split the frames between them; Catch Window = catch-LEAD..catch+TAIL; later
- * phases run to the clip end. Phases bounded by an undetected event get no
- * window (their metrics are skipped, never scored from an assumed window).
+ * phases run to the clip end. With snap and catch but no break, split all
+ * pre-catch phase weights across snap..catch; genuine break phases still skip.
  */
 export function anchorPhaseWindows(
   totalFrames: number,
@@ -579,7 +580,7 @@ export function anchorPhaseWindows(
   const out: AnchoredPhase[] = phases.map((p, i) => {
     const d = deps(roles[i])
     const missing = d.find((e) => !detectedOf[e]) ?? null
-    return { id: p.id, name: p.name, role: roles[i], window: null, depends_on: d, missing_event: missing }
+    return { id: p.id, name: p.name, role: roles[i], window: null, depends_on: d, missing_event: missing, derivation: 'event-anchored' }
   })
   const fill = (role: PhaseRole, from: number, to: number) => {
     const group = phases.filter((_, i) => roles[i] === role && !out[i].missing_event)
@@ -604,6 +605,21 @@ export function anchorPhaseWindows(
   if (!noCatch && cat && catchStart !== null && catchEnd !== null) {
     for (const o of out) if (o.role === 'catch') o.window = { start: catchStart, end: catchEnd }
     if (catchEnd < last) fill('post_catch', catchEnd + 1, last)
+  }
+  if (events.break !== null && !brk && snap && cat && cat.frame > snap.frame) {
+    // Keep every pre-catch weight in the split, including the reserved (unscored)
+    // break share. Never redistribute a missing break's weight into another phase.
+    const preCatch = phases.filter((_, i) => ['pre_break', 'break', 'pre_catch'].includes(roles[i]))
+    const windows = split(cat.frame - snap.frame, preCatch)
+    for (const o of out) {
+      if (o.role !== 'pre_break' && o.role !== 'pre_catch') continue
+      const w = windows[o.id]
+      if (!w) continue
+      o.window = { start: w.start + snap.frame, end: w.end + snap.frame }
+      o.depends_on = ['snap', 'catch']
+      o.missing_event = null
+      o.derivation = 'proportional fallback (break not detected)'
+    }
   }
   return out
 }

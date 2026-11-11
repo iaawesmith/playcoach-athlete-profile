@@ -1,5 +1,9 @@
 # Roadmap
 
+## Missing-break phase fallback (Nov 11)
+- [ ] Add weighted snap-to-catch fallback; keep genuine break phases skipped and catch/post-catch unchanged; log derivation and WARN.
+- [ ] Deploy analyzer and rerun Slant Sideline baseline + Cross Behind WR; report windows and scores; leave stored fingerprint untouched.
+
 ## Full-clip analysis + event-anchored phases (approved Oct 23)
 - [x] Pose service: 300-frame cap, streaming frames at full resolution (no memory increase), decode fields; tests pass
 - [x] Analyzer: snap/break/catch detection, event-anchored phases, event_not_detected skips, Analysis Log decode + events
