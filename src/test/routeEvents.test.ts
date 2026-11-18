@@ -3,6 +3,7 @@ import {
   anchorPhaseWindows,
   detectBreak,
   detectCatch,
+  detectCatchAfterSnap,
   phaseRoles,
   type FrameKps,
   type FrameScores,
@@ -38,6 +39,33 @@ function pose(lw: Pt, rw: Pt): number[][] {
 const conf = (): number[] => Array.from({ length: 33 }, () => 0.9);
 
 describe("catch detection", () => {
+  const candidates = (ranges: number[][]) => Array.from({ length: 100 }, (_, i) => [ranges.some(([start, end]) => i >= start && i <= end) ? pose([495, 450], [515, 450]) : pose([440, 650], [560, 600])]);
+  const breakAt = (end: number) => ({ detected: true as const, frame: end, start: end, end, confidence: 1, detail: {} });
+  it('finds an earlier catch when a late break leaves no post-break candidate', () => {
+    const kps = candidates([[50, 55]]);
+    const event = detectCatchAfterSnap(kps, kps.map(() => [conf()]), 0.5, 10, breakAt(80));
+    expect(event.detected && event.frame).toBe(50);
+    expect(event.detail.search_from).toBe(10);
+    expect(event.detail.search_to).toBe(99);
+  });
+  it('prefers a post-break catch without excluding earlier candidates', () => {
+    const kps = candidates([[20, 25], [70, 75]]);
+    const event = detectCatchAfterSnap(kps, kps.map(() => [conf()]), 0.5, 10, breakAt(60));
+    expect(event.detected && event.frame).toBe(70);
+    expect(event.detail.selection).toBe('preferred_after_break');
+  });
+  it('searches from snap when no break exists and excludes pre-snap candidates', () => {
+    const kps = candidates([[5, 8], [50, 55]]);
+    const event = detectCatchAfterSnap(kps, kps.map(() => [conf()]), 0.5, 10, null);
+    expect(event.detected && event.frame).toBe(50);
+  });
+  it('records the whole search range and failure reason when no method fires', () => {
+    const kps = candidates([]);
+    const event = detectCatchAfterSnap(kps, kps.map(() => [conf()]), 0.5, 10, breakAt(80));
+    expect(event.detected).toBe(false);
+    expect('reason' in event ? event.reason : null).toBe('no_hands_together');
+    expect(event.detail.search_to).toBe(99);
+  });
   it("rejects a mid-stride arm swing on the last frame", () => {
     const kps: FrameKps[] = Array.from({ length: 90 }, (_, i) => [pose([440, 650], [i === 89 ? 560 : 560, i === 89 ? 450 : 600])]);
     const sc: FrameScores[] = kps.map(() => [conf()]);

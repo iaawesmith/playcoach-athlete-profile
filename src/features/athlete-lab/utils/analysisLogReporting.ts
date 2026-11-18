@@ -83,7 +83,7 @@ type DecodeLog = {
   frame_cap?: number | null; frame_cap_reached?: boolean | null; frames_decoded?: number | null;
   achieved_fps?: number | null; clip_duration_s?: number | null; frames_requested?: number | null;
 };
-type RouteEventLog = { detected?: boolean; frame?: number; start?: number; end?: number; confidence?: number; reason?: string } | null | undefined;
+type RouteEventLog = { detected?: boolean; frame?: number; start?: number; end?: number; confidence?: number; reason?: string; detail?: Record<string, unknown> } | null | undefined;
 
 /** "Frame cap 300 (10.0 s @ 30 fps) · decoded 240 · achieved 30.0 fps · clip 8.00 s · cap not reached" */
 export function decodeLine(decode: DecodeLog | null | undefined, fps = 30): string {
@@ -101,9 +101,11 @@ export function routeEventLines(events: { snap?: RouteEventLog; break?: RouteEve
     const e = events[key];
     if (e === null) return `${label[key]}: not applicable ${key === "break" ? "(route has no break phase)" : "(clip has no catch)"}`;
     if (!e) return `${label[key]}: not recorded`;
-    if (!e.detected) return `${label[key]}: NOT DETECTED (${e.reason ?? "unknown"}) — dependent metrics skipped`;
+    const catchSearch = key === 'catch' && typeof e.detail?.search_from === 'number'
+      ? ` — search frames ${e.detail.search_from}–${typeof e.detail.search_to === 'number' ? e.detail.search_to : 'not recorded'}; method: ${typeof e.detail.method === 'string' ? e.detail.method : 'none'}` : '';
+    if (!e.detected) return `${label[key]}: NOT DETECTED (${e.reason ?? "unknown"}) — dependent metrics skipped${catchSearch}`;
     const span = e.start !== undefined && e.end !== undefined && e.start !== e.end ? `, frames ${e.start}–${e.end}` : "";
-    return `${label[key]}: frame ${e.frame} (${((e.frame ?? 0) / fps).toFixed(2)} s${span}), confidence ${e.confidence ?? "—"}`;
+    return `${label[key]}: frame ${e.frame} (${((e.frame ?? 0) / fps).toFixed(2)} s${span}), confidence ${e.confidence ?? "—"}${catchSearch}`;
   });
 }
 

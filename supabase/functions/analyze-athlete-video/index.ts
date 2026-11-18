@@ -20,6 +20,7 @@ import {
   snapEvent,
   detectBreak,
   detectCatch,
+  detectCatchAfterSnap,
   phaseRoles,
   anchorPhaseWindows,
   type AnchoredPhase,
@@ -1210,11 +1211,12 @@ Deno.serve(async (req) => {
     const breakEvent = routeHasBreak ? detectBreak(routeHips, ppySeries, snapFrame, frameSize, breakSearchTo, bodyScaleSeries(trackedKps, trackedScores)) : null
     const catchEvent = context.catch_included === false
       ? null
-      : detectCatch(
+      : detectCatchAfterSnap(
           trackedPersonFrames.keypoints as unknown as FrameKps[],
           trackedPersonFrames.scores as unknown as FrameScores[],
           CATCH_EVENT_CONFIDENCE,
-          breakEvent && breakEvent.detected ? breakEvent.end + 1 : snapFrame,
+          snapFrame,
+          breakEvent,
         )
     const routeEvents: RouteEvents = { snap, break: breakEvent, catch: catchEvent }
     const anchoredPhases = anchorPhaseWindows(

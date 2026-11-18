@@ -512,6 +512,26 @@ export function detectCatch(keypoints: FrameKps[], scores: FrameScores[], thresh
   return { detected: false, reason: 'no_hands_together', detail: { search_from: searchFrom } }
 }
 
+/** Search all frames from snap; prefer the legacy post-break candidate when available. */
+export function detectCatchAfterSnap(keypoints: FrameKps[], scores: FrameScores[], threshold: number, snapFrame: number, breakEvent: RouteEvent | null): RouteEvent {
+  const searchFrom = Math.max(0, snapFrame)
+  const whole = detectCatch(keypoints, scores, threshold, searchFrom)
+  const preferredFrom = breakEvent?.detected ? Math.max(searchFrom, breakEvent.end + 1) : null
+  const preferred = preferredFrom !== null && preferredFrom < keypoints.length
+    ? detectCatch(keypoints, scores, threshold, preferredFrom) : null
+  const selected = preferred?.detected ? preferred : whole
+  return {
+    ...selected,
+    detail: {
+      ...selected.detail,
+      search_from: searchFrom,
+      search_to: keypoints.length - 1,
+      preferred_after_break_from: preferredFrom,
+      selection: preferred?.detected ? 'preferred_after_break' : 'whole_clip_after_snap',
+    },
+  }
+}
+
 export type PhaseRole = 'pre_break' | 'break' | 'pre_catch' | 'catch' | 'post_catch'
 const BREAK_NAME = /\b(break|snap back|sink|turn|cross)\b/i
 const CATCH_NAME = /\bcatch\b/i

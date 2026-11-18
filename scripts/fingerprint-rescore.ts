@@ -115,7 +115,7 @@ try {
     const svc = row(diagnostics.service);
     const pre = context.catch_included === false ? null : seg.detectCatch(keypoints, scores, 0.5, snapFrame);
     const brk = seg.phaseRoles(named).hasBreak ? seg.detectBreak(hips, calibration.perFrame, snapFrame, { width: numeric(svc.frame_width), height: numeric(svc.frame_height) }, pre && pre.detected ? pre.start - 1 : null, seg.bodyScaleSeries(keypoints, scores)) : null;
-    const cat = context.catch_included === false ? null : seg.detectCatch(keypoints, scores, 0.5, brk && brk.detected ? brk.end + 1 : snapFrame);
+    const cat = context.catch_included === false ? null : seg.detectCatchAfterSnap(keypoints, scores, 0.5, snapFrame, brk);
     const events = { snap, break: brk, catch: cat };
     const anchored = seg.anchorPhaseWindows(keypoints.length, named, events, (count: number, group: unknown[]) => api.calculatePhaseWindows(count, group, 3));
     for (const k of Object.keys(windows)) delete windows[k];

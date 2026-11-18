@@ -1,5 +1,9 @@
 # Roadmap
 
+## Catch search from snap (Nov 18)
+- [ ] Search whole post-snap clip, prefer post-break candidates; log range/method without changing detection methods or break logic.
+- [ ] Deploy and rerun Wheel, In, Slant, Curl, Corner; report saved before/after scores and catches; preserve baseline.
+
 ## Missing-break phase fallback (Nov 11)
 - [x] Add weighted snap-to-catch fallback; keep genuine break phases skipped and catch/post-catch unchanged; log derivation and WARN; 200 tests pass.
 - [x] Analyzer db8fb82 deployed; fresh Slant e704d9a2 stays 94 with identical metrics; Cross 064b73f0 scores 48 with Release 26–44 / Shallow Stem 39–72, Cross skipped, catch/YAC unchanged; browser and saved result verified; fba7237f… unchanged.
