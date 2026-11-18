@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Following auto-zoom (Nov 18)
-- [ ] Replace path-union static zoom with smoothed short-segment following crops, larger cap, confidence backoff and original-coordinate inverse mapping; tests.
-- [ ] Show crop mode, effective fill, zoom factor and reliable percentage in Analysis Log.
+- [x] Replace path-union static zoom with 12-frame box segments, symmetric 5-frame crop smoothing, 6x cap / 25% target, confidence backoff and per-frame original-coordinate mapping; 30 model-free service tests and 204 app tests pass.
+- [x] Show crop mode, measured effective fill, zoom factor and reliable percentage in Analysis Log/export from stored service diagnostics; no analyzer math changes.
 - [ ] User deploys pose service from Cloud Shell; then rerun Slant/Curl/Corner/In/Post and report scores, fill/reliability, In tracking and Post events; flag >5-point changes.
 
 ## Catch search from snap (Nov 18)
