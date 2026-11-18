@@ -1,5 +1,10 @@
 # Roadmap
 
+## Following auto-zoom (Nov 18)
+- [ ] Replace path-union static zoom with smoothed short-segment following crops, larger cap, confidence backoff and original-coordinate inverse mapping; tests.
+- [ ] Show crop mode, effective fill, zoom factor and reliable percentage in Analysis Log.
+- [ ] User deploys pose service from Cloud Shell; then rerun Slant/Curl/Corner/In/Post and report scores, fill/reliability, In tracking and Post events; flag >5-point changes.
+
 ## Catch search from snap (Nov 18)
 - [x] Search whole post-snap clip, prefer post-break candidates; log range/method without changing detection methods or break logic; 204 tests pass.
 - [x] Analyzer ebf3657 deployed; fresh Wheel 67→67 / no catch, In 98→98 / no catch, Slant 94→94 / catch 85, Curl 69→69 / catch 99, Corner 79→79 / catch 126; UI and database verified; original fingerprint unchanged.

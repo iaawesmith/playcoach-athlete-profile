@@ -214,6 +214,7 @@ def recover_frames(
     zoom_crop: dict[str, int] | None,
     athlete_h: float | None,
     earliest_probe: tuple[int, tuple[float, float]] | None,
+    zoom_crops: list[dict[str, int]] | None = None,
 ) -> tuple[list[int], list[int], list[int], list[dict]]:
     """Leading-frame recovery + following crop, both on athlete-sized crops of the
     ORIGINAL frames through a separate stateless IMAGE-mode engine (the main VIDEO
@@ -230,18 +231,19 @@ def recover_frames(
         hip = framing.hip_center(pf.keypoints, pf.scores)
         return (h, hip) if h is not None and hip is not None else None
 
-    def is_target(pf: PoseFrame) -> bool:
+    def is_target(pf: PoseFrame, i: int) -> bool:
         if not pf.detected:
             return True
         visible = sum(1 for s in pf.scores if s >= framing.MIN_VIS)
         if visible < framing.MIN_VISIBLE_SHARE * len(pf.scores):
             return True
         b = framing.bbox(pf.keypoints, pf.scores)
-        return b is None or framing.box_touches_rect(b, zoom_crop)
+        rect = zoom_crops[i] if zoom_crops else zoom_crop
+        return b is None or framing.box_touches_rect(b, rect)
 
     attempts: list[dict] = []
     leading_rec: list[int] = []
-    good_h = [s[0] for s in (summary(r) for r in results if not is_target(r)) if s]
+    good_h = [s[0] for s in (summary(r) for i, r in enumerate(results) if not is_target(r, i)) if s]
     ref_h = framing.median(good_h) or athlete_h
 
     with PoseEngine(image_mode=True, min_detection_confidence=RECOVERY_MIN_DETECTION_CONFIDENCE) as probe:
@@ -250,10 +252,10 @@ def recover_frames(
             return pf if pf.detected else None
 
         # 1) Leading run: crop around the earliest detected or probed position.
-        leading = framing.leading_missed_run([not is_target(r) for r in results])
+        leading = framing.leading_missed_run([not is_target(r, i) for i, r in enumerate(results)])
         if leading and ref_h:
             first_det = next(((i, summary(r)[1]) for i, r in enumerate(results)
-                              if not is_target(r) and summary(r)), None)
+                              if not is_target(r, i) and summary(r)), None)
             anchors = [a for a in (first_det, earliest_probe) if a is not None]
             if anchors:
                 anchor_frame, anchor = min(anchors, key=lambda a: a[0])
@@ -270,8 +272,8 @@ def recover_frames(
                         leading_rec.append(i)
 
         # 2) Following crop for every later lost / partial / crop-edge frame.
-        detected = [None if is_target(r) else summary(r) for r in results]
-        targets = [i for i, r in enumerate(results) if is_target(r) and i not in leading_rec]
+        detected = [None if is_target(r, i) else summary(r) for i, r in enumerate(results)]
+        targets = [i for i, r in enumerate(results) if is_target(r, i) and i not in leading_rec]
         found: dict[int, PoseFrame] = {}
 
         def try_detect(i: int, rect: dict[str, int]):

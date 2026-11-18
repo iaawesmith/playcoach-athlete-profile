@@ -58,6 +58,7 @@ class AnalyzeResponse(BaseModel):
     auto_zoom_reason: str | None = None
     auto_zoom_factor: float = 1.0
     auto_zoom_final_fill_ratio: float = 0.0
+    auto_zoom_crop_mode: Literal["following", "static", "none"] = "none"
     auto_zoom_crop_rect: CropRect | None = None
     auto_zoom_padding: Padding | None = None
 

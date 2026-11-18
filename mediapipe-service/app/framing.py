@@ -309,6 +309,51 @@ def needs_zoom(median_height: float, frame_height: int, frac: float | None = Non
     return frame_height > 0 and median_height < limit * frame_height
 
 
+def following_crop_path(
+    anchors: Sequence[tuple[int, Box]], count: int, width: int, height: int,
+    max_factor: float = 6.0, target_fill: float = 0.25,
+) -> list[dict[str, int]]:
+    """Deterministic short-segment box interpolation with a symmetric 5-frame smooth.
+
+    Local boxes, not the union of the athlete's complete path, bound each crop.
+    Crop heights follow local athlete size; frame edges clamp the centre only.
+    """
+    good = sorted(anchors)
+    if not good or count <= 0:
+        return []
+    centers = [(i, ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2)) for i, b in good]
+    sizes = [(i, (max(1.0, b[3] - b[1]), max(1.0, b[2] - b[0]))) for i, b in good]
+    def local_value(values, t):
+        exact = next((p for j, p in values if j == t), None)
+        return exact if exact is not None else interpolate_hip(values, t)
+    raw = []
+    for i in range(count):
+        # Clamp beyond measured anchors rather than extrapolating off-field.
+        t = max(good[0][0], min(good[-1][0], i))
+        center = local_value(centers, t)
+        size = local_value(sizes, t)
+        if center is None or size is None:
+            return []
+        ch = min(float(height), max(height / max_factor, size[0] / target_fill, size[1] * height / width * 1.5))
+        raw.append((center[0], center[1], ch))
+    out = []
+    for i in range(count):
+        neighborhood = raw[max(0, i - 2):min(count, i + 3)]
+        cx = sum(v[0] for v in neighborhood) / len(neighborhood)
+        cy = sum(v[1] for v in neighborhood) / len(neighborhood)
+        # Never shrink below the local box's safe size while smoothing.
+        ch = max(raw[i][2], sum(v[2] for v in neighborhood) / len(neighborhood))
+        out.append(centered_rect((cx, cy), round(ch * width / height), round(ch), width, height))
+    return out
+
+
+def map_crop_points(points: Sequence[Sequence[float]], scores: Sequence[float], rect: dict[str, int], width: int, height: int) -> list[list[float]]:
+    """Inverse crop transform; missing (0,0) landmarks remain missing, not crop origins."""
+    return [[0.0, 0.0] if s <= 0 or (p[0] == 0 and p[1] == 0) else
+            [p[0] * rect['w'] / width + rect['x'], p[1] * rect['h'] / height + rect['y']]
+            for p, s in zip(points, scores)]
+
+
 def leading_missed_run(detected: Sequence[bool]) -> list[int]:
     """Indices from frame 0 up to (not including) the first detected frame."""
     out: list[int] = []

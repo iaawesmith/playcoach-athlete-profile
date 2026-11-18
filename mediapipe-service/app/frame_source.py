@@ -138,15 +138,16 @@ class FrameSource:
 class MappedFrames:
     """Lazy per-frame transform (e.g. auto-zoom crop+resize); nothing retained."""
 
-    def __init__(self, base: FrameSource | "MappedFrames", fn: Callable[[Any], Any]) -> None:
+    def __init__(self, base: FrameSource | "MappedFrames", fn: Callable[[Any], Any], indexed_fn: Callable[[int, Any], Any] | None = None) -> None:
         self._base = base
         self._fn = fn
+        self._indexed_fn = indexed_fn
 
     def __len__(self) -> int:
         return len(self._base)
 
     def __getitem__(self, i: int) -> Any:
-        return self._fn(self._base[i])
+        return self._indexed_fn(i, self._base[i]) if self._indexed_fn else self._fn(self._base[i])
 
     def __iter__(self) -> Iterator[Any]:
         for i in range(len(self)):

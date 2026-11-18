@@ -170,6 +170,7 @@ function generateLogMarkdown(logData: AnalysisLogData, nodeName: string, metricR
     md += `Backend: ${r.backend ?? "N/A"}\nTotal frames: ${r.total_frames ?? "N/A"}\nSource FPS: ${r.source_fps ?? "N/A"}\nService revision: ${r.service_revision ?? "not recorded"}\nService build: ${r.service_build ?? "not recorded"}\n${r.analyzer_build_line ?? "Analyzer build: not recorded"}\nProcessing time (total): ${r.timings_ms?.total ?? r.processing_time_ms ?? "not recorded"}ms\nPose loop: ${r.timings_ms?.pose_loop ?? "not recorded"}ms\n\n`;
     if (r.ground_truth_lines?.length) md += `${r.ground_truth_lines.join("\n")}\n\n`;
     md += `${decodeLine(r.decode, Number(r.source_fps) || 30)}\n\n`;
+    md += `Auto-zoom: ${r.auto_zoom_factor ?? 'not recorded'}x · final fill ${typeof r.auto_zoom_final_fill_ratio === 'number' ? (r.auto_zoom_final_fill_ratio * 100).toFixed(1) + '%' : 'not recorded'} · reliable frames ${r.reliable_frame_percentage ?? 'not recorded'}% · crop ${r.auto_zoom_crop_mode ?? 'not recorded'}\n\n`;
     const eventLines = routeEventLines(r.route_events, 30);
     if (eventLines.length) md += `Detected Events:\n${eventLines.map((l) => `  ${l}`).join("\n")}\n\n`;
     if (r.phase_windows?.length) {
@@ -433,6 +434,7 @@ export function AnalysisLog({ logData: storedLog, nodeName, nodeMetrics, metricR
                   <div className="text-on-surface">Processing time (total): {logData.rtmlib.timings_ms?.total ?? logData.rtmlib.processing_time_ms ?? "not recorded"} ms</div>
                   <div className="text-on-surface">Pose loop: {logData.rtmlib.timings_ms?.pose_loop ?? "not recorded"} ms</div>
                   <div className="text-on-surface">Confidence warnings: {reporting?.warnings.length ?? 0}</div>
+                  <div className="text-on-surface break-words" data-testid="auto-zoom-summary">Auto-zoom: {logData.rtmlib.auto_zoom_factor ?? 'not recorded'}x · final fill {typeof logData.rtmlib.auto_zoom_final_fill_ratio === 'number' ? `${(logData.rtmlib.auto_zoom_final_fill_ratio * 100).toFixed(1)}%` : 'not recorded'} · reliable frames {logData.rtmlib.reliable_frame_percentage ?? 'not recorded'}% · crop {logData.rtmlib.auto_zoom_crop_mode ?? 'not recorded'}</div>
                   {logData.rtmlib.ground_truth_lines?.map((line) => (
                     <div key={line} className={line.endsWith("WARN") ? "font-bold text-error-dim" : "text-on-surface"} data-testid="ground-truth-line">{line}</div>
                   ))}

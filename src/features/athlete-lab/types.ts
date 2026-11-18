@@ -351,6 +351,9 @@ export interface AnalysisLogData {
     person_detected?: boolean;
     average_keypoint_confidence?: number;
     reliable_frame_percentage?: number;
+    auto_zoom_factor?: number;
+    auto_zoom_final_fill_ratio?: number;
+    auto_zoom_crop_mode?: string;
     most_common_issue?: string;
     phase_windows?: PhaseWindow[];
     keypoint_confidence?: KeypointConfidence[];

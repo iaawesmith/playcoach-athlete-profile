@@ -5,7 +5,7 @@ Strategy:
   - If the median athlete height is >= MIN_ATHLETE_HEIGHT_FRAC (20%) of frame height, skip zoom.
   - Missed probes are retried on an athlete-sized crop around the position
     interpolated from detected probes; trailing gaps are extended to the last frame.
-  - zoom = min(MAX_FACTOR, factor fitting the union of probe boxes + one body height).
+  - Follow short-segment athlete boxes, interpolate and smooth local crops.
     Resize cropped region back to original (W, H).
   - fill ratio is reported as athlete height / frame height (area against a
     4K frame was ~0.001 for any normal sideline clip).
@@ -36,7 +36,8 @@ def _resolve_sample_count() -> int:
 
 
 SAMPLE_COUNT = _resolve_sample_count()
-MAX_FACTOR = 1.75
+MAX_FACTOR = 6.0
+FOLLOW_SEGMENT_FRAMES = 12
 # Below this zoom factor, the visual change is small enough that re-probing
 # for safety backoff isn't worth the detect cost.
 POST_PROBE_MIN_FACTOR = 1.15
@@ -63,6 +64,8 @@ class ZoomState:
     athlete_height: float | None = None
     # Earliest probed position (frame, hip) — anchor for leading-frame recovery.
     earliest_probe: tuple[int, tuple[float, float]] | None = None
+    crop_rects: list[dict[str, int]] = field(default_factory=list)
+    crop_mode: str = "none"
 
 
 def _sample_indices(n: int, k: int = SAMPLE_COUNT) -> list[int]:
@@ -97,7 +100,7 @@ def decide_and_apply(
         state.reason = "empty input"
         return frames, state
 
-    idxs = _sample_indices(n, SAMPLE_COUNT)
+    idxs = sorted(set(_sample_indices(n, SAMPLE_COUNT) + list(range(0, n, FOLLOW_SEGMENT_FRAMES))))
     state.sample_indices = idxs
     # F-POSE-1: probes run on a stateless IMAGE-mode engine so they never seed
     # the main VIDEO pass with a stale tracking ROI. `engine` is unused here.
@@ -190,17 +193,20 @@ def _decide_with_probe(
             extended_to = [round(ex, 1), round(ey, 1)]
     union = framing.union_box(boxes)
     fit = framing.fit_factor(union, med_h, width, height) if union else None
-    crop = framing.path_crop(boxes, med_h, width, height, MAX_FACTOR)
+    crop_rects = framing.following_crop_path([(i, v[0]) for i, v in sorted(info.items()) if v[0] is not None], n, width, height, MAX_FACTOR)
     state.path = {
         "union_box": [round(v, 1) for v in union] if union else None,
         "extended_to_last_frame": extended_to,
         "margin_px": round(med_h, 1),
         "fit_factor": round(fit, 4) if fit else None,
         "cap": MAX_FACTOR,
-        "chosen_factor": round(crop[1], 4) if crop else None,
+        "mode": "following",
+        "segment_frames": FOLLOW_SEGMENT_FRAMES,
+        "chosen_factor": round(framing.median([height / r['h'] for r in crop_rects]) or 1.0, 4),
+        "crop_rects": crop_rects,
     }
-    if crop is not None:
-        state.probe_crop_rect = crop[0]
+    if crop_rects:
+        state.probe_crop_rect = crop_rects[0]
     share = med_h / float(height)
     limit = framing.MIN_ATHLETE_HEIGHT_FRAC
 
@@ -210,13 +216,14 @@ def _decide_with_probe(
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    if crop is None:
+    if not crop_rects:
         state.applied = False
-        state.reason = "athlete path too wide to crop usefully"
+        state.reason = "no following crop anchors"
         state.mean_conf_after = state.mean_conf_before
         return frames, state
 
-    crop_rect, factor = crop
+    crop_rect = crop_rects[0]
+    factor = framing.median([height / r['h'] for r in crop_rects]) or 1.0
     x0, y0, cw, ch = crop_rect["x"], crop_rect["y"], crop_rect["w"], crop_rect["h"]
     padding = {
         "top": y0,
@@ -230,11 +237,13 @@ def _decide_with_probe(
     # full-resolution processed clip is never held in memory (F-INFRA-1).
     from .frame_source import MappedFrames
 
-    def _zoom(f: np.ndarray) -> np.ndarray:
+    def _zoom(i: int, f: np.ndarray) -> np.ndarray:
+        rect = crop_rects[i]
+        x0, y0, cw, ch = rect['x'], rect['y'], rect['w'], rect['h']
         cropped = f[y0 : y0 + ch, x0 : x0 + cw]
         return cv2.resize(cropped, (width, height), interpolation=cv2.INTER_LINEAR)
 
-    processed = MappedFrames(frames, _zoom)
+    processed = MappedFrames(frames, lambda f: f, indexed_fn=_zoom)
 
     # Skip the post-zoom probe entirely when the visual change is marginal.
     if factor < POST_PROBE_MIN_FACTOR:
@@ -257,11 +266,13 @@ def _decide_with_probe(
             return frames, state
 
     state.applied = True
+    state.crop_rects = crop_rects
+    state.crop_mode = "following"
     state.factor = round(factor, 4)
     state.crop_rect = crop_rect
     state.padding = padding
     state.reason = (
-        f"athlete {share * 100:.1f}% of frame height < {limit * 100:.0f}%; path crop {factor:.3f}x"
+        f"athlete {share * 100:.1f}% of frame height < {limit * 100:.0f}%; following crop {factor:.3f}x"
     )
     return processed, state
 
@@ -276,22 +287,15 @@ def reverse_map_landmarks(
     if not state.applied or state.crop_rect is None:
         return pose_results
 
-    cr = state.crop_rect
-    sx = cr["w"] / float(width)
-    sy = cr["h"] / float(height)
-    ox = cr["x"]
-    oy = cr["y"]
-
     mapped: list[PoseFrame] = []
-    for pf in pose_results:
+    for i, pf in enumerate(pose_results):
         if not pf.detected:
             mapped.append(pf)
             continue
-        new_kps: list[list[float]] = []
-        for x, y in pf.keypoints:
-            new_kps.append([x * sx + ox, y * sy + oy])
+        cr = state.crop_rects[i] if state.crop_rects else state.crop_rect
+        new_kps = framing.map_crop_points(pf.keypoints, pf.scores, cr, width, height)
         mapped.append(
-            PoseFrame(detected=True, keypoints=new_kps, scores=pf.scores[:])
+            PoseFrame(detected=True, keypoints=new_kps, scores=pf.scores[:], world_keypoints=[p[:] for p in pf.world_keypoints])
         )
     return mapped
 
@@ -304,6 +308,7 @@ def to_dict(state: ZoomState) -> dict[str, Any]:
         "final_fill_ratio": state.final_fill_ratio,
         "crop_rect": state.crop_rect,
         "padding": state.padding,
+        "crop_mode": state.crop_mode,
         "safety_backoff": state.safety_backoff,
         "mean_conf_before": state.mean_conf_before,
         "mean_conf_after": state.mean_conf_after,

@@ -21,6 +21,31 @@ def test_zoom_gate_share_of_frame_height():
     assert f.needs_zoom(431, 2160) and not f.needs_zoom(432, 2160)
 
 
+def test_following_path_reaches_twenty_percent_and_never_abandons_wide_travel():
+    anchors = [(0, (100, 900, 160, 1000)), (60, (3500, 900, 3560, 1000))]
+    path = f.following_crop_path(anchors, 61, W, H)
+    assert len(path) == 61
+    assert path[0]['x'] < path[-1]['x']
+    assert all(100 / r['h'] >= 0.20 for r in path)
+    assert all(H / r['h'] > 3 for r in path)
+    assert all(0 <= r['x'] <= W-r['w'] and 0 <= r['y'] <= H-r['h'] for r in path)
+
+
+def test_following_crop_path_is_deterministic_and_smooth():
+    anchors = [(0, (900, 900, 1000, 1100)), (12, (905, 904, 1005, 1104)), (24, (900, 900, 1000, 1100))]
+    a = f.following_crop_path(anchors, 25, W, H)
+    assert a == f.following_crop_path(anchors, 25, W, H)
+    assert max(abs(a[i]['x']-a[i-1]['x']) for i in range(1,25)) <= 1
+
+
+def test_crop_inverse_mapping_uses_each_original_offset_and_keeps_missing_points():
+    rect = {'x': 1000, 'y': 700, 'w': 960, 'h': 540}
+    mapped = f.map_crop_points([[1920,1080],[0,0],[100,100]], [0.9,0.9,0], rect, W,H)
+    assert mapped == [[1480,970],[0,0],[0,0]]
+    shifted = {**rect, 'x': 2000}
+    assert f.map_crop_points([[1920,1080]], [0.9], shifted,W,H) == [[2480,970]]
+
+
 def test_leading_missed_run():
     det = [False] * 18 + [True, True, False, True]
     assert f.leading_missed_run(det) == list(range(18))

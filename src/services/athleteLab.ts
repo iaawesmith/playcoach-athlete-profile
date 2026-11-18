@@ -511,6 +511,7 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
   const rawLogData = row.log_data ?? resultData.log_data;
   const diagnostics = parseRecord(resultData.diagnostics);
   const service = parseRecord(diagnostics.service);
+  const zoom = parseRecord(service.auto_zoom);
   const parsedLog = rawLogData && typeof rawLogData === "object" && !Array.isArray(rawLogData)
     ? rawLogData as AnalysisLogData : undefined;
   const timings = Object.fromEntries(Object.entries(parseRecord(service.timings_ms))
@@ -519,6 +520,9 @@ function normalizePipelineResult(value: unknown, uploadId: string, node: Trainin
     ...parsedLog,
     rtmlib: {
       ...parsedLog.rtmlib,
+      auto_zoom_factor: parseNumber(zoom.factor) ?? undefined,
+      auto_zoom_final_fill_ratio: parseNumber(zoom.final_fill_ratio) ?? undefined,
+      auto_zoom_crop_mode: zoom.applied === true ? (typeof zoom.reason === 'string' && zoom.reason.includes('following crop') ? 'following' : 'static') : 'none',
       service_revision: typeof service.service_revision === "string" ? service.service_revision : parsedLog.rtmlib?.service_revision,
       service_build: typeof service.service_build === "string" ? service.service_build : parsedLog.rtmlib?.service_build,
       analyzer_build_line: analyzerBuildLine(typeof diagnostics.analyzer_build === "string" ? diagnostics.analyzer_build : null, typeof row.analyzed_at === "string" ? row.analyzed_at : typeof row.created_at === "string" ? row.created_at : null),

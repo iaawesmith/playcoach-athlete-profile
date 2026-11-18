@@ -75,3 +75,9 @@ def test_mapped_frames_transform_lazily():
 def test_achieved_fps():
     assert achieved_fps(sample_plan(0, 2, 30, 30).src_indices, 30) == 30.0
     assert abs(achieved_fps(sample_plan(0, 2, 15, 30).src_indices, 30) - 15.0) < 1
+
+
+def test_indexed_mapping_is_independent_of_read_order():
+    plan = sample_plan(0, 1, 30, 30).src_indices
+    m = MappedFrames(FrameSource(lambda: FakeReader(30, []), plan), lambda f: f, indexed_fn=lambda i, f: i * 100 + f)
+    assert [m[i] for i in [15,2,15,0]] == [1515,202,1515,0]

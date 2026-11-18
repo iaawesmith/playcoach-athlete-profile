@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
 from . import auto_zoom as az
-from . import calibration, video
+from . import calibration, video, framing
 from .pose import (
     LANDMARK_COUNT,
     PoseEngine,
@@ -168,8 +168,20 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
                 zoom.crop_rect if zoom.applied else None,
                 zoom.athlete_height,
                 zoom.earliest_probe,
+                zoom.crop_rects if zoom.applied else None,
             )
             rejected, rejected_details = reject_partial_detections(original_space, width, height)
+            # Measured effective fill after tracking/recovery/rejection, not the
+            # original probe fill. Coordinates remain ORIGINAL for calibration.
+            effective_fill = []
+            for i, pf in enumerate(original_space):
+                body_h = framing.athlete_height(pf.keypoints, pf.scores) if pf.detected else None
+                if body_h is not None:
+                    crop_h = zoom.crop_rects[i]['h'] if zoom.applied and zoom.crop_rects else height
+                    effective_fill.append(body_h / crop_h)
+            zoom.final_fill_ratio = round(framing.median(effective_fill) or 0.0, 4)
+            if zoom.path is not None:
+                zoom.path['effective_fill_ratio'] = zoom.final_fill_ratio
             t_reverse_map = time.perf_counter() - reverse_start
 
             # 4) Body-based calibration.
@@ -208,6 +220,7 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
         auto_zoom_reason=zoom.reason,
         auto_zoom_factor=zoom.factor,
         auto_zoom_final_fill_ratio=zoom.final_fill_ratio,
+        auto_zoom_crop_mode=zoom.crop_mode,
         auto_zoom_crop_rect=CropRect(**zoom.crop_rect) if zoom.crop_rect else None,
         auto_zoom_padding=Padding(**zoom.padding) if zoom.padding else None,
         # Motion is hard-coded in v1 — motion.py removed.
