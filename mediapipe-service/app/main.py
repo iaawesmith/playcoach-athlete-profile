@@ -171,6 +171,19 @@ async def _build_response(req: AnalyzeRequest) -> AnalyzeResponse:
                 zoom.crop_rects if zoom.applied else None,
             )
             rejected, rejected_details = reject_partial_detections(original_space, width, height)
+            rejected_by_reason: dict[str, int] = {}
+            for reason in rejected.values():
+                rejected_by_reason[reason] = rejected_by_reason.get(reason, 0) + 1
+            log.info(
+                "detection_summary frames=%d detected=%d rejected=%d rejected_by_reason=%s "
+                "recovery_attempts=%d recovery_succeeded=%d",
+                len(original_space),
+                sum(1 for pf in original_space if pf.detected),
+                len(rejected),
+                rejected_by_reason,
+                len(recovery_attempts),
+                sum(1 for a in recovery_attempts if a.get("recovered")),
+            )
             # Measured effective fill after tracking/recovery/rejection, not the
             # original probe fill. Coordinates remain ORIGINAL for calibration.
             effective_fill = []

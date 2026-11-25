@@ -155,15 +155,32 @@ def test_recovery_crop_sized_from_athlete_not_path():
     s = _full_series()
     path_h = H / 1.27
     for i in list(range(0, 18)) + list(range(66, 90)):
-        r = f.recovery_crop(s[i][1], 230, W, H, 1.75, mult=5)
+        r = f.recovery_crop(s[i][1], 230, W, H, 6.0, mult=5)
         assert abs(r["h"] - 1150) <= 1, r
         assert r["h"] < path_h - 400
         assert abs(r["w"] / r["h"] - W / H) < 0.01
 
 
-def test_recovery_crop_never_larger_than_cap_crop():
-    r = f.recovery_crop((1900, 1200), 400, W, H, 1.75, mult=5)
-    assert r["h"] == round(H / 1.75)
+def test_recovery_crop_never_smaller_than_cap_crop():
+    # With max_factor=6.0, recovery_crop must give mult*athlete_h (not shrink to H/6.0).
+    r = f.recovery_crop((1900, 1200), 250, W, H, 6.0, mult=5)
+    assert r["h"] == 1250
+    # For a tiny athlete, it still respects the max_factor zoom ceiling (H/6.0).
+    r_small = f.recovery_crop((1900, 1200), 40, W, H, 6.0, mult=5)
+    assert r_small["h"] == round(H / 6.0)
+
+
+def test_crop_edge_only_distinguishes_crop_from_original_frame():
+    crop = {"x": 500, "y": 400, "w": 800, "h": 450}
+    # Box touching the right edge of the crop, well inside the 3840x2160 original frame.
+    crop_edge_box = (1150.0, 500.0, 1295.0, 750.0)
+    assert f.is_crop_edge_only(crop_edge_box, crop, W, H) is True
+    widened = f.widen_crop_around_box(crop_edge_box, crop, W, H, scale=1.5)
+    assert widened["w"] > crop["w"]
+    assert widened["x"] <= crop_edge_box[0] and widened["x"] + widened["w"] >= crop_edge_box[2]
+    # Box touching the original frame's right edge is NOT crop-edge-only.
+    frame_edge_box = (W - 10.0, 500.0, float(W), 750.0)
+    assert f.is_crop_edge_only(frame_edge_box, {"x": W - 800, "y": 400, "w": 800, "h": 450}, W, H) is False
 
 
 def _detector(series):
@@ -188,12 +205,13 @@ def test_following_crop_recovers_frames_lost_at_crop_edge():
         assert r["x"] <= x <= r["x"] + r["w"]
 
 
-def test_following_crop_stops_after_consecutive_misses():
+def test_following_crop_attempts_every_missed_frame_after_run_of_misses():
     s = _full_series()
     lost = list(range(60, 90))
     detected = [None if i in lost else s[i] for i in range(90)]
-    attempts = f.plan_follow(detected, lost, W, H, 1.75, lambda i, r: None)
-    assert len(attempts) == f.MAX_FOLLOW_MISSES
+    attempts = f.plan_follow(detected, lost, W, H, 6.0, lambda i, r: None)
+    assert [a["frame"] for a in attempts] == lost
+    assert all(not a["recovered"] for a in attempts)
 
 
 def test_implausible_recovery_never_anchors():

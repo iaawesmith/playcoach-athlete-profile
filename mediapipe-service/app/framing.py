@@ -140,11 +140,40 @@ def recovery_crop(
     mult: float | None = None,
 ) -> dict[str, int]:
     """Athlete-sized crop: height = mult x athlete height, frame aspect, centred on
-    `center`, clamped inside the frame, never larger than the max_factor crop."""
+    `center`, clamped inside the frame, never smaller than the max_factor crop."""
     m = RECOVERY_CROP_HEIGHT_MULT if mult is None else mult
-    ch = min(m * athlete_h, height / max_factor)
+    ch = min(float(height), max(m * athlete_h, height / max_factor))
     cw = ch * width / float(height)
     return centered_rect(center, int(round(cw)), int(round(ch)), width, height)
+
+
+def is_crop_edge_only(
+    b: Box | None,
+    rect: dict[str, int] | None,
+    width: int,
+    height: int,
+    crop_frac: float = EDGE_FRAC,
+    frame_frac: float = 0.005,
+) -> bool:
+    """True when the box touches the auto-zoom crop edge but NOT the original frame edge."""
+    if b is None or rect is None:
+        return False
+    return box_touches_rect(b, rect, crop_frac) and not touches_edge(b, width, height, frame_frac)
+
+
+def widen_crop_around_box(
+    b: Box,
+    rect: dict[str, int],
+    width: int,
+    height: int,
+    scale: float = 1.5,
+) -> dict[str, int]:
+    """Widen and re-center a crop around a box that touched the auto-zoom crop edge."""
+    cx = (b[0] + b[2]) / 2.0
+    cy = (b[1] + b[3]) / 2.0
+    cw = min(width, max(rect["w"], int(round(rect["w"] * scale))))
+    ch = min(height, max(rect["h"], int(round(rect["h"] * scale))))
+    return centered_rect((cx, cy), cw, ch, width, height)
 
 
 def predict_hip(
@@ -228,13 +257,15 @@ def plan_follow(
     """Following crop, in time order. `detected[i]` is (height, hip) for frames the
     main pass got right, else None. For each target after the first good frame,
     predict the hip from the last good hips, crop athlete-sized around it, and call
-    try_detect. Accepted recoveries become anchors. Stops after MAX_FOLLOW_MISSES
-    consecutive misses. Returns one attempt record per crop tried."""
+    try_detect. Accepted recoveries become anchors. Attempts every target frame
+    (widening the crop and falling back to full frame after misses) rather than
+    stopping after consecutive misses. Returns one attempt record per frame tried."""
     target_set = set(targets)
     good: list[tuple[int, tuple[float, float]]] = []
     heights: list[float] = []
     attempts: list[dict] = []
     misses = 0
+    full_rect = {"x": 0, "y": 0, "w": width, "h": height}
     for i in range(len(detected)):
         if i not in target_set:
             d = detected[i]
@@ -243,15 +274,23 @@ def plan_follow(
                 heights.append(d[0])
                 misses = 0
             continue
-        if not good or misses >= MAX_FOLLOW_MISSES:
+        if not good:
             continue
         ref_h = median(heights[-FOLLOW_VELOCITY_FRAMES * 2:])
         pred = predict_hip(good, i)
         if pred is None or not ref_h:
             continue
-        rect = recovery_crop(pred, ref_h, width, height, max_factor)
+        mult = RECOVERY_CROP_HEIGHT_MULT * min(3.0, 1.0 + 0.25 * misses)
+        rect = recovery_crop(pred, ref_h, width, height, max_factor, mult=mult)
         got = try_detect(i, rect)
-        ok = got is not None and accept_recovery(got[0], got[1], pred, ref_h, i - good[-1][0])
+        steps = i - good[-1][0]
+        ok = got is not None and accept_recovery(got[0], got[1], pred, ref_h, steps)
+        if not ok and (rect["w"] < width or rect["h"] < height):
+            got_full = try_detect(i, full_rect)
+            if got_full is not None and accept_recovery(got_full[0], got_full[1], pred, ref_h, steps):
+                rect = full_rect
+                got = got_full
+                ok = True
         attempts.append({"frame": i, "kind": "follow", "crop": rect, "recovered": bool(ok)})
         if ok:
             good.append((i, got[1]))

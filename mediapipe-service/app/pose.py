@@ -251,6 +251,25 @@ def recover_frames(
             pf = _detect_on_crop(probe, frames[i], rect)
             return pf if pf.detected else None
 
+        # 0) Crop-edge re-detection: if a detection touched the auto-zoom crop
+        # edge (not the original frame edge), widen/shift that frame's crop and
+        # re-detect on the original frame instead of treating it as clipped.
+        for i, pf in enumerate(results):
+            if not pf.detected:
+                continue
+            rect = zoom_crops[i] if zoom_crops else zoom_crop
+            b = framing.bbox(pf.keypoints, pf.scores)
+            if rect is not None and framing.is_crop_edge_only(b, rect, width, height):
+                widened = framing.widen_crop_around_box(b, rect, width, height, scale=1.5)
+                pf2 = attempt(i, widened)
+                ok = (
+                    pf2 is not None
+                    and framing.validate_frame(pf2.keypoints, pf2.scores, width, height, None, None) is None
+                )
+                attempts.append({"frame": i, "kind": "crop_edge_redetect", "crop": widened, "recovered": ok})
+                if ok and pf2 is not None:
+                    results[i] = pf2
+
         # 1) Leading run: crop around the earliest detected or probed position.
         leading = framing.leading_missed_run([not is_target(r, i) for i, r in enumerate(results)])
         if leading and ref_h:
